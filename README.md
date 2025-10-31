@@ -1,2 +1,2 @@
-# Railsync
-Rail Scheduling System
+# RailSync
+A web-based scheduling platform...
