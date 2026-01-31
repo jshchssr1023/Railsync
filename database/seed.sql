@@ -320,7 +320,63 @@ INSERT INTO eligibility_rules (rule_id, rule_name, rule_category, rule_descripti
 ('RULE_SERVICE_03', 'Paint Service Capability', 'service',
  'Shop must offer paint service when exterior paint override is set',
  '{"condition": "if", "check_field": "overrides.exterior_paint", "check_value": true, "require": {"capability_type": "service", "capability_value": "Paint"}}',
- 110, TRUE, TRUE);
+ 110, TRUE, TRUE),
+
+-- Additional Rules to reach 25 total
+
+-- Material Rule: Carbon Steel (completes material type coverage)
+('RULE_MATERIAL_03', 'Carbon Steel Handling', 'material',
+ 'Shop must be certified to handle carbon steel cars',
+ '{"condition": "if", "check_field": "car.material_type", "check_value": "Carbon Steel", "require": {"capability_type": "material", "capability_value": "Carbon Steel"}}',
+ 20, TRUE, TRUE),
+
+-- Lining Rule: Epoxy (completes lining type coverage)
+('RULE_LINING_05', 'Epoxy Lining Capability', 'lining',
+ 'Shop must be capable of epoxy lining application',
+ '{"condition": "if", "check_field": "car.lining_type", "check_value": "Epoxy", "require": {"capability_type": "lining", "capability_value": "Epoxy"}}',
+ 30, TRUE, TRUE),
+
+-- Certification Rule: AAR compliance for all tank cars
+('RULE_CERT_02', 'AAR Certification Required', 'certification',
+ 'Shop must have AAR certification for tank car repairs',
+ '{"condition": "if", "check_field": "car.product_code", "check_value": "Tank", "require": {"capability_type": "certification", "capability_value": "AAR"}}',
+ 40, TRUE, TRUE),
+
+-- Certification Rule: DOT certification for regulated tank cars
+('RULE_CERT_03', 'DOT Certification for Pressure Cars', 'certification',
+ 'Shop must have DOT certification for pressure tank cars',
+ '{"condition": "if", "check_field": "car.stencil_class", "check_value": "DOT105J300W", "require": {"capability_type": "certification", "capability_value": "DOT"}}',
+ 40, TRUE, TRUE),
+
+-- Service Rule: Mechanical service for all repairs
+('RULE_SERVICE_04', 'Mechanical Service Required', 'service',
+ 'Shop must offer mechanical repair services',
+ '{"condition": "if", "check_field": "car.product_code", "check_not_null": true, "require": {"capability_type": "service", "capability_value": "Mechanical"}}',
+ 110, TRUE, FALSE),
+
+-- Capacity Rule: En-route cars threshold
+('RULE_CAPACITY_02', 'En-Route Cars Threshold', 'capacity',
+ 'Total en-route cars (0-14 days) should not exceed 12',
+ '{"field": "backlog.cars_en_route_total", "operator": "lte", "threshold": 12}',
+ 90, TRUE, FALSE),
+
+-- Network Rule: Railroad access check
+('RULE_NETWORK_02', 'Railroad Access Check', 'network',
+ 'Shop primary railroad should be considered for routing efficiency',
+ '{"field": "shop.primary_railroad", "operator": "in", "value": ["BNSF", "UP", "NS", "CSX", "CN", "CPKC", "KCS", "IND"]}',
+ 100, TRUE, FALSE),
+
+-- Commodity Rule: Restricted conditions require approval
+('RULE_COMMODITY_02', 'Restricted Condition Warning', 'commodity',
+ 'Flag shops with restricted commodity conditions',
+ '{"type": "commodity_restriction", "restriction_codes_block": ["N", "RC1"]}',
+ 85, TRUE, TRUE),
+
+-- Special Rule: High nitrogen stages require extended certification
+('RULE_NITROGEN_02', 'High Nitrogen Stage Certification', 'special',
+ 'Shops handling nitrogen stages 6-9 must have extended nitrogen certification',
+ '{"condition": "if", "check_field": "car.nitrogen_pad_stage", "check_not_null": true, "require": {"capability_type": "nitrogen_stage", "capability_value": "${car.nitrogen_pad_stage}"}}',
+ 55, TRUE, TRUE);
 
 -- ============================================================================
 -- SAMPLE CARS

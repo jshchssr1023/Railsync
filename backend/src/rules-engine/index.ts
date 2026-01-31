@@ -1,6 +1,5 @@
 import {
   EligibilityRule,
-  RuleCondition,
   CarWithCommodity,
   Shop,
   ShopCapability,
@@ -342,8 +341,16 @@ export class RulesEngine {
 
   /**
    * Get a field value from the evaluation context using dot notation
+   * Supports computed fields for certain properties
    */
   private getFieldValue(fieldPath: string, context: EvaluationContext): any {
+    // Handle computed fields
+    if (fieldPath === 'backlog.cars_en_route_total') {
+      const backlog = context.backlog;
+      if (!backlog) return 0;
+      return (backlog.cars_en_route_0_6 || 0) + (backlog.cars_en_route_7_14 || 0);
+    }
+
     const parts = fieldPath.split('.');
     let current: any = context;
 

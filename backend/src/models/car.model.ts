@@ -1,5 +1,5 @@
 import { query, queryOne } from '../config/database';
-import { Car, CarWithCommodity, Commodity, ServiceEvent } from '../types';
+import { CarWithCommodity, ServiceEvent } from '../types';
 
 export async function findByCarNumber(carNumber: string): Promise<CarWithCommodity | null> {
   const sql = `

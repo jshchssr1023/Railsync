@@ -8,10 +8,8 @@ import {
   EvaluationOverrides,
   CostBreakdown,
   ShopBacklog,
-  ShopCapacity,
   CarWithCommodity,
   Shop,
-  ShopCapability,
   CommodityRestriction,
 } from '../types';
 
