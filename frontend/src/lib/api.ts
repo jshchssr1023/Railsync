@@ -10,7 +10,7 @@ import {
   EligibilityRule,
 } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 async function fetchApi<T>(
   endpoint: string,
@@ -43,7 +43,7 @@ export async function getCarByNumber(carNumber: string): Promise<{
   const response = await fetchApi<{
     car: Car;
     active_service_event: ServiceEvent | null;
-  }>(`/api/cars/${encodeURIComponent(carNumber)}`);
+  }>(`/cars/${encodeURIComponent(carNumber)}`);
 
   if (!response.data) {
     throw new Error('Car not found');
@@ -54,7 +54,7 @@ export async function getCarByNumber(carNumber: string): Promise<{
 
 // Shop API
 export async function listShops(): Promise<ShopSummary[]> {
-  const response = await fetchApi<ShopSummary[]>('/api/shops');
+  const response = await fetchApi<ShopSummary[]>('/shops');
   return response.data || [];
 }
 
@@ -63,7 +63,7 @@ export async function evaluateShops(
   overrides?: EvaluationOverrides,
   originRegion?: string
 ): Promise<EvaluationResult[]> {
-  const response = await fetchApi<EvaluationResult[]>('/api/shops/evaluate', {
+  const response = await fetchApi<EvaluationResult[]>('/shops/evaluate', {
     method: 'POST',
     body: JSON.stringify({
       car_number: carNumber,
@@ -80,7 +80,7 @@ export async function evaluateShopsDirect(
   overrides?: EvaluationOverrides,
   originRegion?: string
 ): Promise<EvaluationResult[]> {
-  const response = await fetchApi<EvaluationResult[]>('/api/shops/evaluate', {
+  const response = await fetchApi<EvaluationResult[]>('/shops/evaluate', {
     method: 'POST',
     body: JSON.stringify({
       car_input: carInput,
@@ -103,7 +103,7 @@ export async function getShopBacklog(shopCode: string): Promise<{
     backlog: ShopBacklog;
     capacity: ShopCapacity[];
     capabilities: Record<string, string[]>;
-  }>(`/api/shops/${encodeURIComponent(shopCode)}/backlog`);
+  }>(`/shops/${encodeURIComponent(shopCode)}/backlog`);
 
   if (!response.data) {
     throw new Error('Shop not found');
@@ -115,14 +115,14 @@ export async function getShopBacklog(shopCode: string): Promise<{
 // Rules API
 export async function listRules(activeOnly: boolean = true): Promise<EligibilityRule[]> {
   const response = await fetchApi<EligibilityRule[]>(
-    `/api/rules?active=${activeOnly}`
+    `/rules?active=${activeOnly}`
   );
   return response.data || [];
 }
 
 export async function getRuleById(ruleId: string): Promise<EligibilityRule> {
   const response = await fetchApi<EligibilityRule>(
-    `/api/rules/${encodeURIComponent(ruleId)}`
+    `/rules/${encodeURIComponent(ruleId)}`
   );
 
   if (!response.data) {
@@ -137,7 +137,7 @@ export async function updateRule(
   updates: Partial<EligibilityRule>
 ): Promise<EligibilityRule> {
   const response = await fetchApi<EligibilityRule>(
-    `/api/rules/${encodeURIComponent(ruleId)}`,
+    `/rules/${encodeURIComponent(ruleId)}`,
     {
       method: 'PUT',
       body: JSON.stringify(updates),
@@ -161,7 +161,7 @@ export async function healthCheck(): Promise<{
     status: string;
     timestamp: string;
     version: string;
-  }>('/api/health');
+  }>('/health');
 
   return response.data || { status: 'unknown', timestamp: '', version: '' };
 }
