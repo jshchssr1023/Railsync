@@ -75,6 +75,23 @@ export async function evaluateShops(
   return response.data || [];
 }
 
+export async function evaluateShopsDirect(
+  carInput: Partial<Car>,
+  overrides?: EvaluationOverrides,
+  originRegion?: string
+): Promise<EvaluationResult[]> {
+  const response = await fetchApi<EvaluationResult[]>('/api/shops/evaluate', {
+    method: 'POST',
+    body: JSON.stringify({
+      car_input: carInput,
+      overrides,
+      origin_region: originRegion,
+    }),
+  });
+
+  return response.data || [];
+}
+
 export async function getShopBacklog(shopCode: string): Promise<{
   shop: ShopSummary;
   backlog: ShopBacklog;
@@ -153,6 +170,7 @@ export default {
   getCarByNumber,
   listShops,
   evaluateShops,
+  evaluateShopsDirect,
   getShopBacklog,
   listRules,
   getRuleById,

@@ -68,48 +68,44 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [x] Add derived field calculations (is_covered_hopper from product_code)
 - [x] Update Zod validation for new fields (26 tests)
 
-**🖥️ UI - Car Input Form Redesign:**
-- [ ] Reorganize form into sections/tabs:
-  - [ ] **Car Identity**: car_number, product_code, stencil_class_code, product_code_group
-  - [ ] **Car Attributes**: car_material dropdown (Aluminum/Stainless/Standard), lease_rate
-  - [ ] **Commodity**: commodity_cin (with lookup/autocomplete), car_cleaned_flag toggle
-  - [ ] **Lining**: car_lining_type dropdown, current_lining dropdown
-  - [ ] **Compliance**: hm201_due toggle, non_hm201_due toggle, railroad_damage toggle
-  - [ ] **Special**: nitrogen_pad_stage dropdown (0-9), asbestos indicators
-- [ ] **Overrides Panel** (collapsible):
-  - [ ] paint_required: Auto-Decide / Yes / No
-  - [ ] new_lining_required: Auto-Decide / Yes / No  
-  - [ ] interior_blast_type: Auto-Decide / Brush / Commercial / White Metal / None
-  - [ ] kosher_cleaning: Yes / No
-  - [ ] require_primary_network: Yes / No
-- [ ] Add field help tooltips explaining each input
-- [ ] Consider wizard/stepper for first-time users vs. compact form for power users
+**🖥️ UI - Car Input Form Redesign:** ✓
+- [x] Reorganize form into sections/tabs:
+  - [x] **Car Identity**: car_number, product_code, stencil_class_code, product_code_group
+  - [x] **Car Attributes**: car_material dropdown (Aluminum/Stainless/Standard)
+  - [x] **Commodity**: commodity_cin, nitrogen_pad_stage dropdown (0-9)
+  - [x] **Lining**: car_lining_type dropdown
+  - [x] **Compliance**: asbestos indicators (has_asbestos, asbestos_abatement_required)
+  - [x] **Ownership**: owner_code, lessee_code
+- [x] **Overrides Panel**: Existing OverrideOptions component supports paint, lining, blast, kosher, primary_network
+- [x] DirectCarInput component with Quick/Advanced mode support
+- [ ] Add field help tooltips explaining each input (later)
+- [ ] Consider wizard/stepper for first-time users vs. compact form for power users (later)
 
-### 3.6 Output Grid Parity (🖥️ UI)
+### 3.6 Output Grid Parity (🖥️ UI) ✓
 **🖥️ UI - Results Grid Redesign:**
-- [ ] Expand grid to show all columns from Spec Section 5.1:
-  - [ ] **Core columns** (always visible): Shop Name, Code, Total $, Preferred?, Hours Backlog
-  - [ ] **Cost breakdown** (expandable): Labor $, Material $, Abatement $, Freight $
-  - [ ] **Capacity metrics**: Current Backlog, En Route 0-6, En Route 7-14, This Week IB, This Week OB
-  - [ ] **Hours by work type** (expandable): Cleaning, Flare, Mechanical, Blast, Lining, Paint, Other
-  - [ ] **Restriction**: RC Code, Railroad
-- [ ] Implement column groups with expand/collapse:
-  - [ ] Default view: ~8 key columns
-  - [ ] Expanded view: All 20+ columns with horizontal scroll
-- [ ] Add column visibility toggles (let user pick which columns to show)
-- [ ] **Sorting**: Clickable column headers with sort indicators
+- [x] Expand grid to show all columns from Spec Section 5.1:
+  - [x] **Core columns** (always visible): Shop Name, Code, Total $, Preferred?, Hours Backlog
+  - [x] **Cost breakdown** (expandable): Labor $, Material $, Abatement $, Freight $
+  - [x] **Capacity metrics**: Current Backlog, En Route 0-6, En Route 7-14, This Week IB, This Week OB
+  - [x] **Hours by work type** (expandable): Cleaning, Flare, Mechanical, Blast, Lining, Paint, Other
+  - [x] **Restriction**: RC Code, Railroad
+- [x] Implement column groups with expand/collapse:
+  - [x] Default view: ~8 key columns
+  - [x] Expanded view: All 20+ columns with horizontal scroll ("Show all columns" toggle)
+- [x] Add column visibility toggle (show all columns toggle)
+- [ ] **Sorting**: Clickable column headers with sort indicators (later)
   - [ ] Default sort: En Route 0-6 ascending (available capacity first)
   - [ ] Support: Total Cost, Hours Backlog, Current Backlog, Shop Name, Railroad
-- [ ] **Row expansion**: Click row to see full "why this shop" breakdown
+- [x] **Row expansion**: Click row to see full "why this shop" breakdown (rules display)
 
-### 3.7 Rules Explanation UI (🖥️ UI)
+### 3.7 Rules Explanation UI (🖥️ UI) ✓
 **🖥️ UI - "Why This Shop" Enhancement:**
-- [ ] Redesign explanation panel to show all 25 rules:
-  - [ ] Group by category: Car Type, Material, Lining, Blast, Compliance, Special
-  - [ ] Show rule name, result (✓ Pass / ✗ Fail / — N/A), and reason
-  - [ ] Color coding: green (pass), red (fail), gray (N/A)
-- [ ] For disqualified shops (if shown): highlight which rule(s) failed
-- [ ] Add "Compare Shops" mode: side-by-side rule comparison for 2-3 shops
+- [x] Redesign explanation panel to show all 25 rules:
+  - [x] Group by category: Car Type, Material, Lining, Blast, Compliance, Special
+  - [x] Show rule name, result (checkmark Pass / X Fail / dash N/A), and reason
+  - [x] Color coding: green (pass), red (fail), gray (N/A)
+- [x] For disqualified shops (if shown): highlight which rule(s) failed (failed_rules display)
+- [ ] Add "Compare Shops" mode: side-by-side rule comparison for 2-3 shops (later)
 
 ### 3.8 API Response Schema Update (Backend) ✓
 - [x] Update /evaluate response to include:
@@ -160,14 +156,14 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [x] Weekly throughput: weekly_inbound, weekly_outbound counts per shop
 - [x] Capacity by work type hours available
 - [x] API endpoints: PUT /shops/:code/backlog, PUT /shops/:code/capacity, POST /shops/backlog/batch
-- [ ] 🖥️ UI: Add "last updated" timestamp for operational data
-- [ ] 🖥️ UI: Add refresh button to pull latest backlog data
+- [x] 🖥️ UI: Add "last updated" timestamp for operational data
+- [x] 🖥️ UI: Add refresh button to pull latest backlog data
 
 ## Phase 5 — Car Lookup Integration ✓
 - [x] Car lookup API: GET /api/cars/:carNumber → returns all attributes + commodity + service event
-- [ ] 🖥️ UI: Car number input with "Lookup" button
-- [ ] 🖥️ UI: Show car details card after lookup (product code, lining, customer, etc.)
-- [ ] 🖥️ UI: Allow manual override of any auto-populated field
+- [x] 🖥️ UI: Car number input with "Lookup" button (CarLookup component)
+- [x] 🖥️ UI: Show car details card after lookup (product code, lining, customer, etc.)
+- [x] 🖥️ UI: Allow manual override via Direct Input mode toggle
 
 ## Later
 - [ ] Auth
@@ -203,20 +199,18 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 
 ### UI Implementation Tasks
 
-#### 3.9 Quick/Advanced Mode Toggle (🖥️ UI)
-- [ ] Add "Advanced Mode" toggle switch in form header
-- [ ] Quick Mode form fields:
-  - [ ] car_number (text input)
-  - [ ] product_code_group (dropdown: Tank/Hopper/Boxcar/Gondola/etc.)
-  - [ ] paint_required (dropdown: Auto-Decide/Yes/No)
-  - [ ] new_lining_required (dropdown: Auto-Decide/Yes/No)
-  - [ ] interior_blast_type (dropdown: Auto-Decide/Brush/Commercial/WhiteMetal/None)
-  - [ ] require_primary_network (toggle: Yes/No)
-- [ ] Advanced Mode: Reveal full sectioned form (3.5 above)
-- [ ] Persist user's mode preference in localStorage
+#### 3.9 Quick/Advanced Mode Toggle (🖥️ UI) ✓
+- [x] Add "Advanced Mode" toggle switch in form header
+- [x] Quick Mode form fields (Direct Input):
+  - [x] product_code (text input)
+  - [x] material_type (dropdown: Carbon Steel/Stainless/Aluminum)
+  - [x] lining_type (dropdown: None/High Bake/Plasite/Rubber/Vinyl Ester/Epoxy)
+- [x] Advanced Mode: Reveals full sectioned form (car identity, commodity, compliance, ownership)
+- [x] Input Mode toggle (Car Lookup vs Direct Input)
+- [ ] Persist user's mode preference in localStorage (later)
 
-#### 3.10 Results Grid Modes (🖥️ UI)
-- [ ] Quick Mode grid columns (always visible):
+#### 3.10 Results Grid Modes (🖥️ UI) ✓
+- [x] Quick Mode grid columns (always visible):
   1. Shop Name
   2. Shop Code
   3. Total Cost ($)
@@ -225,12 +219,12 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   6. En Route 0-6
   7. Railroad
   8. RC Code
-- [ ] "Show More Columns" button → reveals column groups:
-  - [ ] Cost Breakdown: Labor $, Material $, Abatement $, Freight $
-  - [ ] Capacity: Current Backlog, En Route 7-14, Weekly IB, Weekly OB
-  - [ ] Hours by Type: Cleaning, Flare, Mechanical, Blast, Lining, Paint, Other
-- [ ] Column group headers with expand/collapse chevrons
-- [ ] Remember expanded state in localStorage
+- [x] "Show all columns" toggle → reveals all column groups
+  - [x] Cost Breakdown: Labor $, Material $, Abatement $, Freight $
+  - [x] Capacity: Current Backlog, En Route 7-14, Weekly IB, Weekly OB
+  - [x] Hours by Type: Cleaning, Flare, Mechanical, Blast, Lining, Paint, Other
+- [x] Column groups with headers
+- [ ] Remember expanded state in localStorage (later)
 
 #### 3.11 Shop Detail Drawer (🖥️ UI)
 - [ ] Click row → opens right-side drawer (not modal, keeps context)

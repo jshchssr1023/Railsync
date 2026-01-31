@@ -102,6 +102,26 @@ export interface FailedRule {
   reason: string;
 }
 
+export interface HoursByType {
+  cleaning: number;
+  flare: number;
+  mechanical: number;
+  blast: number;
+  lining: number;
+  paint: number;
+  other: number;
+}
+
+export type RuleResult = 1 | 0 | 'NA';
+
+export interface RuleEvaluation {
+  rule: string;
+  result: RuleResult;
+  reason: string;
+}
+
+export type RestrictionCode = 'Y' | 'N' | 'RC1' | 'RC2' | 'RC3' | 'RC4' | null;
+
 export interface EvaluationResult {
   shop: ShopSummary;
   is_eligible: boolean;
@@ -109,6 +129,10 @@ export interface EvaluationResult {
   cost_breakdown: CostBreakdown;
   backlog: ShopBacklog;
   capacity: ShopCapacity[];
+  // Phase 3 additions
+  hours_by_type?: HoursByType;
+  restriction_code?: RestrictionCode;
+  rules?: RuleEvaluation[];
 }
 
 // Rule Types
