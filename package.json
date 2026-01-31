@@ -1,0 +1,48 @@
+{
+  "name": "railsync",
+  "version": "1.0.0",
+  "description": "Shop Loading Tool for railcar repair shop assignment",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "db:setup": "psql -U postgres -c \"CREATE DATABASE railsync;\" && psql -U postgres -d railsync -f database/schema.sql && psql -U postgres -d railsync -f database/seed.sql",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/railsync.git"
+  },
+  "keywords": [
+    "railcar",
+    "repair",
+    "shop",
+    "loading",
+    "tool",
+    "railroad"
+  ],
+  "author": "",
+  "license": "MIT"
+}
