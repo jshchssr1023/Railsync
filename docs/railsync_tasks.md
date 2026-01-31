@@ -56,10 +56,10 @@
 - [x] Shop material_multiplier applied to all material costs
 - [x] 19 unit tests covering all cost scenarios
 
-### 3.4 Commodity Restrictions Matrix (Backend + Seed Data)
-- [ ] Create commodity_restrictions table: (cin_code, shop_code, restriction_code)
-- [ ] Restriction codes: Y (allowed), N (blocked), RC1-RC4 (restricted cleaning)
-- [ ] Seed with 50-100 common CINs from AITX fleet
+### 3.4 Commodity Restrictions Matrix (Backend + Seed Data) ✓
+- [x] Create commodity_restrictions table: (cin_code, shop_code, restriction_code)
+- [x] Restriction codes: Y (allowed), N (blocked), RC1-RC4 (restricted cleaning)
+- [x] Seed with 50-100 common CINs from AITX fleet (55 commodities, 140+ restrictions)
 
 ### 3.5 Input Data Model (Backend + 🖥️ UI)
 **Backend:**
