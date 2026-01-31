@@ -13,7 +13,9 @@ import {
   CommodityRestriction,
   HoursByType,
   RestrictionCode,
+  DirectCarInput,
 } from '../types';
+import { calculateDerivedFields } from '../middleware/validation';
 
 const DEFAULT_LABOR_HOURS = {
   cleaning: 4,
@@ -58,10 +60,21 @@ const DEFAULT_CLEANING_COST = 850;
 export async function evaluateShops(
   request: EvaluationRequest
 ): Promise<EvaluationResult[]> {
-  // Fetch car data
-  const car = await carModel.findByCarNumber(request.car_number);
-  if (!car) {
-    throw new Error(`Car not found: ${request.car_number}`);
+  // Get car data - either from DB lookup or direct input
+  let car: CarWithCommodity;
+
+  if (request.car_number) {
+    // Option 1: Lookup car by number (existing behavior)
+    const dbCar = await carModel.findByCarNumber(request.car_number);
+    if (!dbCar) {
+      throw new Error(`Car not found: ${request.car_number}`);
+    }
+    car = dbCar;
+  } else if (request.car_input) {
+    // Option 2: Build car from direct input (new in Phase 3)
+    car = buildCarFromInput(request.car_input);
+  } else {
+    throw new Error('Either car_number or car_input is required');
   }
 
   // Fetch all shops and related data
@@ -331,6 +344,28 @@ function getRestrictionCode(
   );
 
   return restriction?.restriction_code || null;
+}
+
+/**
+ * Build a CarWithCommodity object from direct input
+ * Used when evaluating without a car_number DB lookup
+ */
+function buildCarFromInput(input: DirectCarInput): CarWithCommodity {
+  // Calculate derived fields (used for product_code normalization)
+  const derived = calculateDerivedFields(input.product_code);
+
+  return {
+    car_number: 'DIRECT_INPUT',
+    // Use the derived product_code_group for consistent product_code values
+    product_code: derived.product_code_group !== 'Other' ? derived.product_code_group : input.product_code,
+    material_type: input.material_type || 'Carbon Steel',
+    stencil_class: input.stencil_class,
+    lining_type: input.lining_type || input.current_lining,
+    commodity_cin: input.commodity_cin,
+    has_asbestos: input.has_asbestos || false,
+    asbestos_abatement_required: input.asbestos_abatement_required || false,
+    nitrogen_pad_stage: input.nitrogen_pad_stage,
+  };
 }
 
 export default {

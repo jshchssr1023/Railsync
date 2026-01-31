@@ -6,15 +6,17 @@ import { ApiResponse, EvaluationRequest, EvaluationResult, ShopBacklog, ShopCapa
 /**
  * POST /api/shops/evaluate
  * Submit car data + overrides, returns eligible shops with costs
+ * Supports both car_number lookup and direct car_input
  */
 export async function evaluateShops(req: Request, res: Response): Promise<void> {
   try {
     const request: EvaluationRequest = req.body;
 
-    if (!request.car_number) {
+    // Validation is now handled by middleware, but keep basic check for backward compat
+    if (!request.car_number && !request.car_input) {
       res.status(400).json({
         success: false,
-        error: 'car_number is required',
+        error: 'Either car_number or car_input is required',
       } as ApiResponse<null>);
       return;
     }

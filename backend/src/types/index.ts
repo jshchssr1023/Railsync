@@ -173,8 +173,46 @@ export interface RuleCondition {
 // ============================================================================
 // EVALUATION TYPES
 // ============================================================================
+
+/**
+ * Direct car input for evaluation without database lookup
+ */
+export interface DirectCarInput {
+  // Car Identity
+  product_code: string;
+  stencil_class?: string;
+
+  // Car Attributes
+  material_type?: MaterialType;
+  lease_rate?: number;
+
+  // Commodity
+  commodity_cin?: string;
+  car_cleaned_flag?: boolean;
+
+  // Lining
+  lining_type?: string;
+  current_lining?: string;
+
+  // Compliance
+  hm201_due?: boolean;
+  non_hm201_due?: boolean;
+  railroad_damage?: boolean;
+
+  // Special
+  nitrogen_pad_stage?: number;
+  has_asbestos?: boolean;
+  asbestos_abatement_required?: boolean;
+}
+
 export interface EvaluationRequest {
-  car_number: string;
+  // Option 1: Lookup car by number (existing behavior)
+  car_number?: string;
+
+  // Option 2: Direct car input (new in Phase 3)
+  car_input?: DirectCarInput;
+
+  // Evaluation parameters
   overrides?: EvaluationOverrides;
   origin_region?: string;
 }
@@ -185,6 +223,24 @@ export interface EvaluationOverrides {
   interior_blast?: boolean;
   kosher_cleaning?: boolean;
   primary_network?: boolean;
+  // Extended overrides for Phase 3
+  blast_type?: 'Brush' | 'Commercial' | 'WhiteMetal' | 'None';
+  lining_type?: string;
+}
+
+/**
+ * Derived fields calculated from product code
+ */
+export interface DerivedCarFields {
+  product_code_group: string;
+  is_tank: boolean;
+  is_hopper: boolean;
+  is_covered_hopper: boolean;
+  is_boxcar: boolean;
+  is_gondola: boolean;
+  is_flatcar: boolean;
+  is_autorack: boolean;
+  requires_hm201: boolean;
 }
 
 export interface EvaluationResult {

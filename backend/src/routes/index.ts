@@ -2,6 +2,7 @@ import { Router } from 'express';
 import carController from '../controllers/car.controller';
 import shopController from '../controllers/shop.controller';
 import ruleController from '../controllers/rule.controller';
+import { validateEvaluationRequest } from '../middleware/validation';
 
 const router = Router();
 
@@ -33,18 +34,37 @@ router.get('/shops', shopController.listShops);
  * @access  Public
  *
  * @body    {
- *            car_number: string,
+ *            // Option 1: Lookup by car number
+ *            car_number?: string,
+ *
+ *            // Option 2: Direct car input (Phase 3)
+ *            car_input?: {
+ *              product_code: string,
+ *              stencil_class?: string,
+ *              material_type?: 'Carbon Steel' | 'Stainless' | 'Aluminum',
+ *              commodity_cin?: string,
+ *              lining_type?: string,
+ *              nitrogen_pad_stage?: number (0-9),
+ *              has_asbestos?: boolean,
+ *              asbestos_abatement_required?: boolean,
+ *              hm201_due?: boolean,
+ *              non_hm201_due?: boolean,
+ *              railroad_damage?: boolean
+ *            },
+ *
  *            overrides?: {
  *              exterior_paint?: boolean,
  *              new_lining?: boolean,
  *              interior_blast?: boolean,
  *              kosher_cleaning?: boolean,
- *              primary_network?: boolean
+ *              primary_network?: boolean,
+ *              blast_type?: 'Brush' | 'Commercial' | 'WhiteMetal' | 'None',
+ *              lining_type?: string
  *            },
  *            origin_region?: string
  *          }
  */
-router.post('/shops/evaluate', shopController.evaluateShops);
+router.post('/shops/evaluate', validateEvaluationRequest, shopController.evaluateShops);
 
 /**
  * @route   GET /api/shops/:shopCode/backlog

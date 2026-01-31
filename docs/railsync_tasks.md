@@ -62,10 +62,10 @@
 - [x] Seed with 50-100 common CINs from AITX fleet (55 commodities, 140+ restrictions)
 
 ### 3.5 Input Data Model (Backend + 🖥️ UI)
-**Backend:**
-- [ ] Extend car input schema to capture all 16 attributes from Spec Section 1
-- [ ] Add derived field calculations (is_covered_hopper from product_code)
-- [ ] Update Zod validation for new fields
+**Backend:** ✓
+- [x] Extend car input schema to capture all 16 attributes from Spec Section 1
+- [x] Add derived field calculations (is_covered_hopper from product_code)
+- [x] Update Zod validation for new fields (26 tests)
 
 **🖥️ UI - Car Input Form Redesign:**
 - [ ] Reorganize form into sections/tabs:
