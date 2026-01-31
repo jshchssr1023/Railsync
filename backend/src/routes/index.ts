@@ -2,9 +2,50 @@ import { Router } from 'express';
 import carController from '../controllers/car.controller';
 import shopController from '../controllers/shop.controller';
 import ruleController from '../controllers/rule.controller';
+import * as authController from '../controllers/auth.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 
 const router = Router();
+
+// ============================================================================
+// AUTH ROUTES (Public)
+// ============================================================================
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Authenticate user and return JWT tokens
+ * @access  Public
+ */
+router.post('/auth/login', authController.login);
+
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user (viewer role)
+ * @access  Public
+ */
+router.post('/auth/register', authController.register);
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token using refresh token
+ * @access  Public
+ */
+router.post('/auth/refresh', authController.refresh);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout and revoke all user tokens
+ * @access  Protected
+ */
+router.post('/auth/logout', authenticate, authController.logout);
+
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current authenticated user info
+ * @access  Protected
+ */
+router.get('/auth/me', authenticate, authController.me);
 
 // ============================================================================
 // CAR ROUTES
@@ -13,9 +54,9 @@ const router = Router();
 /**
  * @route   GET /api/cars/:carNumber
  * @desc    Retrieve car attributes and active service event
- * @access  Public
+ * @access  Public (optionally authenticated for audit)
  */
-router.get('/cars/:carNumber', carController.getCarByNumber);
+router.get('/cars/:carNumber', optionalAuth, carController.getCarByNumber);
 
 // ============================================================================
 // SHOP ROUTES
@@ -31,7 +72,7 @@ router.get('/shops', shopController.listShops);
 /**
  * @route   POST /api/shops/evaluate
  * @desc    Submit car data + overrides, returns eligible shops with costs
- * @access  Public
+ * @access  Public (optionally authenticated for audit)
  *
  * @body    {
  *            // Option 1: Lookup by car number
@@ -64,7 +105,7 @@ router.get('/shops', shopController.listShops);
  *            origin_region?: string
  *          }
  */
-router.post('/shops/evaluate', validateEvaluationRequest, shopController.evaluateShops);
+router.post('/shops/evaluate', optionalAuth, validateEvaluationRequest, shopController.evaluateShops);
 
 /**
  * @route   GET /api/shops/:shopCode/backlog
@@ -76,7 +117,7 @@ router.get('/shops/:shopCode/backlog', shopController.getShopBacklog);
 /**
  * @route   PUT /api/shops/:shopCode/backlog
  * @desc    Update shop backlog data (for daily feed)
- * @access  Public
+ * @access  Protected - Operator or Admin
  *
  * @body    {
  *            hours_backlog?: number,
@@ -89,12 +130,12 @@ router.get('/shops/:shopCode/backlog', shopController.getShopBacklog);
  *            date?: string (ISO date, defaults to today)
  *          }
  */
-router.put('/shops/:shopCode/backlog', shopController.updateShopBacklog);
+router.put('/shops/:shopCode/backlog', authenticate, authorize('admin', 'operator'), shopController.updateShopBacklog);
 
 /**
  * @route   PUT /api/shops/:shopCode/capacity
  * @desc    Update shop capacity data
- * @access  Public
+ * @access  Protected - Operator or Admin
  *
  * @body    {
  *            work_type: string (cleaning|flare|mechanical|blast|lining|paint),
@@ -102,12 +143,12 @@ router.put('/shops/:shopCode/backlog', shopController.updateShopBacklog);
  *            current_utilization_pct: number
  *          }
  */
-router.put('/shops/:shopCode/capacity', shopController.updateShopCapacity);
+router.put('/shops/:shopCode/capacity', authenticate, authorize('admin', 'operator'), shopController.updateShopCapacity);
 
 /**
  * @route   POST /api/shops/backlog/batch
  * @desc    Batch update backlog data for multiple shops (daily feed)
- * @access  Public
+ * @access  Protected - Operator or Admin
  *
  * @body    {
  *            backlogs: [{
@@ -118,7 +159,7 @@ router.put('/shops/:shopCode/capacity', shopController.updateShopCapacity);
  *            }]
  *          }
  */
-router.post('/shops/backlog/batch', shopController.batchUpdateBacklog);
+router.post('/shops/backlog/batch', authenticate, authorize('admin', 'operator'), shopController.batchUpdateBacklog);
 
 // ============================================================================
 // RULE ROUTES
@@ -127,7 +168,7 @@ router.post('/shops/backlog/batch', shopController.batchUpdateBacklog);
 /**
  * @route   GET /api/rules
  * @desc    List all eligibility rules with status
- * @access  Public
+ * @access  Public (view rules)
  *
  * @query   active: 'true' | 'false' (default: 'true')
  */
@@ -143,7 +184,7 @@ router.get('/rules/:ruleId', ruleController.getRuleById);
 /**
  * @route   PUT /api/rules/:ruleId
  * @desc    Update rule configuration
- * @access  Public
+ * @access  Protected - Admin only
  *
  * @body    {
  *            rule_name?: string,
@@ -154,12 +195,12 @@ router.get('/rules/:ruleId', ruleController.getRuleById);
  *            is_blocking?: boolean
  *          }
  */
-router.put('/rules/:ruleId', ruleController.updateRule);
+router.put('/rules/:ruleId', authenticate, authorize('admin'), ruleController.updateRule);
 
 /**
  * @route   POST /api/rules
  * @desc    Create a new rule
- * @access  Public
+ * @access  Protected - Admin only
  *
  * @body    {
  *            rule_id: string,
@@ -172,7 +213,199 @@ router.put('/rules/:ruleId', ruleController.updateRule);
  *            is_blocking?: boolean
  *          }
  */
-router.post('/rules', ruleController.createRule);
+router.post('/rules', authenticate, authorize('admin'), ruleController.createRule);
+
+// ============================================================================
+// SERVICE EVENT ROUTES (Select This Shop feature)
+// ============================================================================
+
+/**
+ * @route   POST /api/service-events
+ * @desc    Create a new service event (select shop for car)
+ * @access  Protected - Any authenticated user
+ */
+router.post('/service-events', authenticate, shopController.createServiceEvent);
+
+/**
+ * @route   GET /api/service-events
+ * @desc    List service events (with filters)
+ * @access  Protected
+ */
+router.get('/service-events', authenticate, shopController.listServiceEvents);
+
+/**
+ * @route   GET /api/service-events/:eventId
+ * @desc    Get service event details
+ * @access  Protected
+ */
+router.get('/service-events/:eventId', authenticate, shopController.getServiceEvent);
+
+/**
+ * @route   PUT /api/service-events/:eventId/status
+ * @desc    Update service event status
+ * @access  Protected - Operator or Admin
+ */
+router.put('/service-events/:eventId/status', authenticate, authorize('admin', 'operator'), shopController.updateServiceEventStatus);
+
+// ============================================================================
+// AUDIT LOG ROUTES (Admin only)
+// ============================================================================
+
+/**
+ * @route   GET /api/audit-logs
+ * @desc    Query audit logs with filters
+ * @access  Protected - Admin only
+ */
+router.get('/audit-logs', authenticate, authorize('admin'), async (req, res) => {
+  const { queryAuditLogs } = await import('../services/audit.service');
+
+  try {
+    const filters = {
+      userId: req.query.user_id as string | undefined,
+      action: req.query.action as string | undefined,
+      entityType: req.query.entity_type as string | undefined,
+      entityId: req.query.entity_id as string | undefined,
+      startDate: req.query.start_date ? new Date(req.query.start_date as string) : undefined,
+      endDate: req.query.end_date ? new Date(req.query.end_date as string) : undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
+      offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
+    };
+
+    const result = await queryAuditLogs(filters);
+
+    res.json({
+      success: true,
+      data: result.logs,
+      total: result.total,
+      limit: filters.limit,
+      offset: filters.offset,
+    });
+  } catch (error) {
+    console.error('Audit log query error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to query audit logs',
+    });
+  }
+});
+
+// ============================================================================
+// ADMIN USER MANAGEMENT ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/admin/users
+ * @desc    List all users
+ * @access  Protected - Admin only
+ */
+router.get('/admin/users', authenticate, authorize('admin'), async (req, res) => {
+  const { listUsers } = await import('../models/user.model');
+
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+
+    const result = await listUsers(limit, offset);
+
+    res.json({
+      success: true,
+      data: result.users,
+      total: result.total,
+      limit,
+      offset,
+    });
+  } catch (error) {
+    console.error('List users error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to list users',
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/users/:userId/role
+ * @desc    Update user role
+ * @access  Protected - Admin only
+ */
+router.put('/admin/users/:userId/role', authenticate, authorize('admin'), async (req, res) => {
+  const { updateUserRole } = await import('../models/user.model');
+  const { logFromRequest } = await import('../services/audit.service');
+
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!['admin', 'operator', 'viewer'].includes(role)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid role',
+        message: 'Role must be one of: admin, operator, viewer',
+      });
+      return;
+    }
+
+    const user = await updateUserRole(userId, role);
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    await logFromRequest(req, 'update', 'user', userId, undefined, { role });
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user role',
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Deactivate user
+ * @access  Protected - Admin only
+ */
+router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (req, res) => {
+  const { deactivateUser } = await import('../models/user.model');
+  const { logFromRequest } = await import('../services/audit.service');
+
+  try {
+    const { userId } = req.params;
+
+    // Prevent self-deactivation
+    if (userId === req.user?.id) {
+      res.status(400).json({
+        success: false,
+        error: 'Cannot deactivate yourself',
+      });
+      return;
+    }
+
+    await deactivateUser(userId);
+    await logFromRequest(req, 'delete', 'user', userId);
+
+    res.json({
+      success: true,
+      message: 'User deactivated successfully',
+    });
+  } catch (error) {
+    console.error('Deactivate user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to deactivate user',
+    });
+  }
+});
 
 // ============================================================================
 // HEALTH CHECK

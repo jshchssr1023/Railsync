@@ -6,6 +6,45 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+// Auth Types
+export type UserRole = 'admin' | 'operator' | 'viewer';
+
+export interface User {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: UserRole;
+  organization?: string;
+  is_active: boolean;
+  last_login?: string;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+export interface LoginResponse extends AuthTokens {
+  user: User;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  old_value?: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  request_id?: string;
+  created_at: string;
+}
+
 // Car Types
 export interface Car {
   car_number: string;

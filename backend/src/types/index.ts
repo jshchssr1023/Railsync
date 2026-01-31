@@ -1,4 +1,86 @@
 // ============================================================================
+// AUTH TYPES
+// ============================================================================
+export interface User {
+  id: string;
+  email: string;
+  password_hash: string;
+  first_name: string;
+  last_name: string;
+  role: UserRole;
+  organization?: string;
+  is_active: boolean;
+  last_login?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type UserRole = 'admin' | 'operator' | 'viewer';
+
+export interface UserPublic {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: UserRole;
+  organization?: string;
+  is_active: boolean;
+  last_login?: Date;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+export interface RefreshToken {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  created_at: Date;
+  revoked_at?: Date;
+}
+
+export interface JwtPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+  iat?: number;
+  exp?: number;
+}
+
+// ============================================================================
+// AUDIT LOG TYPES
+// ============================================================================
+export interface AuditLog {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  action: AuditAction;
+  entity_type: string;
+  entity_id?: string;
+  old_value?: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  request_id?: string;
+  created_at: Date;
+}
+
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'login'
+  | 'logout'
+  | 'login_failed'
+  | 'password_change'
+  | 'evaluate'
+  | 'shop_select';
+
+// ============================================================================
 // SHOP TYPES
 // ============================================================================
 export interface Shop {

@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import shopModel from '../models/shop.model';
 import evaluationService from '../services/evaluation.service';
-import { ApiResponse, EvaluationRequest, EvaluationResult, ShopBacklog, ShopCapacity } from '../types';
+import { ApiResponse, EvaluationRequest, EvaluationResult, ShopBacklog, ShopCapacity, ServiceEvent } from '../types';
+import { query, queryOne } from '../config/database';
+import { logFromRequest } from '../services/audit.service';
 
 /**
  * POST /api/shops/evaluate
@@ -281,6 +283,273 @@ export async function batchUpdateBacklog(req: Request, res: Response): Promise<v
   }
 }
 
+// ============================================================================
+// SERVICE EVENT ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/service-events
+ * Create a new service event (select shop for car)
+ */
+export async function createServiceEvent(req: Request, res: Response): Promise<void> {
+  try {
+    const {
+      car_number,
+      assigned_shop,
+      car_input,
+      evaluation_result,
+      overrides,
+      notes,
+    } = req.body;
+
+    if (!car_number && !car_input?.product_code) {
+      res.status(400).json({
+        success: false,
+        error: 'Either car_number or car_input with product_code is required',
+      });
+      return;
+    }
+
+    if (!assigned_shop) {
+      res.status(400).json({
+        success: false,
+        error: 'assigned_shop is required',
+      });
+      return;
+    }
+
+    // Verify shop exists
+    const shop = await shopModel.findByCode(assigned_shop);
+    if (!shop) {
+      res.status(404).json({
+        success: false,
+        error: `Shop not found: ${assigned_shop}`,
+      });
+      return;
+    }
+
+    const result = await queryOne<ServiceEvent>(
+      `INSERT INTO service_events (
+         car_number, event_type, status, assigned_shop, estimated_cost,
+         override_exterior_paint, override_new_lining, override_interior_blast,
+         override_kosher_cleaning, override_primary_network,
+         car_input, evaluation_result, notes, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING *`,
+      [
+        car_number || car_input?.product_code || 'DIRECT_INPUT',
+        'shop_assignment',
+        'pending',
+        assigned_shop,
+        evaluation_result?.cost_breakdown?.total_cost || null,
+        overrides?.exterior_paint || false,
+        overrides?.new_lining || false,
+        overrides?.interior_blast || false,
+        overrides?.kosher_cleaning || false,
+        overrides?.primary_network || false,
+        car_input ? JSON.stringify(car_input) : null,
+        evaluation_result ? JSON.stringify(evaluation_result) : null,
+        notes || null,
+        req.user?.id || null,
+      ]
+    );
+
+    // Audit log
+    await logFromRequest(req, 'shop_select', 'service_event', result?.event_id, undefined, {
+      car_number,
+      assigned_shop,
+      estimated_cost: evaluation_result?.cost_breakdown?.total_cost,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: `Service event created for car ${car_number || 'direct input'} at shop ${assigned_shop}`,
+    });
+  } catch (error) {
+    console.error('Error creating service event:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
+/**
+ * GET /api/service-events
+ * List service events with filters
+ */
+export async function listServiceEvents(req: Request, res: Response): Promise<void> {
+  try {
+    const {
+      status,
+      assigned_shop,
+      car_number,
+      limit = '50',
+      offset = '0',
+    } = req.query;
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (status) {
+      conditions.push(`status = $${paramIndex++}`);
+      params.push(status as string);
+    }
+
+    if (assigned_shop) {
+      conditions.push(`assigned_shop = $${paramIndex++}`);
+      params.push(assigned_shop as string);
+    }
+
+    if (car_number) {
+      conditions.push(`car_number ILIKE $${paramIndex++}`);
+      params.push(`%${car_number}%`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limitNum = parseInt(limit as string, 10);
+    const offsetNum = parseInt(offset as string, 10);
+
+    const events = await query<ServiceEvent>(
+      `SELECT se.*, s.shop_name, u.email as created_by_email
+       FROM service_events se
+       LEFT JOIN shops s ON se.assigned_shop = s.shop_code
+       LEFT JOIN users u ON se.created_by = u.id
+       ${whereClause}
+       ORDER BY se.created_at DESC
+       LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+      [...params, limitNum, offsetNum]
+    );
+
+    const countResult = await queryOne<{ count: string }>(
+      `SELECT COUNT(*) FROM service_events ${whereClause}`,
+      params
+    );
+    const total = countResult ? parseInt(countResult.count, 10) : 0;
+
+    res.json({
+      success: true,
+      data: events,
+      total,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    console.error('Error listing service events:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
+/**
+ * GET /api/service-events/:eventId
+ * Get service event details
+ */
+export async function getServiceEvent(req: Request, res: Response): Promise<void> {
+  try {
+    const { eventId } = req.params;
+
+    const event = await queryOne<ServiceEvent & { shop_name: string; created_by_email: string }>(
+      `SELECT se.*, s.shop_name, u.email as created_by_email
+       FROM service_events se
+       LEFT JOIN shops s ON se.assigned_shop = s.shop_code
+       LEFT JOIN users u ON se.created_by = u.id
+       WHERE se.event_id = $1`,
+      [eventId]
+    );
+
+    if (!event) {
+      res.status(404).json({
+        success: false,
+        error: 'Service event not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: event,
+    });
+  } catch (error) {
+    console.error('Error fetching service event:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
+/**
+ * PUT /api/service-events/:eventId/status
+ * Update service event status
+ */
+export async function updateServiceEventStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { eventId } = req.params;
+    const { status, actual_cost, notes } = req.body;
+
+    const validStatuses = ['pending', 'in_progress', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+      return;
+    }
+
+    // Get current state for audit
+    const current = await queryOne<ServiceEvent>(
+      'SELECT * FROM service_events WHERE event_id = $1',
+      [eventId]
+    );
+
+    if (!current) {
+      res.status(404).json({
+        success: false,
+        error: 'Service event not found',
+      });
+      return;
+    }
+
+    const result = await queryOne<ServiceEvent>(
+      `UPDATE service_events
+       SET status = $1,
+           actual_cost = COALESCE($2, actual_cost),
+           notes = COALESCE($3, notes),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE event_id = $4
+       RETURNING *`,
+      [status, actual_cost, notes, eventId]
+    );
+
+    // Audit log
+    await logFromRequest(
+      req,
+      'update',
+      'service_event',
+      eventId,
+      { status: current.status, actual_cost: current.actual_cost },
+      { status, actual_cost }
+    );
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Service event status updated to ${status}`,
+    });
+  } catch (error) {
+    console.error('Error updating service event status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}
+
 export default {
   evaluateShops,
   getShopBacklog,
@@ -288,4 +557,8 @@ export default {
   updateShopBacklog,
   updateShopCapacity,
   batchUpdateBacklog,
+  createServiceEvent,
+  listServiceEvents,
+  getServiceEvent,
+  updateServiceEventStatus,
 };

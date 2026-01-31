@@ -165,12 +165,45 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [x] 🖥️ UI: Show car details card after lookup (product code, lining, customer, etc.)
 - [x] 🖥️ UI: Allow manual override via Direct Input mode toggle
 
-## Later
-- [ ] Auth
-- [ ] Audit logs
-- [ ] Admin rules editor UI
-- [ ] Freight/routing calculation (distance-based)
-- [ ] Work hours ML model (replace lookup table)
+## Phase 6 — Enterprise Features ✓
+- [x] Auth (JWT-based authentication with roles: admin, operator, viewer)
+  - [x] Users table with bcrypt password hashing
+  - [x] JWT access tokens (15min) + refresh tokens (7 days)
+  - [x] Auth middleware for protected routes
+  - [x] Login/Register/Logout/Me endpoints
+  - [x] Role-based authorization (admin, operator, viewer)
+- [x] Audit logs (who/when/what tracking)
+  - [x] audit_logs table with entity tracking
+  - [x] Audit service for logging actions
+  - [x] Admin endpoint to query audit logs
+  - [x] Login/logout/failed login tracking
+- [x] Admin rules editor UI
+  - [x] Rule list with category/status filters
+  - [x] Create/Edit/Toggle rules
+  - [x] JSON condition editor
+  - [x] Admin-only access control
+- [x] Freight/routing calculation (distance-based)
+  - [x] origin_locations table with lat/long
+  - [x] freight_rates table with tiered pricing
+  - [x] Haversine distance calculation
+  - [x] Fuel surcharge calculation
+- [x] Work hours ML model (factor-based estimation)
+  - [x] work_hours_factors table with coefficients
+  - [x] Car type base hours
+  - [x] Material type multipliers
+  - [x] Lining-specific hours
+  - [x] Cleaning class multipliers
+  - [x] Special requirements (kosher, asbestos, nitrogen)
+- [x] "Select This Shop" action button
+  - [x] service_events table
+  - [x] Create service event API
+  - [x] SelectShopModal component
+  - [x] Service event list/detail endpoints
+- [x] Wizard/stepper for first-time users
+  - [x] EvaluationWizard component
+  - [x] Multi-step guided flow
+  - [x] localStorage flag for returning users
+  - [x] Skip option for power users
 - [x] 🖥️ UI: Dark mode (ThemeProvider with system/light/dark toggle)
 - [x] 🖥️ UI: Mobile responsive layout (responsive breakpoints throughout)
 - [x] 🖥️ UI: Export results to CSV/Excel (CSV export button in ResultsGrid)
@@ -242,4 +275,4 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 #### 3.12 Comparison Mode (🖥️ UI) ✓
 - [x] Compare 2-3 pinned shops side-by-side (ShopComparisonModal)
 - [x] Highlight differences in costs, capacity, rule results (best/worst value coloring)
-- [ ] "Select This Shop" action button (later - requires service event creation)
+- [x] "Select This Shop" action button (SelectShopModal + service_events API)

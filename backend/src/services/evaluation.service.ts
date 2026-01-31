@@ -16,6 +16,8 @@ import {
   DirectCarInput,
 } from '../types';
 import { calculateDerivedFields } from '../middleware/validation';
+import { calculateFreightCost } from './freight.service';
+import { calculateWorkHours } from './workhours.service';
 
 const DEFAULT_LABOR_HOURS = {
   cleaning: 4,
@@ -125,8 +127,14 @@ export async function evaluateShops(
       originRegion
     );
 
-    // Calculate hours by work type
-    const hoursByType = calculateHoursByType(car, overrides);
+    // Calculate hours by work type using factor-based model
+    let hoursByType: HoursByType;
+    try {
+      hoursByType = await calculateWorkHours(car, overrides);
+    } catch {
+      // Fallback to simple calculation if service fails
+      hoursByType = calculateHoursByTypeFallback(car, overrides);
+    }
 
     // Get restriction code for this shop-commodity combination
     const restrictionCode = getRestrictionCode(
@@ -247,18 +255,24 @@ export async function calculateCosts(
     abatementCost = ABATEMENT_BASE_COST;
   }
 
-  // Calculate freight cost
+  // Calculate freight cost using distance-based calculation
   let freightCost = 0;
-  const freightRate = await shopModel.getFreightRate(originRegion, shop.shop_code);
-  if (freightRate) {
-    freightCost = freightRate.base_rate;
-    if (freightRate.distance_miles && freightRate.per_mile_rate) {
-      freightCost += freightRate.distance_miles * freightRate.per_mile_rate;
+  try {
+    const freightResult = await calculateFreightCost(originRegion, shop.shop_code);
+    freightCost = freightResult.total_freight;
+  } catch {
+    // Fallback to legacy method if new calculation fails
+    const freightRate = await shopModel.getFreightRate(originRegion, shop.shop_code);
+    if (freightRate) {
+      freightCost = freightRate.base_rate;
+      if (freightRate.distance_miles && freightRate.per_mile_rate) {
+        freightCost += freightRate.distance_miles * freightRate.per_mile_rate;
+      }
+      freightCost *= (1 + freightRate.fuel_surcharge_pct / 100);
+    } else {
+      // Default freight cost
+      freightCost = 500;
     }
-    freightCost *= (1 + freightRate.fuel_surcharge_pct / 100);
-  } else {
-    // Default freight cost
-    freightCost = 500;
   }
 
   const totalCost = laborCost + materialCost + abatementCost + freightCost;
@@ -287,9 +301,10 @@ function createDefaultBacklog(shopCode: string): ShopBacklog {
 }
 
 /**
- * Calculate estimated hours by work type for a car
+ * Fallback: Calculate estimated hours by work type for a car (simple model)
+ * Used when factor-based calculation is not available
  */
-function calculateHoursByType(
+function calculateHoursByTypeFallback(
   car: CarWithCommodity,
   overrides: EvaluationOverrides
 ): HoursByType {
