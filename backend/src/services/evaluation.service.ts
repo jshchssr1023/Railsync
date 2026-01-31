@@ -11,6 +11,8 @@ import {
   CarWithCommodity,
   Shop,
   CommodityRestriction,
+  HoursByType,
+  RestrictionCode,
 } from '../types';
 
 const DEFAULT_LABOR_HOURS = {
@@ -110,6 +112,16 @@ export async function evaluateShops(
       originRegion
     );
 
+    // Calculate hours by work type
+    const hoursByType = calculateHoursByType(car, overrides);
+
+    // Get restriction code for this shop-commodity combination
+    const restrictionCode = getRestrictionCode(
+      car.commodity_cin,
+      shop.shop_code,
+      commodityRestrictions
+    );
+
     results.push({
       shop: {
         shop_code: shop.shop_code,
@@ -124,6 +136,9 @@ export async function evaluateShops(
       cost_breakdown: costBreakdown,
       backlog,
       capacity,
+      hours_by_type: hoursByType,
+      restriction_code: restrictionCode,
+      rules: ruleResult.allRules,
     });
   }
 
@@ -254,6 +269,68 @@ function createDefaultBacklog(shopCode: string): ShopBacklog {
     cars_en_route_7_14: 0,
     cars_en_route_15_plus: 0,
   };
+}
+
+/**
+ * Calculate estimated hours by work type for a car
+ */
+function calculateHoursByType(
+  car: CarWithCommodity,
+  overrides: EvaluationOverrides
+): HoursByType {
+  const hours: HoursByType = {
+    cleaning: DEFAULT_LABOR_HOURS.cleaning,
+    flare: 0,
+    mechanical: 0,
+    blast: 0,
+    lining: 0,
+    paint: 0,
+    other: 0,
+  };
+
+  // Add hours based on work needed
+  if (overrides.interior_blast) {
+    hours.blast = DEFAULT_LABOR_HOURS.blast;
+  }
+
+  if (overrides.new_lining || car.lining_type) {
+    hours.lining = DEFAULT_LABOR_HOURS.lining;
+  }
+
+  if (overrides.exterior_paint) {
+    hours.paint = DEFAULT_LABOR_HOURS.paint;
+  }
+
+  // Mechanical hours if car has any substantial work
+  if (hours.blast > 0 || hours.lining > 0) {
+    hours.mechanical = DEFAULT_LABOR_HOURS.mechanical;
+  }
+
+  // Flare work for nitrogen pad cars
+  if (car.nitrogen_pad_stage && car.nitrogen_pad_stage > 0) {
+    hours.flare = DEFAULT_LABOR_HOURS.flare;
+  }
+
+  return hours;
+}
+
+/**
+ * Get the restriction code for a commodity-shop combination
+ */
+function getRestrictionCode(
+  commodityCin: string | undefined,
+  shopCode: string,
+  restrictions: CommodityRestriction[]
+): RestrictionCode | null {
+  if (!commodityCin) {
+    return null;
+  }
+
+  const restriction = restrictions.find(
+    (r) => r.cin_code === commodityCin && r.shop_code === shopCode
+  );
+
+  return restriction?.restriction_code || null;
 }
 
 export default {

@@ -110,8 +110,8 @@
 - [ ] For disqualified shops (if shown): highlight which rule(s) failed
 - [ ] Add "Compare Shops" mode: side-by-side rule comparison for 2-3 shops
 
-### 3.8 API Response Schema Update (Backend)
-- [ ] Update /evaluate response to include:
+### 3.8 API Response Schema Update (Backend) ✓
+- [x] Update /evaluate response to include:
   ```json
   {
     "shops": [{

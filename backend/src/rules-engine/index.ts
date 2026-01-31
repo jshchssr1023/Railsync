@@ -7,6 +7,8 @@ import {
   EvaluationOverrides,
   FailedRule,
   ShopBacklog,
+  RuleEvaluation,
+  RuleResult,
 } from '../types';
 
 export interface EvaluationContext {
@@ -21,6 +23,7 @@ export interface EvaluationContext {
 export interface RuleEvaluationResult {
   passed: boolean;
   failedRules: FailedRule[];
+  allRules: RuleEvaluation[];
 }
 
 /**
@@ -40,6 +43,7 @@ export class RulesEngine {
    */
   evaluate(context: EvaluationContext): RuleEvaluationResult {
     const failedRules: FailedRule[] = [];
+    const allRules: RuleEvaluation[] = [];
     let passed = true;
 
     for (const rule of this.rules) {
@@ -47,7 +51,23 @@ export class RulesEngine {
 
       const result = this.evaluateRule(rule, context);
 
-      if (!result.passed) {
+      // Determine rule result: 1 (pass), 0 (fail), or 'NA' (not applicable)
+      let ruleResult: RuleResult;
+      if (result.notApplicable) {
+        ruleResult = 'NA';
+      } else if (result.passed) {
+        ruleResult = 1;
+      } else {
+        ruleResult = 0;
+      }
+
+      allRules.push({
+        rule: rule.rule_name,
+        result: ruleResult,
+        reason: result.reason || (ruleResult === 1 ? 'Passed' : ruleResult === 'NA' ? 'Not applicable' : 'Failed'),
+      });
+
+      if (!result.passed && !result.notApplicable) {
         failedRules.push({
           rule_id: rule.rule_id,
           rule_name: rule.rule_name,
@@ -62,7 +82,7 @@ export class RulesEngine {
       }
     }
 
-    return { passed, failedRules };
+    return { passed, failedRules, allRules };
   }
 
   /**
@@ -71,7 +91,7 @@ export class RulesEngine {
   private evaluateRule(
     rule: EligibilityRule,
     context: EvaluationContext
-  ): { passed: boolean; reason: string } {
+  ): { passed: boolean; reason: string; notApplicable?: boolean } {
     try {
       const condition = rule.condition_json;
 
@@ -93,10 +113,10 @@ export class RulesEngine {
       }
 
       // Default: pass if no condition matches
-      return { passed: true, reason: '' };
+      return { passed: true, reason: '', notApplicable: true };
     } catch (error) {
       console.error(`Error evaluating rule ${rule.rule_id}:`, error);
-      return { passed: true, reason: '' }; // Fail open on error
+      return { passed: true, reason: '', notApplicable: true }; // Fail open on error
     }
   }
 
@@ -106,12 +126,12 @@ export class RulesEngine {
   private evaluateCommodityRestriction(
     rule: EligibilityRule,
     context: EvaluationContext
-  ): { passed: boolean; reason: string } {
+  ): { passed: boolean; reason: string; notApplicable?: boolean } {
     const { car, shop, commodityRestrictions } = context;
     const condition = rule.condition_json;
 
     if (!car.commodity_cin) {
-      return { passed: true, reason: '' };
+      return { passed: true, reason: 'No commodity specified', notApplicable: true };
     }
 
     const restriction = commodityRestrictions.find(
@@ -120,7 +140,7 @@ export class RulesEngine {
 
     if (!restriction) {
       // No restriction means allowed
-      return { passed: true, reason: '' };
+      return { passed: true, reason: 'No restriction defined for this commodity' };
     }
 
     const blockedCodes = condition.restriction_codes_block || ['N'];
@@ -132,7 +152,7 @@ export class RulesEngine {
       };
     }
 
-    return { passed: true, reason: '' };
+    return { passed: true, reason: `Commodity allowed (${restriction.restriction_code})` };
   }
 
   /**
@@ -141,7 +161,7 @@ export class RulesEngine {
   private evaluateConditionalRule(
     rule: EligibilityRule,
     context: EvaluationContext
-  ): { passed: boolean; reason: string } {
+  ): { passed: boolean; reason: string; notApplicable?: boolean } {
     const condition = rule.condition_json;
 
     // Check if the condition applies
@@ -156,14 +176,14 @@ export class RulesEngine {
     }
 
     if (!conditionApplies) {
-      // Condition doesn't apply, rule passes
-      return { passed: true, reason: '' };
+      // Condition doesn't apply, rule is N/A
+      return { passed: true, reason: 'Condition not applicable', notApplicable: true };
     }
 
     // Condition applies, check requirement
     const require = condition.require;
     if (!require) {
-      return { passed: true, reason: '' };
+      return { passed: true, reason: 'No requirement defined', notApplicable: true };
     }
 
     // Check capability requirement
@@ -189,6 +209,8 @@ export class RulesEngine {
           reason: `Shop lacks required capability: ${require.capability_type} = ${requiredValue}`,
         };
       }
+
+      return { passed: true, reason: `Shop has ${require.capability_type}: ${requiredValue}` };
     }
 
     // Check field requirement
@@ -200,9 +222,10 @@ export class RulesEngine {
           reason: `Shop does not meet requirement: ${require.field} = ${require.value}`,
         };
       }
+      return { passed: true, reason: `Shop meets requirement: ${require.field}` };
     }
 
-    return { passed: true, reason: '' };
+    return { passed: true, reason: 'Requirement satisfied' };
   }
 
   /**
@@ -211,7 +234,7 @@ export class RulesEngine {
   private evaluateOrCondition(
     rule: EligibilityRule,
     context: EvaluationContext
-  ): { passed: boolean; reason: string } {
+  ): { passed: boolean; reason: string; notApplicable?: boolean } {
     const condition = rule.condition_json;
     const conditions = condition.conditions || [];
 
@@ -222,14 +245,14 @@ export class RulesEngine {
     });
 
     if (!anyConditionMet) {
-      // None of the trigger conditions are met, rule passes
-      return { passed: true, reason: '' };
+      // None of the trigger conditions are met, rule is N/A
+      return { passed: true, reason: 'No trigger conditions met', notApplicable: true };
     }
 
     // At least one condition is met, check requirement
     const require = condition.require;
     if (!require) {
-      return { passed: true, reason: '' };
+      return { passed: true, reason: 'No requirement defined', notApplicable: true };
     }
 
     if (require.capability_type) {
@@ -246,9 +269,11 @@ export class RulesEngine {
           reason: `Shop lacks required capability: ${require.capability_type} = ${require.capability_value}`,
         };
       }
+
+      return { passed: true, reason: `Shop has ${require.capability_type}: ${require.capability_value}` };
     }
 
-    return { passed: true, reason: '' };
+    return { passed: true, reason: 'Requirement satisfied' };
   }
 
   /**
@@ -257,13 +282,18 @@ export class RulesEngine {
   private evaluateFieldRule(
     rule: EligibilityRule,
     context: EvaluationContext
-  ): { passed: boolean; reason: string } {
+  ): { passed: boolean; reason: string; notApplicable?: boolean } {
     const condition = rule.condition_json;
     const fieldValue = this.getFieldValue(condition.field!, context);
 
     // Handle capability matching
     if (condition.capability_type && condition.match_field) {
       const matchValue = this.getFieldValue(condition.match_field, context);
+
+      if (matchValue === undefined || matchValue === null) {
+        return { passed: true, reason: 'No value to match', notApplicable: true };
+      }
+
       const hasCapability = context.capabilities.some(
         (cap) =>
           cap.capability_type === condition.capability_type &&
@@ -277,7 +307,7 @@ export class RulesEngine {
           reason: `Shop cannot handle ${condition.capability_type}: ${matchValue}`,
         };
       }
-      return { passed: true, reason: '' };
+      return { passed: true, reason: `Shop can handle ${condition.capability_type}: ${matchValue}` };
     }
 
     // Handle comparison operators
@@ -293,7 +323,7 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) exceeds threshold (${threshold})`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} (${fieldValue}) under threshold (${threshold})` };
       case 'lte':
         if (fieldValue > threshold!) {
           return {
@@ -301,7 +331,7 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) exceeds threshold (${threshold})`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} (${fieldValue}) within threshold (${threshold})` };
       case 'gt':
         if (fieldValue <= threshold!) {
           return {
@@ -309,7 +339,7 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) below threshold (${threshold})`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} (${fieldValue}) above threshold (${threshold})` };
       case 'gte':
         if (fieldValue < threshold!) {
           return {
@@ -317,7 +347,7 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) below threshold (${threshold})`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} (${fieldValue}) meets threshold (${threshold})` };
       case 'eq':
         if (fieldValue !== value) {
           return {
@@ -325,7 +355,7 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) does not equal ${value}`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} equals ${value}` };
       case 'in':
         if (!Array.isArray(value) || !value.includes(fieldValue)) {
           return {
@@ -333,10 +363,10 @@ export class RulesEngine {
             reason: `${condition.field} (${fieldValue}) not in allowed values`,
           };
         }
-        break;
+        return { passed: true, reason: `${condition.field} (${fieldValue}) in allowed values` };
     }
 
-    return { passed: true, reason: '' };
+    return { passed: true, reason: 'Field check passed' };
   }
 
   /**

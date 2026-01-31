@@ -194,6 +194,10 @@ export interface EvaluationResult {
   cost_breakdown: CostBreakdown;
   backlog: ShopBacklog;
   capacity: ShopCapacity[];
+  // New fields for Phase 3 Excel parity
+  hours_by_type: HoursByType;
+  restriction_code: RestrictionCode | null;
+  rules: RuleEvaluation[];
 }
 
 export interface ShopSummary {
@@ -218,6 +222,24 @@ export interface CostBreakdown {
   abatement_cost: number;
   freight_cost: number;
   total_cost: number;
+}
+
+export interface HoursByType {
+  cleaning: number;
+  flare: number;
+  mechanical: number;
+  blast: number;
+  lining: number;
+  paint: number;
+  other: number;
+}
+
+export type RuleResult = 1 | 0 | 'NA';
+
+export interface RuleEvaluation {
+  rule: string;
+  result: RuleResult;
+  reason: string;
 }
 
 // ============================================================================
