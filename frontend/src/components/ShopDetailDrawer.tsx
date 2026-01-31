@@ -205,7 +205,7 @@ export default function ShopDetailDrawer({
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-gray-900">
-                  {shop.backlog.hours_backlog.toFixed(0)}
+                  {Number(shop.backlog.hours_backlog || 0).toFixed(0)}
                 </div>
                 <div className="text-xs text-gray-500">Hours Backlog</div>
               </div>

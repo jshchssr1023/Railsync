@@ -363,7 +363,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
-                <td>{result.backlog.hours_backlog.toFixed(0)}</td>
+                <td>{Number(result.backlog.hours_backlog || 0).toFixed(0)}</td>
                 <td>
                   <span className={result.backlog.cars_en_route_0_6 > 5 ? 'text-orange-600 font-medium' : ''}>
                     {result.backlog.cars_en_route_0_6}

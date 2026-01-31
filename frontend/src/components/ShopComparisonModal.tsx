@@ -110,7 +110,7 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
                     <div className="grid grid-cols-2 gap-3">
                       <div className="text-center p-2 bg-gray-50 rounded">
                         <div className={`text-xl font-bold ${getValueClass(backlogValues, shop.backlog.hours_backlog, true)}`}>
-                          {shop.backlog.hours_backlog.toFixed(0)}
+                          {Number(shop.backlog.hours_backlog || 0).toFixed(0)}
                         </div>
                         <div className="text-xs text-gray-500">Hours Backlog</div>
                       </div>
