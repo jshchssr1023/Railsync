@@ -366,22 +366,22 @@ INSERT INTO commodity_restrictions (cin_code, shop_code, restriction_code, restr
 -- ============================================================================
 -- SHOP BACKLOG (Current day)
 -- ============================================================================
-INSERT INTO shop_backlog (shop_code, date, hours_backlog, cars_backlog, cars_en_route_0_6, cars_en_route_7_14, cars_en_route_15_plus) VALUES
-('BNSF001', CURRENT_DATE, 450.5, 12, 5, 3, 2),
-('BNSF002', CURRENT_DATE, 320.0, 8, 4, 2, 1),
-('UP001', CURRENT_DATE, 280.0, 7, 3, 2, 0),
-('UP002', CURRENT_DATE, 510.0, 14, 6, 4, 3),
-('NS001', CURRENT_DATE, 180.0, 5, 2, 1, 1),
-('NS002', CURRENT_DATE, 420.0, 11, 5, 3, 2),
-('CSX001', CURRENT_DATE, 150.0, 4, 2, 1, 0),
-('CSX002', CURRENT_DATE, 380.0, 10, 4, 3, 1),
-('CN001', CURRENT_DATE, 290.0, 8, 3, 2, 1),
-('CN002', CURRENT_DATE, 550.0, 15, 7, 4, 2),
-('KCS001', CURRENT_DATE, 120.0, 3, 1, 1, 0),
-('CPKC001', CURRENT_DATE, 340.0, 9, 4, 2, 1),
-('IND001', CURRENT_DATE, 480.0, 13, 6, 3, 2),
-('IND002', CURRENT_DATE, 260.0, 7, 3, 2, 1),
-('IND003', CURRENT_DATE, 95.0, 2, 1, 0, 0);
+INSERT INTO shop_backlog (shop_code, date, hours_backlog, cars_backlog, cars_en_route_0_6, cars_en_route_7_14, cars_en_route_15_plus, weekly_inbound, weekly_outbound) VALUES
+('BNSF001', CURRENT_DATE, 450.5, 12, 5, 3, 2, 8, 6),
+('BNSF002', CURRENT_DATE, 320.0, 8, 4, 2, 1, 5, 4),
+('UP001', CURRENT_DATE, 280.0, 7, 3, 2, 0, 4, 5),
+('UP002', CURRENT_DATE, 510.0, 14, 6, 4, 3, 9, 5),
+('NS001', CURRENT_DATE, 180.0, 5, 2, 1, 1, 3, 4),
+('NS002', CURRENT_DATE, 420.0, 11, 5, 3, 2, 7, 5),
+('CSX001', CURRENT_DATE, 150.0, 4, 2, 1, 0, 3, 4),
+('CSX002', CURRENT_DATE, 380.0, 10, 4, 3, 1, 6, 5),
+('CN001', CURRENT_DATE, 290.0, 8, 3, 2, 1, 5, 4),
+('CN002', CURRENT_DATE, 550.0, 15, 7, 4, 2, 10, 6),
+('KCS001', CURRENT_DATE, 120.0, 3, 1, 1, 0, 2, 3),
+('CPKC001', CURRENT_DATE, 340.0, 9, 4, 2, 1, 6, 5),
+('IND001', CURRENT_DATE, 480.0, 13, 6, 3, 2, 8, 5),
+('IND002', CURRENT_DATE, 260.0, 7, 3, 2, 1, 4, 4),
+('IND003', CURRENT_DATE, 95.0, 2, 1, 0, 0, 2, 3);
 
 -- ============================================================================
 -- SHOP CAPACITY

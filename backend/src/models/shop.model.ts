@@ -172,6 +172,76 @@ export async function getLaborRates(
   return map;
 }
 
+/**
+ * Upsert shop backlog data (for daily feeds)
+ */
+export async function upsertBacklog(backlog: Partial<ShopBacklog> & { shop_code: string }): Promise<ShopBacklog | null> {
+  const sql = `
+    INSERT INTO shop_backlog (
+      shop_code, date, hours_backlog, cars_backlog,
+      cars_en_route_0_6, cars_en_route_7_14, cars_en_route_15_plus,
+      weekly_inbound, weekly_outbound, updated_at
+    ) VALUES ($1, COALESCE($2, CURRENT_DATE), $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+    ON CONFLICT (shop_code, date) DO UPDATE SET
+      hours_backlog = COALESCE(EXCLUDED.hours_backlog, shop_backlog.hours_backlog),
+      cars_backlog = COALESCE(EXCLUDED.cars_backlog, shop_backlog.cars_backlog),
+      cars_en_route_0_6 = COALESCE(EXCLUDED.cars_en_route_0_6, shop_backlog.cars_en_route_0_6),
+      cars_en_route_7_14 = COALESCE(EXCLUDED.cars_en_route_7_14, shop_backlog.cars_en_route_7_14),
+      cars_en_route_15_plus = COALESCE(EXCLUDED.cars_en_route_15_plus, shop_backlog.cars_en_route_15_plus),
+      weekly_inbound = COALESCE(EXCLUDED.weekly_inbound, shop_backlog.weekly_inbound),
+      weekly_outbound = COALESCE(EXCLUDED.weekly_outbound, shop_backlog.weekly_outbound),
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `;
+
+  return queryOne<ShopBacklog>(sql, [
+    backlog.shop_code,
+    backlog.date || null,
+    backlog.hours_backlog || 0,
+    backlog.cars_backlog || 0,
+    backlog.cars_en_route_0_6 || 0,
+    backlog.cars_en_route_7_14 || 0,
+    backlog.cars_en_route_15_plus || 0,
+    backlog.weekly_inbound || 0,
+    backlog.weekly_outbound || 0,
+  ]);
+}
+
+/**
+ * Upsert shop capacity data
+ */
+export async function upsertCapacity(
+  shopCode: string,
+  workType: string,
+  weeklyHoursCapacity: number,
+  currentUtilizationPct: number
+): Promise<ShopCapacity | null> {
+  const sql = `
+    INSERT INTO shop_capacity (
+      shop_code, work_type, weekly_hours_capacity, current_utilization_pct, effective_date
+    ) VALUES ($1, $2, $3, $4, CURRENT_DATE)
+    ON CONFLICT (shop_code, work_type, effective_date) DO UPDATE SET
+      weekly_hours_capacity = EXCLUDED.weekly_hours_capacity,
+      current_utilization_pct = EXCLUDED.current_utilization_pct,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `;
+
+  return queryOne<ShopCapacity>(sql, [shopCode, workType, weeklyHoursCapacity, currentUtilizationPct]);
+}
+
+/**
+ * Batch upsert backlog data for multiple shops (for daily feed processing)
+ */
+export async function batchUpsertBacklogs(backlogs: Array<Partial<ShopBacklog> & { shop_code: string }>): Promise<number> {
+  let successCount = 0;
+  for (const backlog of backlogs) {
+    const result = await upsertBacklog(backlog);
+    if (result) successCount++;
+  }
+  return successCount;
+}
+
 export default {
   findAll,
   findByCode,
@@ -184,4 +254,7 @@ export default {
   getCommodityRestrictions,
   getFreightRate,
   getLaborRates,
+  upsertBacklog,
+  upsertCapacity,
+  batchUpsertBacklogs,
 };

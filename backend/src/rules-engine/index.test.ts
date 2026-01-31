@@ -61,6 +61,8 @@ const createMockBacklog = (overrides: Partial<ShopBacklog> = {}): ShopBacklog =>
   cars_en_route_0_6: 3,
   cars_en_route_7_14: 2,
   cars_en_route_15_plus: 1,
+  weekly_inbound: 4,
+  weekly_outbound: 3,
   ...overrides,
 });
 

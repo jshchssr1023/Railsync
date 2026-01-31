@@ -73,6 +73,53 @@ router.post('/shops/evaluate', validateEvaluationRequest, shopController.evaluat
  */
 router.get('/shops/:shopCode/backlog', shopController.getShopBacklog);
 
+/**
+ * @route   PUT /api/shops/:shopCode/backlog
+ * @desc    Update shop backlog data (for daily feed)
+ * @access  Public
+ *
+ * @body    {
+ *            hours_backlog?: number,
+ *            cars_backlog?: number,
+ *            cars_en_route_0_6?: number,
+ *            cars_en_route_7_14?: number,
+ *            cars_en_route_15_plus?: number,
+ *            weekly_inbound?: number,
+ *            weekly_outbound?: number,
+ *            date?: string (ISO date, defaults to today)
+ *          }
+ */
+router.put('/shops/:shopCode/backlog', shopController.updateShopBacklog);
+
+/**
+ * @route   PUT /api/shops/:shopCode/capacity
+ * @desc    Update shop capacity data
+ * @access  Public
+ *
+ * @body    {
+ *            work_type: string (cleaning|flare|mechanical|blast|lining|paint),
+ *            weekly_hours_capacity: number,
+ *            current_utilization_pct: number
+ *          }
+ */
+router.put('/shops/:shopCode/capacity', shopController.updateShopCapacity);
+
+/**
+ * @route   POST /api/shops/backlog/batch
+ * @desc    Batch update backlog data for multiple shops (daily feed)
+ * @access  Public
+ *
+ * @body    {
+ *            backlogs: [{
+ *              shop_code: string,
+ *              hours_backlog?: number,
+ *              cars_backlog?: number,
+ *              ...
+ *            }]
+ *          }
+ */
+router.post('/shops/backlog/batch', shopController.batchUpdateBacklog);
+
 // ============================================================================
 // RULE ROUTES
 // ============================================================================

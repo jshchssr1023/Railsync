@@ -43,6 +43,9 @@ export interface ShopBacklog {
   cars_en_route_0_6: number;
   cars_en_route_7_14: number;
   cars_en_route_15_plus: number;
+  weekly_inbound: number;
+  weekly_outbound: number;
+  updated_at?: Date;
 }
 
 export interface ShopCapacity {

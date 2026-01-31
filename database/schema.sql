@@ -121,7 +121,10 @@ CREATE TABLE shop_backlog (
     cars_en_route_0_6 INTEGER NOT NULL DEFAULT 0,  -- Cars arriving in 0-6 days
     cars_en_route_7_14 INTEGER NOT NULL DEFAULT 0, -- Cars arriving in 7-14 days
     cars_en_route_15_plus INTEGER NOT NULL DEFAULT 0, -- Cars arriving in 15+ days
+    weekly_inbound INTEGER NOT NULL DEFAULT 0,     -- Cars received this week
+    weekly_outbound INTEGER NOT NULL DEFAULT 0,    -- Cars completed this week
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(shop_code, date)
 );
 

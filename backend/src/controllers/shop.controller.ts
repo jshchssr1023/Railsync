@@ -149,8 +149,143 @@ export async function listShops(req: Request, res: Response): Promise<void> {
   }
 }
 
+/**
+ * PUT /api/shops/:shopCode/backlog
+ * Update shop backlog data (for daily feed)
+ */
+export async function updateShopBacklog(req: Request, res: Response): Promise<void> {
+  try {
+    const { shopCode } = req.params;
+    const backlogData = req.body;
+
+    if (!shopCode) {
+      res.status(400).json({
+        success: false,
+        error: 'Shop code is required',
+      } as ApiResponse<null>);
+      return;
+    }
+
+    const shop = await shopModel.findByCode(shopCode);
+    if (!shop) {
+      res.status(404).json({
+        success: false,
+        error: `Shop not found: ${shopCode}`,
+      } as ApiResponse<null>);
+      return;
+    }
+
+    const result = await shopModel.upsertBacklog({
+      shop_code: shopCode,
+      ...backlogData,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Backlog updated for shop ${shopCode}`,
+    } as ApiResponse<ShopBacklog | null>);
+  } catch (error) {
+    console.error('Error updating shop backlog:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    } as ApiResponse<null>);
+  }
+}
+
+/**
+ * PUT /api/shops/:shopCode/capacity
+ * Update shop capacity data
+ */
+export async function updateShopCapacity(req: Request, res: Response): Promise<void> {
+  try {
+    const { shopCode } = req.params;
+    const { work_type, weekly_hours_capacity, current_utilization_pct } = req.body;
+
+    if (!shopCode) {
+      res.status(400).json({
+        success: false,
+        error: 'Shop code is required',
+      } as ApiResponse<null>);
+      return;
+    }
+
+    if (!work_type) {
+      res.status(400).json({
+        success: false,
+        error: 'work_type is required',
+      } as ApiResponse<null>);
+      return;
+    }
+
+    const shop = await shopModel.findByCode(shopCode);
+    if (!shop) {
+      res.status(404).json({
+        success: false,
+        error: `Shop not found: ${shopCode}`,
+      } as ApiResponse<null>);
+      return;
+    }
+
+    const result = await shopModel.upsertCapacity(
+      shopCode,
+      work_type,
+      weekly_hours_capacity || 0,
+      current_utilization_pct || 0
+    );
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Capacity updated for shop ${shopCode}, work type ${work_type}`,
+    } as ApiResponse<ShopCapacity | null>);
+  } catch (error) {
+    console.error('Error updating shop capacity:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    } as ApiResponse<null>);
+  }
+}
+
+/**
+ * POST /api/shops/backlog/batch
+ * Batch update backlog data for multiple shops (daily feed)
+ */
+export async function batchUpdateBacklog(req: Request, res: Response): Promise<void> {
+  try {
+    const { backlogs } = req.body;
+
+    if (!Array.isArray(backlogs) || backlogs.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'backlogs array is required',
+      } as ApiResponse<null>);
+      return;
+    }
+
+    const successCount = await shopModel.batchUpsertBacklogs(backlogs);
+
+    res.json({
+      success: true,
+      data: { updated_count: successCount, total_count: backlogs.length },
+      message: `Updated ${successCount} of ${backlogs.length} shop backlogs`,
+    } as ApiResponse<{ updated_count: number; total_count: number }>);
+  } catch (error) {
+    console.error('Error batch updating backlogs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    } as ApiResponse<null>);
+  }
+}
+
 export default {
   evaluateShops,
   getShopBacklog,
   listShops,
+  updateShopBacklog,
+  updateShopCapacity,
+  batchUpdateBacklog,
 };

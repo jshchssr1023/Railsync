@@ -281,6 +281,8 @@ function createDefaultBacklog(shopCode: string): ShopBacklog {
     cars_en_route_0_6: 0,
     cars_en_route_7_14: 0,
     cars_en_route_15_plus: 0,
+    weekly_inbound: 0,
+    weekly_outbound: 0,
   };
 }
 

@@ -154,11 +154,12 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   }
   ```
 
-## Phase 4 — Operational Data Integration
-- [ ] Shop backlog feed (daily): hours_backlog, cars_backlog per shop
-- [ ] En-route cars feed: cars arriving in 0-6 days, 7-14 days per shop
-- [ ] Weekly throughput: inbound/outbound counts per shop
-- [ ] Capacity by work type hours available
+## Phase 4 — Operational Data Integration ✓
+- [x] Shop backlog feed (daily): hours_backlog, cars_backlog per shop
+- [x] En-route cars feed: cars arriving in 0-6 days, 7-14 days per shop
+- [x] Weekly throughput: weekly_inbound, weekly_outbound counts per shop
+- [x] Capacity by work type hours available
+- [x] API endpoints: PUT /shops/:code/backlog, PUT /shops/:code/capacity, POST /shops/backlog/batch
 - [ ] 🖥️ UI: Add "last updated" timestamp for operational data
 - [ ] 🖥️ UI: Add refresh button to pull latest backlog data
 
