@@ -163,8 +163,8 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [ ] 🖥️ UI: Add "last updated" timestamp for operational data
 - [ ] 🖥️ UI: Add refresh button to pull latest backlog data
 
-## Phase 5 — Car Lookup Integration
-- [ ] Car lookup API: Enter car number → auto-populate all 16 attributes
+## Phase 5 — Car Lookup Integration ✓
+- [x] Car lookup API: GET /api/cars/:carNumber → returns all attributes + commodity + service event
 - [ ] 🖥️ UI: Car number input with "Lookup" button
 - [ ] 🖥️ UI: Show car details card after lookup (product code, lining, customer, etc.)
 - [ ] 🖥️ UI: Allow manual override of any auto-populated field
