@@ -29,7 +29,26 @@ const DEFAULT_MATERIAL_COSTS = {
   paint: 800,
 };
 
+// Lining-specific material costs (more accurate than generic lining cost)
+const LINING_MATERIAL_COSTS: Record<string, number> = {
+  'High Bake': 1800,
+  'Plasite': 3200,
+  'Rubber': 4500,
+  'Vinyl Ester': 3800,
+  'Epoxy': 2200,
+};
+
+// Cleaning class cost multipliers (A=easiest, D=hardest)
+const CLEANING_CLASS_MULTIPLIERS: Record<string, number> = {
+  'A': 1.0,
+  'B': 1.25,
+  'C': 1.5,
+  'D': 2.0,
+};
+
 const ABATEMENT_BASE_COST = 5000;
+const KOSHER_CLEANING_PREMIUM = 500;
+const DEFAULT_CLEANING_COST = 850;
 
 /**
  * Evaluate all shops for a given car and return ranked results
@@ -127,8 +146,9 @@ export async function evaluateShops(
 
 /**
  * Calculate costs for a specific shop
+ * Incorporates commodity pricing, lining-specific costs, and cleaning class multipliers
  */
-async function calculateCosts(
+export async function calculateCosts(
   car: CarWithCommodity,
   shop: Shop,
   overrides: EvaluationOverrides,
@@ -163,11 +183,34 @@ async function calculateCosts(
     }
   }
 
-  // Calculate material cost
+  // Calculate material cost with enhanced logic
   let materialCost = 0;
   for (const workType of workTypes) {
-    const baseCost = DEFAULT_MATERIAL_COSTS[workType as keyof typeof DEFAULT_MATERIAL_COSTS] || 0;
-    materialCost += baseCost * shop.material_multiplier;
+    if (workType === 'cleaning') {
+      // Use commodity recommended price if available, otherwise default
+      const baseCleaningCost = car.commodity?.recommended_price || DEFAULT_CLEANING_COST;
+
+      // Apply cleaning class multiplier if commodity has a cleaning class
+      const cleaningClass = car.commodity?.cleaning_class || 'A';
+      const classMultiplier = CLEANING_CLASS_MULTIPLIERS[cleaningClass] || 1.0;
+
+      materialCost += baseCleaningCost * classMultiplier * shop.material_multiplier;
+    } else if (workType === 'lining') {
+      // Use lining-specific cost if available
+      const liningType = car.lining_type || 'Epoxy';
+      const liningCost = LINING_MATERIAL_COSTS[liningType] || DEFAULT_MATERIAL_COSTS.lining;
+      materialCost += liningCost * shop.material_multiplier;
+    } else {
+      // Standard material cost for other work types
+      const baseCost = DEFAULT_MATERIAL_COSTS[workType as keyof typeof DEFAULT_MATERIAL_COSTS] || 0;
+      materialCost += baseCost * shop.material_multiplier;
+    }
+  }
+
+  // Add kosher cleaning premium if required
+  const requiresKosher = car.commodity?.requires_kosher || overrides.kosher_cleaning;
+  if (requiresKosher) {
+    materialCost += KOSHER_CLEANING_PREMIUM;
   }
 
   // Calculate abatement cost if needed
