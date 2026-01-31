@@ -226,16 +226,18 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [x] Column groups with headers
 - [ ] Remember expanded state in localStorage (later)
 
-#### 3.11 Shop Detail Drawer (🖥️ UI)
-- [ ] Click row → opens right-side drawer (not modal, keeps context)
-- [ ] Drawer contents:
-  - [ ] Shop header: Name, Code, Railroad, Address
-  - [ ] Cost breakdown card (pie chart or bar)
-  - [ ] Capacity metrics card
-  - [ ] Hours by work type (horizontal bar chart)
-  - [ ] Rules evaluation list (25 rules, grouped, with pass/fail/NA)
-- [ ] "Compare" button → pins shop for comparison (max 3)
-- [ ] Close drawer → back to grid
+#### 3.11 Shop Detail Drawer (🖥️ UI) ✓
+- [x] Click row → opens right-side drawer (not modal, keeps context)
+- [x] Drawer contents:
+  - [x] Shop header: Name, Code, Railroad, Preferred badge
+  - [x] Eligibility status with failed rules summary
+  - [x] Cost breakdown card with horizontal bar chart
+  - [x] Capacity metrics card (6 key metrics in grid)
+  - [x] Hours by work type (horizontal bar chart)
+  - [x] Rules evaluation list (grouped by category with pass/fail/NA)
+- [x] "Compare" button → pins shop for comparison (max 3)
+- [x] Close drawer → back to grid
+- [x] Comparison indicator bar shows selected shops
 
 #### 3.12 Comparison Mode (🖥️ UI - Later)
 - [ ] Compare 2-3 pinned shops side-by-side
