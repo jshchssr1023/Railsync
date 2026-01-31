@@ -78,7 +78,7 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   - [x] **Ownership**: owner_code, lessee_code
 - [x] **Overrides Panel**: Existing OverrideOptions component supports paint, lining, blast, kosher, primary_network
 - [x] DirectCarInput component with Quick/Advanced mode support
-- [ ] Add field help tooltips explaining each input (later)
+- [x] Add field help tooltips explaining each input (HelpTooltip component)
 - [ ] Consider wizard/stepper for first-time users vs. compact form for power users (later)
 
 ### 3.6 Output Grid Parity (🖥️ UI) ✓
@@ -93,9 +93,9 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   - [x] Default view: ~8 key columns
   - [x] Expanded view: All 20+ columns with horizontal scroll ("Show all columns" toggle)
 - [x] Add column visibility toggle (show all columns toggle)
-- [ ] **Sorting**: Clickable column headers with sort indicators (later)
-  - [ ] Default sort: En Route 0-6 ascending (available capacity first)
-  - [ ] Support: Total Cost, Hours Backlog, Current Backlog, Shop Name, Railroad
+- [x] **Sorting**: Clickable column headers with sort indicators
+  - [x] Default sort: En Route 0-6 ascending (available capacity first)
+  - [x] Support: Total Cost, Hours Backlog, Shop Name, Railroad, En Route 0-6
 - [x] **Row expansion**: Click row to see full "why this shop" breakdown (rules display)
 
 ### 3.7 Rules Explanation UI (🖥️ UI) ✓
@@ -105,7 +105,7 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   - [x] Show rule name, result (checkmark Pass / X Fail / dash N/A), and reason
   - [x] Color coding: green (pass), red (fail), gray (N/A)
 - [x] For disqualified shops (if shown): highlight which rule(s) failed (failed_rules display)
-- [ ] Add "Compare Shops" mode: side-by-side rule comparison for 2-3 shops (later)
+- [x] Add "Compare Shops" mode: side-by-side comparison for 2-3 shops (ShopComparisonModal)
 
 ### 3.8 API Response Schema Update (Backend) ✓
 - [x] Update /evaluate response to include:
@@ -167,13 +167,13 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 
 ## Later
 - [ ] Auth
-- [ ] Audit logs  
+- [ ] Audit logs
 - [ ] Admin rules editor UI
 - [ ] Freight/routing calculation (distance-based)
 - [ ] Work hours ML model (replace lookup table)
-- [ ] 🖥️ UI: Dark mode
-- [ ] 🖥️ UI: Mobile responsive layout
-- [ ] 🖥️ UI: Export results to CSV/Excel
+- [x] 🖥️ UI: Dark mode (ThemeProvider with system/light/dark toggle)
+- [x] 🖥️ UI: Mobile responsive layout (responsive breakpoints throughout)
+- [x] 🖥️ UI: Export results to CSV/Excel (CSV export button in ResultsGrid)
 
 ---
 
@@ -207,7 +207,7 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   - [x] lining_type (dropdown: None/High Bake/Plasite/Rubber/Vinyl Ester/Epoxy)
 - [x] Advanced Mode: Reveals full sectioned form (car identity, commodity, compliance, ownership)
 - [x] Input Mode toggle (Car Lookup vs Direct Input)
-- [ ] Persist user's mode preference in localStorage (later)
+- [x] Persist user's mode preference in localStorage
 
 #### 3.10 Results Grid Modes (🖥️ UI) ✓
 - [x] Quick Mode grid columns (always visible):
@@ -224,7 +224,7 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
   - [x] Capacity: Current Backlog, En Route 7-14, Weekly IB, Weekly OB
   - [x] Hours by Type: Cleaning, Flare, Mechanical, Blast, Lining, Paint, Other
 - [x] Column groups with headers
-- [ ] Remember expanded state in localStorage (later)
+- [x] Remember expanded state in localStorage
 
 #### 3.11 Shop Detail Drawer (🖥️ UI) ✓
 - [x] Click row → opens right-side drawer (not modal, keeps context)
@@ -239,7 +239,7 @@ Note: Using EAV pattern (shop_capabilities table) instead of 58 columns for flex
 - [x] Close drawer → back to grid
 - [x] Comparison indicator bar shows selected shops
 
-#### 3.12 Comparison Mode (🖥️ UI - Later)
-- [ ] Compare 2-3 pinned shops side-by-side
-- [ ] Highlight differences in costs, capacity, rule results
-- [ ] "Select This Shop" action button
+#### 3.12 Comparison Mode (🖥️ UI) ✓
+- [x] Compare 2-3 pinned shops side-by-side (ShopComparisonModal)
+- [x] Highlight differences in costs, capacity, rule results (best/worst value coloring)
+- [ ] "Select This Shop" action button (later - requires service event creation)

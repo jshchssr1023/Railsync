@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { EvaluationResult } from '@/types';
 import ShopDetailDrawer from './ShopDetailDrawer';
+import ShopComparisonModal from './ShopComparisonModal';
 
 interface ResultsGridProps {
   results: EvaluationResult[];
@@ -13,20 +14,48 @@ interface ResultsGridProps {
 type SortField = 'total_cost' | 'hours_backlog' | 'shop_name' | 'en_route_0_6' | 'railroad';
 type SortDirection = 'asc' | 'desc';
 
-// Column group definitions
-const COLUMN_GROUPS = {
-  cost: { label: 'Cost Breakdown', columns: ['labor', 'material', 'abatement', 'freight'] },
-  capacity: { label: 'Capacity', columns: ['cars_backlog', 'en_route_7_14', 'weekly_ib', 'weekly_ob'] },
-  hours: { label: 'Hours by Type', columns: ['cleaning', 'flare', 'mechanical', 'blast', 'lining', 'paint'] },
+// LocalStorage keys
+const STORAGE_KEYS = {
+  sortField: 'railsync_sortField',
+  sortDirection: 'railsync_sortDirection',
+  showAllColumns: 'railsync_showAllColumns',
+  showEligibleOnly: 'railsync_showEligibleOnly',
 };
 
 export default function ResultsGrid({ results, lastUpdated, onRefresh }: ResultsGridProps) {
+  // Initialize state from localStorage
   const [sortField, setSortField] = useState<SortField>('en_route_0_6');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showEligibleOnly, setShowEligibleOnly] = useState(false);
   const [selectedShop, setSelectedShop] = useState<EvaluationResult | null>(null);
   const [compareShops, setCompareShops] = useState<Set<string>>(new Set());
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  // Load preferences from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSortField = localStorage.getItem(STORAGE_KEYS.sortField) as SortField;
+      const savedSortDir = localStorage.getItem(STORAGE_KEYS.sortDirection) as SortDirection;
+      const savedShowAll = localStorage.getItem(STORAGE_KEYS.showAllColumns);
+      const savedEligible = localStorage.getItem(STORAGE_KEYS.showEligibleOnly);
+
+      if (savedSortField) setSortField(savedSortField);
+      if (savedSortDir) setSortDirection(savedSortDir);
+      if (savedShowAll) setShowAllColumns(savedShowAll === 'true');
+      if (savedEligible) setShowEligibleOnly(savedEligible === 'true');
+    }
+  }, []);
+
+  // Save preferences to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.sortField, sortField);
+      localStorage.setItem(STORAGE_KEYS.sortDirection, sortDirection);
+      localStorage.setItem(STORAGE_KEYS.showAllColumns, String(showAllColumns));
+      localStorage.setItem(STORAGE_KEYS.showEligibleOnly, String(showEligibleOnly));
+    }
+  }, [sortField, sortDirection, showAllColumns, showEligibleOnly]);
 
   const handleShopClick = (result: EvaluationResult) => {
     setSelectedShop(result);
@@ -40,6 +69,65 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
       newCompare.add(result.shop.shop_code);
     }
     setCompareShops(newCompare);
+  };
+
+  // Get shops selected for comparison
+  const getCompareResults = () => {
+    return results.filter((r) => compareShops.has(r.shop.shop_code));
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = [
+      'Shop Name',
+      'Shop Code',
+      'Railroad',
+      'Total Cost',
+      'Labor Cost',
+      'Material Cost',
+      'Abatement Cost',
+      'Freight Cost',
+      'Preferred',
+      'Hours Backlog',
+      'Cars Backlog',
+      'En Route 0-6',
+      'En Route 7-14',
+      'Weekly Inbound',
+      'Weekly Outbound',
+      'Eligible',
+      'Restriction Code',
+    ];
+
+    const rows = sortedResults.map((r) => [
+      r.shop.shop_name,
+      r.shop.shop_code,
+      r.shop.primary_railroad,
+      r.cost_breakdown.total_cost,
+      r.cost_breakdown.labor_cost,
+      r.cost_breakdown.material_cost,
+      r.cost_breakdown.abatement_cost,
+      r.cost_breakdown.freight_cost,
+      r.shop.is_preferred_network ? 'Yes' : 'No',
+      r.backlog.hours_backlog,
+      r.backlog.cars_backlog,
+      r.backlog.cars_en_route_0_6,
+      r.backlog.cars_en_route_7_14,
+      r.backlog.weekly_inbound,
+      r.backlog.weekly_outbound,
+      r.is_eligible ? 'Yes' : 'No',
+      r.restriction_code || '',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `shop_evaluation_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   const handleSort = (field: SortField) => {
@@ -165,6 +253,15 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
               Refresh
             </button>
           )}
+          <button
+            onClick={exportToCSV}
+            className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export CSV
+          </button>
           <span className="text-sm text-gray-500">
             {sortedResults.length} of {results.length} shops
           </span>
@@ -319,13 +416,31 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
           <span className="text-sm text-primary-700">
             {compareShops.size} shop{compareShops.size > 1 ? 's' : ''} selected for comparison
           </span>
-          <button
-            onClick={() => setCompareShops(new Set())}
-            className="text-sm text-primary-600 hover:text-primary-800"
-          >
-            Clear
-          </button>
+          <div className="flex items-center gap-3">
+            {compareShops.size >= 2 && (
+              <button
+                onClick={() => setShowCompareModal(true)}
+                className="text-sm bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-700"
+              >
+                Compare Now
+              </button>
+            )}
+            <button
+              onClick={() => setCompareShops(new Set())}
+              className="text-sm text-primary-600 hover:text-primary-800"
+            >
+              Clear
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Comparison Modal */}
+      {showCompareModal && (
+        <ShopComparisonModal
+          shops={getCompareResults()}
+          onClose={() => setShowCompareModal(false)}
+        />
       )}
 
       {/* Shop Detail Drawer */}
