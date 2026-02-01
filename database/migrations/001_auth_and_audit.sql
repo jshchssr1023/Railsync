@@ -154,7 +154,7 @@ CREATE INDEX IF NOT EXISTS idx_work_hours_factors_type ON work_hours_factors(fac
 INSERT INTO users (email, password_hash, first_name, last_name, role, organization)
 VALUES (
     'admin@railsync.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.YP/lS.nBKAOYl6',
+    '$2b$12$DAbdF7nwOhVY7T0D/4AhCeTuOEUgQom3kChE/kk71Pgv60AyFwXyi',
     'System',
     'Administrator',
     'admin',
@@ -165,7 +165,7 @@ VALUES (
 INSERT INTO users (email, password_hash, first_name, last_name, role, organization)
 VALUES (
     'operator@railsync.com',
-    '$2b$12$rQNwc1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.YP/lS.nBKAOYl6',
+    '$2b$12$88aM1qw93N3bF/ouRgUuRO5fwxGXx8/9WmQspGYNHDhE0kJwlvuyu',
     'Shop',
     'Operator',
     'operator',

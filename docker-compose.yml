@@ -15,6 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./database/migrations/001_auth_and_audit.sql:/docker-entrypoint-initdb.d/03-auth-audit.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
       interval: 10s
@@ -46,7 +47,7 @@ services:
       dockerfile: Dockerfile
     container_name: railsync-ui
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
     ports:
       - "3000:3000"
     depends_on:
