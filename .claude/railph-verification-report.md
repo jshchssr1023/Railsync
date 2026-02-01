@@ -218,4 +218,30 @@ User → CarLookup → GET /api/cars/:carNumber
 
 ---
 
+### Follow-On Enhancements (Immediate Tasks)
+| Task | Status |
+|------|--------|
+| Error boundaries + retry button | ✅ |
+| Tier filter dropdown | ✅ |
+| Refresh button + timestamp | ✅ |
+
+---
+
+## Final Test Summary
+
+| Endpoint | Status |
+|----------|--------|
+| GET /api/health | ✅ 200 |
+| GET /api/cars/:carNumber | ✅ 200 |
+| POST /api/shops/evaluate | ✅ 200 |
+| GET /api/fleet/metrics | ✅ 200 |
+| GET /api/fleet/monthly-volumes | ✅ 200 |
+| GET /api/fleet/tier-summary | ✅ 200 |
+| GET /api/shops/:code/monthly-capacity | ✅ 200 |
+| Frontend (localhost:3000) | ✅ 307 (redirect) |
+
+All 119 backend tests passing.
+
+---
+
 **Verdict:** System is production-ready for Phase 10, 11, and 12 scope.
