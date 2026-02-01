@@ -135,20 +135,7 @@ function PlanningContent() {
     );
   }
 
-  // Only require auth for Monthly Load and Network View tabs
-  const requiresAuth = activeTab !== 'quick-shop';
-  if (requiresAuth && !user) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          Authentication Required
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400">
-          Please log in to access {activeTab === 'monthly-load' ? 'Monthly Load' : 'Network View'}.
-        </p>
-      </div>
-    );
-  }
+  // Auth is optional - all tabs accessible without login for demo purposes
 
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
     {
