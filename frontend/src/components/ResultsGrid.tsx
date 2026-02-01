@@ -218,9 +218,9 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
   };
 
   const getCapacitySummary = (result: EvaluationResult) => {
-    if (result.capacity.length === 0) return { avgUtil: 0, availHours: 0 };
-    const avgUtil = result.capacity.reduce((sum, c) => sum + c.current_utilization_pct, 0) / result.capacity.length;
-    const availHours = result.capacity.reduce((sum, c) => sum + c.available_hours, 0);
+    if (!result.capacity || result.capacity.length === 0) return { avgUtil: 0, availHours: 0 };
+    const avgUtil = result.capacity.reduce((sum, c) => sum + parseFloat(String(c.current_utilization_pct || 0)), 0) / result.capacity.length;
+    const availHours = result.capacity.reduce((sum, c) => sum + parseFloat(String(c.available_hours || 0)), 0);
     return { avgUtil, availHours };
   };
 
