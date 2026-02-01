@@ -3,6 +3,7 @@ import carController from '../controllers/car.controller';
 import shopController from '../controllers/shop.controller';
 import ruleController from '../controllers/rule.controller';
 import * as authController from '../controllers/auth.controller';
+import planningController from '../controllers/planning.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 
@@ -406,6 +407,33 @@ router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (r
     });
   }
 });
+
+// ============================================================================
+// PHASE 9 - BUDGET ROUTES
+// ============================================================================
+
+router.get('/budget/running-repairs', authenticate, planningController.getRunningRepairsBudget);
+router.put('/budget/running-repairs/:month', authenticate, authorize('admin', 'operator'), planningController.updateRunningRepairsBudget);
+router.post('/budget/running-repairs/calculate', authenticate, authorize('admin'), planningController.calculateRunningRepairsBudget);
+router.get('/budget/service-events', authenticate, planningController.getServiceEventBudgets);
+router.post('/budget/service-events', authenticate, authorize('admin', 'operator'), planningController.createServiceEventBudget);
+router.get('/budget/summary', authenticate, planningController.getBudgetSummary);
+
+// ============================================================================
+// PHASE 9 - CAR MASTER ROUTES
+// ============================================================================
+
+router.get('/cars-master', authenticate, planningController.listCars);
+router.get('/cars-master/:carId', authenticate, planningController.getCarById);
+router.get('/cars/active-count', authenticate, planningController.getActiveCarCount);
+router.post('/cars/import', authenticate, authorize('admin'), planningController.importCars);
+
+// ============================================================================
+// PHASE 9 - FORECAST ROUTES
+// ============================================================================
+
+router.get('/forecast', authenticate, planningController.getForecast);
+router.get('/forecast/trends', authenticate, planningController.getForecastTrends);
 
 // ============================================================================
 // HEALTH CHECK
