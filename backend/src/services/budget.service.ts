@@ -257,7 +257,7 @@ export async function updateServiceEventBudget(
  * Delete a service event budget
  */
 export async function deleteServiceEventBudget(id: string): Promise<boolean> {
-  const result = await query(
+  await query(
     'DELETE FROM service_event_budget WHERE id = $1',
     [id]
   );

@@ -1,5 +1,4 @@
 import { parseBRCRecord, parseBRCFile } from './brc.service';
-import { BRCRecord } from '../types';
 
 describe('BRC Service', () => {
   describe('parseBRCRecord', () => {

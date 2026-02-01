@@ -1,7 +1,5 @@
 import { query, queryOne } from '../config/database';
 import { CarMaster } from '../types';
-import * as fs from 'fs';
-import * as path from 'path';
 
 interface CSVRow {
   [key: string]: string;
@@ -278,7 +276,7 @@ export async function importCarsFromCSV(content: string): Promise<ImportResult> 
 /**
  * Get active car count (cars on lease) for a given month
  */
-export async function getActiveCarCount(month?: string): Promise<number> {
+export async function getActiveCarCount(_month?: string): Promise<number> {
   const sql = `
     SELECT COUNT(*) as count
     FROM cars

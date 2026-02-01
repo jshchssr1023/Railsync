@@ -4,12 +4,10 @@ import { JwtPayload, UserRole, UserPublic } from '../types';
 import { findByIdPublic } from '../models/user.model';
 
 // Extend Express Request to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPublic;
-      requestId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: UserPublic;
+    requestId?: string;
   }
 }
 

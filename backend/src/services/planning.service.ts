@@ -1,6 +1,5 @@
 import { query, queryOne } from '../config/database';
 import {
-  Demand,
   Allocation,
   AllocationStatus,
   Scenario,
@@ -8,7 +7,6 @@ import {
   ShopMonthlyCapacity,
   EvaluationResult,
   DirectCarInput,
-  EvaluationRequest,
 } from '../types';
 import { evaluateShops } from './evaluation.service';
 import { getDemandById, updateDemandStatus } from './demand.service';
@@ -227,7 +225,7 @@ export async function updateScenario(
  * Delete a scenario (non-system only)
  */
 export async function deleteScenario(id: string): Promise<boolean> {
-  const result = await query('DELETE FROM scenarios WHERE id = $1 AND is_system = FALSE', [id]);
+  await query('DELETE FROM scenarios WHERE id = $1 AND is_system = FALSE', [id]);
   return true;
 }
 
