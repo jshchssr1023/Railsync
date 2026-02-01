@@ -1,5 +1,51 @@
 # Railsync Tasks
 
+---
+
+## Development Guardrails
+
+### Token Efficiency Rules
+1. **Read before write** - Always read existing code before modifying
+2. **Small commits** - Commit after each logical unit of work
+3. **Compile check** - Run `npm run build` after code changes before moving on
+4. **Test incrementally** - Test each feature before starting the next
+5. **Reuse existing** - Check for existing services/utilities before creating new ones
+
+### Testing Requirements
+Before marking any task complete:
+1. **Unit tests** - All new services must have tests (min 80% coverage)
+2. **API tests** - All endpoints tested via curl/httpie
+3. **Integration** - Verify database operations work end-to-end
+4. **Error cases** - Test validation, auth failures, not-found scenarios
+
+### Test Commands
+```bash
+# Backend
+cd backend && npm run build          # TypeScript compile check
+cd backend && npm test               # Run unit tests
+cd backend && npm run test:coverage  # Coverage report
+
+# API smoke tests (requires running server)
+curl http://localhost:3001/api/health
+curl -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@railsync.com","password":"admin123"}'
+
+# Frontend
+cd frontend && npm run build         # Next.js build check
+cd frontend && npm run lint          # ESLint check
+```
+
+### Phase 9 Test Checklist
+- [ ] Migration runs without errors
+- [ ] Budget endpoints return data
+- [ ] Car import parses CSV correctly
+- [ ] Demand CRUD works
+- [ ] Capacity initialization works
+- [ ] Allocation engine produces results
+- [ ] BRC parser handles 500-byte format
+- [ ] Forecast calculations are accurate
+
+---
+
 ## Phase 1 — Core (Complete)
 1. [x] Make API endpoint: POST /evaluate return ranked shops
 2. [x] Wire frontend form -> API call -> render results grid

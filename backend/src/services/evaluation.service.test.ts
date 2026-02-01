@@ -1,6 +1,7 @@
 import { calculateCosts } from './evaluation.service';
 import { CarWithCommodity, Shop, EvaluationOverrides } from '../types';
 import shopModel from '../models/shop.model';
+import * as freightService from './freight.service';
 
 // Mock the shop model
 jest.mock('../models/shop.model', () => ({
@@ -8,8 +9,14 @@ jest.mock('../models/shop.model', () => ({
   getFreightRate: jest.fn(),
 }));
 
+// Mock the freight service
+jest.mock('./freight.service', () => ({
+  calculateFreightCost: jest.fn(),
+}));
+
 const mockGetLaborRates = shopModel.getLaborRates as jest.Mock;
 const mockGetFreightRate = shopModel.getFreightRate as jest.Mock;
+const mockCalculateFreightCost = freightService.calculateFreightCost as jest.Mock;
 
 const createMockShop = (overrides: Partial<Shop> = {}): Shop => ({
   shop_code: 'TEST001',
@@ -43,6 +50,13 @@ describe('Cost Calculation Engine', () => {
     // Default mock implementations
     mockGetLaborRates.mockResolvedValue(new Map());
     mockGetFreightRate.mockResolvedValue(null);
+    // Default freight: $500 base + $75 fuel surcharge = $575
+    mockCalculateFreightCost.mockResolvedValue({
+      distance_miles: 0,
+      base_freight: 500,
+      fuel_surcharge: 75,
+      total_freight: 575,
+    });
   });
 
   describe('calculateCosts - basic scenarios', () => {
@@ -59,10 +73,10 @@ describe('Cost Calculation Engine', () => {
       expect(result.material_cost).toBe(850);
       // Abatement: none
       expect(result.abatement_cost).toBe(0);
-      // Freight: default = $500
-      expect(result.freight_cost).toBe(500);
-      // Total
-      expect(result.total_cost).toBe(1670);
+      // Freight: default = $500 + $75 fuel surcharge = $575
+      expect(result.freight_cost).toBe(575);
+      // Total: $320 + $850 + $0 + $575 = $1745
+      expect(result.total_cost).toBe(1745);
     });
 
     it('should use commodity recommended_price for cleaning cost', async () => {
@@ -262,12 +276,15 @@ describe('Cost Calculation Engine', () => {
   });
 
   describe('calculateCosts - freight', () => {
-    it('should use freight rate when available', async () => {
-      mockGetFreightRate.mockResolvedValue({
-        base_rate: 400,
-        per_mile_rate: 2.5,
+    it('should use calculated freight when available', async () => {
+      // Mock distance-based freight calculation
+      mockCalculateFreightCost.mockResolvedValue({
         distance_miles: 200,
-        fuel_surcharge_pct: 15,
+        base_freight: 500,
+        fuel_surcharge: 90,
+        total_freight: 590,
+        origin_location: 'Chicago Hub',
+        destination_shop: 'Test Shop',
       });
 
       const car = createMockCar();
@@ -276,20 +293,20 @@ describe('Cost Calculation Engine', () => {
 
       const result = await calculateCosts(car, shop, overrides, 'Midwest');
 
-      // Freight: ($400 + 200 * $2.5) * 1.15 = $900 * 1.15 = $1035
-      expect(result.freight_cost).toBe(1035);
+      // Freight: calculated value from freight service
+      expect(result.freight_cost).toBe(590);
     });
 
-    it('should use default freight when no rate available', async () => {
-      mockGetFreightRate.mockResolvedValue(null);
-
+    it('should use default freight when freight service returns default', async () => {
+      // Default mock already returns $575 in beforeEach
       const car = createMockCar();
       const shop = createMockShop();
       const overrides: EvaluationOverrides = {};
 
       const result = await calculateCosts(car, shop, overrides, 'Midwest');
 
-      expect(result.freight_cost).toBe(500);
+      // Default freight: $500 base + $75 fuel surcharge (15%) = $575
+      expect(result.freight_cost).toBe(575);
     });
   });
 
@@ -363,10 +380,10 @@ describe('Cost Calculation Engine', () => {
       expect(result.material_cost).toBe(6605);
       // Abatement: $5000
       expect(result.abatement_cost).toBe(5000);
-      // Freight: $500 default
-      expect(result.freight_cost).toBe(500);
-      // Total: $2720 + $6605 + $5000 + $500 = $14825
-      expect(result.total_cost).toBe(14825);
+      // Freight: $500 base + $75 fuel surcharge = $575
+      expect(result.freight_cost).toBe(575);
+      // Total: $2720 + $6605 + $5000 + $575 = $14900
+      expect(result.total_cost).toBe(14900);
     });
   });
 });
