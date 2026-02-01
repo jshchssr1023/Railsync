@@ -1,15 +1,68 @@
 'use client';
 
-import { useState } from 'react';
-import { LayoutDashboard, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { LayoutDashboard, X, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DashboardWrapperProps {
   children: React.ReactNode;
 }
 
+// Simpsons theme audio URL (short clip)
+const SIMPSONS_AUDIO_URL = '/audio/simpsons-theme-short.mp3';
+
 export default function DashboardWrapper({ children }: DashboardWrapperProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [simpsonsMode, setSimpsonsMode] = useState(false);
+  const [hasPlayedThisSession, setHasPlayedThisSession] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+
+  // Load Simpsons mode preference from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('railsync-simpsons-mode');
+      setSimpsonsMode(saved === 'true');
+    }
+  }, []);
+
+  // Play Simpsons theme when dashboard opens (if enabled)
+  useEffect(() => {
+    if (isOpen && simpsonsMode && !hasPlayedThisSession && !audioError) {
+      // Only play once per session
+      setHasPlayedThisSession(true);
+
+      // Dynamic import of howler to avoid SSR issues
+      import('howler').then(({ Howl }) => {
+        const sound = new Howl({
+          src: [SIMPSONS_AUDIO_URL],
+          volume: 0.4,
+          onloaderror: () => {
+            console.log("D'oh! Audio file not found. Add simpsons-theme-short.mp3 to public/audio/");
+            setAudioError(true);
+          },
+          onend: () => {
+            console.log("D'oh! Theme finished.");
+          },
+        });
+        sound.play();
+      }).catch(() => {
+        // howler not installed, skip audio
+        console.log('Howler not available');
+      });
+    }
+  }, [isOpen, simpsonsMode, hasPlayedThisSession, audioError]);
+
+  const toggleSimpsonsMode = useCallback(() => {
+    const newValue = !simpsonsMode;
+    setSimpsonsMode(newValue);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('railsync-simpsons-mode', String(newValue));
+    }
+    // Reset session flag so it plays on next open if enabled
+    if (newValue) {
+      setHasPlayedThisSession(false);
+    }
+  }, [simpsonsMode]);
 
   return (
     <>
@@ -18,6 +71,7 @@ export default function DashboardWrapper({ children }: DashboardWrapperProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 transition-all duration-300"
         aria-label={isOpen ? 'Close Dashboard' : 'Open Dashboard'}
+        title={simpsonsMode ? "Open Dashboard (Ralph Wiggum Mode)" : "Open Dashboard"}
       >
         {isOpen ? <X size={28} /> : <LayoutDashboard size={28} />}
       </button>
@@ -46,12 +100,29 @@ export default function DashboardWrapper({ children }: DashboardWrapperProps) {
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                     Fleet Performance Dashboard
                   </h1>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="rounded-full p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <X className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {/* Simpsons Mode Toggle */}
+                    <button
+                      onClick={toggleSimpsonsMode}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        simpsonsMode
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      }`}
+                      title={simpsonsMode ? "Disable Ralph Wiggum Mode" : "Enable Ralph Wiggum Mode"}
+                    >
+                      {simpsonsMode ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                      <span className="hidden sm:inline">
+                        {simpsonsMode ? 'Ralph Mode ON' : 'Ralph Mode'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="rounded-full p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <X className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </div>
                 </div>
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">

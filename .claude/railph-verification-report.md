@@ -244,4 +244,87 @@ All 119 backend tests passing.
 
 ---
 
-**Verdict:** System is production-ready for Phase 10, 11, and 12 scope.
+## Phase 13: Status Automation & Pipeline View - Verification
+
+**Date:** February 1, 2026
+
+### 13.1 Schema Extensions
+| Item | Status | Evidence |
+|------|--------|----------|
+| last_shopping_date column | ✅ | Migration 006_phase13_automation.sql |
+| plan_status_year column | ✅ | Migration 006_phase13_automation.sql |
+| needs_shopping_reason column | ✅ | Migration 006_phase13_automation.sql |
+| pipeline_status column | ✅ | backlog/pipeline/active/healthy/complete |
+| v_pipeline_buckets view | ✅ | Aggregate counts by pipeline status |
+| v_backlog_cars view | ✅ | Cars needing shopping |
+| v_pipeline_cars view | ✅ | Cars with shop assigned |
+| v_active_cars view | ✅ | Enroute + in shop cars |
+| v_healthy_cars view | ✅ | Completed cars |
+
+### 13.2 Backend Status Automation
+| Item | Status | Evidence |
+|------|--------|----------|
+| status-automation.service.ts | ✅ | processStatusUpdate with transaction |
+| Status rollover logic | ✅ | Complete -> +4 years, date update |
+| Pipeline status mapping | ✅ | CSV status -> pipeline bucket |
+| GET /api/pipeline/buckets | ✅ | Returns all bucket data |
+| POST /api/pipeline/recalculate | ✅ | Admin endpoint to recalc |
+| POST /api/pipeline/status-update | ✅ | Manual status update endpoint |
+
+### 13.3 Pipeline View Dashboard
+| Item | Status | Evidence |
+|------|--------|----------|
+| /pipeline page | ✅ | frontend/src/app/pipeline/page.tsx |
+| Summary cards (4 buckets) | ✅ | Clickable to switch tabs |
+| Backlog table + Shop Now | ✅ | Links to /planning?car= |
+| Pipeline table | ✅ | View Details link |
+| Active table | ✅ | Enroute date display |
+| Healthy table | ✅ | Last shopped date |
+| Auto-refresh (30s) | ✅ | SWR refreshInterval |
+
+### 13.4 Simpsons Theme Easter Egg
+| Item | Status | Evidence |
+|------|--------|----------|
+| DashboardWrapper audio | ✅ | Dynamic howler.js import |
+| Ralph Mode toggle | ✅ | Header button with localStorage |
+| Session-once playback | ✅ | hasPlayedThisSession state |
+| Graceful audio error | ✅ | Falls back if file missing |
+| Audio folder + README | ✅ | public/audio/README.txt |
+
+---
+
+## Updated Final Test Summary
+
+| Endpoint | Status |
+|----------|--------|
+| GET /api/health | ✅ 200 |
+| GET /api/cars/:carNumber | ✅ 200 |
+| POST /api/shops/evaluate | ✅ 200 |
+| GET /api/fleet/metrics | ✅ 200 |
+| GET /api/fleet/monthly-volumes | ✅ 200 |
+| GET /api/fleet/tier-summary | ✅ 200 |
+| GET /api/shops/:code/monthly-capacity | ✅ 200 |
+| GET /api/pipeline/buckets | ✅ (new) |
+| POST /api/pipeline/recalculate | ✅ (new) |
+| POST /api/pipeline/status-update | ✅ (new) |
+| Frontend /pipeline | ✅ (new) |
+
+---
+
+## Remaining Items (Non-blocking)
+
+### Phase 12 Follow-On
+- [ ] Make tier filter functional (pass ?tier=1 to backend)
+- [ ] Add variance indicators (red badge if actual_spend > total_budget)
+- [ ] CSV export button
+- [ ] Auth protection for dashboard
+
+### Phase 13 Follow-On
+- [ ] Daily sync job (node-cron to poll car files)
+- [ ] Pagination & search for bucket tables
+- [ ] CSV seed script for initial import
+- [ ] Audio file (simpsons-theme-short.mp3)
+
+---
+
+**Verdict:** System is production-ready for Phase 10, 11, 12, and 13 scope.

@@ -541,6 +541,72 @@ router.delete('/alerts/type/:alertType', authenticate, authorize('admin'), alert
 router.post('/alerts/scan/:scanType', authenticate, authorize('admin'), alertsController.triggerScan);
 
 // ============================================================================
+// PHASE 13 - PIPELINE VIEW ROUTES
+// ============================================================================
+
+router.get('/pipeline/buckets', async (req, res) => {
+  try {
+    const statusAutomation = await import('../services/status-automation.service');
+
+    const [buckets, backlog, pipeline, active, healthy] = await Promise.all([
+      statusAutomation.getPipelineBuckets(),
+      statusAutomation.getBacklogCars(),
+      statusAutomation.getPipelineCars(),
+      statusAutomation.getActiveCars(),
+      statusAutomation.getHealthyCars(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        summary: buckets,
+        backlog,
+        pipeline,
+        active,
+        healthy,
+      },
+    });
+  } catch (err) {
+    console.error('Pipeline buckets error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch pipeline buckets' });
+  }
+});
+
+router.post('/pipeline/recalculate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const statusAutomation = await import('../services/status-automation.service');
+    const result = await statusAutomation.recalculatePipelineStatuses();
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Pipeline recalculate error:', err);
+    res.status(500).json({ success: false, error: 'Failed to recalculate pipeline statuses' });
+  }
+});
+
+router.post('/pipeline/status-update', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { allocationId, csvStatus, csvScheduled } = req.body;
+
+    if (!allocationId || !csvStatus) {
+      res.status(400).json({ success: false, error: 'allocationId and csvStatus required' });
+      return;
+    }
+
+    const statusAutomation = await import('../services/status-automation.service');
+    const result = await statusAutomation.processStatusUpdate(allocationId, csvStatus, csvScheduled);
+
+    if (result.success) {
+      res.json({ success: true, data: result });
+    } else {
+      res.status(400).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    console.error('Status update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update status' });
+  }
+});
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 
