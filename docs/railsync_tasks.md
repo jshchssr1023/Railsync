@@ -35,14 +35,14 @@ cd frontend && npm run lint          # ESLint check
 ```
 
 ### Phase 9 Test Checklist
-- [ ] Migration runs without errors
+- [x] Migration runs without errors
 - [ ] Budget endpoints return data
 - [ ] Car import parses CSV correctly
-- [ ] Demand CRUD works
-- [ ] Capacity initialization works
+- [x] Demand CRUD works
+- [x] Capacity initialization works
 - [ ] Allocation engine produces results
-- [ ] BRC parser handles 500-byte format
-- [ ] Forecast calculations are accurate
+- [x] BRC parser handles 500-byte format (25 unit tests)
+- [x] Forecast calculations are accurate
 
 ---
 
@@ -1940,7 +1940,7 @@ Add to your existing `tasks.md`:
 - [x] Match BRC to allocation or create running repair
 - [x] Update actual costs
 - [x] API: GET /api/brc/history
-- [ ] Unit tests (sample BRC records)
+- [x] Unit tests (25 tests: BRC parser, Julian dates, job codes, costs)
 
 ### 9.14 BRC Import UI
 - [ ] BRCImportModal component
@@ -1990,6 +1990,7 @@ Add to your existing `tasks.md`:
 - [ ] Generate allocations → cars assigned to shops
 - [x] Capacity initialization works (270 records created)
 - [x] Scenario list returns 4 seeded scenarios (TESTED)
+- [x] BRC Parser unit tests (25 tests covering all fields, edge cases)
 - [ ] Import BRC → matches to allocation, actual_cost set
 - [ ] Unmatched BRC → creates running repair allocation
 - [x] Maintenance forecast endpoint works (TESTED)

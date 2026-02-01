@@ -166,7 +166,7 @@ export async function healthCheck(): Promise<{
   return response.data || { status: 'unknown', timestamp: '', version: '' };
 }
 
-export default {
+const api = {
   getCarByNumber,
   listShops,
   evaluateShops,
@@ -177,3 +177,5 @@ export default {
   updateRule,
   healthCheck,
 };
+
+export default api;

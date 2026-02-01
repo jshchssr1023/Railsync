@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { EligibilityRule, ApiResponse } from '@/types';
 import { useAuthFetch, useAuth } from '@/context/AuthContext';
 
@@ -58,11 +58,7 @@ export default function AdminRulesEditor() {
   const isAdmin = user?.role === 'admin';
 
   // Fetch rules
-  useEffect(() => {
-    fetchRules();
-  }, [filterCategory, filterActive]);
-
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -85,7 +81,11 @@ export default function AdminRulesEditor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterCategory, filterActive]);
+
+  useEffect(() => {
+    fetchRules();
+  }, [fetchRules]);
 
   const handleSelectRule = (rule: EligibilityRule) => {
     setSelectedRule(rule);

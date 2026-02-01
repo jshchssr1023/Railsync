@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { listRules, updateRule } from '@/lib/api';
 import { EligibilityRule } from '@/types';
 
@@ -12,11 +12,7 @@ export default function RulesPage() {
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchRules();
-  }, [showInactive]);
-
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -28,7 +24,11 @@ export default function RulesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showInactive]);
+
+  useEffect(() => {
+    fetchRules();
+  }, [fetchRules]);
 
   const handleToggleActive = async (rule: EligibilityRule) => {
     setSaving(true);
