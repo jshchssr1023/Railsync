@@ -47,7 +47,7 @@ CREATE OR REPLACE VIEW v_backlog_cars AS
 SELECT
     a.id,
     a.car_id,
-    c.car_number,
+    a.car_number,
     c.car_mark,
     c.product_code,
     a.current_status,
@@ -57,7 +57,7 @@ SELECT
     a.target_month,
     a.created_at
 FROM allocations a
-LEFT JOIN cars c ON a.car_id = c.id
+LEFT JOIN cars c ON a.car_number = c.car_number
 WHERE a.pipeline_status = 'backlog'
     AND a.status NOT IN ('Released', 'cancelled')
 ORDER BY
@@ -73,7 +73,7 @@ CREATE OR REPLACE VIEW v_pipeline_cars AS
 SELECT
     a.id,
     a.car_id,
-    c.car_number,
+    a.car_number,
     c.car_mark,
     c.product_code,
     a.shop_code,
@@ -82,7 +82,7 @@ SELECT
     a.target_month,
     a.estimated_cost
 FROM allocations a
-LEFT JOIN cars c ON a.car_id = c.id
+LEFT JOIN cars c ON a.car_number = c.car_number
 LEFT JOIN shops s ON a.shop_code = s.shop_code
 WHERE a.pipeline_status = 'pipeline'
     AND a.status NOT IN ('Released', 'cancelled')
@@ -93,7 +93,7 @@ CREATE OR REPLACE VIEW v_active_cars AS
 SELECT
     a.id,
     a.car_id,
-    c.car_number,
+    a.car_number,
     c.car_mark,
     c.product_code,
     a.shop_code,
@@ -104,7 +104,7 @@ SELECT
     a.estimated_cost,
     a.actual_cost
 FROM allocations a
-LEFT JOIN cars c ON a.car_id = c.id
+LEFT JOIN cars c ON a.car_number = c.car_number
 LEFT JOIN shops s ON a.shop_code = s.shop_code
 WHERE a.pipeline_status = 'active'
     AND a.status NOT IN ('Released', 'cancelled')
@@ -121,7 +121,7 @@ CREATE OR REPLACE VIEW v_healthy_cars AS
 SELECT
     a.id,
     a.car_id,
-    c.car_number,
+    a.car_number,
     c.car_mark,
     c.product_code,
     a.shop_code,
@@ -130,22 +130,26 @@ SELECT
     a.plan_status_year,
     a.actual_cost
 FROM allocations a
-LEFT JOIN cars c ON a.car_id = c.id
+LEFT JOIN cars c ON a.car_number = c.car_number
 LEFT JOIN shops s ON a.shop_code = s.shop_code
 WHERE a.pipeline_status IN ('healthy', 'complete')
     AND a.status NOT IN ('cancelled')
 ORDER BY a.last_shopping_date DESC;
 
--- Update seed data with pipeline-relevant fields
-UPDATE allocations
-SET needs_shopping_reason = 'TANK QUALIFICATION'
-WHERE needs_shopping_reason IS NULL
-  AND work_type = 'QUAL';
+-- Update seed data with pipeline-relevant fields (note: work_type may not exist)
+-- These updates are optional if columns exist
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'allocations' AND column_name = 'work_type') THEN
+        UPDATE allocations
+        SET needs_shopping_reason = 'TANK QUALIFICATION'
+        WHERE needs_shopping_reason IS NULL AND work_type = 'QUAL';
 
-UPDATE allocations
-SET needs_shopping_reason = 'RUNNING REPAIR'
-WHERE needs_shopping_reason IS NULL
-  AND work_type = 'REPAIR';
+        UPDATE allocations
+        SET needs_shopping_reason = 'RUNNING REPAIR'
+        WHERE needs_shopping_reason IS NULL AND work_type = 'REPAIR';
+    END IF;
+END $$;
 
 -- Add index for pipeline queries
 CREATE INDEX IF NOT EXISTS idx_allocations_pipeline ON allocations(pipeline_status, current_status);
