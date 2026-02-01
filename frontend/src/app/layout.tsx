@@ -1,12 +1,17 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import dynamic from 'next/dynamic';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import AuthHeader from '@/components/AuthHeader';
-import DashboardWrapper from '@/components/DashboardWrapper';
-import FleetDashboard from '@/components/FleetDashboard';
+
+// Dynamic import to avoid SSR hydration issues with framer-motion
+const DashboardWithWrapper = dynamic(
+  () => import('@/components/DashboardWithWrapper'),
+  { ssr: false }
+);
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -44,9 +49,7 @@ export default function RootLayout({
                 </footer>
 
                 {/* Fleet Dashboard Floating Button */}
-                <DashboardWrapper>
-                  <FleetDashboard />
-                </DashboardWrapper>
+                <DashboardWithWrapper />
               </div>
             </ToastProvider>
           </AuthProvider>

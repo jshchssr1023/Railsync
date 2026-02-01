@@ -45,7 +45,10 @@
       "Bash(docker exec:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwOGFmMmMyZi1hNmU1LTQ5ZGEtOGY4OS1lM2UzZTIwNDI5YTMiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc2OTk3MTg4NiwiZXhwIjoxNzY5OTcyNzg2fQ.QiKZQKsK_msz-pOkP1ETk4wjS1RgpqrmOb8naOt7FxM\")",
       "Bash(docker-compose build:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(start http://localhost:3000/planning)",
+      "Bash(powershell -Command \"Start-Process ''http://localhost:3000/planning''\")",
+      "Bash(echo:*)"
     ]
   }
 }

@@ -8,9 +8,11 @@ interface OriginLocation {
 }
 
 interface FreightRate {
-  min_miles: number;
-  max_miles: number;
-  rate_per_mile: number;
+  origin_region: string;
+  destination_shop: string;
+  distance_miles: number;
+  base_rate: number;
+  per_mile_rate: number;
   fuel_surcharge_pct: number;
 }
 
@@ -104,20 +106,34 @@ export async function getShopLocation(
 }
 
 /**
- * Get freight rate for a given distance
+ * Get freight rate for origin region and destination shop
  */
-export async function getFreightRateForDistance(
-  distanceMiles: number
+export async function getFreightRate(
+  originRegion: string,
+  destinationShop: string
 ): Promise<FreightRate | null> {
   return queryOne<FreightRate>(
-    `SELECT min_miles, max_miles, rate_per_mile, fuel_surcharge_pct
+    `SELECT origin_region, destination_shop, distance_miles, base_rate, per_mile_rate, fuel_surcharge_pct
      FROM freight_rates
-     WHERE min_miles <= $1 AND max_miles >= $1
-       AND is_active = TRUE
+     WHERE origin_region = $1 AND destination_shop = $2
        AND (expiration_date IS NULL OR expiration_date > CURRENT_DATE)
      ORDER BY effective_date DESC
      LIMIT 1`,
-    [Math.round(distanceMiles)]
+    [originRegion, destinationShop]
+  );
+}
+
+/**
+ * Get default freight rate (fallback when no specific route exists)
+ */
+export async function getDefaultFreightRate(): Promise<FreightRate | null> {
+  return queryOne<FreightRate>(
+    `SELECT origin_region, destination_shop, distance_miles, base_rate, per_mile_rate, fuel_surcharge_pct
+     FROM freight_rates
+     WHERE (expiration_date IS NULL OR expiration_date > CURRENT_DATE)
+     ORDER BY effective_date DESC
+     LIMIT 1`,
+    []
   );
 }
 
@@ -156,8 +172,16 @@ export async function calculateFreightCost(
     shop.longitude
   );
 
-  // Get rate for this distance
-  const rate = await getFreightRateForDistance(distanceMiles);
+  // Try to get specific rate for origin region and destination shop
+  // Extract region from origin location_code (first part before any delimiter)
+  const originRegion = origin.location_code.split('-')[0] || origin.location_code;
+  let rate = await getFreightRate(originRegion, shopCode);
+
+  // If no specific rate, try default rate
+  if (!rate) {
+    rate = await getDefaultFreightRate();
+  }
+
   if (!rate) {
     // No rate found, use default with distance adjustment
     const baseFreight = Math.max(250, distanceMiles * 1.5);
@@ -172,9 +196,9 @@ export async function calculateFreightCost(
     };
   }
 
-  // Calculate freight cost
-  const baseFreight = distanceMiles * rate.rate_per_mile;
-  const fuelSurcharge = baseFreight * (rate.fuel_surcharge_pct / 100);
+  // Calculate freight cost using base_rate + per_mile_rate * distance
+  const baseFreight = Number(rate.base_rate) + (distanceMiles * Number(rate.per_mile_rate));
+  const fuelSurcharge = baseFreight * (Number(rate.fuel_surcharge_pct) / 100);
   const totalFreight = baseFreight + fuelSurcharge;
 
   return {
@@ -204,7 +228,8 @@ export default {
   calculateDistance,
   getOriginLocation,
   getShopLocation,
-  getFreightRateForDistance,
+  getFreightRate,
+  getDefaultFreightRate,
   calculateFreightCost,
   listOriginLocations,
 };
