@@ -78,16 +78,16 @@ async function getMonthlyForecast(fiscalYear: number): Promise<MonthlyForecast[]
     actual_cost: string;
   }>(
     `SELECT
-      target_month,
-      COALESCE(SUM(CASE WHEN status IN ('Planned Shopping', 'Enroute', 'Arrived')
-                   THEN estimated_cost ELSE 0 END), 0) AS planned_cost,
-      COALESCE(SUM(CASE WHEN status IN ('Complete', 'Released')
-                   THEN actual_cost ELSE 0 END), 0) AS actual_cost
+      a.target_month,
+      COALESCE(SUM(CASE WHEN a.status IN ('Planned Shopping', 'Enroute', 'Arrived')
+                   THEN a.estimated_cost ELSE 0 END), 0) AS planned_cost,
+      COALESCE(SUM(CASE WHEN a.status IN ('Complete', 'Released')
+                   THEN a.actual_cost ELSE 0 END), 0) AS actual_cost
     FROM allocations a
     JOIN demands d ON a.demand_id = d.id
     WHERE d.fiscal_year = $1
-    GROUP BY target_month
-    ORDER BY target_month`,
+    GROUP BY a.target_month
+    ORDER BY a.target_month`,
     [fiscalYear]
   );
 
