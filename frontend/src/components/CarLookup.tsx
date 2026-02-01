@@ -27,8 +27,8 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
     try {
       const result = await getCarByNumber(carNumber.trim());
       onCarFound(result.car);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch car data');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch car data');
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,7 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex space-x-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <div className="flex-1">
           <label htmlFor="carNumber" className="label">
             Car Number
@@ -55,7 +55,7 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary h-[42px]"
+            className="btn btn-primary h-[42px] w-full sm:w-auto"
           >
             {loading ? (
               <span className="flex items-center">
@@ -89,13 +89,13 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
       </div>
 
       {error && (
-        <div className="bg-danger-50 border border-danger-500 text-danger-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-danger-50 dark:bg-danger-900/30 border border-danger-500 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       {/* Sample car numbers for testing */}
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-gray-500 dark:text-gray-400">
         <span className="font-medium">Sample cars:</span>{' '}
         <button
           type="button"

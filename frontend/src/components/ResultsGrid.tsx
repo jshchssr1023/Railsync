@@ -94,29 +94,38 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
       'En Route 7-14',
       'Weekly Inbound',
       'Weekly Outbound',
+      'Available Hours',
+      'Utilization %',
+      'At Risk',
       'Eligible',
       'Restriction Code',
     ];
 
-    const rows = sortedResults.map((r) => [
-      r.shop.shop_name,
-      r.shop.shop_code,
-      r.shop.primary_railroad,
-      r.cost_breakdown.total_cost,
-      r.cost_breakdown.labor_cost,
-      r.cost_breakdown.material_cost,
-      r.cost_breakdown.abatement_cost,
-      r.cost_breakdown.freight_cost,
-      r.shop.is_preferred_network ? 'Yes' : 'No',
-      r.backlog.hours_backlog,
-      r.backlog.cars_backlog,
-      r.backlog.cars_en_route_0_6,
-      r.backlog.cars_en_route_7_14,
-      r.backlog.weekly_inbound,
-      r.backlog.weekly_outbound,
-      r.is_eligible ? 'Yes' : 'No',
-      r.restriction_code || '',
-    ]);
+    const rows = sortedResults.map((r) => {
+      const cap = getCapacitySummary(r);
+      return [
+        r.shop.shop_name,
+        r.shop.shop_code,
+        r.shop.primary_railroad,
+        r.cost_breakdown.total_cost,
+        r.cost_breakdown.labor_cost,
+        r.cost_breakdown.material_cost,
+        r.cost_breakdown.abatement_cost,
+        r.cost_breakdown.freight_cost,
+        r.shop.is_preferred_network ? 'Yes' : 'No',
+        r.backlog.hours_backlog,
+        r.backlog.cars_backlog,
+        r.backlog.cars_en_route_0_6,
+        r.backlog.cars_en_route_7_14,
+        r.backlog.weekly_inbound,
+        r.backlog.weekly_outbound,
+        cap.availHours.toFixed(0),
+        cap.avgUtil.toFixed(1),
+        isAtRisk(r) ? 'Yes' : 'No',
+        r.is_eligible ? 'Yes' : 'No',
+        r.restriction_code || '',
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -193,6 +202,28 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
     );
   };
 
+  const getUtilizationColor = (pct: number) => {
+    if (pct >= 95) return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
+    if (pct >= 85) return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30';
+    if (pct >= 70) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+    return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+  };
+
+  const isAtRisk = (result: EvaluationResult) => {
+    // At risk if utilization > 90% or backlog > 100 hours
+    const avgUtilization = result.capacity.length > 0
+      ? result.capacity.reduce((sum, c) => sum + c.current_utilization_pct, 0) / result.capacity.length
+      : 0;
+    return avgUtilization > 90 || result.backlog.hours_backlog > 100;
+  };
+
+  const getCapacitySummary = (result: EvaluationResult) => {
+    if (result.capacity.length === 0) return { avgUtil: 0, availHours: 0 };
+    const avgUtil = result.capacity.reduce((sum, c) => sum + c.current_utilization_pct, 0) / result.capacity.length;
+    const availHours = result.capacity.reduce((sum, c) => sum + c.available_hours, 0);
+    return { avgUtil, availHours };
+  };
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return (
@@ -215,30 +246,30 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
   return (
     <div>
       {/* Filter Controls */}
-      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <label className="flex items-center space-x-2 cursor-pointer">
             <input
               type="checkbox"
               checked={showEligibleOnly}
               onChange={(e) => setShowEligibleOnly(e.target.checked)}
-              className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              className="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500 bg-white dark:bg-gray-700"
             />
-            <span className="text-sm text-gray-700">Eligible only</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Eligible only</span>
           </label>
           <label className="flex items-center space-x-2 cursor-pointer">
             <input
               type="checkbox"
               checked={showAllColumns}
               onChange={(e) => setShowAllColumns(e.target.checked)}
-              className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              className="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500 bg-white dark:bg-gray-700"
             />
-            <span className="text-sm text-gray-700">Show all columns</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Show all columns</span>
           </label>
         </div>
         <div className="flex items-center gap-4">
           {lastUpdated && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               Updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -255,14 +286,14 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
           )}
           <button
             onClick={exportToCSV}
-            className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Export CSV
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             {sortedResults.length} of {results.length} shops
           </span>
         </div>
@@ -305,6 +336,18 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
                   <SortIcon field="en_route_0_6" />
                 </div>
               </th>
+              {/* Capacity Preview Columns */}
+              <th className="bg-purple-50 dark:bg-purple-900/30">
+                <div className="flex items-center space-x-1">
+                  <span>Avail Hrs</span>
+                </div>
+              </th>
+              <th className="bg-purple-50 dark:bg-purple-900/30">
+                <div className="flex items-center space-x-1">
+                  <span>% Util</span>
+                </div>
+              </th>
+              <th className="bg-purple-50 dark:bg-purple-900/30">Risk</th>
               <th>RC Code</th>
 
               {/* Expandable Cost Breakdown */}
@@ -334,8 +377,8 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
             {sortedResults.map((result) => (
               <tr
                 key={result.shop.shop_code}
-                className={`cursor-pointer hover:bg-gray-50 transition-colors ${
-                  !result.is_eligible ? 'bg-gray-50 text-gray-500' : ''
+                className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                  !result.is_eligible ? 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400' : ''
                 } ${compareShops.has(result.shop.shop_code) ? 'ring-2 ring-primary-500 ring-inset' : ''}`}
                 onClick={() => handleShopClick(result)}
               >
@@ -350,8 +393,8 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
                 </td>
                 <td>
                   <div>
-                    <div className="font-medium">{result.shop.shop_name}</div>
-                    <div className="text-xs text-gray-500">{result.shop.shop_code}</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">{result.shop.shop_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{result.shop.shop_code}</div>
                   </div>
                 </td>
                 <td>{result.shop.primary_railroad}</td>
@@ -368,6 +411,28 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
                   <span className={result.backlog.cars_en_route_0_6 > 5 ? 'text-orange-600 font-medium' : ''}>
                     {result.backlog.cars_en_route_0_6}
                   </span>
+                </td>
+                {/* Capacity Preview Columns */}
+                <td className="bg-purple-50/50 dark:bg-purple-900/20">
+                  {getCapacitySummary(result).availHours.toFixed(0)}
+                </td>
+                <td className={`${getUtilizationColor(getCapacitySummary(result).avgUtil)} px-2 py-1 rounded text-center font-medium`}>
+                  {getCapacitySummary(result).avgUtil.toFixed(0)}%
+                </td>
+                <td className="bg-purple-50/50 dark:bg-purple-900/20 text-center">
+                  {isAtRisk(result) ? (
+                    <span className="text-red-500" title="At Risk: High utilization or backlog">
+                      <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <span className="text-green-500" title="Capacity OK">
+                      <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
                 </td>
                 <td>{getRestrictionBadge(result.restriction_code)}</td>
 
@@ -405,7 +470,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh }: Results
       </div>
 
       {sortedResults.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           No shops match the current filters
         </div>
       )}

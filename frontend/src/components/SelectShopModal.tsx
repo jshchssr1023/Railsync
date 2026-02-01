@@ -6,12 +6,14 @@ import { useAuth, useAuthFetch } from '@/context/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+type ActionType = 'confirm' | 'plan';
+
 interface SelectShopModalProps {
   shop: EvaluationResult;
   car?: Partial<Car>;
   overrides?: EvaluationOverrides;
   onClose: () => void;
-  onSuccess?: (eventId: string) => void;
+  onSuccess?: (eventId: string, actionType: ActionType) => void;
 }
 
 export default function SelectShopModal({
@@ -24,6 +26,7 @@ export default function SelectShopModal({
   const { user, isAuthenticated } = useAuth();
   const authFetch = useAuthFetch();
   const [notes, setNotes] = useState('');
+  const [actionType, setActionType] = useState<ActionType>('confirm');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -56,6 +59,8 @@ export default function SelectShopModal({
           evaluation_result: shop,
           overrides,
           notes: notes || null,
+          action_type: actionType, // 'confirm' or 'plan'
+          status: actionType === 'confirm' ? 'Confirmed' : 'Planned',
         }),
       });
 
@@ -65,7 +70,7 @@ export default function SelectShopModal({
         throw new Error(data.error || 'Failed to create service event');
       }
 
-      onSuccess?.(data.data.event_id);
+      onSuccess?.(data.data.event_id, actionType);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to select shop');
@@ -169,6 +174,69 @@ export default function SelectShopModal({
               </div>
             </div>
 
+            {/* Action Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Action Type
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActionType('confirm')}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    actionType === 'confirm'
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      actionType === 'confirm'
+                        ? 'border-primary-500 bg-primary-500'
+                        : 'border-gray-400'
+                    }`}>
+                      {actionType === 'confirm' && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
+                          <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Confirm</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Immediately assign car to shop. Deducts from available capacity.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType('plan')}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    actionType === 'plan'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      actionType === 'plan'
+                        ? 'border-blue-500 bg-blue-500'
+                        : 'border-gray-400'
+                    }`}>
+                      {actionType === 'plan' && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
+                          <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Plan / Hold</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Reserve for future. Does not affect confirmed capacity.
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -177,7 +245,7 @@ export default function SelectShopModal({
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={3}
+                rows={2}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 placeholder="Add any notes about this assignment..."
               />
@@ -216,9 +284,17 @@ export default function SelectShopModal({
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !isAuthenticated}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                actionType === 'confirm'
+                  ? 'bg-primary-600 hover:bg-primary-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              {isSubmitting ? 'Creating...' : 'Confirm Selection'}
+              {isSubmitting
+                ? 'Creating...'
+                : actionType === 'confirm'
+                ? 'Confirm & Assign'
+                : 'Plan for Later'}
             </button>
           </div>
         </div>

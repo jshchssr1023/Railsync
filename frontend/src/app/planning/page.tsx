@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ForecastSummary from '@/components/ForecastSummary';
 import DemandList from '@/components/DemandList';
@@ -11,14 +12,29 @@ import CarLookup from '@/components/CarLookup';
 import OverrideOptions from '@/components/OverrideOptions';
 import ResultsGrid from '@/components/ResultsGrid';
 import DirectCarInput from '@/components/DirectCarInput';
-import { evaluateShops, evaluateShopsDirect } from '@/lib/api';
+import AllocationList from '@/components/AllocationList';
+import { evaluateShops, evaluateShopsDirect, getCarByNumber } from '@/lib/api';
 import { Car, EvaluationOverrides, EvaluationResult } from '@/types';
 
 type TabId = 'quick-shop' | 'monthly-load' | 'network-view';
 type InputMode = 'lookup' | 'direct';
 
+// Wrapper component to handle the Suspense boundary for useSearchParams
 export default function PlanningPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+      </div>
+    }>
+      <PlanningContent />
+    </Suspense>
+  );
+}
+
+function PlanningContent() {
   const { user, isLoading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabId>('quick-shop');
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
 
@@ -33,10 +49,42 @@ export default function PlanningPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Handle URL parameter for pre-filling car number
+  useEffect(() => {
+    const carParam = searchParams.get('car');
+    if (carParam && !car) {
+      setActiveTab('quick-shop');
+      // Auto-lookup the car
+      getCarByNumber(carParam)
+        .then((result) => {
+          setCar(result.car);
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Failed to load car');
+        });
+    }
+  }, [searchParams, car]);
+
   const handleCarFound = (foundCar: Car) => {
     setCar(foundCar);
     setResults([]);
     setError(null);
+  };
+
+  // Navigate to Quick Shop with a specific car
+  const handleShopCarNow = (carNumber: string) => {
+    setActiveTab('quick-shop');
+    setCar(null);
+    setResults([]);
+    setError(null);
+    // Lookup the car
+    getCarByNumber(carNumber)
+      .then((result) => {
+        setCar(result.car);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to load car');
+      });
   };
 
   const handleEvaluate = useCallback(async () => {
@@ -370,6 +418,9 @@ export default function PlanningPage() {
 
       {activeTab === 'monthly-load' && (
         <div className="space-y-6">
+          {/* Allocations with Shop Now buttons */}
+          <AllocationList onShopCarNow={handleShopCarNow} />
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <DemandList fiscalYear={fiscalYear} />
             <BudgetOverview fiscalYear={fiscalYear} />

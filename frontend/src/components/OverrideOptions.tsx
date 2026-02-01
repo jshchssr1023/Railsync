@@ -58,20 +58,20 @@ export default function OverrideOptions({
               type="checkbox"
               checked={overrides[option.key] || false}
               onChange={(e) => handleChange(option.key, e.target.checked)}
-              className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+              className="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500 cursor-pointer bg-white dark:bg-gray-800"
             />
           </div>
           <div className="flex-1">
-            <span className="text-sm font-medium text-gray-900 group-hover:text-primary-600">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400">
               {option.label}
             </span>
-            <p className="text-xs text-gray-500">{option.description}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{option.description}</p>
           </div>
         </label>
       ))}
 
       {/* Quick Actions */}
-      <div className="pt-4 border-t border-gray-200 flex space-x-2">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() =>
@@ -83,11 +83,11 @@ export default function OverrideOptions({
               primary_network: false,
             })
           }
-          className="text-xs text-primary-600 hover:underline"
+          className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
         >
           Full Repair
         </button>
-        <span className="text-gray-300">|</span>
+        <span className="text-gray-300 dark:text-gray-600">|</span>
         <button
           type="button"
           onClick={() =>
@@ -99,7 +99,7 @@ export default function OverrideOptions({
               primary_network: false,
             })
           }
-          className="text-xs text-primary-600 hover:underline"
+          className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
         >
           Clear All
         </button>
