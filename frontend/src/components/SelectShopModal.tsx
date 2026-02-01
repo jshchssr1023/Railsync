@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { EvaluationResult, Car, EvaluationOverrides } from '@/types';
 import { useAuth, useAuthFetch } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -25,6 +26,7 @@ export default function SelectShopModal({
 }: SelectShopModalProps) {
   const { user, isAuthenticated } = useAuth();
   const authFetch = useAuthFetch();
+  const toast = useToast();
   const [notes, setNotes] = useState('');
   const [actionType, setActionType] = useState<ActionType>('confirm');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,10 +72,18 @@ export default function SelectShopModal({
         throw new Error(data.error || 'Failed to create service event');
       }
 
+      // Show success toast
+      toast.success(
+        actionType === 'confirm' ? 'Shop Confirmed' : 'Shop Planned',
+        `${car?.car_number || 'Car'} assigned to ${shop.shop.shop_name}`
+      );
+
       onSuccess?.(data.data.event_id, actionType);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to select shop');
+      const message = err instanceof Error ? err.message : 'Failed to select shop';
+      setError(message);
+      toast.error('Selection Failed', message);
     } finally {
       setIsSubmitting(false);
     }
