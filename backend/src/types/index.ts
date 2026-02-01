@@ -398,3 +398,282 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   page: number;
   limit: number;
 }
+
+// ============================================================================
+// PHASE 9 - PLANNING, BUDGETING & FORECASTING TYPES
+// ============================================================================
+
+// Extended Car type for planning (from Qual_Planner_Master.csv)
+export interface CarMaster extends Car {
+  car_id: string;           // Full car ID "SHQX006002"
+  car_mark: string;         // Mark only "SHQX"
+  car_type?: string;        // "General Service Tank"
+  lessee_name?: string;
+  contract_number?: string;
+  contract_expiration?: Date;
+  portfolio_status?: string; // "On Lease", "2025", etc.
+  commodity?: string;
+  is_jacketed?: boolean;
+  is_lined?: boolean;
+  car_age?: number;
+  // Compliance dates (year of next due)
+  min_no_lining_year?: number;
+  min_lining_year?: number;
+  interior_lining_year?: number;
+  rule_88b_year?: number;
+  safety_relief_year?: number;
+  service_equipment_year?: number;
+  stub_sill_year?: number;
+  tank_thickness_year?: number;
+  tank_qual_year?: number;
+  // Planning status
+  current_status?: string;
+  adjusted_status?: string;
+  plan_status?: string;
+  assigned_shop_code?: string;
+  assigned_date?: Date;
+}
+
+// Running Repairs Budget
+export interface RunningRepairsBudget {
+  id: string;
+  fiscal_year: number;
+  month: string;              // "2026-01"
+  cars_on_lease: number;
+  allocation_per_car: number;
+  monthly_budget: number;
+  actual_spend: number;
+  actual_car_count: number;
+  remaining_budget: number;
+  notes?: string;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Service Event Budget
+export interface ServiceEventBudget {
+  id: string;
+  fiscal_year: number;
+  event_type: EventType;
+  budgeted_car_count: number;
+  avg_cost_per_car: number;
+  total_budget: number;
+  customer_code?: string;
+  fleet_segment?: string;
+  car_type?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type EventType = 'Qualification' | 'Assignment' | 'Return' | 'Running Repair';
+
+// Demand
+export interface Demand {
+  id: string;
+  name: string;
+  description?: string;
+  fiscal_year: number;
+  target_month: string;       // "2026-04"
+  car_count: number;
+  event_type: EventType;
+  car_type?: string;
+  default_lessee_code?: string;
+  default_material_type?: string;
+  default_lining_type?: string;
+  default_commodity?: string;
+  priority: DemandPriority;
+  required_network?: string;
+  required_region?: string;
+  max_cost_per_car?: number;
+  excluded_shops?: string[];
+  status: DemandStatus;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type DemandPriority = 'Critical' | 'High' | 'Medium' | 'Low';
+export type DemandStatus = 'Forecast' | 'Confirmed' | 'Allocating' | 'Allocated' | 'Complete';
+
+// Shop Monthly Capacity
+export interface ShopMonthlyCapacity {
+  id: string;
+  shop_code: string;
+  month: string;              // "2026-04"
+  total_capacity: number;
+  allocated_count: number;
+  completed_count: number;
+  available_capacity: number;
+  utilization_pct: number;
+  updated_at: Date;
+}
+
+// Scenario
+export interface Scenario {
+  id: string;
+  name: string;
+  description?: string;
+  weights: ScenarioWeights;
+  constraints?: ScenarioConstraints;
+  is_default: boolean;
+  is_system: boolean;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface ScenarioWeights {
+  cost: number;
+  cycle_time: number;
+  aitx_preference: number;
+  capacity_balance: number;
+  quality_score: number;
+}
+
+export interface ScenarioConstraints {
+  max_utilization_pct?: number;
+  min_quality_score?: number;
+  required_network?: string;
+  excluded_shops?: string[];
+}
+
+// Allocation
+export interface Allocation {
+  id: string;
+  demand_id?: string;
+  scenario_id?: string;
+  car_id: string;
+  car_number?: string;
+  shop_code: string;
+  target_month: string;
+  status: AllocationStatus;
+  estimated_cost?: number;
+  estimated_cost_breakdown?: CostBreakdown;
+  actual_cost?: number;
+  actual_cost_breakdown?: BRCCostBreakdown;
+  brc_number?: string;
+  brc_received_at?: Date;
+  planned_arrival_date?: Date;
+  actual_arrival_date?: Date;
+  planned_completion_date?: Date;
+  actual_completion_date?: Date;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type AllocationStatus =
+  | 'Need Shopping'
+  | 'To Be Routed'
+  | 'Planned Shopping'
+  | 'Enroute'
+  | 'Arrived'
+  | 'Complete'
+  | 'Released';
+
+export interface BRCCostBreakdown {
+  labor: number;
+  material: number;
+  labor_hours: number;
+  job_codes: { code: string; amount: number }[];
+}
+
+// BRC Record (AAR 500-byte format)
+export interface BRCRecord {
+  car_mark: string;
+  car_number: string;
+  car_id: string;
+  billing_date: Date;
+  completion_date: Date;
+  shop_code: string;
+  card_type: string;
+  why_made_code: string;
+  labor_amount: number;
+  material_amount: number;
+  total_amount: number;
+  labor_hours: number;
+  job_codes: { code: string; amount: number }[];
+  raw_record: string;
+}
+
+export interface BRCImportResult {
+  id: string;
+  filename: string;
+  total: number;
+  matched_to_allocation: number;
+  created_running_repair: number;
+  errors: string[];
+}
+
+// Forecast
+export interface ForecastResult {
+  fiscal_year: number;
+  summary: {
+    total_budget: number;
+    total_planned: number;
+    total_actual: number;
+    remaining_budget: number;
+    budget_consumed_pct: number;
+  };
+  by_type: ForecastLine[];
+  by_month?: MonthlyForecast[];
+}
+
+export interface ForecastLine {
+  budget_type: string;
+  event_type?: string;
+  total_budget: number;
+  planned_cost: number;
+  planned_car_count: number;
+  actual_cost: number;
+  actual_car_count: number;
+  remaining_budget: number;
+}
+
+export interface MonthlyForecast {
+  target_month: string;
+  planned_cost: number;
+  actual_cost: number;
+  cumulative_planned: number;
+  cumulative_actual: number;
+}
+
+// Dashboard
+export interface DashboardWidget {
+  id: string;
+  name: string;
+  description?: string;
+  category: 'Budget' | 'Capacity' | 'Operations' | 'Performance';
+  default_width: number;
+  default_height: number;
+  config_schema?: Record<string, unknown>;
+  data_endpoint?: string;
+  is_active: boolean;
+}
+
+export interface DashboardConfig {
+  id: string;
+  user_id: string;
+  name: string;
+  is_default: boolean;
+  layout: DashboardLayout;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface DashboardLayout {
+  columns: number;
+  widgets: WidgetPlacement[];
+}
+
+export interface WidgetPlacement {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  settings?: Record<string, unknown>;
+}
