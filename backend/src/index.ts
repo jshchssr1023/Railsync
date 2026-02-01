@@ -5,6 +5,7 @@ dotenv.config();
 
 import app from './app';
 import { pool } from './config/database';
+import { initScheduler } from './services/scheduler.service';
 
 const PORT = process.env.PORT || 3001;
 
@@ -14,6 +15,9 @@ async function startServer() {
     const client = await pool.connect();
     console.log('Database connected successfully');
     client.release();
+
+    // Initialize scheduled jobs
+    initScheduler();
 
     // Start server
     app.listen(PORT, () => {
@@ -32,6 +36,7 @@ async function startServer() {
 ║   - GET  /api/shops/:shopCode/backlog                     ║
 ║   - GET  /api/rules                                       ║
 ║   - PUT  /api/rules/:ruleId                               ║
+║   - GET  /api/alerts                                      ║
 ║   - GET  /api/health                                      ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
