@@ -8,6 +8,7 @@ import {
   ShopMonthlyCapacity,
   EvaluationResult,
   DirectCarInput,
+  EvaluationRequest,
 } from '../types';
 import { evaluateShops } from './evaluation.service';
 import { getDemandById, updateDemandStatus } from './demand.service';
@@ -389,8 +390,12 @@ export async function generateAllocations(
       commodity_cin: demand.default_commodity,
     };
 
-    // Call existing evaluation engine
-    const shopResults = await evaluateShops(undefined, carInput, {}, demand.required_region);
+    // Call existing evaluation engine with EvaluationRequest
+    const shopResults = await evaluateShops({
+      car_input: carInput,
+      overrides: {},
+      origin_region: demand.required_region,
+    });
 
     // Filter eligible shops with capacity
     const eligibleShops = shopResults

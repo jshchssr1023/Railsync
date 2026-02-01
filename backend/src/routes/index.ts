@@ -263,7 +263,7 @@ router.get('/audit-logs', authenticate, authorize('admin'), async (req, res) => 
   try {
     const filters = {
       userId: req.query.user_id as string | undefined,
-      action: req.query.action as string | undefined,
+      action: req.query.action as any,
       entityType: req.query.entity_type as string | undefined,
       entityId: req.query.entity_id as string | undefined,
       startDate: req.query.start_date ? new Date(req.query.start_date as string) : undefined,

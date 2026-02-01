@@ -45,7 +45,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: parseResult.error.errors,
+        details: parseResult.error.issues,
       });
       return;
     }
@@ -155,7 +155,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: parseResult.error.errors,
+        details: parseResult.error.issues,
       });
       return;
     }
@@ -229,7 +229,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: parseResult.error.errors,
+        details: parseResult.error.issues,
       });
       return;
     }
