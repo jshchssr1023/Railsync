@@ -31,19 +31,11 @@ export default function AuthHeader() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <nav className="flex space-x-1 sm:space-x-4">
                 <a
-                  href="/"
+                  href="/planning"
                   className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
                 >
-                  Dashboard
+                  Planning
                 </a>
-                {isAuthenticated && (
-                  <a
-                    href="/planning"
-                    className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Planning
-                  </a>
-                )}
                 <a
                   href="/rules"
                   className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
