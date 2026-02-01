@@ -282,7 +282,7 @@ CREATE INDEX idx_labor_rates_work_type ON labor_rates(work_type);
 -- Standard material costs for repairs
 -- ============================================================================
 CREATE TABLE material_costs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     material_code VARCHAR(50) PRIMARY KEY,
     material_name VARCHAR(100) NOT NULL,
     category VARCHAR(50) NOT NULL, -- Lining, Paint, Parts, Supplies
@@ -291,10 +291,6 @@ CREATE TABLE material_costs (
     effective_date DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Drop the duplicate primary key (id was already set)
-ALTER TABLE material_costs DROP CONSTRAINT material_costs_pkey;
-ALTER TABLE material_costs ADD PRIMARY KEY (material_code);
 
 CREATE INDEX idx_material_costs_category ON material_costs(category);
 

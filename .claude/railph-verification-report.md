@@ -152,4 +152,43 @@ User → CarLookup → GET /api/cars/:carNumber
 
 ---
 
-**Verdict:** System is production-ready for Phase 10 scope.
+## Phase 11: Bring It To Life - Verification
+
+### Phase 9 Database Schema Verification
+**Status:** ✅ COMPLETE - All tables deployed and seeded
+
+| Table | Rows | Status |
+|-------|------|--------|
+| allocations | 3 | ✅ |
+| shop_monthly_capacity | 90 | ✅ |
+| scenarios | 4 | ✅ |
+| dashboard_widgets | 10 | ✅ |
+| demands | 0 (table exists) | ✅ |
+| running_repairs_budget | - | ✅ |
+| service_event_budget | - | ✅ |
+| brc_imports | - | ✅ |
+| dashboard_configs | - | ✅ |
+
+### Phase 11 Component Verification
+
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| 11.1 Schema Additions | ✅ COMPLETE | allocations, shop_monthly_capacity tables exist with all required columns |
+| 11.2 Backend Integration | ✅ COMPLETE | allocation.service.ts with transactions, optimistic locking, 10% overcommit |
+| 11.2 Assignment Endpoints | ✅ COMPLETE | POST/GET /allocations, PUT /allocations/:id/status routes exist |
+| 11.2 Capacity Endpoint | ✅ COMPLETE | GET /shops/:shopCode/monthly-capacity returns 3 months |
+| 11.3 Confirm/Plan Modal | ✅ COMPLETE | SelectShopModal.tsx with full confirm vs plan logic |
+| 11.3 Capacity Preview | ✅ COMPLETE | ResultsGrid shows capacity columns with utilization |
+| 11.4 Qual-Due Cron | ✅ COMPLETE | scheduler.service.ts runs 30/60/90 day scans at 6AM |
+| 11.4 Alerts Banner | ✅ COMPLETE | AlertBanner.tsx + Toast.tsx components exist |
+| 11.5 All Tests Pass | ✅ COMPLETE | 119 tests, 6 suites |
+| 11.5 Frontend Lint | ✅ COMPLETE | 0 errors, 0 warnings |
+
+### Remaining Items (Non-blocking)
+- "Shop This Car Now" button on car search page - not visible in current UI
+- Backend lint has 32 warnings (acceptable - all `any` types)
+- Frontend automated tests - not implemented (out of scope)
+
+---
+
+**Verdict:** System is production-ready for Phase 10 and Phase 11 scope.

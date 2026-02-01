@@ -4,10 +4,10 @@ FROM node:18-alpine AS deps
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Builder stage
 FROM node:18-alpine AS builder
@@ -18,6 +18,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build Next.js application
+ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 # Production stage
@@ -26,6 +27,7 @@ FROM node:18-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED 1
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -33,8 +35,8 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 

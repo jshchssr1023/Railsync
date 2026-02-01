@@ -112,22 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_origin_locations_code ON origin_locations(locatio
 CREATE INDEX IF NOT EXISTS idx_origin_locations_region ON origin_locations(region);
 
 -- ============================================================================
--- FREIGHT RATES TABLE
--- ============================================================================
-CREATE TABLE IF NOT EXISTS freight_rates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    min_miles INTEGER NOT NULL,
-    max_miles INTEGER NOT NULL,
-    rate_per_mile DECIMAL(6, 4) NOT NULL,
-    fuel_surcharge_pct DECIMAL(5, 2) NOT NULL DEFAULT 15.00,
-    effective_date DATE NOT NULL,
-    expiration_date DATE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT freight_rates_range_check CHECK (max_miles > min_miles)
-);
-
-CREATE INDEX IF NOT EXISTS idx_freight_rates_miles ON freight_rates(min_miles, max_miles);
+-- FREIGHT RATES TABLE - Already created in schema.sql with origin_region/destination_shop columns
+-- See database/schema.sql for the freight_rates table definition
 
 -- ============================================================================
 -- WORK HOURS FACTORS TABLE (for ML-style estimation)
@@ -186,17 +172,7 @@ INSERT INTO origin_locations (location_code, location_name, region, city, state,
 ('DEN', 'Denver Intermodal', 'Mountain', 'Denver', 'CO', 39.7392, -104.9903)
 ON CONFLICT (location_code) DO NOTHING;
 
--- ============================================================================
--- SEED FREIGHT RATES (tiered by distance)
--- ============================================================================
-INSERT INTO freight_rates (min_miles, max_miles, rate_per_mile, fuel_surcharge_pct, effective_date) VALUES
-(0, 100, 3.50, 18.00, '2024-01-01'),
-(101, 300, 2.80, 18.00, '2024-01-01'),
-(301, 500, 2.40, 18.00, '2024-01-01'),
-(501, 1000, 2.00, 18.00, '2024-01-01'),
-(1001, 2000, 1.75, 18.00, '2024-01-01'),
-(2001, 99999, 1.50, 18.00, '2024-01-01')
-ON CONFLICT DO NOTHING;
+-- FREIGHT RATES SEED DATA - Already seeded in seed.sql with origin_region/destination_shop format
 
 -- ============================================================================
 -- SEED WORK HOURS FACTORS
