@@ -478,6 +478,17 @@ router.get('/forecast', authenticate, planningController.getForecast);
 router.get('/forecast/trends', authenticate, planningController.getForecastTrends);
 
 // ============================================================================
+// PHASE 9 - DASHBOARD ROUTES
+// ============================================================================
+
+router.get('/dashboard/widgets', authenticate, planningController.listWidgets);
+router.get('/dashboard/configs', authenticate, planningController.listDashboardConfigs);
+router.get('/dashboard/configs/:id', authenticate, planningController.getDashboardConfig);
+router.post('/dashboard/configs', authenticate, planningController.createDashboardConfig);
+router.put('/dashboard/configs/:id', authenticate, planningController.updateDashboardConfig);
+router.delete('/dashboard/configs/:id', authenticate, planningController.deleteDashboardConfig);
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 

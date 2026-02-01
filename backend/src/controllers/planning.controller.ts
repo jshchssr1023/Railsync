@@ -5,6 +5,7 @@ import * as demandService from '../services/demand.service';
 import * as planningService from '../services/planning.service';
 import * as forecastService from '../services/forecast.service';
 import * as brcService from '../services/brc.service';
+import * as dashboardService from '../services/dashboard.service';
 import { logFromRequest } from '../services/audit.service';
 
 // ============================================================================
@@ -473,6 +474,94 @@ export async function getBRCHistory(req: Request, res: Response): Promise<void> 
   }
 }
 
+// ============================================================================
+// DASHBOARD ENDPOINTS
+// ============================================================================
+
+export async function listWidgets(req: Request, res: Response): Promise<void> {
+  try {
+    const widgets = await dashboardService.listWidgets();
+    res.json({ success: true, data: widgets });
+  } catch (error: any) {
+    console.error('List widgets error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function listDashboardConfigs(req: Request, res: Response): Promise<void> {
+  try {
+    const configs = await dashboardService.listDashboardConfigs(req.user!.id);
+    res.json({ success: true, data: configs });
+  } catch (error: any) {
+    console.error('List dashboard configs error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function getDashboardConfig(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const config = await dashboardService.getDashboardConfig(id, req.user!.id);
+    if (!config) {
+      res.status(404).json({ success: false, error: 'Dashboard config not found' });
+      return;
+    }
+    res.json({ success: true, data: config });
+  } catch (error: any) {
+    console.error('Get dashboard config error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function createDashboardConfig(req: Request, res: Response): Promise<void> {
+  try {
+    const { name, layout, is_default } = req.body;
+    const config = await dashboardService.createDashboardConfig(
+      req.user!.id,
+      name,
+      layout || dashboardService.getDefaultLayout(),
+      is_default
+    );
+    await logFromRequest(req, 'create', 'dashboard_config', config.id, undefined, { name });
+    res.status(201).json({ success: true, data: config });
+  } catch (error: any) {
+    console.error('Create dashboard config error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function updateDashboardConfig(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const config = await dashboardService.updateDashboardConfig(id, req.user!.id, req.body);
+    if (!config) {
+      res.status(404).json({ success: false, error: 'Dashboard config not found' });
+      return;
+    }
+    await logFromRequest(req, 'update', 'dashboard_config', id, undefined, req.body);
+    res.json({ success: true, data: config });
+  } catch (error: any) {
+    console.error('Update dashboard config error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function deleteDashboardConfig(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const deleted = await dashboardService.deleteDashboardConfig(id, req.user!.id);
+    if (!deleted) {
+      res.status(404).json({ success: false, error: 'Dashboard config not found' });
+      return;
+    }
+    await logFromRequest(req, 'delete', 'dashboard_config', id);
+    res.json({ success: true, message: 'Dashboard config deleted' });
+  } catch (error: any) {
+    console.error('Delete dashboard config error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 export default {
   // Budget
   getRunningRepairsBudget,
@@ -511,4 +600,11 @@ export default {
   // BRC
   importBRC,
   getBRCHistory,
+  // Dashboard
+  listWidgets,
+  listDashboardConfigs,
+  getDashboardConfig,
+  createDashboardConfig,
+  updateDashboardConfig,
+  deleteDashboardConfig,
 };

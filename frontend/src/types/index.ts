@@ -391,3 +391,39 @@ export interface BudgetSummary {
     consumed_pct: number;
   };
 }
+
+// Dashboard Types
+export interface DashboardWidget {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  default_width: number;
+  default_height: number;
+  data_endpoint?: string;
+  is_active: boolean;
+}
+
+export interface WidgetPlacement {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface DashboardLayout {
+  columns: number;
+  widgets: WidgetPlacement[];
+}
+
+export interface DashboardConfig {
+  id: string;
+  user_id: string;
+  name: string;
+  is_default: boolean;
+  layout: DashboardLayout;
+  created_at: string;
+  updated_at: string;
+}

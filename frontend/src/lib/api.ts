@@ -19,6 +19,9 @@ import {
   ForecastResult,
   BRCImportHistory,
   BRCImportResult,
+  DashboardWidget,
+  DashboardConfig,
+  DashboardLayout,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -426,6 +429,55 @@ export async function importBRC(file: File): Promise<BRCImportResult> {
   return data.data;
 }
 
+// PHASE 9 - DASHBOARD API
+// ============================================================================
+
+export async function listDashboardWidgets(): Promise<DashboardWidget[]> {
+  const response = await fetchApi<DashboardWidget[]>('/dashboard/widgets');
+  return response.data || [];
+}
+
+export async function listDashboardConfigs(): Promise<DashboardConfig[]> {
+  const response = await fetchApi<DashboardConfig[]>('/dashboard/configs');
+  return response.data || [];
+}
+
+export async function getDashboardConfig(id: string): Promise<DashboardConfig | null> {
+  const response = await fetchApi<DashboardConfig>(`/dashboard/configs/${id}`);
+  return response.data || null;
+}
+
+export async function createDashboardConfig(
+  name: string,
+  layout: DashboardLayout,
+  isDefault: boolean = false
+): Promise<DashboardConfig> {
+  const response = await fetchApi<DashboardConfig>('/dashboard/configs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, layout, is_default: isDefault }),
+  });
+  if (!response.data) throw new Error('Failed to create dashboard config');
+  return response.data;
+}
+
+export async function updateDashboardConfig(
+  id: string,
+  updates: { name?: string; layout?: DashboardLayout; is_default?: boolean }
+): Promise<DashboardConfig> {
+  const response = await fetchApi<DashboardConfig>(`/dashboard/configs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.data) throw new Error('Failed to update dashboard config');
+  return response.data;
+}
+
+export async function deleteDashboardConfig(id: string): Promise<void> {
+  await fetchApi(`/dashboard/configs/${id}`, { method: 'DELETE' });
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -455,6 +507,13 @@ const api = {
   getForecast,
   getBRCHistory,
   importBRC,
+  // Dashboard
+  listDashboardWidgets,
+  listDashboardConfigs,
+  getDashboardConfig,
+  createDashboardConfig,
+  updateDashboardConfig,
+  deleteDashboardConfig,
 };
 
 export default api;

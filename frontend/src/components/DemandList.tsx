@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Demand, DemandStatus, DemandPriority, EventType } from '@/types';
 import { listDemands, createDemand, updateDemand, deleteDemand } from '@/lib/api';
+import DemandImportModal from './DemandImportModal';
 
 interface DemandListProps {
   fiscalYear?: number;
@@ -29,6 +30,7 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterMonth, setFilterMonth] = useState<string>('');
@@ -99,6 +101,12 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
             <option value="Complete">Complete</option>
           </select>
           <button
+            onClick={() => setShowImport(true)}
+            className="btn btn-secondary text-sm py-1.5"
+          >
+            Import CSV
+          </button>
+          <button
             onClick={() => {
               setEditingDemand(null);
               setShowForm(true);
@@ -109,6 +117,17 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
           </button>
         </div>
       </div>
+
+      {/* Import Modal */}
+      {showImport && (
+        <DemandImportModal
+          onClose={() => setShowImport(false)}
+          onSuccess={() => {
+            setShowImport(false);
+            fetchDemands();
+          }}
+        />
+      )}
 
       {/* Error */}
       {error && (

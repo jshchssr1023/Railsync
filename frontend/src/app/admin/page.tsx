@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
+import BRCHistoryList from '@/components/BRCHistoryList';
 
 type AdminTab = 'rules' | 'users' | 'audit' | 'import';
 
@@ -319,10 +320,16 @@ function AuditLogs() {
 
 function DataImport() {
   const [showBRCModal, setShowBRCModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleBRCSuccess = () => {
+    setShowBRCModal(false);
+    setRefreshKey((k) => k + 1);
+  };
 
   return (
     <div className="p-6">
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
             Data Import Options
@@ -396,13 +403,23 @@ function DataImport() {
             </div>
           </div>
         </div>
+
+        {/* BRC Import History */}
+        <div>
+          <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
+            BRC Import History
+          </h4>
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <BRCHistoryList key={refreshKey} />
+          </div>
+        </div>
       </div>
 
       {/* BRC Import Modal */}
       {showBRCModal && (
         <BRCImportModal
           onClose={() => setShowBRCModal(false)}
-          onSuccess={() => setShowBRCModal(false)}
+          onSuccess={handleBRCSuccess}
         />
       )}
     </div>
