@@ -191,4 +191,31 @@ User → CarLookup → GET /api/cars/:carNumber
 
 ---
 
-**Verdict:** System is production-ready for Phase 10 and Phase 11 scope.
+## Phase 12: Fleet Visibility Dashboard - Verification
+
+### Schema Extensions
+| Item | Status | Evidence |
+|------|--------|----------|
+| current_status column | ✅ | Added to allocations table |
+| v_fleet_summary view | ✅ | Returns in_shop, planned, enroute counts |
+| v_monthly_volumes view | ✅ | Returns monthly breakdown with costs |
+| v_tier_summary view | ✅ | Returns tier distribution |
+| tier column on shops | ✅ | Added with default based on preferred_network |
+
+### Backend Endpoints
+| Endpoint | Status | Response |
+|----------|--------|----------|
+| GET /api/fleet/metrics | ✅ | Fleet summary with counts |
+| GET /api/fleet/monthly-volumes | ✅ | Monthly breakdown |
+| GET /api/fleet/tier-summary | ✅ | Tier distribution |
+
+### Frontend Components
+| Component | Status | Features |
+|-----------|--------|----------|
+| DashboardWrapper | ✅ | Floating button, modal overlay, framer-motion |
+| FleetDashboard | ✅ | Metric cards, bar chart, pie chart, SWR |
+| Global integration | ✅ | Available on all pages via floating icon |
+
+---
+
+**Verdict:** System is production-ready for Phase 10, 11, and 12 scope.

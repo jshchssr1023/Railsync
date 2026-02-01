@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import useSWR from 'swr';
-import { AlertCircle, TrendingUp, Truck, Calendar, CheckCircle, Clock } from 'lucide-react';
+import { AlertCircle, TrendingUp, Truck, Calendar, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -49,24 +50,31 @@ interface TierData {
 
 export default function FleetDashboard() {
   const currentYear = new Date().getFullYear();
+  const [tierFilter, setTierFilter] = useState<string>('all');
 
-  const { data: metrics, error: metricsError, isLoading: metricsLoading } = useSWR<FleetMetrics>(
+  const { data: metrics, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<FleetMetrics>(
     `${API_BASE}/fleet/metrics`,
     fetcher,
     { refreshInterval: 30000 }
   );
 
-  const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading } = useSWR<MonthlyVolume[]>(
+  const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading, mutate: mutateVolumes } = useSWR<MonthlyVolume[]>(
     `${API_BASE}/fleet/monthly-volumes?year=${currentYear}`,
     fetcher,
     { refreshInterval: 60000 }
   );
 
-  const { data: tierData, error: tierError, isLoading: tierLoading } = useSWR<TierData[]>(
+  const { data: tierData, error: tierError, isLoading: tierLoading, mutate: mutateTiers } = useSWR<TierData[]>(
     `${API_BASE}/fleet/tier-summary`,
     fetcher,
     { refreshInterval: 60000 }
   );
+
+  const handleRetry = () => {
+    mutateMetrics();
+    mutateVolumes();
+    mutateTiers();
+  };
 
   if (metricsError || volumesError || tierError) {
     return (
@@ -74,6 +82,13 @@ export default function FleetDashboard() {
         <AlertCircle className="h-12 w-12 mb-4" />
         <h2 className="text-xl font-semibold">Failed to load dashboard data</h2>
         <p className="text-sm text-gray-500 mt-2">Please try again later</p>
+        <button
+          onClick={handleRetry}
+          className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </button>
       </div>
     );
   }
@@ -94,8 +109,34 @@ export default function FleetDashboard() {
     actual: v.in_shop
   })) || [];
 
+  const lastUpdated = new Date().toLocaleTimeString();
+
   return (
     <div className="space-y-6">
+      {/* Filters and Controls */}
+      <div className="flex flex-wrap items-center gap-4">
+        <select
+          value={tierFilter}
+          onChange={(e) => setTierFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+        >
+          <option value="all">All Tiers</option>
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+        </select>
+        <button
+          onClick={handleRetry}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </button>
+        <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+          Updated: {lastUpdated}
+        </span>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <MetricCard
