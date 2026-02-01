@@ -1,7 +1,16 @@
 -- Migration: Add Capacity Planning Tables
--- Version: 002
+-- Version: 003
 -- Date: 2026-02-01
 -- Description: Add allocations and shop_monthly_capacity for confirmed vs planned tracking
+
+-- ============================================================================
+-- ADD MISSING COLUMNS TO CARS TABLE
+-- ============================================================================
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS qual_exp_date DATE;
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_cars_qual_exp ON cars(qual_exp_date) WHERE qual_exp_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cars_active ON cars(is_active) WHERE is_active = TRUE;
 
 -- ============================================================================
 -- SHOP MONTHLY CAPACITY TABLE
@@ -229,3 +238,34 @@ FROM shops s
 CROSS JOIN generate_series(0, 5) as n
 WHERE s.is_active = TRUE
 ON CONFLICT (shop_code, month) DO NOTHING;
+
+-- ============================================================================
+-- TEST DATA: Update cars with qualification dates for alerts testing
+-- ============================================================================
+UPDATE cars SET qual_exp_date = CURRENT_DATE + INTERVAL '25 days' WHERE car_number = 'UTLX123456';
+UPDATE cars SET qual_exp_date = CURRENT_DATE + INTERVAL '55 days' WHERE car_number = 'GATX789012';
+UPDATE cars SET qual_exp_date = CURRENT_DATE + INTERVAL '85 days' WHERE car_number = 'PROX345678';
+UPDATE cars SET qual_exp_date = CURRENT_DATE + INTERVAL '120 days' WHERE car_number = 'TILX901234';
+
+-- ============================================================================
+-- TEST DATA: Update some capacity to near-full for alerts testing
+-- ============================================================================
+UPDATE shop_monthly_capacity
+SET confirmed_railcars = 47, total_capacity = 50
+WHERE shop_code = 'CN002'
+  AND month = TO_CHAR(CURRENT_DATE, 'YYYY-MM');
+
+UPDATE shop_monthly_capacity
+SET confirmed_railcars = 44, total_capacity = 50
+WHERE shop_code = 'UP002'
+  AND month = TO_CHAR(CURRENT_DATE, 'YYYY-MM');
+
+-- ============================================================================
+-- TEST DATA: Sample allocations
+-- ============================================================================
+INSERT INTO allocations (car_id, car_number, shop_code, target_month, status, estimated_cost, notes)
+VALUES
+  ('UTLX567890', 'UTLX567890', 'BNSF001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'confirmed', 4500.00, 'Test confirmed allocation'),
+  ('GATX112233', 'GATX112233', 'NS001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'planned', 3800.00, 'Test planned allocation'),
+  ('CEFX445566', 'CEFX445566', 'CSX001', TO_CHAR(CURRENT_DATE + INTERVAL '1 month', 'YYYY-MM'), 'proposed', 5200.00, 'Test proposed allocation')
+ON CONFLICT DO NOTHING;
