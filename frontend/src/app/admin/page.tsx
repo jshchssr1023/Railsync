@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
+import BRCImportModal from '@/components/BRCImportModal';
 
-type AdminTab = 'rules' | 'users' | 'audit';
+type AdminTab = 'rules' | 'users' | 'audit' | 'import';
 
 export default function AdminPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -96,6 +97,16 @@ export default function AdminPage() {
           >
             Audit Logs
           </button>
+          <button
+            onClick={() => setActiveTab('import')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'import'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Data Import
+          </button>
         </nav>
       </div>
 
@@ -104,6 +115,7 @@ export default function AdminPage() {
         {activeTab === 'rules' && <AdminRulesEditor />}
         {activeTab === 'users' && <UserManagement />}
         {activeTab === 'audit' && <AuditLogs />}
+        {activeTab === 'import' && <DataImport />}
       </div>
     </div>
   );
@@ -301,6 +313,98 @@ function AuditLogs() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function DataImport() {
+  const [showBRCModal, setShowBRCModal] = useState(false);
+
+  return (
+    <div className="p-6">
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Data Import Options
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Import external data files to update costs, allocations, and fleet information.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* BRC Import Card */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                <svg className="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">BRC Import</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Import AAR 500-byte Billing Repair Card files to record actual maintenance costs.
+                </p>
+                <button
+                  onClick={() => setShowBRCModal(true)}
+                  className="mt-3 btn btn-primary text-sm py-1.5"
+                >
+                  Import BRC File
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Car Fleet Import Card */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">Car Fleet Import</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Import car master data from CSV files (Qual Planner Master format).
+                </p>
+                <span className="inline-block mt-3 text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                  Coming Soon
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Demand Import Card */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">Demand Import</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Bulk import demand forecasts from S&OP planning spreadsheets.
+                </p>
+                <span className="inline-block mt-3 text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                  Coming Soon
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BRC Import Modal */}
+      {showBRCModal && (
+        <BRCImportModal
+          onClose={() => setShowBRCModal(false)}
+          onSuccess={() => setShowBRCModal(false)}
+        />
+      )}
     </div>
   );
 }

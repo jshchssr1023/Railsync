@@ -8,6 +8,17 @@ import {
   ShopBacklog,
   ShopCapacity,
   EligibilityRule,
+  // Phase 9 types
+  RunningRepairsBudget,
+  ServiceEventBudget,
+  BudgetSummary,
+  Demand,
+  ShopMonthlyCapacity,
+  Scenario,
+  Allocation,
+  ForecastResult,
+  BRCImportHistory,
+  BRCImportResult,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -166,7 +177,257 @@ export async function healthCheck(): Promise<{
   return response.data || { status: 'unknown', timestamp: '', version: '' };
 }
 
+// ============================================================================
+// PHASE 9 - BUDGET API
+// ============================================================================
+
+export async function getRunningRepairsBudget(
+  fiscalYear: number
+): Promise<RunningRepairsBudget[]> {
+  const response = await fetchApi<RunningRepairsBudget[]>(
+    `/budget/running-repairs?fiscal_year=${fiscalYear}`
+  );
+  return response.data || [];
+}
+
+export async function getServiceEventBudgets(
+  fiscalYear: number
+): Promise<ServiceEventBudget[]> {
+  const response = await fetchApi<ServiceEventBudget[]>(
+    `/budget/service-events?fiscal_year=${fiscalYear}`
+  );
+  return response.data || [];
+}
+
+export async function getBudgetSummary(
+  fiscalYear: number
+): Promise<BudgetSummary> {
+  const response = await fetchApi<BudgetSummary>(
+    `/budget/summary?fiscal_year=${fiscalYear}`
+  );
+  if (!response.data) {
+    throw new Error('Failed to fetch budget summary');
+  }
+  return response.data;
+}
+
+// ============================================================================
+// PHASE 9 - DEMAND API
+// ============================================================================
+
+export async function listDemands(filters?: {
+  fiscal_year?: number;
+  target_month?: string;
+  status?: string;
+}): Promise<Demand[]> {
+  const params = new URLSearchParams();
+  if (filters?.fiscal_year) params.append('fiscal_year', String(filters.fiscal_year));
+  if (filters?.target_month) params.append('target_month', filters.target_month);
+  if (filters?.status) params.append('status', filters.status);
+
+  const response = await fetchApi<Demand[]>(`/demands?${params.toString()}`);
+  return response.data || [];
+}
+
+export async function getDemand(id: string): Promise<Demand> {
+  const response = await fetchApi<Demand>(`/demands/${encodeURIComponent(id)}`);
+  if (!response.data) {
+    throw new Error('Demand not found');
+  }
+  return response.data;
+}
+
+export async function createDemand(
+  demand: Omit<Demand, 'id' | 'created_at' | 'updated_at'>
+): Promise<Demand> {
+  const response = await fetchApi<Demand>('/demands', {
+    method: 'POST',
+    body: JSON.stringify(demand),
+  });
+  if (!response.data) {
+    throw new Error('Failed to create demand');
+  }
+  return response.data;
+}
+
+export async function updateDemand(
+  id: string,
+  updates: Partial<Demand>
+): Promise<Demand> {
+  const response = await fetchApi<Demand>(`/demands/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+  if (!response.data) {
+    throw new Error('Failed to update demand');
+  }
+  return response.data;
+}
+
+export async function deleteDemand(id: string): Promise<void> {
+  await fetchApi(`/demands/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ============================================================================
+// PHASE 9 - CAPACITY API
+// ============================================================================
+
+export async function getCapacity(
+  startMonth: string,
+  endMonth: string,
+  network?: string
+): Promise<ShopMonthlyCapacity[]> {
+  const params = new URLSearchParams({
+    start_month: startMonth,
+    end_month: endMonth,
+  });
+  if (network) params.append('network', network);
+
+  const response = await fetchApi<ShopMonthlyCapacity[]>(`/capacity?${params.toString()}`);
+  return response.data || [];
+}
+
+export async function initializeCapacity(defaultCapacity?: number): Promise<{ count: number }> {
+  const response = await fetchApi<{ count: number }>('/capacity/initialize', {
+    method: 'POST',
+    body: JSON.stringify({ default_capacity: defaultCapacity }),
+  });
+  return response.data || { count: 0 };
+}
+
+// ============================================================================
+// PHASE 9 - SCENARIO API
+// ============================================================================
+
+export async function listScenarios(): Promise<Scenario[]> {
+  const response = await fetchApi<Scenario[]>('/scenarios');
+  return response.data || [];
+}
+
+export async function createScenario(
+  scenario: Omit<Scenario, 'id' | 'created_at' | 'updated_at' | 'is_system'>
+): Promise<Scenario> {
+  const response = await fetchApi<Scenario>('/scenarios', {
+    method: 'POST',
+    body: JSON.stringify(scenario),
+  });
+  if (!response.data) {
+    throw new Error('Failed to create scenario');
+  }
+  return response.data;
+}
+
+// ============================================================================
+// PHASE 9 - ALLOCATION API
+// ============================================================================
+
+export async function listAllocations(filters?: {
+  demand_id?: string;
+  shop_code?: string;
+  target_month?: string;
+  status?: string;
+}): Promise<{ allocations: Allocation[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.demand_id) params.append('demand_id', filters.demand_id);
+  if (filters?.shop_code) params.append('shop_code', filters.shop_code);
+  if (filters?.target_month) params.append('target_month', filters.target_month);
+  if (filters?.status) params.append('status', filters.status);
+
+  const response = await fetchApi<{ allocations: Allocation[]; total: number }>(
+    `/allocations?${params.toString()}`
+  );
+  return response.data || { allocations: [], total: 0 };
+}
+
+export async function generateAllocations(
+  demandIds: string[],
+  scenarioId?: string,
+  previewOnly?: boolean
+): Promise<{
+  allocations: Allocation[];
+  summary: {
+    total_cars: number;
+    total_cost: number;
+    avg_cost_per_car: number;
+    unallocated_cars: number;
+  };
+  warnings: string[];
+}> {
+  const response = await fetchApi<{
+    allocations: Allocation[];
+    summary: {
+      total_cars: number;
+      total_cost: number;
+      avg_cost_per_car: number;
+      unallocated_cars: number;
+    };
+    warnings: string[];
+  }>('/allocations/generate', {
+    method: 'POST',
+    body: JSON.stringify({
+      demand_ids: demandIds,
+      scenario_id: scenarioId,
+      preview_only: previewOnly,
+    }),
+  });
+  if (!response.data) {
+    throw new Error('Failed to generate allocations');
+  }
+  return response.data;
+}
+
+// ============================================================================
+// PHASE 9 - FORECAST API
+// ============================================================================
+
+export async function getForecast(fiscalYear: number): Promise<ForecastResult> {
+  const response = await fetchApi<ForecastResult>(
+    `/forecast?fiscal_year=${fiscalYear}`
+  );
+  if (!response.data) {
+    throw new Error('Failed to fetch forecast');
+  }
+  return response.data;
+}
+
+// ============================================================================
+// PHASE 9 - BRC API
+// ============================================================================
+
+export async function getBRCHistory(
+  startDate?: string,
+  endDate?: string
+): Promise<BRCImportHistory[]> {
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+
+  const response = await fetchApi<BRCImportHistory[]>(`/brc/history?${params.toString()}`);
+  return response.data || [];
+}
+
+export async function importBRC(file: File): Promise<BRCImportResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_URL}/brc/import`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to import BRC file');
+  }
+
+  return data.data;
+}
+
 const api = {
+  // Core
   getCarByNumber,
   listShops,
   evaluateShops,
@@ -176,6 +437,24 @@ const api = {
   getRuleById,
   updateRule,
   healthCheck,
+  // Phase 9
+  getRunningRepairsBudget,
+  getServiceEventBudgets,
+  getBudgetSummary,
+  listDemands,
+  getDemand,
+  createDemand,
+  updateDemand,
+  deleteDemand,
+  getCapacity,
+  initializeCapacity,
+  listScenarios,
+  createScenario,
+  listAllocations,
+  generateAllocations,
+  getForecast,
+  getBRCHistory,
+  importBRC,
 };
 
 export default api;

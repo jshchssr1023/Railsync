@@ -36,6 +36,14 @@ export default function AuthHeader() {
                 >
                   Dashboard
                 </a>
+                {isAuthenticated && (
+                  <a
+                    href="/planning"
+                    className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Planning
+                  </a>
+                )}
                 <a
                   href="/rules"
                   className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"

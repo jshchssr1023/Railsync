@@ -185,3 +185,209 @@ export interface EligibilityRule {
   is_blocking: boolean;
   condition_json: any;
 }
+
+// ============================================================================
+// PHASE 9 - PLANNING, BUDGETING & FORECASTING TYPES
+// ============================================================================
+
+// Budget Types
+export interface RunningRepairsBudget {
+  id: string;
+  fiscal_year: number;
+  month: string;
+  cars_on_lease: number;
+  allocation_per_car: number;
+  monthly_budget: number;
+  actual_spend: number;
+  actual_car_count: number;
+  remaining_budget: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EventType = 'Qualification' | 'Assignment' | 'Return' | 'Running Repair';
+
+export interface ServiceEventBudget {
+  id: string;
+  fiscal_year: number;
+  event_type: EventType;
+  budgeted_car_count: number;
+  avg_cost_per_car: number;
+  total_budget: number;
+  customer_code?: string;
+  fleet_segment?: string;
+  car_type?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Demand Types
+export type DemandPriority = 'Critical' | 'High' | 'Medium' | 'Low';
+export type DemandStatus = 'Forecast' | 'Confirmed' | 'Allocating' | 'Allocated' | 'Complete';
+
+export interface Demand {
+  id: string;
+  name: string;
+  description?: string;
+  fiscal_year: number;
+  target_month: string;
+  car_count: number;
+  event_type: EventType;
+  car_type?: string;
+  default_lessee_code?: string;
+  default_material_type?: string;
+  default_lining_type?: string;
+  default_commodity?: string;
+  priority: DemandPriority;
+  required_network?: string;
+  required_region?: string;
+  max_cost_per_car?: number;
+  excluded_shops?: string[];
+  status: DemandStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// Capacity Types
+export interface ShopMonthlyCapacity {
+  id: string;
+  shop_code: string;
+  month: string;
+  total_capacity: number;
+  allocated_count: number;
+  completed_count: number;
+  available_capacity: number;
+  utilization_pct: number;
+  updated_at: string;
+}
+
+// Scenario Types
+export interface ScenarioWeights {
+  cost: number;
+  cycle_time: number;
+  aitx_preference: number;
+  capacity_balance: number;
+  quality_score: number;
+}
+
+export interface Scenario {
+  id: string;
+  name: string;
+  description?: string;
+  weights: ScenarioWeights;
+  constraints?: Record<string, unknown>;
+  is_default: boolean;
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Allocation Types
+export type AllocationStatus =
+  | 'Need Shopping'
+  | 'To Be Routed'
+  | 'Planned Shopping'
+  | 'Enroute'
+  | 'Arrived'
+  | 'Complete'
+  | 'Released';
+
+export interface Allocation {
+  id: string;
+  demand_id?: string;
+  scenario_id?: string;
+  car_id: string;
+  car_number?: string;
+  shop_code: string;
+  target_month: string;
+  status: AllocationStatus;
+  estimated_cost?: number;
+  estimated_cost_breakdown?: CostBreakdown;
+  actual_cost?: number;
+  brc_number?: string;
+  brc_received_at?: string;
+  planned_arrival_date?: string;
+  actual_arrival_date?: string;
+  actual_completion_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// BRC Types
+export interface BRCImportResult {
+  id: string;
+  filename: string;
+  total: number;
+  matched_to_allocation: number;
+  created_running_repair: number;
+  errors: string[];
+}
+
+export interface BRCImportHistory {
+  id: string;
+  filename: string;
+  record_count: number;
+  matched_count: number;
+  running_repair_count: number;
+  error_count: number;
+  imported_at: string;
+}
+
+// Forecast Types
+export interface ForecastSummary {
+  total_budget: number;
+  total_planned: number;
+  total_actual: number;
+  remaining_budget: number;
+  budget_consumed_pct: number;
+}
+
+export interface ForecastLine {
+  budget_type: string;
+  event_type?: string;
+  total_budget: number;
+  planned_cost: number;
+  planned_car_count: number;
+  actual_cost: number;
+  actual_car_count: number;
+  remaining_budget: number;
+}
+
+export interface MonthlyForecast {
+  target_month: string;
+  planned_cost: number;
+  actual_cost: number;
+  cumulative_planned: number;
+  cumulative_actual: number;
+}
+
+export interface ForecastResult {
+  fiscal_year: number;
+  summary: ForecastSummary;
+  by_type: ForecastLine[];
+  by_month: MonthlyForecast[];
+}
+
+// Budget Summary
+export interface BudgetSummary {
+  fiscal_year: number;
+  running_repairs: {
+    total_budget: number;
+    actual_spend: number;
+    remaining: number;
+  };
+  service_events: {
+    total_budget: number;
+    planned_cost: number;
+    actual_cost: number;
+    remaining: number;
+  };
+  total: {
+    budget: number;
+    committed: number;
+    remaining: number;
+    consumed_pct: number;
+  };
+}
