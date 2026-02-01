@@ -301,8 +301,18 @@ function PlanningContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {inputMode === 'lookup' && car && (
                 <div className="card">
-                  <div className="card-header">
+                  <div className="card-header flex items-center justify-between">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Car Details</h3>
+                    <button
+                      onClick={handleEvaluate}
+                      disabled={loading}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Shop This Car Now
+                    </button>
                   </div>
                   <div className="card-body">
                     <dl className="grid grid-cols-2 gap-4">
