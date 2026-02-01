@@ -49,8 +49,9 @@ CREATE INDEX idx_alerts_entity ON alerts(entity_type, entity_id);
 CREATE INDEX idx_alerts_target_user ON alerts(target_user_id) WHERE target_user_id IS NOT NULL;
 CREATE INDEX idx_alerts_target_role ON alerts(target_role) WHERE target_role IS NOT NULL;
 CREATE INDEX idx_alerts_unread ON alerts(is_read) WHERE is_read = FALSE;
-CREATE INDEX idx_alerts_active ON alerts(is_dismissed, expires_at)
-    WHERE is_dismissed = FALSE AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP);
+-- Note: Cannot use CURRENT_TIMESTAMP in partial index (not immutable)
+-- Just index on the columns and filter at query time
+CREATE INDEX idx_alerts_active ON alerts(is_dismissed, expires_at) WHERE is_dismissed = FALSE;
 
 -- Trigger for updated_at
 CREATE TRIGGER update_alerts_updated_at

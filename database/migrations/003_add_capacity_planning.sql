@@ -1,7 +1,7 @@
 -- Migration: Add Capacity Planning Tables
 -- Version: 003
 -- Date: 2026-02-01
--- Description: Add allocations and shop_monthly_capacity for confirmed vs planned tracking
+-- Description: Add allocations and extend shop_monthly_capacity for confirmed vs planned tracking
 
 -- ============================================================================
 -- ADD MISSING COLUMNS TO CARS TABLE
@@ -13,112 +13,58 @@ CREATE INDEX IF NOT EXISTS idx_cars_qual_exp ON cars(qual_exp_date) WHERE qual_e
 CREATE INDEX IF NOT EXISTS idx_cars_active ON cars(is_active) WHERE is_active = TRUE;
 
 -- ============================================================================
--- SHOP MONTHLY CAPACITY TABLE
--- Tracks monthly capacity limits and usage (confirmed vs planned)
+-- EXTEND SHOP MONTHLY CAPACITY TABLE
+-- Add confirmed/planned columns and version for optimistic locking
+-- Note: Table already exists from 002_phase9_planning.sql
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS shop_monthly_capacity (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    shop_code VARCHAR(10) NOT NULL REFERENCES shops(shop_code) ON DELETE CASCADE,
-    month VARCHAR(7) NOT NULL, -- YYYY-MM format
-    total_capacity INTEGER NOT NULL DEFAULT 50, -- Max railcars per month
-    confirmed_railcars INTEGER NOT NULL DEFAULT 0,
-    planned_railcars INTEGER NOT NULL DEFAULT 0,
-    -- Calculated fields
-    remaining_capacity INTEGER GENERATED ALWAYS AS (
-        total_capacity - confirmed_railcars
-    ) STORED,
-    utilization_pct DECIMAL(5, 2) GENERATED ALWAYS AS (
-        CASE WHEN total_capacity > 0
-            THEN (confirmed_railcars::DECIMAL / total_capacity * 100)
-            ELSE 0
-        END
-    ) STORED,
-    is_at_risk BOOLEAN GENERATED ALWAYS AS (
-        confirmed_railcars >= total_capacity * 0.9
-    ) STORED,
-    -- Optimistic locking
-    version INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(shop_code, month)
-);
+ALTER TABLE shop_monthly_capacity ADD COLUMN IF NOT EXISTS confirmed_railcars INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE shop_monthly_capacity ADD COLUMN IF NOT EXISTS planned_railcars INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE shop_monthly_capacity ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE shop_monthly_capacity ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
-CREATE INDEX idx_shop_monthly_capacity_shop ON shop_monthly_capacity(shop_code);
-CREATE INDEX idx_shop_monthly_capacity_month ON shop_monthly_capacity(month);
-CREATE INDEX idx_shop_monthly_capacity_at_risk ON shop_monthly_capacity(is_at_risk) WHERE is_at_risk = TRUE;
+-- Add computed columns for capacity tracking
+-- Note: PostgreSQL doesn't support computed/generated columns in ALTER TABLE easily,
+-- so we'll handle these in the view instead
 
 -- ============================================================================
--- ALLOCATIONS TABLE
--- Tracks individual car allocations to shops with status
+-- EXTEND ALLOCATIONS TABLE
+-- Add any missing columns needed for capacity planning
+-- Note: Table already exists from 002_phase9_planning.sql with different structure
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS allocations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    car_id VARCHAR(20) NOT NULL, -- Can be car_number or generated ID
-    car_number VARCHAR(20) REFERENCES cars(car_number),
-    shop_code VARCHAR(10) NOT NULL REFERENCES shops(shop_code),
-    target_month VARCHAR(7) NOT NULL, -- YYYY-MM format
-    status VARCHAR(20) NOT NULL DEFAULT 'proposed',
-    -- Status values: 'proposed', 'planned', 'confirmed', 'enroute', 'arrived', 'complete', 'cancelled'
+ALTER TABLE allocations ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE allocations ADD COLUMN IF NOT EXISTS service_event_id UUID;
+ALTER TABLE allocations ADD COLUMN IF NOT EXISTS notes TEXT;
 
-    -- Cost tracking
-    estimated_cost DECIMAL(12, 2),
-    estimated_cost_breakdown JSONB, -- {labor, material, freight, abatement}
-    actual_cost DECIMAL(12, 2),
-
-    -- Tracking dates
-    planned_arrival_date DATE,
-    actual_arrival_date DATE,
-    actual_completion_date DATE,
-
-    -- BRC (Billing Record Card) tracking
-    brc_number VARCHAR(20),
-    brc_received_at TIMESTAMP WITH TIME ZONE,
-
-    -- Linking
-    demand_id UUID, -- Link to demand forecast
-    scenario_id UUID, -- Link to planning scenario
-    service_event_id UUID REFERENCES service_events(event_id),
-
-    -- Optimistic locking
-    version INTEGER NOT NULL DEFAULT 1,
-
-    -- Metadata
-    notes TEXT,
-    created_by VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_allocations_car ON allocations(car_number);
-CREATE INDEX idx_allocations_shop ON allocations(shop_code);
-CREATE INDEX idx_allocations_month ON allocations(target_month);
-CREATE INDEX idx_allocations_status ON allocations(status);
-CREATE INDEX idx_allocations_demand ON allocations(demand_id);
-
--- Constraint: Only certain status values allowed
-ALTER TABLE allocations ADD CONSTRAINT chk_allocation_status
-    CHECK (status IN ('proposed', 'planned', 'confirmed', 'enroute', 'arrived', 'complete', 'cancelled'));
+CREATE INDEX IF NOT EXISTS idx_allocations_month ON allocations(target_month);
 
 -- ============================================================================
 -- TRIGGER: Update shop_monthly_capacity when allocation status changes
+-- Phase 9 Status values: 'Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived', 'Complete', 'Released'
+-- confirmed_railcars = Arrived, Complete
+-- planned_railcars = Planned Shopping, Enroute
 -- ============================================================================
 CREATE OR REPLACE FUNCTION update_monthly_capacity_on_allocation()
 RETURNS TRIGGER AS $$
+DECLARE
+    is_old_confirmed BOOLEAN := FALSE;
+    is_new_confirmed BOOLEAN := FALSE;
+    is_old_planned BOOLEAN := FALSE;
+    is_new_planned BOOLEAN := FALSE;
 BEGIN
     -- Handle INSERT
     IF TG_OP = 'INSERT' THEN
         -- Ensure capacity record exists
-        INSERT INTO shop_monthly_capacity (shop_code, month)
-        VALUES (NEW.shop_code, NEW.target_month)
+        INSERT INTO shop_monthly_capacity (shop_code, month, total_capacity)
+        VALUES (NEW.shop_code, NEW.target_month, 50)
         ON CONFLICT (shop_code, month) DO NOTHING;
 
-        IF NEW.status = 'confirmed' THEN
+        IF NEW.status IN ('Arrived', 'Complete') THEN
             UPDATE shop_monthly_capacity
             SET confirmed_railcars = confirmed_railcars + 1,
                 version = version + 1,
                 updated_at = CURRENT_TIMESTAMP
             WHERE shop_code = NEW.shop_code AND month = NEW.target_month;
-        ELSIF NEW.status = 'planned' THEN
+        ELSIF NEW.status IN ('Planned Shopping', 'Enroute') THEN
             UPDATE shop_monthly_capacity
             SET planned_railcars = planned_railcars + 1,
                 version = version + 1,
@@ -131,15 +77,20 @@ BEGIN
     -- Handle UPDATE
     IF TG_OP = 'UPDATE' THEN
         -- Status changed
-        IF OLD.status != NEW.status THEN
+        IF OLD.status IS DISTINCT FROM NEW.status THEN
+            is_old_confirmed := OLD.status IN ('Arrived', 'Complete');
+            is_new_confirmed := NEW.status IN ('Arrived', 'Complete');
+            is_old_planned := OLD.status IN ('Planned Shopping', 'Enroute');
+            is_new_planned := NEW.status IN ('Planned Shopping', 'Enroute');
+
             -- Decrement old status count
-            IF OLD.status = 'confirmed' THEN
+            IF is_old_confirmed THEN
                 UPDATE shop_monthly_capacity
                 SET confirmed_railcars = GREATEST(0, confirmed_railcars - 1),
                     version = version + 1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE shop_code = OLD.shop_code AND month = OLD.target_month;
-            ELSIF OLD.status = 'planned' THEN
+            ELSIF is_old_planned THEN
                 UPDATE shop_monthly_capacity
                 SET planned_railcars = GREATEST(0, planned_railcars - 1),
                     version = version + 1,
@@ -148,13 +99,13 @@ BEGIN
             END IF;
 
             -- Increment new status count
-            IF NEW.status = 'confirmed' THEN
+            IF is_new_confirmed THEN
                 UPDATE shop_monthly_capacity
                 SET confirmed_railcars = confirmed_railcars + 1,
                     version = version + 1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE shop_code = NEW.shop_code AND month = NEW.target_month;
-            ELSIF NEW.status = 'planned' THEN
+            ELSIF is_new_planned THEN
                 UPDATE shop_monthly_capacity
                 SET planned_railcars = planned_railcars + 1,
                     version = version + 1,
@@ -167,13 +118,13 @@ BEGIN
 
     -- Handle DELETE
     IF TG_OP = 'DELETE' THEN
-        IF OLD.status = 'confirmed' THEN
+        IF OLD.status IN ('Arrived', 'Complete') THEN
             UPDATE shop_monthly_capacity
             SET confirmed_railcars = GREATEST(0, confirmed_railcars - 1),
                 version = version + 1,
                 updated_at = CURRENT_TIMESTAMP
             WHERE shop_code = OLD.shop_code AND month = OLD.target_month;
-        ELSIF OLD.status = 'planned' THEN
+        ELSIF OLD.status IN ('Planned Shopping', 'Enroute') THEN
             UPDATE shop_monthly_capacity
             SET planned_railcars = GREATEST(0, planned_railcars - 1),
                 version = version + 1,
@@ -187,6 +138,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_allocation_capacity ON allocations;
 CREATE TRIGGER trg_allocation_capacity
     AFTER INSERT OR UPDATE OR DELETE ON allocations
     FOR EACH ROW EXECUTE FUNCTION update_monthly_capacity_on_allocation();
@@ -194,10 +146,12 @@ CREATE TRIGGER trg_allocation_capacity
 -- ============================================================================
 -- TRIGGER: Update timestamps
 -- ============================================================================
+DROP TRIGGER IF EXISTS update_shop_monthly_capacity_updated_at ON shop_monthly_capacity;
 CREATE TRIGGER update_shop_monthly_capacity_updated_at
     BEFORE UPDATE ON shop_monthly_capacity
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_allocations_updated_at ON allocations;
 CREATE TRIGGER update_allocations_updated_at
     BEFORE UPDATE ON allocations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -213,13 +167,25 @@ SELECT
     smc.total_capacity,
     smc.confirmed_railcars,
     smc.planned_railcars,
-    smc.remaining_capacity,
-    smc.utilization_pct,
-    smc.is_at_risk,
+    GREATEST(0, smc.total_capacity - smc.confirmed_railcars - smc.planned_railcars) AS remaining_capacity,
     CASE
-        WHEN smc.utilization_pct >= 95 THEN 'critical'
-        WHEN smc.utilization_pct >= 85 THEN 'warning'
-        WHEN smc.utilization_pct >= 70 THEN 'moderate'
+        WHEN smc.total_capacity > 0 THEN
+            ROUND(((smc.confirmed_railcars + smc.planned_railcars)::DECIMAL / smc.total_capacity) * 100, 1)
+        ELSE 0
+    END AS utilization_pct,
+    CASE
+        WHEN smc.total_capacity > 0 AND
+             ((smc.confirmed_railcars + smc.planned_railcars)::DECIMAL / smc.total_capacity) >= 0.85
+        THEN TRUE
+        ELSE FALSE
+    END AS is_at_risk,
+    CASE
+        WHEN smc.total_capacity > 0 AND
+             ((smc.confirmed_railcars + smc.planned_railcars)::DECIMAL / smc.total_capacity) >= 0.95 THEN 'critical'
+        WHEN smc.total_capacity > 0 AND
+             ((smc.confirmed_railcars + smc.planned_railcars)::DECIMAL / smc.total_capacity) >= 0.85 THEN 'warning'
+        WHEN smc.total_capacity > 0 AND
+             ((smc.confirmed_railcars + smc.planned_railcars)::DECIMAL / smc.total_capacity) >= 0.70 THEN 'moderate'
         ELSE 'healthy'
     END AS capacity_status
 FROM shop_monthly_capacity smc
@@ -263,9 +229,9 @@ WHERE shop_code = 'UP002'
 -- ============================================================================
 -- TEST DATA: Sample allocations
 -- ============================================================================
-INSERT INTO allocations (car_id, car_number, shop_code, target_month, status, estimated_cost, notes)
+INSERT INTO allocations (car_id, car_number, shop_code, target_month, status, estimated_cost)
 VALUES
-  ('UTLX567890', 'UTLX567890', 'BNSF001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'confirmed', 4500.00, 'Test confirmed allocation'),
-  ('GATX112233', 'GATX112233', 'NS001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'planned', 3800.00, 'Test planned allocation'),
-  ('CEFX445566', 'CEFX445566', 'CSX001', TO_CHAR(CURRENT_DATE + INTERVAL '1 month', 'YYYY-MM'), 'proposed', 5200.00, 'Test proposed allocation')
+  ('UTLX567890', 'UTLX567890', 'BNSF001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'Planned Shopping', 4500.00),
+  ('GATX112233', 'GATX112233', 'NS001', TO_CHAR(CURRENT_DATE, 'YYYY-MM'), 'Arrived', 3800.00),
+  ('CEFX445566', 'CEFX445566', 'CSX001', TO_CHAR(CURRENT_DATE + INTERVAL '1 month', 'YYYY-MM'), 'Need Shopping', 5200.00)
 ON CONFLICT DO NOTHING;
