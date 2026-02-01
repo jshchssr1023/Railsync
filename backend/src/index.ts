@@ -9,12 +9,25 @@ import { initScheduler } from './services/scheduler.service';
 
 const PORT = process.env.PORT || 3001;
 
+async function waitForDb(maxRetries = 10, delayMs = 1000) {
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      const client = await pool.connect();
+      client.release();
+      console.log('Database connected successfully');
+      return;
+    } catch (err: any) {
+      console.warn(`DB connection attempt ${i}/${maxRetries} failed. Retrying in ${delayMs}ms...`);
+      if (i === maxRetries) throw err;
+      await new Promise((res) => setTimeout(res, delayMs));
+    }
+  }
+}
+
 async function startServer() {
   try {
-    // Test database connection
-    const client = await pool.connect();
-    console.log('Database connected successfully');
-    client.release();
+    // Wait for DB to be ready (retry loop)
+    await waitForDb(15, 1000); // try for up to ~15s
 
     // Initialize scheduled jobs
     initScheduler();
