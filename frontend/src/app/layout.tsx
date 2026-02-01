@@ -5,6 +5,8 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import AuthHeader from '@/components/AuthHeader';
+import DashboardWrapper from '@/components/DashboardWrapper';
+import FleetDashboard from '@/components/FleetDashboard';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -40,6 +42,11 @@ export default function RootLayout({
                     </p>
                   </div>
                 </footer>
+
+                {/* Fleet Dashboard Floating Button */}
+                <DashboardWrapper>
+                  <FleetDashboard />
+                </DashboardWrapper>
               </div>
             </ToastProvider>
           </AuthProvider>

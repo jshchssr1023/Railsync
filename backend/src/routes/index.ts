@@ -7,6 +7,7 @@ import planningController from '../controllers/planning.controller';
 import alertsController from '../controllers/alerts.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
+import { query } from '../config/database';
 
 const router = Router();
 
@@ -492,6 +493,41 @@ router.get('/dashboard/configs/:id', authenticate, planningController.getDashboa
 router.post('/dashboard/configs', authenticate, planningController.createDashboardConfig);
 router.put('/dashboard/configs/:id', authenticate, planningController.updateDashboardConfig);
 router.delete('/dashboard/configs/:id', authenticate, planningController.deleteDashboardConfig);
+
+// ============================================================================
+// PHASE 12 - FLEET VISIBILITY ROUTES
+// ============================================================================
+
+router.get('/fleet/metrics', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_fleet_summary LIMIT 1');
+    res.json({ success: true, data: result[0] || {} });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch fleet metrics' });
+  }
+});
+
+router.get('/fleet/monthly-volumes', async (req, res) => {
+  const year = parseInt(req.query.year as string) || new Date().getFullYear();
+  try {
+    const result = await query(
+      "SELECT * FROM v_monthly_volumes WHERE month LIKE $1 ORDER BY month",
+      [`${year}%`]
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch monthly volumes' });
+  }
+});
+
+router.get('/fleet/tier-summary', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_tier_summary ORDER BY tier');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch tier summary' });
+  }
+});
 
 // ============================================================================
 // PHASE 10 - ALERTS ROUTES

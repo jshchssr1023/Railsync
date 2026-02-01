@@ -19,6 +19,7 @@ services:
       - ./database/migrations/002_phase9_planning.sql:/docker-entrypoint-initdb.d/04-phase9-planning.sql
       - ./database/migrations/003_add_capacity_planning.sql:/docker-entrypoint-initdb.d/05-capacity-planning.sql
       - ./database/migrations/004_add_alerts.sql:/docker-entrypoint-initdb.d/06-alerts.sql
+      - ./database/migrations/005_fleet_visibility.sql:/docker-entrypoint-initdb.d/07-fleet-visibility.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
       interval: 10s

@@ -1,0 +1,294 @@
+'use client';
+
+import useSWR from 'swr';
+import { AlertCircle, TrendingUp, Truck, Calendar, CheckCircle, Clock } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('Fetch failed');
+  return res.json().then(data => data.data);
+});
+
+const TIER_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+interface FleetMetrics {
+  in_shop_count: number;
+  planned_count: number;
+  enroute_count: number;
+  dispo_count: number;
+  scheduled_count: number;
+  completed_count: number;
+  total_fleet: number;
+  total_planned_cost: string;
+  total_actual_cost: string;
+}
+
+interface MonthlyVolume {
+  month: string;
+  in_shop: number;
+  planned: number;
+  scheduled: number;
+  enroute: number;
+  total_cars: number;
+  planned_cost: string;
+  actual_cost: string;
+}
+
+interface TierData {
+  tier: number;
+  in_shop_count: number;
+  planned_count: number;
+  total_count: number;
+}
+
+export default function FleetDashboard() {
+  const currentYear = new Date().getFullYear();
+
+  const { data: metrics, error: metricsError, isLoading: metricsLoading } = useSWR<FleetMetrics>(
+    `${API_BASE}/fleet/metrics`,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+
+  const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading } = useSWR<MonthlyVolume[]>(
+    `${API_BASE}/fleet/monthly-volumes?year=${currentYear}`,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+
+  const { data: tierData, error: tierError, isLoading: tierLoading } = useSWR<TierData[]>(
+    `${API_BASE}/fleet/tier-summary`,
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+
+  if (metricsError || volumesError || tierError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-red-500">
+        <AlertCircle className="h-12 w-12 mb-4" />
+        <h2 className="text-xl font-semibold">Failed to load dashboard data</h2>
+        <p className="text-sm text-gray-500 mt-2">Please try again later</p>
+      </div>
+    );
+  }
+
+  const formatMonth = (monthStr: string) => {
+    const parts = monthStr.split('-');
+    return MONTH_NAMES[parseInt(parts[1], 10) - 1] || monthStr;
+  };
+
+  const pieData = tierData?.map(t => ({
+    name: `Tier ${t.tier}`,
+    value: t.in_shop_count || 0
+  })) || [];
+
+  const barData = monthlyVolumes?.map(v => ({
+    month: formatMonth(v.month),
+    planned: v.planned + v.scheduled,
+    actual: v.in_shop
+  })) || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <MetricCard
+          title="Total Fleet"
+          value={metrics?.total_fleet ?? 0}
+          icon={<TrendingUp className="h-5 w-5" />}
+          loading={metricsLoading}
+        />
+        <MetricCard
+          title="In Shop"
+          value={metrics?.in_shop_count ?? 0}
+          icon={<CheckCircle className="h-5 w-5" />}
+          color="green"
+          loading={metricsLoading}
+        />
+        <MetricCard
+          title="Enroute"
+          value={metrics?.enroute_count ?? 0}
+          icon={<Truck className="h-5 w-5" />}
+          color="yellow"
+          loading={metricsLoading}
+        />
+        <MetricCard
+          title="Scheduled"
+          value={metrics?.scheduled_count ?? 0}
+          icon={<Calendar className="h-5 w-5" />}
+          color="blue"
+          loading={metricsLoading}
+        />
+        <MetricCard
+          title="Planned"
+          value={metrics?.planned_count ?? 0}
+          icon={<Clock className="h-5 w-5" />}
+          color="purple"
+          loading={metricsLoading}
+        />
+        <MetricCard
+          title="Completed"
+          value={metrics?.completed_count ?? 0}
+          icon={<CheckCircle className="h-5 w-5" />}
+          color="gray"
+          loading={metricsLoading}
+        />
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Bar Chart - Monthly Volumes */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            {currentYear} Monthly Arrivals
+          </h3>
+          {volumesLoading ? (
+            <div className="h-64 flex items-center justify-center">
+              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+            </div>
+          ) : barData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                    labelStyle={{ color: '#fff' }}
+                  />
+                  <Bar dataKey="planned" fill="#3b82f6" name="Planned" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="actual" fill="#10b981" name="Actual" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              No data available
+            </div>
+          )}
+        </div>
+
+        {/* Pie Chart - Tier Distribution */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Cars In Shop by Tier
+          </h3>
+          {tierLoading ? (
+            <div className="h-64 flex items-center justify-center">
+              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+            </div>
+          ) : pieData.length > 0 && pieData.some(d => d.value > 0) ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={80}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={TIER_COLORS[index % TIER_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              No cars in shop
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Budget Summary */}
+      {metrics && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Budget Summary
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Planned Cost</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                ${parseFloat(metrics.total_planned_cost || '0').toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Actual Cost</p>
+              <p className="text-2xl font-bold text-green-600">
+                ${parseFloat(metrics.total_actual_cost || '0').toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Variance</p>
+              <p className={`text-2xl font-bold ${
+                parseFloat(metrics.total_actual_cost || '0') > parseFloat(metrics.total_planned_cost || '0')
+                  ? 'text-red-600' : 'text-green-600'
+              }`}>
+                ${Math.abs(parseFloat(metrics.total_planned_cost || '0') - parseFloat(metrics.total_actual_cost || '0')).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Avg Cost/Car</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                ${metrics.total_fleet > 0
+                  ? Math.round(parseFloat(metrics.total_planned_cost || '0') / metrics.total_fleet).toLocaleString()
+                  : '0'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface MetricCardProps {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color?: 'blue' | 'green' | 'yellow' | 'purple' | 'gray';
+  loading?: boolean;
+}
+
+function MetricCard({ title, value, icon, color = 'blue', loading }: MetricCardProps) {
+  const colorClasses = {
+    blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    green: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    yellow: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
+    purple: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    gray: 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
+          {loading ? (
+            <div className="h-7 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          ) : (
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -353,4 +353,324 @@ All major files created/committed Jan 31, 2026 via single PR ("claude/web-archit
 No Prisma ORM yet → using raw SQL migrations
 No evidence of allocations, shop_monthly_capacity, demands, scenarios, or BRC parser → Phase 9 not yet ported here
 Capacity is referenced in features ("capacity by work type", backlog metrics) but likely placeholder
+## Phase 12: Fleet Visibility & Budget Tracking Dashboard
+**Version:** 2.4 | **Updated:** February 01, 2026  
+**Objective:** Provide complete fleet visibility (in-shop, planned, scheduled/enroute, disposition) with budget vs actual tracking. Replicate high-level dashboard style: metric cards, monthly volume bars (plan vs actual), tier pies. Dashboard opens via **single persistent floating icon** (bottom-right) — one click reveals everything in an overlay modal. Uses shadcn/ui for polished UI + Recharts for charts + SWR for real data fetching. Builds directly on Phase 11 allocations & capacity tables.
 
+**Prerequisites (Run Once – before implementing):**
+- shadcn/ui initialized: `npx shadcn@latest init` (if not already done)
+- Install dependencies:
+  ```bash
+  npm install swr recharts lucide-react framer-motion
+  npx shadcn@latest add card button select badge skeleton
+
+Ensure Phase 11 tables (allocations, shop_monthly_capacity) exist and contain sample data with varied statuses.
+
+Token Discipline: One numbered sub-task per AI session. Read existing files first. Zero lint errors. Small commits.
+Phase 12 Guardrails (repeat in prompts):
+
+Reuse shadcn/ui Card, Button, Select, Badge, Skeleton patterns.
+Use Recharts for bar + pie charts.
+Floating icon + overlay uses Lucide + framer-motion.
+Prefer raw SQL views for aggregates.
+Commit format: "feat(dashboard): add fleet visibility cards + real data fetching"
+
+12.1 – Schema & View Extensions for Visibility (1–2 Sessions)
+Extend allocations for detailed status tracking + budget integration.
+
+Migration file: database/migrations/003_fleet_visibility.sqlSQL-- Extend allocations
+ALTER TABLE allocations
+    ADD COLUMN IF NOT EXISTS current_status VARCHAR(20) DEFAULT 'planned'
+        CHECK (current_status IN ('planned','scheduled','enroute','in_shop','dispo','completed')),
+    ADD COLUMN IF NOT EXISTS enroute_date TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS dispo_date TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS actual_cost DECIMAL(10,2) DEFAULT 0.00;
+
+-- Budget table (running repairs – monthly pool)
+CREATE TABLE IF NOT EXISTS running_repairs_budget (
+    month DATE PRIMARY KEY,
+    active_cars INT NOT NULL DEFAULT 0,
+    budget_per_car DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total_budget DECIMAL(10,2) GENERATED ALWAYS AS (active_cars * budget_per_car) STORED,
+    actual_spend DECIMAL(10,2) DEFAULT 0.00
+);
+
+-- Aggregation views
+CREATE OR REPLACE VIEW v_fleet_summary AS
+SELECT
+    COUNT(*) FILTER (WHERE current_status = 'in_shop') AS in_shop_count,
+    COUNT(*) FILTER (WHERE current_status IN ('planned','proposed')) AS planned_count,
+    COUNT(*) FILTER (WHERE current_status = 'enroute') AS enroute_count,
+    COUNT(*) FILTER (WHERE current_status = 'dispo') AS dispo_count,
+    COUNT(*) FILTER (WHERE current_status = 'scheduled') AS scheduled_count,
+    COUNT(*) AS total_fleet
+FROM allocations;
+
+CREATE OR REPLACE VIEW v_monthly_volumes AS
+SELECT
+    a.month,
+    COUNT(*) FILTER (WHERE current_status = 'in_shop') AS in_shop,
+    COUNT(*) FILTER (WHERE current_status = 'planned') AS planned,
+    COUNT(*) FILTER (WHERE current_status = 'scheduled') AS scheduled,
+    rb.total_budget AS budget_volume,
+    SUM(a.actual_cost) AS actual_spend
+FROM allocations a
+LEFT JOIN running_repairs_budget rb ON a.month = rb.month
+GROUP BY a.month, rb.total_budget
+ORDER BY a.month;Test: SELECT * FROM v_fleet_summary; and SELECT * FROM v_monthly_volumes WHERE month LIKE '2026%';
+
+12.2 – Backend Endpoints (2 Sessions)
+Add to existing routes or create routes/fleet.ts
+TypeScript// Example in routes/fleet.ts or index.ts
+router.get('/api/fleet/metrics', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM v_fleet_summary LIMIT 1');
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch metrics' });
+  }
+});
+
+router.get('/api/fleet/monthly-volumes', async (req, res) => {
+  const year = parseInt(req.query.year as string) || new Date().getFullYear();
+  try {
+    const result = await db.query(
+      'SELECT * FROM v_monthly_volumes WHERE EXTRACT(YEAR FROM month) = $1 ORDER BY month',
+      [year]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch volumes' });
+  }
+});
+12.3 – Frontend Dashboard with shadcn/ui + Real Data Fetching + Single Floating Icon (4–6 Sessions)
+
+Dashboard Wrapper – components/DashboardWrapper.tsxtsx"use client";
+
+import { useState } from "react";
+import { LayoutDashboard, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+export function DashboardWrapper({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-8 right-8 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl hover:bg-primary/90 focus:outline-none focus:ring-4 focus:ring-primary/30 transition-all duration-300"
+        aria-label={isOpen ? "Close TQ Dashboard" : "Open TQ Dashboard"}
+      >
+        {isOpen ? <X size={32} /> : <LayoutDashboard size={32} />}
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+            onClick={() => setIsOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="fixed inset-4 md:inset-8 overflow-hidden rounded-2xl border bg-background shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between border-b px-6 py-4">
+                  <h1 className="text-2xl font-bold tracking-tight">TQ Plan Performance</h1>
+                  <button onClick={() => setIsOpen(false)} className="rounded-full p-2 hover:bg-muted">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">{children}</div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+Dashboard Page – app/dashboard/page.tsxtsx"use client";
+
+import useSWR from "swr";
+import { DashboardWrapper } from "@/components/DashboardWrapper";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from "recharts";
+
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error("Fetch failed");
+  return res.json();
+});
+
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
+
+export default function TQDashboardPage() {
+  const { data: metrics, error: metricsError, isLoading: metricsLoading } = useSWR(
+    "/api/fleet/metrics",
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+
+  const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading } = useSWR(
+    "/api/fleet/monthly-volumes?year=2026",
+    fetcher,
+    { refreshInterval: 60000 }
+  );
+
+  // Derive tier data from metrics or separate endpoint in future
+  const tierData = [
+    { name: "Tier 1", value: metrics?.in_shop_tier1 || 425 },
+    { name: "Tier 2", value: metrics?.in_shop_tier2 || 190 },
+    { name: "Tier 3", value: metrics?.in_shop_tier3 || 352 },
+  ];
+
+  if (metricsError || volumesError) {
+    return (
+      <DashboardWrapper>
+        <div className="flex flex-col items-center justify-center h-full text-destructive">
+          <AlertCircle className="h-12 w-12 mb-4" />
+          <h2 className="text-xl font-semibold">Failed to load data</h2>
+        </div>
+      </DashboardWrapper>
+    );
+  }
+
+  return (
+    <DashboardWrapper>
+      <div className="space-y-8">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-4 items-center">
+          <Select defaultValue="all">
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Tier / Shop Network" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="tier1">Tier 1</SelectItem>
+              <SelectItem value="tier2">Tier 2</SelectItem>
+              <SelectItem value="tier3">Tier 3</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Add car type select similarly */}
+          <Badge variant="outline" className="ml-auto">
+            Updated: {new Date().toLocaleTimeString()}
+          </Badge>
+        </div>
+
+        {/* Metric Cards */}
+        <div className="grid gap-4 md:grid-cols-5">
+          {metricsLoading ? Array(5).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          )) : (
+            <>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total TQ Planned</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold">{metrics?.total_planned?.toLocaleString() ?? "—"}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Planned Volume</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold">{metrics?.planned_volume?.toLocaleString() ?? "—"}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">TQ Cars In Shop</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold">{metrics?.in_shop_count ?? "—"}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Cars Enroute</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold">{metrics?.enroute_count ?? "—"}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Cars in Dispo</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold">{metrics?.dispo_count ?? "—"}</div></CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* Charts */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="col-span-1 lg:col-span-2">
+            <CardHeader><CardTitle>2026 Arrivals Volume by Month</CardTitle></CardHeader>
+            <CardContent className="h-80">
+              {volumesLoading ? <Skeleton className="h-full rounded-xl" /> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyVolumes || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <XAxis dataKey="month" tickFormatter={v => v.split('-')[1]} />
+                    <YAxis />
+                    <Tooltip formatter={v => `${v} cars`} />
+                    <Bar dataKey="planned" fill="#3b82f6" name="Plan" radius={[4,4,0,0]} />
+                    <Bar dataKey="in_shop" fill="#10b981" name="Actual" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>TQ Cars In Shop by Tier</CardTitle></CardHeader>
+            <CardContent className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={tierData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({name, percent}) => `${name} ${(percent*100).toFixed(1)}%`}
+                  >
+                    {tierData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index]} />)}
+                  </Pie>
+                  <Tooltip formatter={v => `${v} cars`} />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardWrapper>
+  );
+}
+
+Next Steps – Important Follow-On Tasks (Prioritized)
+
+Immediate (1–2 days after 12.3)
+Add error boundaries + retry button on fetch failure.
+Make filters functional: pass ?tier=1 to endpoints → update backend queries.
+Add variance indicators (e.g., red badge if actual_spend > total_budget).
+
+Short-Term (1 week)
+Add "Shipment Volume by Month" bar chart (similar to arrivals).
+Add "Planned Volume by Tier" pie chart.
+Implement CSV export button (use papaparse or native Blob).
+
+Medium-Term (2–4 weeks)
+Dynamic tier/car-type options from API (new endpoint /api/filters/options).
+Add refresh button + last-updated timestamp with real server time.
+Mobile optimizations: ensure modal is full-screen, charts responsive.
+
+Longer-Term Polish
+Auth protection: only show icon / dashboard to logged-in users.
+Dark mode consistency (shadcn handles most of this).
+Performance: add debounce to filter changes if needed.
+Testing: add simple Cypress test for open/close + data load.
+
+Documentation & Cleanup
+Update README: add screenshot of dashboard + "Click bottom-right icon to open TQ Dashboard".
+Lint + build clean pass.
+Commit all as "feat(phase-12): full fleet dashboard with real data + floating icon access".
