@@ -316,6 +316,138 @@ export async function updateAllocationStatus(
   return rows[0] || null;
 }
 
+/**
+ * Create a new allocation with capacity check
+ */
+export async function createAllocation(input: {
+  car_id: string;
+  car_number?: string;
+  shop_code: string;
+  target_month: string;
+  status: 'planned' | 'confirmed';
+  estimated_cost?: number;
+  estimated_cost_breakdown?: Record<string, number>;
+  service_event_id?: string;
+  notes?: string;
+  created_by?: string;
+}): Promise<Allocation> {
+  const {
+    car_id,
+    car_number,
+    shop_code,
+    target_month,
+    status,
+    estimated_cost,
+    estimated_cost_breakdown,
+    service_event_id,
+    notes,
+    created_by,
+  } = input;
+
+  // Check capacity if confirming
+  if (status === 'confirmed') {
+    const capacityRows = await query<{ remaining: number }>(
+      `SELECT (total_capacity - allocated_count) as remaining
+       FROM shop_monthly_capacity
+       WHERE shop_code = $1 AND month = $2`,
+      [shop_code, target_month]
+    );
+
+    if (capacityRows.length > 0 && capacityRows[0].remaining <= 0) {
+      // Check overcommit limit (10%)
+      const limitRow = await queryOne<{ total_capacity: number; allocated_count: number }>(
+        `SELECT total_capacity, allocated_count FROM shop_monthly_capacity WHERE shop_code = $1 AND month = $2`,
+        [shop_code, target_month]
+      );
+
+      if (limitRow) {
+        const overcommitLimit = Math.ceil(limitRow.total_capacity * 0.1);
+        const overcommit = limitRow.allocated_count - limitRow.total_capacity;
+        if (overcommit >= overcommitLimit) {
+          throw new Error(`Shop ${shop_code} is at capacity for ${target_month}. Cannot confirm allocation.`);
+        }
+      }
+    }
+  }
+
+  // Insert allocation
+  const rows = await query<Allocation>(
+    `INSERT INTO allocations (
+      car_id, car_number, shop_code, target_month, status,
+      estimated_cost, estimated_cost_breakdown, service_event_id,
+      notes, created_by
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING *`,
+    [
+      car_id,
+      car_number || null,
+      shop_code,
+      target_month,
+      status,
+      estimated_cost || null,
+      estimated_cost_breakdown ? JSON.stringify(estimated_cost_breakdown) : null,
+      service_event_id || null,
+      notes || null,
+      created_by || null,
+    ]
+  );
+
+  // Update capacity count
+  if (status === 'confirmed') {
+    await query(
+      `INSERT INTO shop_monthly_capacity (shop_code, month, total_capacity, allocated_count)
+       VALUES ($1, $2, 50, 1)
+       ON CONFLICT (shop_code, month) DO UPDATE SET
+         allocated_count = shop_monthly_capacity.allocated_count + 1,
+         updated_at = NOW()`,
+      [shop_code, target_month]
+    );
+  }
+
+  return rows[0];
+}
+
+/**
+ * Get capacity for a shop for multiple months
+ */
+export async function getShopCapacityRange(
+  shopCode: string,
+  months: number = 3
+): Promise<ShopMonthlyCapacity[]> {
+  // Generate month strings
+  const now = new Date();
+  const monthsList: string[] = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    monthsList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  // Ensure all months exist
+  for (const month of monthsList) {
+    await query(
+      `INSERT INTO shop_monthly_capacity (shop_code, month, total_capacity)
+       VALUES ($1, $2, 50)
+       ON CONFLICT (shop_code, month) DO NOTHING`,
+      [shopCode, month]
+    );
+  }
+
+  // Return capacity data
+  return query<ShopMonthlyCapacity>(
+    `SELECT *,
+       (total_capacity - allocated_count) as available_capacity,
+       CASE WHEN total_capacity > 0
+         THEN (allocated_count::decimal / total_capacity) * 100
+         ELSE 0
+       END as utilization_pct,
+       (allocated_count >= total_capacity * 0.9) as is_at_risk
+     FROM shop_monthly_capacity
+     WHERE shop_code = $1 AND month = ANY($2)
+     ORDER BY month`,
+    [shopCode, monthsList]
+  );
+}
+
 // ============================================================================
 // ALLOCATION ENGINE
 // ============================================================================
@@ -573,6 +705,8 @@ export default {
   updateScenario,
   deleteScenario,
   listAllocations,
+  createAllocation,
   updateAllocationStatus,
   generateAllocations,
+  getShopCapacityRange,
 };

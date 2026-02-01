@@ -441,6 +441,76 @@ export async function updateAllocationStatus(req: Request, res: Response): Promi
   }
 }
 
+export async function createAllocation(req: Request, res: Response): Promise<void> {
+  try {
+    const {
+      car_id,
+      car_number,
+      shop_code,
+      target_month,
+      status,
+      estimated_cost,
+      estimated_cost_breakdown,
+      service_event_id,
+      notes,
+    } = req.body;
+
+    if (!car_id || !shop_code || !target_month || !status) {
+      res.status(400).json({
+        success: false,
+        error: 'car_id, shop_code, target_month, and status are required',
+      });
+      return;
+    }
+
+    if (!['planned', 'confirmed'].includes(status)) {
+      res.status(400).json({
+        success: false,
+        error: 'status must be "planned" or "confirmed"',
+      });
+      return;
+    }
+
+    const allocation = await planningService.createAllocation({
+      car_id,
+      car_number,
+      shop_code,
+      target_month,
+      status,
+      estimated_cost,
+      estimated_cost_breakdown,
+      service_event_id,
+      notes,
+      created_by: req.user?.email,
+    });
+
+    await logFromRequest(req, 'create', 'allocation', allocation.id, undefined, {
+      shop_code,
+      status,
+      target_month,
+    });
+
+    res.status(201).json({ success: true, data: allocation });
+  } catch (error: unknown) {
+    console.error('Create allocation error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
+export async function getShopMonthlyCapacity(req: Request, res: Response): Promise<void> {
+  try {
+    const { shopCode } = req.params;
+    const months = req.query.months ? parseInt(req.query.months as string) : 3;
+
+    const capacity = await planningService.getShopCapacityRange(shopCode, months);
+
+    res.json({ success: true, data: capacity });
+  } catch (error: unknown) {
+    console.error('Get shop monthly capacity error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
 // ============================================================================
 // BRC IMPORT ENDPOINTS
 // ============================================================================
@@ -601,8 +671,10 @@ export default {
   updateScenario,
   // Allocations
   listAllocations,
+  createAllocation,
   generateAllocations,
   updateAllocationStatus,
+  getShopMonthlyCapacity,
   // BRC
   importBRC,
   getBRCHistory,

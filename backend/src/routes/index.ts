@@ -4,6 +4,7 @@ import shopController from '../controllers/shop.controller';
 import ruleController from '../controllers/rule.controller';
 import * as authController from '../controllers/auth.controller';
 import planningController from '../controllers/planning.controller';
+import alertsController from '../controllers/alerts.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 
@@ -460,8 +461,12 @@ router.put('/scenarios/:id', authenticate, authorize('admin', 'operator'), plann
 // ============================================================================
 
 router.get('/allocations', authenticate, planningController.listAllocations);
+router.post('/allocations', authenticate, authorize('admin', 'operator'), planningController.createAllocation);
 router.post('/allocations/generate', authenticate, authorize('admin', 'operator'), planningController.generateAllocations);
 router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateAllocationStatus);
+
+// Shop monthly capacity for Quick Shop
+router.get('/shops/:shopCode/monthly-capacity', optionalAuth, planningController.getShopMonthlyCapacity);
 
 // ============================================================================
 // PHASE 9 - BRC IMPORT ROUTES
@@ -487,6 +492,17 @@ router.get('/dashboard/configs/:id', authenticate, planningController.getDashboa
 router.post('/dashboard/configs', authenticate, planningController.createDashboardConfig);
 router.put('/dashboard/configs/:id', authenticate, planningController.updateDashboardConfig);
 router.delete('/dashboard/configs/:id', authenticate, planningController.deleteDashboardConfig);
+
+// ============================================================================
+// PHASE 10 - ALERTS ROUTES
+// ============================================================================
+
+router.get('/alerts', authenticate, alertsController.getAlerts);
+router.get('/alerts/count', authenticate, alertsController.getAlertCount);
+router.put('/alerts/:alertId/read', authenticate, alertsController.markRead);
+router.delete('/alerts/:alertId', authenticate, alertsController.dismissAlert);
+router.delete('/alerts/type/:alertType', authenticate, authorize('admin'), alertsController.dismissByType);
+router.post('/alerts/scan/:scanType', authenticate, authorize('admin'), alertsController.triggerScan);
 
 // ============================================================================
 // HEALTH CHECK
