@@ -49,8 +49,13 @@ function PlanningContent() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Handle URL parameter for pre-filling car number
+  // Handle URL parameters for tab selection and car pre-fill
   useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['quick-shop', 'monthly-load', 'network-view'].includes(tabParam)) {
+      setActiveTab(tabParam as TabId);
+    }
+
     const carParam = searchParams.get('car');
     if (carParam && !car) {
       setActiveTab('quick-shop');
