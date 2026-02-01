@@ -7,6 +7,12 @@ import * as forecastService from '../services/forecast.service';
 import * as brcService from '../services/brc.service';
 import * as dashboardService from '../services/dashboard.service';
 import { logFromRequest } from '../services/audit.service';
+import { EventType, DemandStatus, AllocationStatus } from '../types';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 // ============================================================================
 // BUDGET ENDPOINTS
@@ -18,9 +24,9 @@ export async function getRunningRepairsBudget(req: Request, res: Response): Prom
     const budget = await budgetService.getRunningRepairsBudget(fiscalYear);
 
     res.json({ success: true, data: budget });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get running repairs budget error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -37,9 +43,9 @@ export async function updateRunningRepairsBudget(req: Request, res: Response): P
 
     await logFromRequest(req, 'update', 'running_repairs_budget', month, undefined, req.body);
     res.json({ success: true, data: budget });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update running repairs budget error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -54,22 +60,22 @@ export async function calculateRunningRepairsBudget(req: Request, res: Response)
 
     await logFromRequest(req, 'create', 'running_repairs_budget', String(fiscal_year));
     res.json({ success: true, data: budget });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Calculate running repairs budget error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
 export async function getServiceEventBudgets(req: Request, res: Response): Promise<void> {
   try {
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
-    const eventType = req.query.event_type as any;
+    const eventType = req.query.event_type as EventType | undefined;
     const budgets = await budgetService.getServiceEventBudgets(fiscalYear, eventType);
 
     res.json({ success: true, data: budgets });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get service event budgets error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -78,9 +84,9 @@ export async function createServiceEventBudget(req: Request, res: Response): Pro
     const budget = await budgetService.createServiceEventBudget(req.body, req.user?.id);
     await logFromRequest(req, 'create', 'service_event_budget', budget.id);
     res.status(201).json({ success: true, data: budget });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create service event budget error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -90,9 +96,9 @@ export async function getBudgetSummary(req: Request, res: Response): Promise<voi
     const summary = await budgetService.getBudgetSummary(fiscalYear);
 
     res.json({ success: true, data: summary });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get budget summary error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -114,9 +120,9 @@ export async function listCars(req: Request, res: Response): Promise<void> {
 
     const result = await carImportService.listCars(filters);
     res.json({ success: true, data: result.cars, total: result.total });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List cars error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -128,9 +134,9 @@ export async function getCarById(req: Request, res: Response): Promise<void> {
       return;
     }
     res.json({ success: true, data: car });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get car error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -138,9 +144,9 @@ export async function getActiveCarCount(req: Request, res: Response): Promise<vo
   try {
     const count = await carImportService.getActiveCarCount();
     res.json({ success: true, data: { count } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get active car count error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -159,9 +165,9 @@ export async function importCars(req: Request, res: Response): Promise<void> {
     });
 
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Import cars error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -174,9 +180,9 @@ export async function getForecast(req: Request, res: Response): Promise<void> {
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
     const forecast = await forecastService.getMaintenanceForecast(fiscalYear);
     res.json({ success: true, data: forecast });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get forecast error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -185,9 +191,9 @@ export async function getForecastTrends(req: Request, res: Response): Promise<vo
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
     const trends = await forecastService.getForecastTrends(fiscalYear);
     res.json({ success: true, data: trends });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get forecast trends error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -200,17 +206,17 @@ export async function listDemands(req: Request, res: Response): Promise<void> {
     const filters = {
       fiscal_year: req.query.fiscal_year ? parseInt(req.query.fiscal_year as string) : undefined,
       target_month: req.query.target_month as string,
-      status: req.query.status as any,
-      event_type: req.query.event_type as any,
+      status: req.query.status as DemandStatus | undefined,
+      event_type: req.query.event_type as EventType | undefined,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
       offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
     };
 
     const result = await demandService.listDemands(filters);
     res.json({ success: true, data: result.demands, total: result.total });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List demands error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -222,9 +228,9 @@ export async function getDemandById(req: Request, res: Response): Promise<void> 
       return;
     }
     res.json({ success: true, data: demand });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get demand error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -233,9 +239,9 @@ export async function createDemand(req: Request, res: Response): Promise<void> {
     const demand = await demandService.createDemand(req.body, req.user?.id);
     await logFromRequest(req, 'create', 'demand', demand.id);
     res.status(201).json({ success: true, data: demand });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create demand error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -248,9 +254,9 @@ export async function updateDemand(req: Request, res: Response): Promise<void> {
     }
     await logFromRequest(req, 'update', 'demand', demand.id);
     res.json({ success: true, data: demand });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update demand error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -264,9 +270,9 @@ export async function updateDemandStatus(req: Request, res: Response): Promise<v
     }
     await logFromRequest(req, 'update', 'demand', demand.id, undefined, { status });
     res.json({ success: true, data: demand });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update demand status error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -275,9 +281,9 @@ export async function deleteDemand(req: Request, res: Response): Promise<void> {
     await demandService.deleteDemand(req.params.id);
     await logFromRequest(req, 'delete', 'demand', req.params.id);
     res.json({ success: true, message: 'Demand deleted' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete demand error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -298,9 +304,9 @@ export async function getCapacity(req: Request, res: Response): Promise<void> {
 
     const capacity = await planningService.getShopCapacity(startMonth, endMonth, network);
     res.json({ success: true, data: capacity });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get capacity error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -310,9 +316,9 @@ export async function updateCapacity(req: Request, res: Response): Promise<void>
     const capacity = await planningService.updateShopCapacity(shopCode, month, req.body);
     await logFromRequest(req, 'update', 'shop_capacity', `${shopCode}:${month}`);
     res.json({ success: true, data: capacity });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update capacity error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -322,9 +328,9 @@ export async function initializeCapacity(req: Request, res: Response): Promise<v
     const count = await planningService.initializeCapacity(default_capacity || 20);
     await logFromRequest(req, 'create', 'shop_capacity', 'bulk');
     res.json({ success: true, data: { initialized: count } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Initialize capacity error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -336,9 +342,9 @@ export async function listScenarios(req: Request, res: Response): Promise<void> 
   try {
     const scenarios = await planningService.listScenarios();
     res.json({ success: true, data: scenarios });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List scenarios error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -347,9 +353,9 @@ export async function createScenario(req: Request, res: Response): Promise<void>
     const scenario = await planningService.createScenario(req.body, req.user?.id);
     await logFromRequest(req, 'create', 'scenario', scenario.id);
     res.status(201).json({ success: true, data: scenario });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create scenario error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -362,9 +368,9 @@ export async function updateScenario(req: Request, res: Response): Promise<void>
     }
     await logFromRequest(req, 'update', 'scenario', scenario.id);
     res.json({ success: true, data: scenario });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update scenario error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -378,16 +384,16 @@ export async function listAllocations(req: Request, res: Response): Promise<void
       demand_id: req.query.demand_id as string,
       shop_code: req.query.shop_code as string,
       target_month: req.query.target_month as string,
-      status: req.query.status as any,
+      status: req.query.status as AllocationStatus | undefined,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
       offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
     };
 
     const result = await planningService.listAllocations(filters);
     res.json({ success: true, data: result.allocations, total: result.total });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List allocations error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -413,9 +419,9 @@ export async function generateAllocations(req: Request, res: Response): Promise<
     }
 
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Generate allocations error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -429,9 +435,9 @@ export async function updateAllocationStatus(req: Request, res: Response): Promi
     }
     await logFromRequest(req, 'update', 'allocation', allocation.id, undefined, { status });
     res.json({ success: true, data: allocation });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update allocation status error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -454,9 +460,9 @@ export async function importBRC(req: Request, res: Response): Promise<void> {
     });
 
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Import BRC error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -468,9 +474,9 @@ export async function getBRCHistory(req: Request, res: Response): Promise<void> 
 
     const history = await brcService.getBRCHistory(startDate, endDate, limit);
     res.json({ success: true, data: history });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get BRC history error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -482,9 +488,9 @@ export async function listWidgets(req: Request, res: Response): Promise<void> {
   try {
     const widgets = await dashboardService.listWidgets();
     res.json({ success: true, data: widgets });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List widgets error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -492,9 +498,9 @@ export async function listDashboardConfigs(req: Request, res: Response): Promise
   try {
     const configs = await dashboardService.listDashboardConfigs(req.user!.id);
     res.json({ success: true, data: configs });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List dashboard configs error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -507,9 +513,9 @@ export async function getDashboardConfig(req: Request, res: Response): Promise<v
       return;
     }
     res.json({ success: true, data: config });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get dashboard config error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -524,9 +530,9 @@ export async function createDashboardConfig(req: Request, res: Response): Promis
     );
     await logFromRequest(req, 'create', 'dashboard_config', config.id, undefined, { name });
     res.status(201).json({ success: true, data: config });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create dashboard config error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -540,9 +546,9 @@ export async function updateDashboardConfig(req: Request, res: Response): Promis
     }
     await logFromRequest(req, 'update', 'dashboard_config', id, undefined, req.body);
     res.json({ success: true, data: config });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update dashboard config error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
@@ -556,9 +562,9 @@ export async function deleteDashboardConfig(req: Request, res: Response): Promis
     }
     await logFromRequest(req, 'delete', 'dashboard_config', id);
     res.json({ success: true, message: 'Dashboard config deleted' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete dashboard config error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
 
