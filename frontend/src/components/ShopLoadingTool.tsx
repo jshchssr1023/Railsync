@@ -34,6 +34,12 @@ export default function ShopLoadingTool({
   const [hoveredCell, setHoveredCell] = useState<{ shopCode: string; month: string } | null>(null);
   const [cellDetails, setCellDetails] = useState<{ shopCode: string; month: string; cars: string[] } | null>(null);
 
+  // Shop filter state
+  const [regionFilter, setRegionFilter] = useState<string>('');
+  const [tierFilter, setTierFilter] = useState<number | ''>('');
+  const [aitxOnly, setAitxOnly] = useState(false);
+  const [regions, setRegions] = useState<string[]>([]);
+
   // Drag state
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
   const [dragOverCell, setDragOverCell] = useState<{ shopCode: string; month: string } | null>(null);
@@ -85,11 +91,22 @@ export default function ShopLoadingTool({
     fetchData();
   }, [fetchData]);
 
-  // Group capacity by shop
+  // Fetch filter options
+  useEffect(() => {
+    fetch(`${API_URL}/shops/regions`)
+      .then(r => r.json())
+      .then(d => d.success && setRegions(d.data || []))
+      .catch(() => {});
+  }, []);
+
+  // Group capacity by shop with filters
   const shopCapacity = useMemo(() => {
     const byShop = new Map<string, Map<string, ShopMonthlyCapacity>>();
 
     for (const cap of capacityData) {
+      // Apply AITX filter (shop codes starting with AITX-)
+      if (aitxOnly && !cap.shop_code.startsWith('AITX-')) continue;
+
       if (!byShop.has(cap.shop_code)) {
         byShop.set(cap.shop_code, new Map());
       }
@@ -99,7 +116,7 @@ export default function ShopLoadingTool({
     return Array.from(byShop.entries())
       .map(([shop_code, months]) => ({ shop_code, months }))
       .sort((a, b) => a.shop_code.localeCompare(b.shop_code));
-  }, [capacityData]);
+  }, [capacityData, aitxOnly]);
 
   // Filter allocations
   const filteredAllocations = useMemo(() => {
@@ -265,11 +282,24 @@ export default function ShopLoadingTool({
     <div className="flex flex-col h-[calc(100vh-200px)] bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Shop Loading Tool</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Drag cars from left to assign to shops on right
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Shop Loading Tool</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Drag cars to assign • {shopCapacity.length} shops
+            </p>
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={aitxOnly}
+                onChange={(e) => setAitxOnly(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-gray-600 dark:text-gray-400">AITX Network Only</span>
+            </label>
+          </div>
         </div>
         {error && (
           <div className="flex items-center gap-2 px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm">
