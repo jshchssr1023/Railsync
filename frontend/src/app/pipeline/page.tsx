@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PipelineCar {
   id: string;
@@ -44,10 +45,15 @@ const fetcher = async (url: string) => {
   return json.data as PipelineData;
 };
 
+const PAGE_SIZES = [10, 25, 50, 100];
+
 export default function PipelinePage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'backlog' | 'pipeline' | 'active' | 'healthy'>('backlog');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const { data, error, isLoading, mutate } = useSWR<PipelineData>(
     '/api/pipeline/buckets',
@@ -65,6 +71,53 @@ export default function PipelinePage() {
     router.push(`/planning?${params.toString()}`);
   }, [router]);
 
+  // Reset to page 1 when tab or search changes
+  const handleTabChange = useCallback((tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  }, []);
+
+  // Filter and paginate cars
+  const { filteredCars, paginatedCars, totalPages, totalFiltered } = useMemo(() => {
+    const allCars = data?.[activeTab] || [];
+
+    // Filter by search query
+    const filtered = searchQuery.trim()
+      ? allCars.filter(car => {
+          const query = searchQuery.toLowerCase();
+          return (
+            car.car_number?.toLowerCase().includes(query) ||
+            car.car_mark?.toLowerCase().includes(query) ||
+            car.product_code?.toLowerCase().includes(query) ||
+            car.shop_name?.toLowerCase().includes(query) ||
+            car.shop_code?.toLowerCase().includes(query)
+          );
+        })
+      : allCars;
+
+    // Calculate pagination
+    const total = Math.ceil(filtered.length / pageSize);
+    const start = (currentPage - 1) * pageSize;
+    const paginated = filtered.slice(start, start + pageSize);
+
+    return {
+      filteredCars: filtered,
+      paginatedCars: paginated,
+      totalPages: total,
+      totalFiltered: filtered.length,
+    };
+  }, [data, activeTab, searchQuery, currentPage, pageSize]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -79,8 +132,6 @@ export default function PipelinePage() {
     { id: 'active' as const, label: 'Active', count: data?.summary.active || 0, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
     { id: 'healthy' as const, label: 'Healthy', count: data?.summary.healthy || 0, color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
   ];
-
-  const currentCars = data?.[activeTab] || [];
 
   return (
     <div className="space-y-6">
@@ -110,7 +161,7 @@ export default function PipelinePage() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`p-4 rounded-lg border-2 transition-all ${
               activeTab === tab.id
                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
@@ -141,95 +192,154 @@ export default function PipelinePage() {
 
       {/* Cars Table */}
       <div className="card overflow-hidden">
-        <div className="card-header flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {tabs.find(t => t.id === activeTab)?.label} Cars
-          </h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {currentCars.length} cars
-          </span>
+        <div className="card-header">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {tabs.find(t => t.id === activeTab)?.label} Cars
+              </h3>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {searchQuery ? `${totalFiltered} of ${data?.[activeTab]?.length || 0}` : totalFiltered} cars
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search cars..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-9 pr-3 py-2 w-48 sm:w-64 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              {/* Page Size */}
+              <select
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+              >
+                {PAGE_SIZES.map(size => (
+                  <option key={size} value={size}>{size} per page</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading cars...</div>
-        ) : currentCars.length === 0 ? (
+        ) : paginatedCars.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No cars in {tabs.find(t => t.id === activeTab)?.label.toLowerCase()}
+            {searchQuery
+              ? `No cars matching "${searchQuery}"`
+              : `No cars in ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()}`}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table text-sm">
-              <thead>
-                <tr>
-                  <th>Car</th>
-                  <th>Product</th>
-                  <th>Status</th>
-                  {activeTab !== 'backlog' && <th>Shop</th>}
-                  {activeTab === 'backlog' && <th>Reason</th>}
-                  <th>Target Month</th>
-                  {activeTab === 'healthy' && <th>Last Shopped</th>}
-                  <th className="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentCars.map((car) => (
-                  <tr key={car.id}>
-                    <td>
-                      <div className="font-medium text-gray-900 dark:text-gray-100">
-                        {car.car_mark} {car.car_number}
-                      </div>
-                    </td>
-                    <td>{car.product_code || 'N/A'}</td>
-                    <td>
-                      <StatusBadge status={car.current_status} />
-                    </td>
-                    {activeTab !== 'backlog' && (
-                      <td>{car.shop_name || car.shop_code || '-'}</td>
-                    )}
-                    {activeTab === 'backlog' && (
-                      <td>
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {car.needs_shopping_reason || 'Not specified'}
-                        </span>
-                      </td>
-                    )}
-                    <td>{car.target_month || '-'}</td>
-                    {activeTab === 'healthy' && (
-                      <td>{car.last_shopping_date || '-'}</td>
-                    )}
-                    <td className="text-right">
-                      {activeTab === 'backlog' && (
-                        <button
-                          onClick={() => handleShopCar(car)}
-                          className="btn btn-primary btn-sm"
-                        >
-                          Shop Now
-                        </button>
-                      )}
-                      {activeTab === 'pipeline' && (
-                        <button
-                          onClick={() => router.push(`/planning?car=${car.car_number}`)}
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                        >
-                          View Details
-                        </button>
-                      )}
-                      {activeTab === 'active' && (
-                        <span className="text-xs text-gray-500">
-                          {car.enroute_date ? `Enroute: ${car.enroute_date}` : 'In Shop'}
-                        </span>
-                      )}
-                      {activeTab === 'healthy' && (
-                        <span className="text-xs text-green-600 dark:text-green-400">
-                          Complete
-                        </span>
-                      )}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="table text-sm">
+                <thead>
+                  <tr>
+                    <th>Car</th>
+                    <th>Product</th>
+                    <th>Status</th>
+                    {activeTab !== 'backlog' && <th>Shop</th>}
+                    {activeTab === 'backlog' && <th>Reason</th>}
+                    <th>Target Month</th>
+                    {activeTab === 'healthy' && <th>Last Shopped</th>}
+                    <th className="text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedCars.map((car) => (
+                    <tr key={car.id}>
+                      <td>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">
+                          {car.car_mark} {car.car_number}
+                        </div>
+                      </td>
+                      <td>{car.product_code || 'N/A'}</td>
+                      <td>
+                        <StatusBadge status={car.current_status} />
+                      </td>
+                      {activeTab !== 'backlog' && (
+                        <td>{car.shop_name || car.shop_code || '-'}</td>
+                      )}
+                      {activeTab === 'backlog' && (
+                        <td>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {car.needs_shopping_reason || 'Not specified'}
+                          </span>
+                        </td>
+                      )}
+                      <td>{car.target_month || '-'}</td>
+                      {activeTab === 'healthy' && (
+                        <td>{car.last_shopping_date || '-'}</td>
+                      )}
+                      <td className="text-right">
+                        {activeTab === 'backlog' && (
+                          <button
+                            onClick={() => handleShopCar(car)}
+                            className="btn btn-primary btn-sm"
+                          >
+                            Shop Now
+                          </button>
+                        )}
+                        {activeTab === 'pipeline' && (
+                          <button
+                            onClick={() => router.push(`/planning?car=${car.car_number}`)}
+                            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                          >
+                            View Details
+                          </button>
+                        )}
+                        {activeTab === 'active' && (
+                          <span className="text-xs text-gray-500">
+                            {car.enroute_date ? `Enroute: ${car.enroute_date}` : 'In Shop'}
+                          </span>
+                        )}
+                        {activeTab === 'healthy' && (
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Complete
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalFiltered)} of {totalFiltered}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[100px] text-center">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
