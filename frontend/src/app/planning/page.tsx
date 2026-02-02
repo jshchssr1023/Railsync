@@ -14,7 +14,7 @@ import ResultsGrid from '@/components/ResultsGrid';
 import DirectCarInput from '@/components/DirectCarInput';
 import AllocationList from '@/components/AllocationList';
 import { ErrorBoundary, FetchError } from '@/components/ErrorBoundary';
-import { evaluateShops, evaluateShopsDirect, getCarByNumber } from '@/lib/api';
+import { evaluateShops, evaluateShopsDirect, getCarByNumber, checkAssignmentConflicts, AssignmentConflict } from '@/lib/api';
 import { Car, EvaluationOverrides, EvaluationResult } from '@/types';
 
 type TabId = 'quick-shop' | 'monthly-load' | 'network-view';
@@ -49,6 +49,7 @@ function PlanningContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [conflict, setConflict] = useState<AssignmentConflict | null>(null);
 
   // Handle URL parameters for tab selection and car pre-fill
   useEffect(() => {
@@ -85,13 +86,21 @@ function PlanningContent() {
     setCar(null);
     setResults([]);
     setError(null);
+    setConflict(null);
     setLoading(true);
 
     try {
       console.log('[Shop Now] Fetching car data...');
-      const result = await getCarByNumber(carNumber);
+      const [result, conflictResult] = await Promise.all([
+        getCarByNumber(carNumber),
+        checkAssignmentConflicts(carNumber),
+      ]);
       console.log('[Shop Now] Got car:', result.car);
       setCar(result.car);
+      if (conflictResult) {
+        console.log('[Shop Now] Conflict detected:', conflictResult);
+        setConflict(conflictResult);
+      }
     } catch (err) {
       console.error('[Shop Now] Error:', err);
       setError(err instanceof Error ? err.message : `Failed to load car ${carNumber}`);
@@ -315,6 +324,24 @@ function PlanningContent() {
                       Shop This Car Now
                     </button>
                   </div>
+                  {conflict && (
+                    <div className="mx-4 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <div className="text-sm">
+                          <p className="font-medium text-yellow-800 dark:text-yellow-200">Existing Assignment Detected</p>
+                          <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                            This car is already assigned to <strong>{conflict.existing_assignment.shop_name || conflict.existing_assignment.shop_code}</strong> for <strong>{conflict.existing_assignment.target_month}</strong> (Status: {conflict.existing_assignment.status})
+                          </p>
+                          <p className="text-yellow-600 dark:text-yellow-400 mt-1 text-xs">
+                            Creating a new assignment may cause a conflict. Consider updating the existing assignment instead.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="card-body">
                     <dl className="grid grid-cols-2 gap-4">
                       <div>

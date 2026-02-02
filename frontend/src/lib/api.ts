@@ -554,6 +554,29 @@ export async function resolveBadOrder(id: string, action: string, notes?: string
   return response.data;
 }
 
+// ============================================================================
+// ASSIGNMENT CONFLICT CHECK
+// ============================================================================
+
+export interface AssignmentConflict {
+  type: string;
+  existing_assignment: {
+    id: string;
+    car_number: string;
+    shop_code: string;
+    shop_name?: string;
+    target_month: string;
+    status: string;
+    source: string;
+  };
+  message: string;
+}
+
+export async function checkAssignmentConflicts(carNumber: string): Promise<AssignmentConflict | null> {
+  const response = await fetchApi<AssignmentConflict | null>(`/assignments/check-conflicts?car_number=${encodeURIComponent(carNumber)}`);
+  return response.data || null;
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -594,6 +617,8 @@ const api = {
   listBadOrders,
   createBadOrder,
   resolveBadOrder,
+  // Assignments
+  checkAssignmentConflicts,
 };
 
 export default api;
