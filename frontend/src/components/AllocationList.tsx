@@ -32,6 +32,8 @@ export default function AllocationList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [shoppingTypeFilter, setShoppingTypeFilter] = useState<string>('');
+  const [shoppingTypes, setShoppingTypes] = useState<{id: string; code: string; name: string}[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchAllocations = useCallback(async () => {
@@ -57,6 +59,15 @@ export default function AllocationList({
     fetchAllocations();
   }, [fetchAllocations]);
 
+  // Fetch shopping types for filter
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    fetch(`${API_URL}/shopping-types`)
+      .then(r => r.json())
+      .then(d => d.success && setShoppingTypes(d.data))
+      .catch(() => {});
+  }, []);
+
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null) return '-';
     return new Intl.NumberFormat('en-US', {
@@ -75,11 +86,17 @@ export default function AllocationList({
     });
   };
 
+  // Filter allocations by shopping type
+  const filteredAllocations = useMemo(() => {
+    if (!shoppingTypeFilter) return allocations;
+    return allocations.filter(a => (a as any).shopping_type_id === shoppingTypeFilter);
+  }, [allocations, shoppingTypeFilter]);
+
   // Filter to show only allocations that need shopping (have car_number)
   const shoppableAllocations = useMemo(() =>
-    allocations.filter(
+    filteredAllocations.filter(
       (a) => a.car_number && ['Need Shopping', 'To Be Routed', 'Planned Shopping'].includes(a.status)
-    ), [allocations]
+    ), [filteredAllocations]
   );
 
   // Selection handlers
@@ -144,6 +161,16 @@ export default function AllocationList({
             <option value="Enroute">Enroute</option>
             <option value="Complete">Complete</option>
           </select>
+          <select
+            value={shoppingTypeFilter}
+            onChange={(e) => setShoppingTypeFilter(e.target.value)}
+            className="input text-sm py-1.5"
+          >
+            <option value="">All Types</option>
+            {shoppingTypes.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
           <button
             onClick={fetchAllocations}
             className="btn btn-secondary text-sm py-1.5"
@@ -196,9 +223,9 @@ export default function AllocationList({
       <div className="card overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">Loading allocations...</div>
-        ) : allocations.length === 0 ? (
+        ) : filteredAllocations.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            No allocations found
+            No allocations found {shoppingTypeFilter && '(try clearing type filter)'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -218,6 +245,7 @@ export default function AllocationList({
                     />
                   </th>
                   <th>Car Number</th>
+                  <th>Type</th>
                   <th>Shop</th>
                   <th>Month</th>
                   <th>Status</th>
@@ -227,10 +255,11 @@ export default function AllocationList({
                 </tr>
               </thead>
               <tbody>
-                {allocations.map((allocation) => {
+                {filteredAllocations.map((allocation) => {
                   const isShoppable = allocation.car_number &&
                     ['Need Shopping', 'To Be Routed', 'Planned Shopping'].includes(allocation.status);
                   const isSelected = selectedIds.has(allocation.id);
+                  const shopType = shoppingTypes.find(t => t.id === (allocation as any).shopping_type_id);
 
                   return (
                     <tr
@@ -254,6 +283,9 @@ export default function AllocationList({
                         <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
                           {allocation.car_number || allocation.car_id.slice(0, 8)}
                         </span>
+                      </td>
+                      <td className="text-xs text-gray-600 dark:text-gray-400 max-w-[120px] truncate" title={shopType?.name}>
+                        {shopType?.name?.split('/')[0]?.trim() || '-'}
                       </td>
                       <td className="text-gray-700 dark:text-gray-300">
                         {allocation.shop_code}
