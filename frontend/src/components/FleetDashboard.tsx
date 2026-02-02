@@ -193,11 +193,11 @@ export default function FleetDashboard() {
   return (
     <div className="space-y-6">
       {/* Filters and Controls */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+          className="px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
         >
           <option value="all">All Tiers</option>
           {(filterOptions?.tiers || [1, 2, 3]).map(tier => (
@@ -206,20 +206,22 @@ export default function FleetDashboard() {
         </select>
         <button
           onClick={handleRetry}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+          title="Refresh data"
         >
           <RefreshCw className="h-4 w-4" />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </button>
         <button
           onClick={handleExportCSV}
           disabled={metricsLoading || volumesLoading || tierLoading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
+          title="Export as CSV"
         >
           <Download className="h-4 w-4" />
-          Export CSV
+          <span className="hidden sm:inline">Export CSV</span>
         </button>
-        <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+        <span className="w-full sm:w-auto sm:ml-auto text-xs text-gray-500 dark:text-gray-400 text-center sm:text-right">
           Updated: {lastUpdated}
         </span>
       </div>
@@ -270,10 +272,10 @@ export default function FleetDashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Bar Chart - Monthly Volumes */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
             {currentYear} Monthly Arrivals
           </h3>
           {volumesLoading ? (
@@ -303,8 +305,8 @@ export default function FleetDashboard() {
         </div>
 
         {/* Pie Chart - Tier Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
             Cars In Shop by Tier
           </h3>
           {tierLoading ? (
@@ -344,11 +346,11 @@ export default function FleetDashboard() {
 
       {/* Budget Summary */}
       {metrics && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
             Budget Summary
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Planned Cost</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">

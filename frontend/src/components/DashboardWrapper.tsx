@@ -91,20 +91,20 @@ export default function DashboardWrapper({ children }: DashboardWrapperProps) {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-4 md:inset-8 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl"
+              className="fixed inset-0 sm:inset-4 md:inset-8 overflow-hidden sm:rounded-2xl border-0 sm:border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex h-full flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-800">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    Fleet Performance Dashboard
+                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 dark:bg-gray-800">
+                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
+                    Fleet Dashboard
                   </h1>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     {/* Simpsons Mode Toggle */}
                     <button
                       onClick={toggleSimpsonsMode}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                         simpsonsMode
                           ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                           : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
@@ -118,14 +118,14 @@ export default function DashboardWrapper({ children }: DashboardWrapperProps) {
                     </button>
                     <button
                       onClick={() => setIsOpen(false)}
-                      className="rounded-full p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      className="rounded-full p-1.5 sm:p-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <X className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                      <X className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 dark:text-gray-400" />
                     </button>
                   </div>
                 </div>
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                   {children}
                 </div>
               </div>
