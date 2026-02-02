@@ -1,4 +1,72 @@
-# Railsync Phas 16
+# Railsync Phase 16
+---
+
+## Implementation Status
+
+> **Last Updated:** 2026-02-02 by Claude Opus 4.5
+
+### Completed ✅
+
+| Feature | Description | Files | Commit |
+|---------|-------------|-------|--------|
+| Fleet Hierarchy Schema | Customer → Lease → Rider → Cars data model | `database/migrations/010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
+| Fleet Hierarchy API | REST endpoints for hierarchy navigation | `backend/src/controllers/fleet.controller.ts`, `backend/src/services/fleet.service.ts` | `b1d369e` |
+| Fleet Hierarchy UI | Drill-down navigation with breadcrumbs | `frontend/src/app/fleet/page.tsx`, `frontend/src/components/fleet/*` | `b1d369e` |
+| Budget Input Screen | Running Repairs + Service Events editing | `frontend/src/app/budget/page.tsx` | `735e1c2` |
+| S&OP Planning Schema | Monthly snapshots, maintenance forecast v2 | `database/migrations/009_sop_planning.sql` | `77360ed` |
+| Amendment Tracking | Visual badges, conflict detection | `v_amendment_summary` view, `lease_amendments` table | `b1d369e` |
+
+### In Progress 🔄
+
+| Feature | Owner | Notes |
+|---------|-------|-------|
+| Auth Token Fix | Other Dev | Fixed localStorage key mismatch (`19a17ff`) |
+
+### Pending 📋
+
+| Feature | Priority | Spec Reference |
+|---------|----------|----------------|
+| Bulk Shop Re-assignment | High | "Re-sync Schedule" button for managers |
+| Amendment Conflict Modal | Medium | Before/After comparison when shopping car |
+| Drag-and-Drop Shop Loading | Medium | Split-pane interface for allocation |
+| Shop Capacity Real-time Sync | Medium | Decrement capacity on assignment |
+| Proximity Filter | Low | Smart suggest based on rail-mile radius |
+
+### Database Views Created
+
+```
+v_customer_summary      - Customer totals (leases, riders, cars, revenue)
+v_master_lease_summary  - Lease summary with rider/car counts
+v_rider_summary         - Rider details with actual cars on lease
+v_amendment_summary     - Amendment details with related entities
+v_cars_on_lease         - Cars assigned to lease riders
+v_maintenance_forecast_v2 - Combined RR + SE budget forecast
+v_sop_budget_impact     - S&OP projection budget calculations
+```
+
+### API Endpoints Added
+
+```
+GET  /api/customers                    - List customers with totals
+GET  /api/customers/:id/leases         - Customer's master leases
+GET  /api/leases/:id/riders            - Lease's riders/schedules
+GET  /api/riders/:id/cars              - Cars assigned to rider
+GET  /api/riders/:id/amendments        - Rider's amendments
+POST /api/riders/:id/resync-schedule   - Bulk resync car schedules
+GET  /api/amendments/:id               - Amendment details with comparison
+POST /api/amendments/:id/detect-conflicts - Find scheduling conflicts
+GET  /api/fleet/cars-with-amendments   - Cars with amendment status
+GET  /api/cars/:carNumber/validate-shopping - Check for outdated terms
+```
+
+### Demo Data Seeded
+
+- 9 customers (DuPont, Dow, BASF, Exxon, Shell, Cargill, ADM, Bunge, Mosaic)
+- Multiple master leases with riders
+- 72+ car assignments to lease riders
+- S&OP monthly snapshots for 2026
+- Running repairs and service event budgets for FY2026
+
 ---
 
 ## Implementation Directives
@@ -54,6 +122,28 @@ Your responsibility is to **verify**, not extend, the existing system.
 You must assume the build *claims* to be complete — your job is to **prove or disprove that claim**.
 
 You will operate using the **Railph Loop**, executed rigorously and in order.
+. Visual Amendment Triggers
+Indicator: Any car associated with a Rider that has an active or pending Amendment must display an "Updated Terms" badge in the Fleet Overview.
+
+Highlighting: If an Amendment changes the "Required Shop Date" or "Service Interval," the affected car rows must be highlighted to signal a scheduling conflict.
+
+2. Conflict Resolution Workflow
+Validation: If a user attempts to shop a car ([Shop] button) under old Rider terms that have been superseded by an Amendment, the system must trigger a confirmation modal.
+
+Modal Content: The modal should display a "Before vs. After" comparison of the shopping requirements (e.g., "Previous: General Service every 10 years" vs. "Amended: General Service every 8 years").
+
+3. Historical Transparency
+Audit Trail: Within the Fleet Overview, users should be able to click an Amendment badge to see a timeline of when the change was executed and who approved it.
+
+Impact Summary: Provide a summary view showing how many cars within a specific Lease or Rider were affected by a specific Amendment.
+
+4. Bulk Shop Re-assignment
+Automation: Provide a "Re-sync Schedule" button for Managers. When clicked, the system should automatically move "Planned" or "Scheduled" shop dates to align with the new Amendment dates for all cars under that Rider.
+
+Technical Notes for Developers
+Data Relationship: Ensure the Amendment table has a many-to-one relationship with Rider, and that any Car query joins these tables to check for the is_latest_version flag.
+
+Performance: Since we are scaling to 100k+ cars, the "Amendment Impact" check should be calculated asynchronously or cached to avoid slowing down the main Fleet table load.
 
 Revised Budget Structure
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -398,5 +488,38 @@ flowchart TD
     class Amendment amendment
     class Cars cars
     class FleetPage,CustomerCard,MasterLeaseCards,RiderCards,AmendmentCards,CarCards nav
+. The "Integrated Allocation" Layout
+Instead of two separate tables, the goal is to show how Car Allocations consume Shop Capacity in real-time.
 
+The "Split-Pane" Interface
+Left Pane (The Demand): Keep the Car Allocations list but add a "Drag-and-Drop" handle to each car row.
+
+Right Pane (The Supply): Show a condensed Shop Capacity Grid.
+
+The Action: A user drags a car (like INGX770101) from the left and drops it into a specific shop/month cell (like AITX-BRK / Feb) on the right.
+
+2. Dynamic Capacity Feedback
+As cars are assigned, the Shop Capacity Grid should update instantly to prevent overbooking:
+
+Real-time Math: If a shop has a 0/50 capacity and you assign 5 cars, the cell should immediately update to 5/50.
+
+Visual Warnings: If a shop hits 51/50, the cell should turn Red immediately to signal a bottleneck.
+
+3. Simplified "Fleet-to-Shop" Filtering
+With 668 shops and 100k cars, finding the right match is the hardest part.
+
+Proximity Filter: Add a "Smart Suggest" filter. When a car is selected, highlight only the shops in the Capacity Grid that are within a certain rail-mile radius or on the car's current route.
+
+Capability Match: If a car needs a "Tank Qual" (from your Demand Forecasts), the grid should automatically gray out shops that don't perform that specific service.
+
+4. Technical "Definition of Done" for Developers
+Since we're moving the budget and demand away, here is the checklist for this specific Shop Loading Tool:
+
+[ ] Virtual Grid: The Shop Capacity Grid must support horizontal and vertical sticky headers so users don't lose track of which Shop or Month they are looking at.
+
+[ ] State Sync: Moving a car from "To Be Routed" to a shop via the [Shop Now] button must decrement the available capacity in the shops database table.
+
+[ ] Bulk Drag: Users must be able to select multiple cars (e.g., all 12 cars for Q1 Tank Quals - Jan) and drop them into a shop at once.
+
+[ ] Hover Details: Hovering over a capacity cell (e.g., 10/50) should trigger a tooltip listing the specific Car Numbers already assigned to that slot.
 
