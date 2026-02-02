@@ -128,6 +128,17 @@ export default function FleetPage() {
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
 
+  // Shop validation state
+  const [showShopConfirmModal, setShowShopConfirmModal] = useState(false);
+  const [pendingShopCar, setPendingShopCar] = useState<string | null>(null);
+  const [shopValidation, setShopValidation] = useState<{
+    hasOutdatedTerms: boolean;
+    amendment?: Amendment;
+    comparison?: { field: string; before: string | number | null; after: string | number | null }[];
+    warnings: string[];
+  } | null>(null);
+  const [validatingShop, setValidatingShop] = useState(false);
+
   // Fetch customers
   const { data: customers, error: customersError, isLoading: customersLoading } = useSWR<Customer[]>(
     level === 'customers' ? `${API_URL}/customers` : null,
@@ -219,8 +230,46 @@ export default function FleetPage() {
     }
   };
 
-  const handleShopCar = (carNumber: string) => {
-    router.push(`/planning?car=${encodeURIComponent(carNumber)}`);
+  const handleShopCar = async (carNumber: string) => {
+    setValidatingShop(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${API_URL}/cars/${encodeURIComponent(carNumber)}/validate-shopping`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+
+      if (data.success && data.data.hasOutdatedTerms) {
+        // Show confirmation modal
+        setPendingShopCar(carNumber);
+        setShopValidation(data.data);
+        setShowShopConfirmModal(true);
+      } else {
+        // No conflicts, proceed to planning
+        router.push(`/planning?car=${encodeURIComponent(carNumber)}`);
+      }
+    } catch (error) {
+      console.error('Error validating car for shopping:', error);
+      // On error, allow shopping anyway
+      router.push(`/planning?car=${encodeURIComponent(carNumber)}`);
+    } finally {
+      setValidatingShop(false);
+    }
+  };
+
+  const confirmShop = () => {
+    if (pendingShopCar) {
+      router.push(`/planning?car=${encodeURIComponent(pendingShopCar)}`);
+    }
+    setShowShopConfirmModal(false);
+    setPendingShopCar(null);
+    setShopValidation(null);
+  };
+
+  const cancelShop = () => {
+    setShowShopConfirmModal(false);
+    setPendingShopCar(null);
+    setShopValidation(null);
   };
 
   // Filter data based on search
@@ -605,6 +654,102 @@ export default function FleetPage() {
           }}
           onResync={handleResync}
         />
+      )}
+
+      {/* Shop Confirmation Modal - Shows when car has outdated terms */}
+      {showShopConfirmModal && shopValidation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full">
+            {/* Header */}
+            <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Updated Lease Terms
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Car {pendingShopCar} has pending amendments
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                This car has updated lease terms that may affect service requirements.
+                Review the changes below before proceeding.
+              </p>
+
+              {/* Before vs After Comparison */}
+              {shopValidation.comparison && shopValidation.comparison.length > 0 && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-4">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Field
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Previous
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Amended
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {shopValidation.comparison.map((comp, i) => (
+                        <tr key={i}>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                            {comp.field}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-500 dark:text-gray-400">
+                            {String(comp.before) || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center font-medium text-amber-600 dark:text-amber-400">
+                            {String(comp.after) || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Warnings */}
+              {shopValidation.warnings && shopValidation.warnings.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-4">
+                  <ul className="space-y-1">
+                    {shopValidation.warnings.map((warning, i) => (
+                      <li key={i} className="text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <button
+                onClick={cancelShop}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmShop}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                Proceed to Shop
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
