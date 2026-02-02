@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 17:15 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -16,9 +16,10 @@
 | S&OP Planning Schema | Monthly snapshots, maintenance forecast v2 | `database/migrations/009_sop_planning.sql` | `77360ed` |
 | Amendment Tracking | Visual badges, conflict detection | `v_amendment_summary` view, `lease_amendments` table | `b1d369e` |
 | Auth Token Fix | Fixed localStorage key mismatch for API auth | `frontend/src/lib/api.ts` | `19a17ff` |
-| Amendment Conflict Modal | Before/After comparison when shopping car | `frontend/src/components/fleet/AmendmentModal.tsx` | `b1d369e` |
+| Amendment Conflict Modal | Before/After comparison in AmendmentModal | `frontend/src/components/fleet/AmendmentModal.tsx` | `b1d369e` |
 | Bulk Shop Re-assignment | "Re-sync Schedule" button + SQL function | `resync_rider_schedules()`, `/api/riders/:id/resync-schedule` | `b1d369e` |
 | Car Shopping Validation | Check for outdated terms before shop | `/api/cars/:carNumber/validate-shopping` | `b1d369e` |
+| Shop Validation Modal | Confirmation modal with Before/After when shopping car with outdated terms | `frontend/src/app/fleet/page.tsx` | `a467f65` |
 
 ### In Progress 🔄
 
