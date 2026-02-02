@@ -37,7 +37,6 @@ last_updated: "2026-02-02T13:10:00Z"
 ### 📋 TODO (from Implementation Roadmap)
 | ID | Task | Phase | Priority |
 |----|------|-------|----------|
-| #31 | Bad order reporting from Fleet View | P2 | Medium |
 | #32 | Quick Shop writes to car_assignments | P1 | High |
 | #33 | Service plan tables + service | P3 | Low |
 | #34 | Master plan versioning | P4 | Low |
@@ -47,6 +46,7 @@ last_updated: "2026-02-02T13:10:00Z"
 | #28 | Service options UI | /assignments/[id] detail page with add/toggle options |
 | #29 | Fleet View assignment status | Already implemented in FleetDashboard metrics |
 | #30 | Planning team notifications | Alerts for bad orders + expedited assignments |
+| #31 | Bad order from Fleet View | Report Issue button in Pipeline + prefill form |
 
 ### ✅ JUST COMPLETED
 | #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |

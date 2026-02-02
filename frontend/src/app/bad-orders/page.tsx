@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { listBadOrders, createBadOrder, resolveBadOrder, BadOrderReport } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
 
@@ -19,11 +20,30 @@ const STATUS_COLORS = {
 };
 
 export default function BadOrdersPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto p-6">Loading...</div>}>
+      <BadOrdersContent />
+    </Suspense>
+  );
+}
+
+function BadOrdersContent() {
+  const searchParams = useSearchParams();
   const [reports, setReports] = useState<BadOrderReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<string>('');
+  const [prefillCar, setPrefillCar] = useState<string>('');
+
+  // Check for car param and auto-show form
+  useEffect(() => {
+    const carParam = searchParams.get('car');
+    if (carParam) {
+      setPrefillCar(carParam);
+      setShowForm(true);
+    }
+  }, [searchParams]);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -100,7 +120,7 @@ export default function BadOrdersPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Car Number *</label>
-              <input name="car_number" required className="input w-full" placeholder="GATX 12345" />
+              <input name="car_number" required className="input w-full" placeholder="GATX 12345" defaultValue={prefillCar} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Severity *</label>

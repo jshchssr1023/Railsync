@@ -288,17 +288,35 @@ export default function PipelinePage() {
                           </button>
                         )}
                         {activeTab === 'pipeline' && (
-                          <button
-                            onClick={() => router.push(`/planning?car=${car.car_number}`)}
-                            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                          >
-                            View Details
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => router.push(`/planning?car=${car.car_number}`)}
+                              className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                            >
+                              View Details
+                            </button>
+                            <button
+                              onClick={() => router.push(`/bad-orders?car=${car.car_number}`)}
+                              className="text-red-600 hover:text-red-700 text-xs"
+                              title="Report Bad Order"
+                            >
+                              Report Issue
+                            </button>
+                          </div>
                         )}
                         {activeTab === 'active' && (
-                          <span className="text-xs text-gray-500">
-                            {car.enroute_date ? `Enroute: ${car.enroute_date}` : 'In Shop'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">
+                              {car.enroute_date ? `Enroute: ${car.enroute_date}` : 'In Shop'}
+                            </span>
+                            <button
+                              onClick={() => router.push(`/bad-orders?car=${car.car_number}`)}
+                              className="text-red-600 hover:text-red-700 text-xs"
+                              title="Report Bad Order"
+                            >
+                              Report Issue
+                            </button>
+                          </div>
                         )}
                         {activeTab === 'healthy' && (
                           <span className="text-xs text-green-600 dark:text-green-400">
