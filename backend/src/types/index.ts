@@ -164,6 +164,14 @@ export type MaterialType = 'Carbon Steel' | 'Stainless' | 'Aluminum';
 
 export interface CarWithCommodity extends Car {
   commodity?: Commodity;
+  // Additional display fields from cars table
+  lessee_name?: string;
+  car_type?: string;
+  is_jacketed?: boolean;
+  is_lined?: boolean;
+  current_status?: string;
+  qual_exp_date?: Date;
+  commodity_description?: string;
 }
 
 // ============================================================================

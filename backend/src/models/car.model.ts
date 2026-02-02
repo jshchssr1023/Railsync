@@ -37,6 +37,14 @@ export async function findByCarNumber(carNumber: string): Promise<CarWithCommodi
     last_repair_shop: row.last_repair_shop,
     owner_code: row.owner_code,
     lessee_code: row.lessee_code,
+    // Additional display fields
+    lessee_name: row.lessee_name,
+    car_type: row.car_type,
+    is_jacketed: row.is_jacketed,
+    is_lined: row.is_lined,
+    current_status: row.current_status,
+    qual_exp_date: row.qual_exp_date,
+    commodity_description: row.commodity,
   };
 
   if (row['commodity.cin_code']) {

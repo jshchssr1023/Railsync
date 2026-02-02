@@ -153,7 +153,10 @@ Only remaining item: #11 Shop Now button needs user verification
 ## Iteration 9 Updates (2026-02-02)
 - Fleet page: ✅ Working at http://localhost:3000/fleet (refresh browser if not visible)
 - Rules page: ✅ Fixed authorization - shows read-only notice for non-admin, edit controls for admin
+- CarLookup: ✅ Updated sample cars to real database entries (ACFX600001, ACFX600002, ACFX600003)
+- Added "view all 137 cars" link to Fleet page from Quick Shop
 - Frontend container rebuilt with latest changes
+- Git push: e4c4455 -> origin/main
 
 ## SSOT Phase 1 Status ✅ COMPLETE
 | Component | Status |
