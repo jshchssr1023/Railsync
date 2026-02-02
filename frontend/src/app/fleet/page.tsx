@@ -4,8 +4,7 @@ import { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { Search, ChevronLeft, ChevronRight, Car, Wrench, CheckCircle, AlertCircle } from 'lucide-react';
-import AuthHeader from '@/components/AuthHeader';
-import DashboardWithWrapper from '@/components/DashboardWithWrapper';
+// AuthHeader and DashboardWithWrapper are in layout.tsx - don't duplicate
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -151,31 +150,22 @@ export default function FleetPage() {
 
   if (carsError) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <AuthHeader />
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <p className="text-red-800 dark:text-red-200">Failed to load fleet data. Please try again.</p>
-          </div>
-        </main>
-        <DashboardWithWrapper />
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <p className="text-red-800 dark:text-red-200">Failed to load fleet data. Please try again.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AuthHeader />
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fleet Overview</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          View and manage all cars in the system
+        </p>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fleet Overview</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            View and manage all cars in the system
-          </p>
-        </div>
-
-        {/* Stats Cards */}
+      {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div
             className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer border-2 transition-colors ${
@@ -372,9 +362,6 @@ export default function FleetPage() {
             </div>
           )}
         </div>
-      </main>
-
-      <DashboardWithWrapper />
-    </div>
+    </>
   );
 }
