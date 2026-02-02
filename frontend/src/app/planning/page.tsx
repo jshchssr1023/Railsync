@@ -13,6 +13,7 @@ import OverrideOptions from '@/components/OverrideOptions';
 import ResultsGrid from '@/components/ResultsGrid';
 import DirectCarInput from '@/components/DirectCarInput';
 import AllocationList from '@/components/AllocationList';
+import AllocationTimeline from '@/components/AllocationTimeline';
 import ServiceOptionsSelector from '@/components/ServiceOptionsSelector';
 import ShopLoadingTool from '@/components/ShopLoadingTool';
 import { ErrorBoundary, FetchError } from '@/components/ErrorBoundary';
@@ -476,6 +477,11 @@ function PlanningContent() {
           {/* Shop Loading Tool - Drag and Drop */}
           <ErrorBoundary>
             <ShopLoadingTool months={6} />
+          </ErrorBoundary>
+
+          {/* Timeline View */}
+          <ErrorBoundary>
+            <AllocationTimeline />
           </ErrorBoundary>
 
           {/* Allocations with Shop Now buttons */}

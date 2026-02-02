@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 13:25 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 13:35 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -28,6 +28,7 @@
 | Capability Match Filter | Filter shops by capability types | `shopFilter.controller.ts`, `ShopFilterPanel.tsx` | pending |
 | Shop Finder Page | Combined filter UI with results table | `/shops` page, navigation links | pending |
 | Shopping Classification | 12 types, 30+ reasons, dependent dropdowns | `014_shopping_classification.sql`, `AllocationList.tsx` | `3de7195` |
+| Timeline/Gantt Toggle | Visual timeline view with table toggle | `AllocationTimeline.tsx`, `planning/page.tsx` | `39a3e45` |
 
 ### In Progress 🔄
 
