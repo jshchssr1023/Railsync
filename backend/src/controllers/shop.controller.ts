@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import shopModel from '../models/shop.model';
 import evaluationService from '../services/evaluation.service';
+import * as assignmentService from '../services/assignment.service';
 import { ApiResponse, EvaluationRequest, EvaluationResult, ShopBacklog, ShopCapacity, ServiceEvent } from '../types';
 import { query, queryOne } from '../config/database';
 import { logFromRequest } from '../services/audit.service';
@@ -328,6 +329,41 @@ export async function createServiceEvent(req: Request, res: Response): Promise<v
       return;
     }
 
+    // Check for conflicts with SSOT before creating
+    const carNum = car_number || car_input?.product_code || 'DIRECT_INPUT';
+    const conflict = await assignmentService.checkConflicts(carNum);
+
+    if (conflict) {
+      res.status(409).json({
+        success: false,
+        error: 'Conflict detected',
+        conflict: {
+          type: conflict.type,
+          message: conflict.message,
+          existing_assignment: conflict.existing_assignment,
+        },
+      });
+      return;
+    }
+
+    // Write to SSOT (car_assignments) - this is now the source of truth
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+    let assignment;
+    try {
+      assignment = await assignmentService.createAssignment({
+        car_number: carNum,
+        shop_code: assigned_shop,
+        target_month: currentMonth,
+        estimated_cost: evaluation_result?.cost_breakdown?.total_cost || undefined,
+        source: 'quick_shop',
+        created_by_id: req.user?.id,
+      });
+    } catch (err) {
+      console.error('Failed to create SSOT assignment:', err);
+      // Continue with legacy flow if SSOT fails (shouldn't happen)
+    }
+
+    // Legacy: Also insert into service_events for backward compatibility
     const result = await queryOne<ServiceEvent>(
       `INSERT INTO service_events (
          car_number, event_type, status, assigned_shop, estimated_cost,
@@ -337,7 +373,7 @@ export async function createServiceEvent(req: Request, res: Response): Promise<v
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
-        car_number || car_input?.product_code || 'DIRECT_INPUT',
+        carNum,
         'shop_assignment',
         'pending',
         assigned_shop,
@@ -355,16 +391,18 @@ export async function createServiceEvent(req: Request, res: Response): Promise<v
     );
 
     // Audit log
-    await logFromRequest(req, 'shop_select', 'service_event', result?.event_id, undefined, {
-      car_number,
+    await logFromRequest(req, 'shop_select', 'car_assignment', assignment?.id || result?.event_id, undefined, {
+      car_number: carNum,
       assigned_shop,
       estimated_cost: evaluation_result?.cost_breakdown?.total_cost,
+      ssot_assignment_id: assignment?.id,
     });
 
     res.status(201).json({
       success: true,
       data: result,
-      message: `Service event created for car ${car_number || 'direct input'} at shop ${assigned_shop}`,
+      assignment: assignment, // Include SSOT assignment in response
+      message: `Service event created for car ${carNum} at shop ${assigned_shop}`,
     });
   } catch (error) {
     console.error('Error creating service event:', error);
