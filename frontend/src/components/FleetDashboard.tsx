@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { AlertCircle, TrendingUp, Truck, Calendar, CheckCircle, Clock, RefreshCw } from 'lucide-react';
+import { AlertCircle, TrendingUp, Truck, Calendar, CheckCircle, Clock, RefreshCw, Download } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -78,6 +78,56 @@ export default function FleetDashboard() {
     mutateTiers();
   };
 
+  const handleExportCSV = () => {
+    const rows: string[] = [];
+    const timestamp = new Date().toISOString().split('T')[0];
+
+    // Fleet Summary Section
+    rows.push('FLEET SUMMARY');
+    rows.push('Metric,Value');
+    if (metrics) {
+      rows.push(`Total Fleet,${metrics.total_fleet}`);
+      rows.push(`In Shop,${metrics.in_shop_count}`);
+      rows.push(`Enroute,${metrics.enroute_count}`);
+      rows.push(`Scheduled,${metrics.scheduled_count}`);
+      rows.push(`Planned,${metrics.planned_count}`);
+      rows.push(`Completed,${metrics.completed_count}`);
+      rows.push(`Total Planned Cost,$${parseFloat(metrics.total_planned_cost || '0').toLocaleString()}`);
+      rows.push(`Total Actual Cost,$${parseFloat(metrics.total_actual_cost || '0').toLocaleString()}`);
+    }
+    rows.push('');
+
+    // Monthly Volumes Section
+    rows.push('MONTHLY VOLUMES');
+    rows.push('Month,In Shop,Planned,Scheduled,Enroute,Total Cars,Planned Cost,Actual Cost');
+    if (monthlyVolumes) {
+      monthlyVolumes.forEach(v => {
+        rows.push(`${v.month},${v.in_shop},${v.planned},${v.scheduled},${v.enroute},${v.total_cars},$${parseFloat(v.planned_cost || '0').toLocaleString()},$${parseFloat(v.actual_cost || '0').toLocaleString()}`);
+      });
+    }
+    rows.push('');
+
+    // Tier Summary Section
+    rows.push('TIER SUMMARY');
+    rows.push('Tier,In Shop,Planned,Total');
+    if (tierData) {
+      tierData.forEach(t => {
+        rows.push(`Tier ${t.tier},${t.in_shop_count},${t.planned_count},${t.total_count}`);
+      });
+    }
+
+    const csvContent = rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fleet-dashboard-${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (metricsError || volumesError || tierError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-red-500">
@@ -133,6 +183,14 @@ export default function FleetDashboard() {
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
+        </button>
+        <button
+          onClick={handleExportCSV}
+          disabled={metricsLoading || volumesLoading || tierLoading}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
         </button>
         <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
           Updated: {lastUpdated}
