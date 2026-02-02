@@ -13,6 +13,7 @@ import OverrideOptions from '@/components/OverrideOptions';
 import ResultsGrid from '@/components/ResultsGrid';
 import DirectCarInput from '@/components/DirectCarInput';
 import AllocationList from '@/components/AllocationList';
+import ServiceOptionsSelector from '@/components/ServiceOptionsSelector';
 import { ErrorBoundary, FetchError } from '@/components/ErrorBoundary';
 import { evaluateShops, evaluateShopsDirect, getCarByNumber, checkAssignmentConflicts, AssignmentConflict } from '@/lib/api';
 import { Car, EvaluationOverrides, EvaluationResult } from '@/types';
@@ -391,9 +392,21 @@ function PlanningContent() {
                 </div>
               )}
 
+              {/* Service Options - shown when car is selected in lookup mode */}
+              {inputMode === 'lookup' && car && (
+                <div className="card lg:col-span-2">
+                  <div className="card-body">
+                    <ServiceOptionsSelector carNumber={car.car_number} />
+                  </div>
+                </div>
+              )}
+
+              {/* Evaluation Overrides for Direct Input mode */}
               <div className={`card ${inputMode === 'direct' ? 'lg:col-span-2' : ''}`}>
                 <div className="card-header">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Service Options</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    {inputMode === 'lookup' ? 'Additional Options' : 'Service Options'}
+                  </h3>
                 </div>
                 <div className="card-body">
                   <OverrideOptions overrides={overrides} onChange={setOverrides} />

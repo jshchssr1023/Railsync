@@ -40,7 +40,10 @@ const fetcher = async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch');
   const json = await res.json();
-  return json.data as CarsResponse;
+  // API returns { success: true, data: [...cars...] }
+  // Convert to expected format { cars: [...], total: number }
+  const cars = json.data || [];
+  return { cars, total: cars.length } as CarsResponse;
 };
 
 const assignmentFetcher = async (url: string) => {

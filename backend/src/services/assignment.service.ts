@@ -13,7 +13,7 @@ import { createAlert } from './alerts.service';
 // ============================================================================
 
 export type AssignmentStatus = 'Planned' | 'Scheduled' | 'Enroute' | 'Arrived' | 'InShop' | 'Complete' | 'Cancelled';
-export type AssignmentSource = 'demand_plan' | 'service_plan' | 'scenario_export' | 'bad_order' | 'quick_shop' | 'import' | 'master_plan' | 'migration';
+export type AssignmentSource = 'demand_plan' | 'service_plan' | 'scenario_export' | 'bad_order' | 'quick_shop' | 'import' | 'master_plan' | 'migration' | 'brc_import';
 export type Priority = 1 | 2 | 3 | 4;
 
 export interface CarAssignment {

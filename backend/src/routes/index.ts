@@ -757,6 +757,9 @@ router.get('/assignments', optionalAuth, assignmentController.listAssignments);
 // Check for conflicts before creating assignment
 router.get('/assignments/check-conflicts', optionalAuth, assignmentController.checkConflicts);
 
+// Suggest service options for a car (based on qualification dates, bad orders, etc.)
+router.get('/cars/:car_number/service-options', optionalAuth, assignmentController.suggestServiceOptions);
+
 // Get single assignment with service options
 router.get('/assignments/:id', optionalAuth, assignmentController.getAssignment);
 

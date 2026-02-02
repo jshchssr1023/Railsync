@@ -146,22 +146,150 @@ export async function deleteServiceOption(id: string): Promise<void> {
 // AUTO-SUGGESTION (Based on car data and target date)
 // ============================================================================
 
-export async function suggestServiceOptions(
-  _carNumber: string,
-  _targetDate: Date
-): Promise<CreateServiceOptionInput[]> {
-  const options: CreateServiceOptionInput[] = [];
+interface QualificationField {
+  dbColumn: string;
+  serviceType: string;
+  label: string;
+  estimatedCost: number;
+  estimatedHours: number;
+}
 
-  // Get car qualification dates (if stored)
-  // For now, add a default qualification option
-  options.push({
-    assignment_id: '', // Will be set when attached
-    service_type: 'tank_qualification',
-    service_category: 'qualification',
-    description: 'Tank Qualification',
-    is_required: false,
-    is_selected: true,
-    source: 'qualification_due',
+const QUALIFICATION_FIELDS: QualificationField[] = [
+  { dbColumn: 'tank_qual_year', serviceType: 'tank_qualification', label: 'Tank Qualification', estimatedCost: 8000, estimatedHours: 24 },
+  { dbColumn: 'rule_88b_year', serviceType: 'rule_88b', label: 'Rule 88B Inspection', estimatedCost: 2500, estimatedHours: 8 },
+  { dbColumn: 'safety_relief_year', serviceType: 'safety_relief', label: 'Safety Relief Valve', estimatedCost: 1800, estimatedHours: 4 },
+  { dbColumn: 'service_equipment_year', serviceType: 'service_equipment', label: 'Service Equipment', estimatedCost: 3500, estimatedHours: 12 },
+  { dbColumn: 'stub_sill_year', serviceType: 'stub_sill', label: 'Stub Sill Inspection', estimatedCost: 2000, estimatedHours: 6 },
+  { dbColumn: 'tank_thickness_year', serviceType: 'tank_thickness', label: 'Tank Thickness Test', estimatedCost: 1500, estimatedHours: 4 },
+  { dbColumn: 'interior_lining_year', serviceType: 'interior_lining', label: 'Interior Lining', estimatedCost: 12000, estimatedHours: 40 },
+];
+
+const MAINTENANCE_OPTIONS = [
+  { serviceType: 'exterior_paint', label: 'Exterior Paint', estimatedCost: 2000, estimatedHours: 8 },
+  { serviceType: 'interior_cleaning', label: 'Interior Cleaning', estimatedCost: 1500, estimatedHours: 6 },
+  { serviceType: 'gasket_replacement', label: 'Gasket Replacement', estimatedCost: 800, estimatedHours: 4 },
+  { serviceType: 'valve_service', label: 'Valve Service', estimatedCost: 1200, estimatedHours: 4 },
+];
+
+export interface SuggestedServiceOption extends Omit<CreateServiceOptionInput, 'assignment_id'> {
+  days_until_due?: number;
+  urgency?: 'overdue' | 'urgent' | 'upcoming' | 'optional';
+}
+
+export async function suggestServiceOptions(
+  carNumber: string,
+  targetDate: Date
+): Promise<SuggestedServiceOption[]> {
+  const options: SuggestedServiceOption[] = [];
+
+  // Get car with qualification dates
+  const carSql = `
+    SELECT car_number, tank_qual_year, rule_88b_year, safety_relief_year,
+           service_equipment_year, stub_sill_year, tank_thickness_year, interior_lining_year
+    FROM cars WHERE car_number = $1
+  `;
+  const cars = await query<Record<string, unknown>>(carSql, [carNumber]);
+  const car = cars[0];
+
+  if (car) {
+    // Check each qualification field
+    for (const qual of QUALIFICATION_FIELDS) {
+      const yearValue = car[qual.dbColumn];
+      if (yearValue) {
+        // Convert year to date (assume end of year for qualification expiry)
+        const dueDate = new Date(Number(yearValue), 11, 31); // Dec 31 of that year
+        const daysUntilDue = Math.floor((dueDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        let urgency: SuggestedServiceOption['urgency'] = 'optional';
+        let isRequired = false;
+        let isSelected = false;
+
+        if (daysUntilDue <= 0) {
+          urgency = 'overdue';
+          isRequired = true;
+          isSelected = true;
+        } else if (daysUntilDue <= 30) {
+          urgency = 'urgent';
+          isRequired = true;
+          isSelected = true;
+        } else if (daysUntilDue <= 90) {
+          urgency = 'upcoming';
+          isSelected = true;
+        }
+
+        // Only include if due within 365 days or overdue
+        if (daysUntilDue <= 365) {
+          options.push({
+            service_type: qual.serviceType,
+            service_category: 'qualification',
+            description: qual.label,
+            due_date: dueDate.toISOString().split('T')[0],
+            is_required: isRequired,
+            is_selected: isSelected,
+            estimated_cost: qual.estimatedCost,
+            estimated_hours: qual.estimatedHours,
+            source: 'qualification_due',
+            days_until_due: daysUntilDue,
+            urgency,
+          });
+        }
+      }
+    }
+  }
+
+  // Check for open bad orders
+  const badOrderSql = `
+    SELECT id, issue_type, issue_description, severity, reported_date
+    FROM bad_order_reports
+    WHERE car_number = $1 AND status IN ('open', 'pending_decision')
+  `;
+  const badOrders = await query<{
+    id: string;
+    issue_type: string;
+    issue_description: string;
+    severity: string;
+    reported_date: string;
+  }>(badOrderSql, [carNumber]);
+
+  for (const bo of badOrders) {
+    const isCritical = bo.severity === 'critical' || bo.severity === 'high';
+    options.push({
+      service_type: 'bad_order_repair',
+      service_category: 'repair',
+      description: `Bad Order: ${bo.issue_type} - ${bo.issue_description}`,
+      reported_date: bo.reported_date,
+      is_required: isCritical,
+      is_selected: true,
+      estimated_cost: isCritical ? 5000 : 3000,
+      estimated_hours: isCritical ? 16 : 8,
+      source: 'bad_order',
+      source_reference_id: bo.id,
+      urgency: isCritical ? 'urgent' : 'upcoming',
+    });
+  }
+
+  // Add maintenance options (all optional, not selected by default)
+  for (const maint of MAINTENANCE_OPTIONS) {
+    options.push({
+      service_type: maint.serviceType,
+      service_category: 'maintenance',
+      description: maint.label,
+      is_required: false,
+      is_selected: false,
+      estimated_cost: maint.estimatedCost,
+      estimated_hours: maint.estimatedHours,
+      source: 'user_added',
+      urgency: 'optional',
+    });
+  }
+
+  // Sort: required first, then by urgency, then by category
+  const urgencyOrder = { overdue: 0, urgent: 1, upcoming: 2, optional: 3 };
+  options.sort((a, b) => {
+    if (a.is_required !== b.is_required) return a.is_required ? -1 : 1;
+    const aUrgency = urgencyOrder[a.urgency || 'optional'];
+    const bUrgency = urgencyOrder[b.urgency || 'optional'];
+    return aUrgency - bUrgency;
   });
 
   return options;

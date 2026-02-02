@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 9
+iteration: 10
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-01T18:31:56Z"
-last_updated: "2026-02-02T12:55:00Z"
+last_updated: "2026-02-02T16:45:00Z"
 ---
 
 # Ralph Loop - Railsync Work Tracking
@@ -140,15 +140,22 @@ Only remaining item: #11 Shop Now button needs user verification
 | Quick Shop | shop.controller.ts:332 | service_events | ✅ #23 Done |
 | Create Allocation | planning.service.ts:388 | allocations | ✅ #25 Done |
 | Generate Allocations | planning.service.ts:632 | allocations | ✅ #25 Done |
-| BRC Import | brc.service.ts:251 | allocations | ⚠️ |
+| BRC Import | brc.service.ts:251 | allocations | ✅ #29 Done - writes to car_assignments |
 | Allocation Service | allocation.service.ts:105 | allocations | ✅ #24 Done |
-| Car Model | car.model.ts:83 | service_events | ⚠️ |
+| Car Model | car.model.ts:83 | service_events | ✅ #30 Dead code - not used |
 
 ## Next Actions
 1. ⏳ Verify Shop Now button with user (#11)
 2. ✅ Fix Rules page authorization (#28) - Admin users can now edit, others see read-only
 3. ⏳ Phase 3: Service Plans (if needed)
 4. ⏳ Phase 4: Master Planning (if needed)
+
+## Iteration 10 Updates (2026-02-02 16:45)
+- SSOT Migration: ✅ BRC Import now writes to car_assignments (#29)
+- SSOT Migration: ✅ car.model.createServiceEvent is dead code - no migration needed (#30)
+- Added 'brc_import' to AssignmentSource type
+- All 119 backend tests pass
+- All SSOT migration gaps now closed
 
 ## Iteration 9 Updates (2026-02-02)
 - Fleet page: ✅ Working at http://localhost:3000/fleet (refresh browser if not visible)

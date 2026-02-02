@@ -1,5 +1,6 @@
 import { query, queryOne } from '../config/database';
 import { BRCRecord, BRCImportResult, Allocation } from '../types';
+import * as assignmentService from './assignment.service';
 
 // ============================================================================
 // BRC PARSER (AAR 500-Byte Format)
@@ -278,6 +279,31 @@ async function createRunningRepairAllocation(brc: BRCRecord, userId?: string): P
      WHERE id = $1`,
     [demand.id]
   );
+
+  // SSOT: Also write to car_assignments (completed BRC work)
+  if (brc.car_number) {
+    try {
+      const existing = await assignmentService.getActiveAssignment(brc.car_number);
+      if (!existing) {
+        await assignmentService.createAssignment({
+          car_number: brc.car_number,
+          shop_code: brc.shop_code,
+          target_month: month,
+          estimated_cost: brc.total_amount,
+          source: 'brc_import',
+          source_reference_type: 'brc',
+          created_by_id: userId,
+        });
+        // Mark as complete immediately since BRC = completed work
+        const assignment = await assignmentService.getActiveAssignment(brc.car_number);
+        if (assignment) {
+          await assignmentService.updateStatus(assignment.id, 'Complete', userId);
+        }
+      }
+    } catch (err) {
+      console.warn('SSOT write failed for BRC (non-blocking):', err);
+    }
+  }
 }
 
 /**

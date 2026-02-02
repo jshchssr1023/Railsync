@@ -246,6 +246,32 @@ export async function deleteServiceOption(req: Request, res: Response): Promise<
   }
 }
 
+export async function suggestServiceOptions(req: Request, res: Response): Promise<void> {
+  try {
+    const { car_number } = req.params;
+    const targetDate = req.query.target_date
+      ? new Date(req.query.target_date as string)
+      : new Date();
+
+    const suggestions = await serviceOptionService.suggestServiceOptions(car_number, targetDate);
+
+    // Calculate summary
+    const selected = suggestions.filter(s => s.is_selected);
+    const summary = {
+      total_options: suggestions.length,
+      selected_count: selected.length,
+      required_count: suggestions.filter(s => s.is_required).length,
+      estimated_total: selected.reduce((sum, s) => sum + (s.estimated_cost || 0), 0),
+      estimated_hours: selected.reduce((sum, s) => sum + (s.estimated_hours || 0), 0),
+    };
+
+    res.json({ success: true, data: { options: suggestions, summary } });
+  } catch (error) {
+    console.error('Suggest service options error:', error);
+    res.status(500).json({ success: false, error: 'Failed to suggest service options' });
+  }
+}
+
 export default {
   listAssignments,
   getAssignment,
@@ -259,4 +285,5 @@ export default {
   addServiceOption,
   updateServiceOption,
   deleteServiceOption,
+  suggestServiceOptions,
 };
