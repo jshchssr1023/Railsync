@@ -34,13 +34,18 @@ last_updated: "2026-02-02T03:35:00Z"
 | #12 | Import 982 shops from CSV | Script works! 963 shops in DB, 42 AITX, 668 active |
 | #14 | Shop import API endpoints | Routes ARE wired in routes/index.ts |
 
-### 📋 TODO (from railsync_tasks.md)
+### 📋 TODO (from PRD validation checklist)
 | ID | Task | Priority |
 |----|------|----------|
-| #26 | Bad Order workflow UI | Medium - requires #25 |
+| #28 | Service options UI for assignment detail | Medium - allow modify/add options |
+| #29 | Fleet View shows assignment status | Low - integration task |
+
+### ✅ SESSION COMMITS
+| #27 | Quick Shop conflict detection | Warning banner when car has existing assignment |
 
 ### ✅ JUST COMPLETED
 | #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |
+| #26 | Bad Order workflow UI | /bad-orders page with form, list, resolve actions, nav link |
 
 ### ✅ ALREADY DONE (discovered)
 | #15 | Error boundaries + retry button | ErrorBoundary.tsx already complete |
