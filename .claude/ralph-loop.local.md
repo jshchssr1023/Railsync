@@ -31,6 +31,7 @@ last_updated: "2026-02-02T12:55:00Z"
 | #24 | Migrate allocation.service to SSOT | allocation.service.ts now writes to car_assignments |
 | #25 | Migrate planning.service to SSOT | Both createAllocation and generateAllocations |
 | #26 | Wire ConfigurableDashboard | Dashboard now shows editable widgets |
+| #27 | Create Fleet page | /fleet shows all 137 cars with assignment status |
 | #23 | Quick Shop → SSOT | shop.controller.ts writes to car_assignments |
 
 ### 📋 TODO (from railsync_tasks.md)

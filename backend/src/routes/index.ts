@@ -461,9 +461,9 @@ router.get('/budget/summary', optionalAuth, planningController.getBudgetSummary)
 // PHASE 9 - CAR MASTER ROUTES
 // ============================================================================
 
-router.get('/cars-master', authenticate, planningController.listCars);
-router.get('/cars-master/:carId', authenticate, planningController.getCarById);
-router.get('/cars/active-count', authenticate, planningController.getActiveCarCount);
+router.get('/cars-master', optionalAuth, planningController.listCars);
+router.get('/cars-master/:carId', optionalAuth, planningController.getCarById);
+router.get('/cars/active-count', optionalAuth, planningController.getActiveCarCount);
 router.post('/cars/import', authenticate, authorize('admin'), planningController.importCars);
 
 // ============================================================================
