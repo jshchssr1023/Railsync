@@ -591,6 +591,103 @@ export async function checkAssignmentConflicts(carNumber: string): Promise<Assig
   return response.data || null;
 }
 
+// ============================================================================
+// SHOP FILTERING API (Phase B - Proximity & Capability Filtering)
+// ============================================================================
+
+export interface ShopWithDistance {
+  shop_code: string;
+  shop_name: string;
+  region: string;
+  latitude: number | null;
+  longitude: number | null;
+  distance_miles: number | null;
+  tier: number;
+  is_preferred_network: boolean;
+}
+
+export interface CapabilityType {
+  capability_type: string;
+  display_name: string;
+  description: string | null;
+  sort_order: number;
+}
+
+export interface ShopFilterOptions {
+  regions: string[];
+  tiers: number[];
+  capabilityTypes: CapabilityType[];
+}
+
+export interface ShopFilterParams {
+  latitude?: number;
+  longitude?: number;
+  radiusMiles?: number;
+  capabilityTypes?: string[];
+  tier?: number;
+  preferredNetworkOnly?: boolean;
+  region?: string;
+}
+
+/**
+ * Get filter options for dropdowns (regions, tiers, capability types)
+ */
+export async function getShopFilterOptions(): Promise<ShopFilterOptions> {
+  const response = await fetchApi<ShopFilterOptions>('/shops/filter-options');
+  if (!response.data) throw new Error('Failed to fetch filter options');
+  return response.data;
+}
+
+/**
+ * Filter shops by proximity, capabilities, tier, region, and preferred network
+ */
+export async function filterShops(params: ShopFilterParams): Promise<ShopWithDistance[]> {
+  const queryParams = new URLSearchParams();
+
+  if (params.latitude !== undefined) queryParams.append('latitude', params.latitude.toString());
+  if (params.longitude !== undefined) queryParams.append('longitude', params.longitude.toString());
+  if (params.radiusMiles !== undefined) queryParams.append('radiusMiles', params.radiusMiles.toString());
+  if (params.capabilityTypes && params.capabilityTypes.length > 0) {
+    queryParams.append('capabilityTypes', params.capabilityTypes.join(','));
+  }
+  if (params.tier !== undefined) queryParams.append('tier', params.tier.toString());
+  if (params.preferredNetworkOnly) queryParams.append('preferredNetworkOnly', 'true');
+  if (params.region) queryParams.append('region', params.region);
+
+  const response = await fetchApi<ShopWithDistance[]>(`/shops/filter?${queryParams.toString()}`);
+  return response.data || [];
+}
+
+/**
+ * Find shops within a radius of a given point
+ */
+export async function findNearbyShops(
+  latitude: number,
+  longitude: number,
+  radiusMiles: number = 500
+): Promise<ShopWithDistance[]> {
+  const response = await fetchApi<ShopWithDistance[]>(
+    `/shops/nearby?latitude=${latitude}&longitude=${longitude}&radiusMiles=${radiusMiles}`
+  );
+  return response.data || [];
+}
+
+/**
+ * Get list of all regions
+ */
+export async function getShopRegions(): Promise<string[]> {
+  const response = await fetchApi<string[]>('/shops/regions');
+  return response.data || [];
+}
+
+/**
+ * Get list of all capability types
+ */
+export async function getCapabilityTypes(): Promise<CapabilityType[]> {
+  const response = await fetchApi<CapabilityType[]>('/shops/capability-types');
+  return response.data || [];
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -633,6 +730,12 @@ const api = {
   resolveBadOrder,
   // Assignments
   checkAssignmentConflicts,
+  // Shop Filtering
+  getShopFilterOptions,
+  filterShops,
+  findNearbyShops,
+  getShopRegions,
+  getCapabilityTypes,
 };
 
 export default api;

@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 18:42 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 12:50 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -24,6 +24,9 @@
 | Virtual Grid Sticky Headers | Sticky top (months) and left (shops) in CapacityGrid | `CapacityGrid.tsx` | `74d558d` |
 | Hover Details Tooltip | Tooltip showing car numbers on capacity cell hover | `CapacityGrid.tsx`, `GET /capacity/:shop/:month/cars` | `74d558d` |
 | Drag-and-Drop Shop Loading | Split-pane interface for shop assignment | `ShopLoadingTool.tsx`, `POST /allocations/:id/assign` | pending |
+| Proximity Filter | Haversine distance calculation, nearby shops search | `013_shop_geo_filtering.sql`, `shopFilter.service.ts` | pending |
+| Capability Match Filter | Filter shops by capability types | `shopFilter.controller.ts`, `ShopFilterPanel.tsx` | pending |
+| Shop Finder Page | Combined filter UI with results table | `/shops` page, navigation links | pending |
 
 ### In Progress 🔄
 
@@ -36,8 +39,6 @@
 | Feature | Priority | Current % | Spec Reference |
 |---------|----------|-----------|----------------|
 | Real-time Capacity Sync | High | 40% | WebSocket/SSE for live updates |
-| Proximity Filter | Medium | 10% | Rail-mile radius suggestions |
-| Capability Match Filter | Medium | 10% | Gray out incompatible shops |
 
 ---
 
@@ -86,59 +87,55 @@
 ### 3. Bulk Selection & Actions (100% Complete) ✅
 
 **What Exists:**
-- Shop comparison multi-select (max 3 shops) in `ResultsGrid.tsx:64-71`
-- Compare badge and modal trigger
+- Checkbox column in AllocationList for shoppable allocations
+- Select all / deselect all with indeterminate state
+- Batch action bar (Shop Selected, Reassign, Clear buttons)
+- Shop comparison multi-select (max 3 shops) in `ResultsGrid.tsx`
 
-**What's Missing:**
-| Gap | Files Affected | Effort |
-|-----|----------------|--------|
-| No checkbox column in AllocationList | `AllocationList.tsx` | S |
-| No "select all" / range selection | `AllocationList.tsx` | M |
-| No batch operations UI | New component | M |
-| No `PATCH /api/allocations/batch` endpoint | `planning.controller.ts` | M |
-| No keyboard shortcuts (Shift+Click) | Event handlers | S |
+**Files Modified:**
+- `frontend/src/components/AllocationList.tsx` - Bulk selection UI
 
 ---
 
-### 4. Proximity Filter (10% Complete)
+### 4. Proximity Filter (100% Complete) ✅
 
 **What Exists:**
-- Shop region field (string, not lookup)
-- `is_preferred_network` boolean filter
-- Network filter dropdown in CapacityGrid
+- Lat/lon fields in shops table with geo index
+- Haversine formula `calculate_distance_miles()` PostgreSQL function
+- `find_shops_within_radius()` database function
+- `GET /api/shops/nearby` API endpoint
+- `GET /api/shops/filter` combined filter endpoint
+- Shop Finder page with proximity controls
+- Preset city locations (Houston, Chicago, LA, etc.)
+- Custom coordinate input with radius slider
 
-**What's Missing:**
-| Gap | Files Affected | Effort |
-|-----|----------------|--------|
-| No lat/lon fields in shops table | Migration needed | S |
-| No PostGIS or distance calculation | Database + service | L |
-| No "Shops within X miles" UI filter | `ResultsGrid.tsx` | M |
-| No region lookup table | Migration needed | S |
-| No spatial index | Migration needed | S |
-
-**Schema Change Required:**
-```sql
-ALTER TABLE shops ADD COLUMN latitude DECIMAL(9,6);
-ALTER TABLE shops ADD COLUMN longitude DECIMAL(9,6);
-CREATE INDEX idx_shops_location ON shops(latitude, longitude);
-```
+**Files Created/Modified:**
+- `database/migrations/013_shop_geo_filtering.sql` - Schema, functions, seed data
+- `backend/src/services/shopFilter.service.ts` - Filter service functions
+- `backend/src/controllers/shopFilter.controller.ts` - API handlers
+- `backend/src/routes/index.ts` - Filter routes
+- `frontend/src/components/ShopFilterPanel.tsx` - Filter UI component
+- `frontend/src/app/shops/page.tsx` - Shop Finder page
 
 ---
 
-### 5. Capability Match Filter (10% Complete)
+### 5. Capability Match Filter (100% Complete) ✅
 
 **What Exists:**
-- `shop_capabilities` table with capability_type/value
-- `getCapabilities(shopCode)` function
-- Evaluation service checks capabilities vs car requirements
+- `capability_types` lookup table with display names and descriptions
+- `v_shop_capabilities_summary` view with aggregated capabilities per shop
+- `GET /api/shops/capability-types` - List all capability types
+- `GET /api/shops/capability-values/:type` - Get values for a capability type
+- `GET /api/shops/by-capabilities` - Filter shops by capability types
+- `GET /api/shops/filter` - Combined filter with capabilities
+- Capability type toggle buttons in ShopFilterPanel
+- "Shops must have ALL selected capabilities" logic
 
-**What's Missing:**
-| Gap | Files Affected | Effort |
-|-----|----------------|--------|
-| No capability multi-select filter UI | `ResultsGrid.tsx` | M |
-| No "Show only shops with X" toggle | `CapacityGrid.tsx` | S |
-| No capability matching display | `ShopDetailDrawer.tsx` | M |
-| No combined filter panel | New component | M |
+**Files Created/Modified:**
+- `database/migrations/013_shop_geo_filtering.sql` - capability_types table, view
+- `backend/src/services/shopFilter.service.ts` - Capability filter functions
+- `backend/src/controllers/shopFilter.controller.ts` - Capability API handlers
+- `frontend/src/components/ShopFilterPanel.tsx` - Capability toggle UI
 
 ---
 
@@ -173,26 +170,26 @@ CREATE INDEX idx_shops_location ON shops(latitude, longitude);
 ## Recommended Implementation Order
 
 ```
-Phase A (Foundation):
-  1. Bulk Selection (20% → 100%) - Enables batch operations
-  2. Hover Details Tooltip (0% → 100%) - Quick win, improves UX
-  3. Virtual Grid Sticky Headers (0% → 100%) - Quick win, improves UX
+Phase A (Foundation): ✅ COMPLETE
+  1. Bulk Selection (100%) - Checkbox column, select all, batch actions
+  2. Hover Details Tooltip (100%) - Car numbers on capacity cell hover
+  3. Virtual Grid Sticky Headers (100%) - Sticky months/shop columns
 
-Phase B (Filtering):
-  4. Proximity Filter (10% → 100%) - Requires schema migration
-  5. Capability Match Filter (10% → 100%) - Builds on existing capabilities
+Phase B (Filtering): ✅ COMPLETE
+  4. Proximity Filter (100%) - Haversine formula, nearby shops search
+  5. Capability Match Filter (100%) - Multi-select capability filtering
 
 Phase C (Advanced):
-  6. Real-time Capacity Sync (40% → 100%) - Requires WebSocket infrastructure
-  7. Drag-and-Drop Shop Loading (0% → 100%) - Depends on batch API from #1
+  6. Real-time Capacity Sync (40%) - Requires WebSocket infrastructure
+  7. Drag-and-Drop Shop Loading (100%) - Split-pane interface complete
 ```
 
 ---
 
 ## Technical Debt Notes
 
-1. **Shop location data**: Currently no geographic coordinates in `shops` table
-2. **Region as string**: `shop.region` should be FK to lookup table
+1. ~~**Shop location data**: Currently no geographic coordinates in `shops` table~~ ✅ RESOLVED - Added lat/lon with migration 013
+2. **Region as string**: `shop.region` should be FK to lookup table (low priority)
 3. **No WebSocket infrastructure**: All updates require manual refresh
 4. **Allocation batch API missing**: Cannot process multiple allocations atomically
 
