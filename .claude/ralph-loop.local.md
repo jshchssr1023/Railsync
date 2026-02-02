@@ -30,6 +30,7 @@ last_updated: "2026-02-02T12:55:00Z"
 | #23 | Migrate Quick Shop to SSOT | shop.controller.ts now writes to car_assignments |
 | #24 | Migrate allocation.service to SSOT | allocation.service.ts now writes to car_assignments |
 | #25 | Migrate planning.service to SSOT | Both createAllocation and generateAllocations |
+| #26 | Wire ConfigurableDashboard | Dashboard now shows editable widgets |
 | #23 | Quick Shop → SSOT | shop.controller.ts writes to car_assignments |
 
 ### 📋 TODO (from railsync_tasks.md)

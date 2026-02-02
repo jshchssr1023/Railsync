@@ -1,12 +1,12 @@
 'use client';
 
 import DashboardWrapper from './DashboardWrapper';
-import FleetDashboard from './FleetDashboard';
+import ConfigurableDashboard from './dashboard/ConfigurableDashboard';
 
 export default function DashboardWithWrapper() {
   return (
     <DashboardWrapper>
-      <FleetDashboard />
+      <ConfigurableDashboard />
     </DashboardWrapper>
   );
 }
