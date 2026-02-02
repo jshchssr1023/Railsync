@@ -45,7 +45,20 @@ export async function getShopCapacity(
 
   sql += ' ORDER BY smc.shop_code, smc.month';
 
-  return query<ShopMonthlyCapacity>(sql, params);
+  const rows = await query<ShopMonthlyCapacity>(sql, params);
+
+  // Convert string numeric fields to numbers (PostgreSQL returns DECIMAL as strings)
+  return rows.map(row => ({
+    ...row,
+    total_capacity: Number(row.total_capacity) || 0,
+    allocated_count: Number(row.allocated_count) || 0,
+    completed_count: Number(row.completed_count) || 0,
+    available_capacity: Number(row.available_capacity) || 0,
+    utilization_pct: Number(row.utilization_pct) || 0,
+    // Convert extra fields if present (from database but not in type)
+    ...(('confirmed_railcars' in row) && { confirmed_railcars: Number((row as any).confirmed_railcars) || 0 }),
+    ...(('planned_railcars' in row) && { planned_railcars: Number((row as any).planned_railcars) || 0 }),
+  }));
 }
 
 /**
@@ -433,7 +446,7 @@ export async function getShopCapacityRange(
   }
 
   // Return capacity data
-  return query<ShopMonthlyCapacity>(
+  const rows = await query<ShopMonthlyCapacity>(
     `SELECT *,
        (total_capacity - allocated_count) as available_capacity,
        CASE WHEN total_capacity > 0
@@ -446,6 +459,18 @@ export async function getShopCapacityRange(
      ORDER BY month`,
     [shopCode, monthsList]
   );
+
+  // Convert string numeric fields to numbers
+  return rows.map(row => ({
+    ...row,
+    total_capacity: Number(row.total_capacity) || 0,
+    allocated_count: Number(row.allocated_count) || 0,
+    completed_count: Number(row.completed_count) || 0,
+    available_capacity: Number(row.available_capacity) || 0,
+    utilization_pct: Number(row.utilization_pct) || 0,
+    ...(('confirmed_railcars' in row) && { confirmed_railcars: Number((row as any).confirmed_railcars) || 0 }),
+    ...(('planned_railcars' in row) && { planned_railcars: Number((row as any).planned_railcars) || 0 }),
+  }));
 }
 
 // ============================================================================

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Allocation, AllocationStatus } from '@/types';
 import { listAllocations } from '@/lib/api';
+import { FetchError } from '@/components/ErrorBoundary';
 
 interface AllocationListProps {
   onShopCarNow?: (carNumber: string) => void;
@@ -107,11 +108,9 @@ export default function AllocationList({
         </div>
       </div>
 
-      {/* Error */}
+      {/* Error with Retry */}
       {error && (
-        <div className="bg-danger-50 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300 p-3 rounded-lg text-sm">
-          {error}
-        </div>
+        <FetchError error={error} onRetry={fetchAllocations} />
       )}
 
       {/* Table */}

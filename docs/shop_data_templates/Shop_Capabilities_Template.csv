@@ -1,0 +1,26 @@
+shop_code,capability_type,capability_value,certified_date,expiration_date
+EXAMPLE-01,car_type,Tank,2024-01-15,2027-01-15
+EXAMPLE-01,car_type,Hopper,2024-01-15,2027-01-15
+EXAMPLE-01,material,Carbon Steel,2024-01-15,2027-01-15
+EXAMPLE-01,material,Stainless,2024-01-15,2027-01-15
+EXAMPLE-01,lining,High Bake,2024-06-01,2027-06-01
+EXAMPLE-01,lining,Epoxy,2024-06-01,2027-06-01
+EXAMPLE-01,certification,AAR,2024-01-01,2026-01-01
+EXAMPLE-01,certification,DOT,2024-01-01,2026-01-01
+EXAMPLE-01,service,Tank Qualification,2024-01-15,2027-01-15
+EXAMPLE-01,service,Running Repair,2024-01-15,2027-01-15
+EXAMPLE-01,service,Assignment,2024-01-15,2027-01-15
+,,,,
+INSTRUCTIONS:,,,,
+shop_code,Must match a shop_code from Shop_Attributes,,,
+capability_type,"One of: car_type, material, lining, certification, service",,,
+,,,,
+CAPABILITY VALUES:,,,,
+car_type,"Tank, Hopper, Gondola, Boxcar, Flatcar",,,
+material,"Carbon Steel, Stainless, Aluminum",,,
+lining,"High Bake, Plasite, Rubber, Vinyl Ester, Epoxy, Glass Lined, None",,,
+certification,"AAR, DOT, HM201, ASME",,,
+service,"Tank Qualification, Running Repair, Assignment, Return, Cleaning Only",,,
+,,,,
+certified_date,Date capability was certified (YYYY-MM-DD),,,
+expiration_date,Date certification expires (YYYY-MM-DD),,,

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BudgetSummary, RunningRepairsBudget, ServiceEventBudget } from '@/types';
 import { getBudgetSummary, getRunningRepairsBudget, getServiceEventBudgets } from '@/lib/api';
+import { FetchError } from '@/components/ErrorBoundary';
 
 interface BudgetOverviewProps {
   fiscalYear?: number;
@@ -56,6 +57,34 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
 
+  // Calculate variance percentage
+  const getVariance = (actual: number, budget: number): { pct: number; favorable: boolean } => {
+    if (budget === 0) return { pct: 0, favorable: true };
+    const variance = ((budget - actual) / budget) * 100;
+    return { pct: Math.abs(variance), favorable: variance >= 0 };
+  };
+
+  // Variance indicator component
+  const VarianceIndicator = ({ actual, budget }: { actual: number; budget: number }) => {
+    const { pct, favorable } = getVariance(actual, budget);
+    if (budget === 0 || actual === 0) return null;
+
+    return (
+      <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
+        favorable ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400'
+      }`}>
+        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          {favorable ? (
+            <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          ) : (
+            <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          )}
+        </svg>
+        {pct.toFixed(1)}%
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="card">
@@ -77,7 +106,7 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
     return (
       <div className="card">
         <div className="card-body">
-          <div className="text-danger-600 dark:text-danger-400">{error}</div>
+          <FetchError error={error} onRetry={fetchData} />
         </div>
       </div>
     );
@@ -120,7 +149,10 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
 
           <div className="card">
             <div className="card-body">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+                <VarianceIndicator actual={summary.total.committed} budget={summary.total.budget} />
+              </div>
               <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">
                 {formatCurrency(summary.total.committed)}
               </p>
@@ -176,8 +208,9 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Running Repairs Summary */}
           <div className="card">
-            <div className="card-header">
+            <div className="card-header flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h3>
+              <VarianceIndicator actual={summary.running_repairs.actual_spend} budget={summary.running_repairs.total_budget} />
             </div>
             <div className="card-body space-y-3">
               <div className="flex justify-between">
@@ -205,8 +238,12 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
 
           {/* Service Events Summary */}
           <div className="card">
-            <div className="card-header">
+            <div className="card-header flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Service Events</h3>
+              <VarianceIndicator
+                actual={summary.service_events.planned_cost + summary.service_events.actual_cost}
+                budget={summary.service_events.total_budget || (summary.service_events.planned_cost + summary.service_events.actual_cost)}
+              />
             </div>
             <div className="card-body space-y-3">
               <div className="flex justify-between">
@@ -256,6 +293,7 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
                     <th className="text-right">$/Car/Month</th>
                     <th className="text-right">Monthly Budget</th>
                     <th className="text-right">Actual Spend</th>
+                    <th className="text-right">Variance</th>
                     <th className="text-right">Remaining</th>
                   </tr>
                 </thead>
@@ -268,6 +306,9 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
                       <td className="text-right">{formatCurrency(rr.monthly_budget)}</td>
                       <td className="text-right text-success-600 dark:text-success-400">
                         {formatCurrency(rr.actual_spend)}
+                      </td>
+                      <td className="text-right">
+                        <VarianceIndicator actual={rr.actual_spend} budget={rr.monthly_budget} />
                       </td>
                       <td className={`text-right font-medium ${
                         rr.remaining_budget >= 0

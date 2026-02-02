@@ -13,6 +13,7 @@ import OverrideOptions from '@/components/OverrideOptions';
 import ResultsGrid from '@/components/ResultsGrid';
 import DirectCarInput from '@/components/DirectCarInput';
 import AllocationList from '@/components/AllocationList';
+import { ErrorBoundary, FetchError } from '@/components/ErrorBoundary';
 import { evaluateShops, evaluateShopsDirect, getCarByNumber } from '@/lib/api';
 import { Car, EvaluationOverrides, EvaluationResult } from '@/types';
 
@@ -77,19 +78,27 @@ function PlanningContent() {
   };
 
   // Navigate to Quick Shop with a specific car
-  const handleShopCarNow = (carNumber: string) => {
+  const handleShopCarNow = async (carNumber: string) => {
+    console.log('[Shop Now] Starting with car:', carNumber);
     setActiveTab('quick-shop');
+    setInputMode('lookup'); // Ensure we're in lookup mode
     setCar(null);
     setResults([]);
     setError(null);
-    // Lookup the car
-    getCarByNumber(carNumber)
-      .then((result) => {
-        setCar(result.car);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to load car');
-      });
+    setLoading(true);
+
+    try {
+      console.log('[Shop Now] Fetching car data...');
+      const result = await getCarByNumber(carNumber);
+      console.log('[Shop Now] Got car:', result.car);
+      setCar(result.car);
+    } catch (err) {
+      console.error('[Shop Now] Error:', err);
+      setError(err instanceof Error ? err.message : `Failed to load car ${carNumber}`);
+    } finally {
+      setLoading(false);
+      console.log('[Shop Now] Done, loading=false');
+    }
   };
 
   const handleEvaluate = useCallback(async () => {
@@ -390,12 +399,15 @@ function PlanningContent() {
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error Message with Retry */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-              <p className="font-medium">Error</p>
-              <p className="text-sm">{error}</p>
-            </div>
+            <FetchError
+              error={error}
+              onRetry={() => {
+                setError(null);
+                if (car) handleEvaluate();
+              }}
+            />
           )}
 
           {/* Results Section */}
@@ -421,13 +433,21 @@ function PlanningContent() {
       {activeTab === 'monthly-load' && (
         <div className="space-y-6">
           {/* Allocations with Shop Now buttons */}
-          <AllocationList onShopCarNow={handleShopCarNow} />
+          <ErrorBoundary>
+            <AllocationList onShopCarNow={handleShopCarNow} />
+          </ErrorBoundary>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DemandList fiscalYear={fiscalYear} />
-            <BudgetOverview fiscalYear={fiscalYear} />
+            <ErrorBoundary>
+              <DemandList fiscalYear={fiscalYear} />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <BudgetOverview fiscalYear={fiscalYear} />
+            </ErrorBoundary>
           </div>
-          <CapacityGrid months={18} />
+          <ErrorBoundary>
+            <CapacityGrid months={18} />
+          </ErrorBoundary>
         </div>
       )}
 
@@ -435,13 +455,19 @@ function PlanningContent() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <ForecastSummary fiscalYear={fiscalYear} />
+              <ErrorBoundary>
+                <ForecastSummary fiscalYear={fiscalYear} />
+              </ErrorBoundary>
             </div>
             <div>
-              <ForecastSummary fiscalYear={fiscalYear} compact />
+              <ErrorBoundary>
+                <ForecastSummary fiscalYear={fiscalYear} compact />
+              </ErrorBoundary>
             </div>
           </div>
-          <ScenarioBuilder />
+          <ErrorBoundary>
+            <ScenarioBuilder />
+          </ErrorBoundary>
         </div>
       )}
     </div>

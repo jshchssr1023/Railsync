@@ -618,6 +618,51 @@ router.get('/fleet/tier-summary', async (req, res) => {
   }
 });
 
+// Dynamic filter options endpoint
+router.get('/filters/options', async (req, res) => {
+  try {
+    // Get distinct tiers from shops
+    const tiersResult = await query(`
+      SELECT DISTINCT COALESCE(tier, 1) as tier
+      FROM shops
+      WHERE tier IS NOT NULL
+      ORDER BY tier
+    `);
+
+    // Get distinct product codes (car types) from allocations
+    const carTypesResult = await query(`
+      SELECT DISTINCT c.product_code, c.product_code_group
+      FROM cars c
+      WHERE c.product_code IS NOT NULL AND c.product_code != ''
+      ORDER BY c.product_code
+      LIMIT 50
+    `);
+
+    // Get distinct work types
+    const workTypesResult = await query(`
+      SELECT DISTINCT work_type
+      FROM allocations
+      WHERE work_type IS NOT NULL AND work_type != ''
+      ORDER BY work_type
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        tiers: tiersResult.map((r: { tier: number }) => r.tier),
+        carTypes: carTypesResult.map((r: { product_code: string; product_code_group: string }) => ({
+          code: r.product_code,
+          group: r.product_code_group,
+        })),
+        workTypes: workTypesResult.map((r: { work_type: string }) => r.work_type),
+      },
+    });
+  } catch (error) {
+    console.error('Filter options error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
+  }
+});
+
 // ============================================================================
 // PHASE 10 - ALERTS ROUTES
 // ============================================================================

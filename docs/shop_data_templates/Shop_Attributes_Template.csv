@@ -1,0 +1,16 @@
+shop_code,shop_name,primary_railroad,region,city,state,labor_rate,material_multiplier,latitude,longitude,contact_email,contact_phone
+EXAMPLE-01,Example Tank Shop,UP,Central,Houston,TX,85.00,1.15,29.7604267,-95.3698028,shop@example.com,555-123-4567
+,,,,,,,,,,
+INSTRUCTIONS:,,,,,,,,,,
+shop_code,"Unique identifier (max 10 chars, e.g., AITX-HOU)",,,,,,,,,,
+shop_name,Full name of the shop,,,,,,,,,,
+primary_railroad,"Main railroad serving the shop (UP, BNSF, NS, CSX, CN, CP, KCS)",,,,,,,,,,
+region,"Geographic region (Central, Gulf, Midwest, Northeast, Southeast, West)",,,,,,,,,,
+city,City where shop is located,,,,,,,,,,
+state,Two-letter state code,,,,,,,,,,
+labor_rate,Hourly labor rate in USD (e.g., 85.00),,,,,,,,,,
+material_multiplier,"Material cost multiplier (1.00 = no markup, 1.15 = 15% markup)",,,,,,,,,,
+latitude,GPS latitude (decimal format),,,,,,,,,,
+longitude,GPS longitude (decimal format),,,,,,,,,,
+contact_email,Primary contact email,,,,,,,,,,
+contact_phone,Primary contact phone,,,,,,,,,,

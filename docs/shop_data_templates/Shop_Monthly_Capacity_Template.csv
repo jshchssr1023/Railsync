@@ -1,0 +1,18 @@
+shop_code,month,total_capacity,confirmed_railcars,planned_railcars,notes
+EXAMPLE-01,2026-02,45,12,8,Normal capacity
+EXAMPLE-01,2026-03,45,5,15,Heavy planning month
+EXAMPLE-01,2026-04,40,0,10,Reduced capacity - maintenance
+EXAMPLE-01,2026-05,50,0,0,Full capacity available
+EXAMPLE-01,2026-06,50,0,0,Full capacity available
+,,,,,,
+INSTRUCTIONS:,,,,,
+shop_code,Must match a shop_code from Shop_Attributes,,,,
+month,Format YYYY-MM (e.g., 2026-03 for March 2026),,,,
+total_capacity,Maximum railcars the shop can handle this month,,,,
+confirmed_railcars,Cars already confirmed/scheduled for this month,,,,
+planned_railcars,Cars tentatively planned but not confirmed,,,,
+notes,Optional notes about capacity changes,,,,
+,,,,,,
+SEND FREQUENCY:,,,,,
+"Minimum monthly, ideally weekly for active months",,,,,,
+"Update immediately if capacity changes significantly",,,,,,

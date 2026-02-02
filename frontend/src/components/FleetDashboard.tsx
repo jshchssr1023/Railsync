@@ -48,9 +48,22 @@ interface TierData {
   total_count: number;
 }
 
+interface FilterOptions {
+  tiers: number[];
+  carTypes: { code: string; group: string }[];
+  workTypes: string[];
+}
+
 export default function FleetDashboard() {
   const currentYear = new Date().getFullYear();
   const [tierFilter, setTierFilter] = useState<string>('all');
+
+  // Fetch dynamic filter options
+  const { data: filterOptions } = useSWR<FilterOptions>(
+    `${API_BASE}/filters/options`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
   const tierParam = tierFilter !== 'all' ? `&tier=${tierFilter}` : '';
 
@@ -173,9 +186,9 @@ export default function FleetDashboard() {
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
         >
           <option value="all">All Tiers</option>
-          <option value="1">Tier 1</option>
-          <option value="2">Tier 2</option>
-          <option value="3">Tier 3</option>
+          {(filterOptions?.tiers || [1, 2, 3]).map(tier => (
+            <option key={tier} value={tier}>Tier {tier}</option>
+          ))}
         </select>
         <button
           onClick={handleRetry}

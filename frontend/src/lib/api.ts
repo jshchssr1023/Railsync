@@ -350,10 +350,13 @@ export async function listAllocations(filters?: {
   if (filters?.target_month) params.append('target_month', filters.target_month);
   if (filters?.status) params.append('status', filters.status);
 
-  const response = await fetchApi<{ allocations: Allocation[]; total: number }>(
-    `/allocations?${params.toString()}`
-  );
-  return response.data || { allocations: [], total: 0 };
+  // Backend returns { success, data: Allocation[], total }
+  const response = await fetchApi<Allocation[]>(`/allocations?${params.toString()}`) as unknown as {
+    success: boolean;
+    data: Allocation[];
+    total: number
+  };
+  return { allocations: response.data || [], total: response.total || 0 };
 }
 
 export async function generateAllocations(

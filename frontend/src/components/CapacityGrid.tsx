@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ShopMonthlyCapacity } from '@/types';
 import { getCapacity, initializeCapacity } from '@/lib/api';
+import { FetchError } from '@/components/ErrorBoundary';
 
 interface CapacityGridProps {
   startMonth?: string;
@@ -153,11 +154,9 @@ export default function CapacityGrid({
         </div>
       </div>
 
-      {/* Error */}
+      {/* Error with Retry */}
       {error && (
-        <div className="bg-danger-50 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300 p-3 rounded-lg text-sm">
-          {error}
-        </div>
+        <FetchError error={error} onRetry={fetchCapacity} />
       )}
 
       {/* Legend */}

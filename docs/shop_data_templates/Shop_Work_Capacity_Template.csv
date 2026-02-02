@@ -1,0 +1,25 @@
+shop_code,work_type,weekly_hours_capacity,current_utilization_pct,effective_date
+EXAMPLE-01,cleaning,160,65,2026-02-01
+EXAMPLE-01,mechanical,200,70,2026-02-01
+EXAMPLE-01,blast,80,50,2026-02-01
+EXAMPLE-01,lining,120,40,2026-02-01
+EXAMPLE-01,paint,100,55,2026-02-01
+EXAMPLE-01,flare,40,30,2026-02-01
+,,,,,
+INSTRUCTIONS:,,,,
+shop_code,Must match a shop_code from Shop_Attributes,,,
+work_type,"One of: cleaning, mechanical, blast, lining, paint, flare",,,
+weekly_hours_capacity,Total hours available per week for this work type,,,
+current_utilization_pct,Current utilization percentage (0-100),,,
+effective_date,Date this capacity is effective (YYYY-MM-DD),,,
+,,,,,
+WORK TYPE DESCRIPTIONS:,,,,
+cleaning,Interior cleaning and prep,,,
+mechanical,"Valve work, piping, fittings",,,
+blast,Sandblasting and surface prep,,,
+lining,Interior lining application,,,
+paint,Exterior painting,,,
+flare,Flare stack work,,,
+,,,,,
+SEND FREQUENCY:,,,,
+Weekly or when capacity changes significantly,,,

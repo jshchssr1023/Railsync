@@ -26,7 +26,7 @@ export async function getRunningRepairsBudget(
       monthly_budget,
       actual_spend,
       actual_car_count,
-      remaining_budget,
+      COALESCE(remaining_budget, monthly_budget - actual_spend) as remaining_budget,
       notes,
       created_by,
       created_at,
@@ -36,7 +36,18 @@ export async function getRunningRepairsBudget(
     ORDER BY month
   `;
 
-  return query<RunningRepairsBudget>(sql, [fiscalYear]);
+  const rows = await query<RunningRepairsBudget>(sql, [fiscalYear]);
+
+  // Convert string numeric fields to numbers (PostgreSQL returns DECIMAL as strings)
+  return rows.map(row => ({
+    ...row,
+    cars_on_lease: Number(row.cars_on_lease) || 0,
+    allocation_per_car: Number(row.allocation_per_car) || 0,
+    monthly_budget: Number(row.monthly_budget) || 0,
+    actual_spend: Number(row.actual_spend) || 0,
+    actual_car_count: Number(row.actual_car_count) || 0,
+    remaining_budget: Number(row.remaining_budget) || 0,
+  }));
 }
 
 /**
@@ -163,7 +174,15 @@ export async function getServiceEventBudgets(
     ORDER BY event_type, customer_code
   `;
 
-  return query<ServiceEventBudget>(sql, params);
+  const rows = await query<ServiceEventBudget>(sql, params);
+
+  // Convert string numeric fields to numbers
+  return rows.map(row => ({
+    ...row,
+    budgeted_car_count: Number(row.budgeted_car_count) || 0,
+    avg_cost_per_car: Number(row.avg_cost_per_car) || 0,
+    total_budget: Number(row.total_budget) || 0,
+  }));
 }
 
 /**
@@ -268,16 +287,24 @@ export async function deleteServiceEventBudget(id: string): Promise<boolean> {
  * Get budget summary for a fiscal year
  */
 export async function getBudgetSummary(fiscalYear: number): Promise<{
+  fiscal_year: number;
   running_repairs: {
     total_budget: number;
-    total_actual: number;
+    actual_spend: number;
     remaining: number;
   };
   service_events: {
-    by_type: { event_type: string; total_budget: number }[];
     total_budget: number;
+    planned_cost: number;
+    actual_cost: number;
+    remaining: number;
   };
-  grand_total: number;
+  total: {
+    budget: number;
+    committed: number;
+    remaining: number;
+    consumed_pct: number;
+  };
 }> {
   // Running repairs summary
   const rrResult = await queryOne<{
@@ -293,38 +320,58 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
   );
 
   const rrTotalBudget = parseFloat(rrResult?.total_budget || '0');
-  const rrTotalActual = parseFloat(rrResult?.total_actual || '0');
+  const rrActualSpend = parseFloat(rrResult?.total_actual || '0');
 
-  // Service events by type
-  const seByType = await query<{ event_type: string; total_budget: string }>(
-    `SELECT
-      event_type,
-      COALESCE(SUM(total_budget), 0) as total_budget
+  // Service events budget total
+  const seResult = await queryOne<{ total_budget: string }>(
+    `SELECT COALESCE(SUM(total_budget), 0) as total_budget
     FROM service_event_budget
-    WHERE fiscal_year = $1
-    GROUP BY event_type`,
+    WHERE fiscal_year = $1`,
     [fiscalYear]
   );
+  const seTotalBudget = parseFloat(seResult?.total_budget || '0');
 
-  const seTotalBudget = seByType.reduce(
-    (sum, row) => sum + parseFloat(row.total_budget),
-    0
+  // Get planned and actual costs from allocations for service events
+  const allocResult = await queryOne<{
+    planned_cost: string;
+    actual_cost: string;
+  }>(
+    `SELECT
+      COALESCE(SUM(CAST(estimated_cost AS DECIMAL)), 0) as planned_cost,
+      COALESCE(SUM(CAST(actual_cost AS DECIMAL)), 0) as actual_cost
+    FROM allocations
+    WHERE EXTRACT(YEAR FROM created_at) = $1
+      AND status NOT IN ('cancelled', 'Released')`,
+    [fiscalYear]
   );
+  const sePlannedCost = parseFloat(allocResult?.planned_cost || '0');
+  const seActualCost = parseFloat(allocResult?.actual_cost || '0');
+
+  // Calculate totals
+  const totalBudget = rrTotalBudget + seTotalBudget;
+  const totalCommitted = rrActualSpend + sePlannedCost + seActualCost;
+  const totalRemaining = totalBudget - totalCommitted;
+  const consumedPct = totalBudget > 0 ? (totalCommitted / totalBudget) * 100 : 0;
 
   return {
+    fiscal_year: fiscalYear,
     running_repairs: {
       total_budget: rrTotalBudget,
-      total_actual: rrTotalActual,
-      remaining: rrTotalBudget - rrTotalActual,
+      actual_spend: rrActualSpend,
+      remaining: rrTotalBudget - rrActualSpend,
     },
     service_events: {
-      by_type: seByType.map((row) => ({
-        event_type: row.event_type,
-        total_budget: parseFloat(row.total_budget),
-      })),
       total_budget: seTotalBudget,
+      planned_cost: sePlannedCost,
+      actual_cost: seActualCost,
+      remaining: seTotalBudget - sePlannedCost - seActualCost,
     },
-    grand_total: rrTotalBudget + seTotalBudget,
+    total: {
+      budget: totalBudget,
+      committed: totalCommitted,
+      remaining: totalRemaining,
+      consumed_pct: consumedPct,
+    },
   };
 }
 
