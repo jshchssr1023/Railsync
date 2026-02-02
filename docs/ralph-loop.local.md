@@ -37,11 +37,12 @@ last_updated: "2026-02-02T03:35:00Z"
 ### 📋 TODO (from PRD validation checklist)
 | ID | Task | Priority |
 |----|------|----------|
-| #28 | Service options UI for assignment detail | Medium - allow modify/add options |
-| #29 | Fleet View shows assignment status | Low - integration task |
+| (All validation checklist items complete!) |
 
 ### ✅ SESSION COMMITS
 | #27 | Quick Shop conflict detection | Warning banner when car has existing assignment |
+| #28 | Service options UI | /assignments/[id] detail page with add/toggle options |
+| #29 | Fleet View assignment status | Already implemented in FleetDashboard metrics |
 
 ### ✅ JUST COMPLETED
 | #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |
@@ -86,5 +87,5 @@ docs/ralph-loop.local.md                      - Task tracking updates
 
 ## Next Actions
 1. User to verify Shop Now button works (#11)
-2. Test SSOT assignment workflow end-to-end
-3. Implement Bad Order workflow (from PRD Phase 2)
+2. Test full workflow: Bad Order → Assignment → Service Options
+3. Consider migrating fleet/metrics to use car_assignments SSOT
