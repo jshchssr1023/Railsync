@@ -502,7 +502,8 @@ router.get('/fleet/metrics', async (req, res) => {
   try {
     const result = await query('SELECT * FROM v_fleet_summary LIMIT 1');
     res.json({ success: true, data: result[0] || {} });
-  } catch (err) {
+  } catch (error) {
+    console.error('Fleet metrics error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch fleet metrics' });
   }
 });
@@ -515,7 +516,8 @@ router.get('/fleet/monthly-volumes', async (req, res) => {
       [`${year}%`]
     );
     res.json({ success: true, data: result });
-  } catch (err) {
+  } catch (error) {
+    console.error('Monthly volumes error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch monthly volumes' });
   }
 });
@@ -524,7 +526,8 @@ router.get('/fleet/tier-summary', async (req, res) => {
   try {
     const result = await query('SELECT * FROM v_tier_summary ORDER BY tier');
     res.json({ success: true, data: result });
-  } catch (err) {
+  } catch (error) {
+    console.error('Tier summary error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch tier summary' });
   }
 });

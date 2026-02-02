@@ -78,7 +78,8 @@ export type AuditAction =
   | 'login_failed'
   | 'password_change'
   | 'evaluate'
-  | 'shop_select';
+  | 'shop_select'
+  | 'import';
 
 // ============================================================================
 // SHOP TYPES
