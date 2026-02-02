@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 17:15 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 18:42 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -23,6 +23,7 @@
 | Bulk Selection & Actions | Checkbox column in AllocationList with batch actions | `AllocationList.tsx` | `74d558d` |
 | Virtual Grid Sticky Headers | Sticky top (months) and left (shops) in CapacityGrid | `CapacityGrid.tsx` | `74d558d` |
 | Hover Details Tooltip | Tooltip showing car numbers on capacity cell hover | `CapacityGrid.tsx`, `GET /capacity/:shop/:month/cars` | `74d558d` |
+| Drag-and-Drop Shop Loading | Split-pane interface for shop assignment | `ShopLoadingTool.tsx`, `POST /allocations/:id/assign` | pending |
 
 ### In Progress 🔄
 
@@ -34,7 +35,6 @@
 
 | Feature | Priority | Current % | Spec Reference |
 |---------|----------|-----------|----------------|
-| Drag-and-Drop Shop Loading | High | 0% | Split-pane interface for allocation |
 | Real-time Capacity Sync | High | 40% | WebSocket/SSE for live updates |
 | Proximity Filter | Medium | 10% | Rail-mile radius suggestions |
 | Capability Match Filter | Medium | 10% | Gray out incompatible shops |
@@ -45,23 +45,23 @@
 
 > **Last Analyzed:** 2026-02-02 by Claude Opus 4.5
 
-### 1. Drag-and-Drop Shop Loading (0% Complete)
+### 1. Drag-and-Drop Shop Loading (100% Complete) ✅
 
 **What Exists:**
-- Framer Motion library available (`framer-motion: ^12.29.2`)
-- Modal/Drawer patterns: `ShopDetailDrawer.tsx`, `SelectShopModal.tsx`
-- Results grid with allocation list column
+- ShopLoadingTool component with native HTML5 drag-and-drop
+- Split-pane interface: left=unassigned cars, right=capacity grid
+- Multi-select with Ctrl/Cmd+Click and bulk drag
+- `POST /allocations/:id/assign` endpoint with optimistic locking
+- Capacity auto-updates on assignment
+- Color-coded utilization (green→yellow→red)
+- Hover tooltips showing assigned cars
 
-**What's Missing:**
-| Gap | Files Affected | Effort |
-|-----|----------------|--------|
-| No drag-drop library installed | package.json | S |
-| No drag handlers in AllocationList | `AllocationList.tsx` | M |
-| No visual drag feedback (hover zones) | `ResultsGrid.tsx` | M |
-| No batch allocation API endpoint | `planning.controller.ts` | M |
-| No split-pane resizer component | New component needed | M |
-
-**Recommended Library:** `@dnd-kit/core` (modern, accessible, React 18 compatible)
+**Files Created/Modified:**
+- `frontend/src/components/ShopLoadingTool.tsx` - Main drag-and-drop component
+- `backend/src/services/planning.service.ts` - `assignAllocation()` function
+- `backend/src/controllers/planning.controller.ts` - `assignAllocation()` handler
+- `backend/src/routes/index.ts` - `POST /allocations/:id/assign` route
+- `database/migrations/012_allocation_versioning.sql` - Version column for optimistic locking
 
 ---
 
@@ -221,6 +221,8 @@ GET  /api/amendments/:id               - Amendment details with comparison
 POST /api/amendments/:id/detect-conflicts - Find scheduling conflicts
 GET  /api/fleet/cars-with-amendments   - Cars with amendment status
 GET  /api/cars/:carNumber/validate-shopping - Check for outdated terms
+POST /api/allocations/:id/assign       - Drag-and-drop shop assignment
+GET  /api/capacity/:shopCode/:month/cars - Cars in capacity cell (tooltip)
 ```
 
 ### Demo Data Seeded
