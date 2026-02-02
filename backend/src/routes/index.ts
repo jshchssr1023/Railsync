@@ -455,6 +455,8 @@ router.put('/budget/running-repairs/:month', authenticate, authorize('admin', 'o
 router.post('/budget/running-repairs/calculate', authenticate, authorize('admin'), planningController.calculateRunningRepairsBudget);
 router.get('/budget/service-events', optionalAuth, planningController.getServiceEventBudgets);
 router.post('/budget/service-events', authenticate, authorize('admin', 'operator'), planningController.createServiceEventBudget);
+router.put('/budget/service-events/:id', authenticate, authorize('admin', 'operator'), planningController.updateServiceEventBudget);
+router.delete('/budget/service-events/:id', authenticate, authorize('admin'), planningController.deleteServiceEventBudget);
 router.get('/budget/summary', optionalAuth, planningController.getBudgetSummary);
 
 // ============================================================================

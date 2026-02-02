@@ -33,7 +33,7 @@ export async function getRunningRepairsBudget(req: Request, res: Response): Prom
 export async function updateRunningRepairsBudget(req: Request, res: Response): Promise<void> {
   try {
     const { month } = req.params;
-    const fiscalYear = parseInt(month.split('-')[0]);
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || parseInt(month.split('-')[0]);
     const budget = await budgetService.updateRunningRepairsBudget(
       fiscalYear,
       month,
@@ -98,6 +98,34 @@ export async function getBudgetSummary(req: Request, res: Response): Promise<voi
     res.json({ success: true, data: summary });
   } catch (error: unknown) {
     console.error('Get budget summary error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
+export async function updateServiceEventBudget(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const budget = await budgetService.updateServiceEventBudget(id, req.body);
+    if (!budget) {
+      res.status(404).json({ success: false, error: 'Service event budget not found' });
+      return;
+    }
+    await logFromRequest(req, 'update', 'service_event_budget', id);
+    res.json({ success: true, data: budget });
+  } catch (error: unknown) {
+    console.error('Update service event budget error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
+export async function deleteServiceEventBudget(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    await budgetService.deleteServiceEventBudget(id);
+    await logFromRequest(req, 'delete', 'service_event_budget', id);
+    res.json({ success: true, message: 'Service event budget deleted' });
+  } catch (error: unknown) {
+    console.error('Delete service event budget error:', error);
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -645,6 +673,8 @@ export default {
   calculateRunningRepairsBudget,
   getServiceEventBudgets,
   createServiceEventBudget,
+  updateServiceEventBudget,
+  deleteServiceEventBudget,
   getBudgetSummary,
   // Cars
   listCars,

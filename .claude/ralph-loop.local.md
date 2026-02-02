@@ -163,6 +163,13 @@ All API Endpoints Verified (Iteration 11):
 3. ⏳ Phase 3: Service Plans (if needed)
 4. ⏳ Phase 4: Master Planning (if needed)
 
+## Iteration 12 Updates (2026-02-02 17:10)
+- S&OP Planning: ✅ Applied migration 009 (sop_monthly_snapshot + v_maintenance_forecast_v2)
+- Lease Hierarchy: ✅ Applied migration 010 (customers, master_leases, lease_riders, rider_cars)
+- Customer Data: ✅ 8 customers, 8 leases, 8 riders, 73 cars linked
+- Fleet Page: ✅ Fixed duplicate headers (removed AuthHeader/DashboardWithWrapper from page)
+- Docker: ✅ All containers rebuilt and running
+
 ## Iteration 11 Updates (2026-02-02 17:15)
 - Budget Data: ✅ Service event budget seeded (Qual $8.75M, Assignment $10.08M, Return $8.8M)
 - Budget API: ✅ Returns $34.7M total budget ($7.1M running repairs + $27.6M service events)
