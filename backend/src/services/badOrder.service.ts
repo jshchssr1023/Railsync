@@ -7,6 +7,7 @@
 
 import { query } from '../config/database';
 import { getActiveAssignment } from './assignment.service';
+import { createAlert } from './alerts.service';
 
 // ============================================================================
 // TYPES
@@ -98,7 +99,26 @@ export async function createBadOrder(input: CreateBadOrderInput): Promise<BadOrd
     input.created_by_id || null,
   ]);
 
-  return result[0];
+  const badOrder = result[0];
+
+  // Create alert for planning team
+  const isCritical = input.severity === 'critical';
+  await createAlert({
+    alert_type: isCritical ? 'bad_order_critical' : 'bad_order_reported',
+    severity: isCritical ? 'critical' : 'warning',
+    title: `Bad Order: ${input.car_number}`,
+    message: `${input.issue_type.replace(/_/g, ' ')} - ${input.issue_description.substring(0, 100)}`,
+    entity_type: 'bad_order_reports',
+    entity_id: badOrder.id,
+    target_role: 'planner',
+    metadata: {
+      car_number: input.car_number,
+      severity: input.severity,
+      has_existing_plan: !!existingAssignment,
+    },
+  });
+
+  return badOrder;
 }
 
 export async function getBadOrder(id: string): Promise<BadOrderReport | null> {

@@ -6,6 +6,7 @@
  */
 
 import { query } from '../config/database';
+import { createAlert } from './alerts.service';
 
 // ============================================================================
 // TYPES
@@ -395,7 +396,26 @@ export async function expediteAssignment(
     throw new Error(`Assignment ${id} not found`);
   }
 
-  return normalizeAssignment(rows[0]);
+  const assignment = normalizeAssignment(rows[0]);
+
+  // Create alert for planning team
+  await createAlert({
+    alert_type: 'assignment_expedited',
+    severity: 'warning',
+    title: `Assignment Expedited: ${assignment.car_number}`,
+    message: `Moved to immediate priority. Reason: ${reason}`,
+    entity_type: 'car_assignments',
+    entity_id: assignment.id,
+    target_role: 'planner',
+    metadata: {
+      car_number: assignment.car_number,
+      shop_code: assignment.shop_code,
+      original_target_month: rows[0].original_target_month,
+      new_target_month: currentMonth,
+    },
+  });
+
+  return assignment;
 }
 
 /**

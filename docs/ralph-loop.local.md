@@ -4,7 +4,7 @@ iteration: 3
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-01T18:31:56Z"
-last_updated: "2026-02-02T03:35:00Z"
+last_updated: "2026-02-02T13:10:00Z"
 ---
 
 # Ralph Loop - Railsync Work Tracking
@@ -34,15 +34,19 @@ last_updated: "2026-02-02T03:35:00Z"
 | #12 | Import 982 shops from CSV | Script works! 963 shops in DB, 42 AITX, 668 active |
 | #14 | Shop import API endpoints | Routes ARE wired in routes/index.ts |
 
-### 📋 TODO (from PRD validation checklist)
-| ID | Task | Priority |
-|----|------|----------|
-| (All validation checklist items complete!) |
+### 📋 TODO (from Implementation Roadmap)
+| ID | Task | Phase | Priority |
+|----|------|-------|----------|
+| #31 | Bad order reporting from Fleet View | P2 | Medium |
+| #32 | Quick Shop writes to car_assignments | P1 | High |
+| #33 | Service plan tables + service | P3 | Low |
+| #34 | Master plan versioning | P4 | Low |
 
 ### ✅ SESSION COMMITS
 | #27 | Quick Shop conflict detection | Warning banner when car has existing assignment |
 | #28 | Service options UI | /assignments/[id] detail page with add/toggle options |
 | #29 | Fleet View assignment status | Already implemented in FleetDashboard metrics |
+| #30 | Planning team notifications | Alerts for bad orders + expedited assignments |
 
 ### ✅ JUST COMPLETED
 | #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |

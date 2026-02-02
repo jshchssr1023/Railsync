@@ -7,7 +7,11 @@ export type AlertType =
   | 'capacity_warning'
   | 'capacity_critical'
   | 'demurrage_risk'
-  | 'brc_received';
+  | 'brc_received'
+  | 'bad_order_reported'
+  | 'bad_order_critical'
+  | 'assignment_expedited'
+  | 'assignment_conflict';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
