@@ -295,7 +295,7 @@ export default function ShopLoadingTool({
                 type="checkbox"
                 checked={aitxOnly}
                 onChange={(e) => setAitxOnly(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-gray-600 dark:text-gray-400">AITX Network Only</span>
             </label>
@@ -489,23 +489,23 @@ export default function ShopLoadingTool({
       <div className="flex items-center justify-between p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs">
         <div className="flex gap-4">
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-green-100 dark:bg-green-900/30 border border-green-300"></span>
+            <span className="w-3 h-3 rounded bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700"></span>
             <span className="text-gray-600 dark:text-gray-400">&lt;70%</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300"></span>
+            <span className="w-3 h-3 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700"></span>
             <span className="text-gray-600 dark:text-gray-400">70-85%</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300"></span>
+            <span className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700"></span>
             <span className="text-gray-600 dark:text-gray-400">85-95%</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/30 border border-red-300"></span>
+            <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700"></span>
             <span className="text-gray-600 dark:text-gray-400">&gt;95%</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-red-200 dark:bg-red-900/50 border border-red-400"></span>
+            <span className="w-3 h-3 rounded bg-red-200 dark:bg-red-900/50 border border-red-400 dark:border-red-600"></span>
             <span className="text-gray-600 dark:text-gray-400">Full</span>
           </span>
         </div>
