@@ -6,6 +6,8 @@ import * as authController from '../controllers/auth.controller';
 import planningController from '../controllers/planning.controller';
 import alertsController from '../controllers/alerts.controller';
 import shopImportController from '../controllers/shopImport.controller';
+import assignmentController from '../controllers/assignment.controller';
+import badOrderController from '../controllers/badOrder.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -743,6 +745,56 @@ router.post('/pipeline/status-update', authenticate, authorize('admin', 'operato
     res.status(500).json({ success: false, error: 'Failed to update status' });
   }
 });
+
+// ============================================================================
+// SSOT - CAR ASSIGNMENTS (Phase 1)
+// ============================================================================
+
+// List assignments with filters
+router.get('/assignments', optionalAuth, assignmentController.listAssignments);
+
+// Check for conflicts before creating assignment
+router.get('/assignments/check-conflicts', optionalAuth, assignmentController.checkConflicts);
+
+// Get single assignment with service options
+router.get('/assignments/:id', optionalAuth, assignmentController.getAssignment);
+
+// Create new assignment (enforces one-active-per-car)
+router.post('/assignments', authenticate, assignmentController.createAssignment);
+
+// Update assignment
+router.put('/assignments/:id', authenticate, assignmentController.updateAssignment);
+
+// Update assignment status
+router.put('/assignments/:id/status', authenticate, assignmentController.updateAssignmentStatus);
+
+// Expedite assignment (move to priority 1, immediate)
+router.post('/assignments/:id/expedite', authenticate, assignmentController.expediteAssignment);
+
+// Cancel assignment
+router.post('/assignments/:id/cancel', authenticate, assignmentController.cancelAssignment);
+
+// Service options for an assignment
+router.get('/assignments/:assignmentId/service-options', optionalAuth, assignmentController.getServiceOptions);
+router.post('/assignments/:assignmentId/service-options', authenticate, assignmentController.addServiceOption);
+router.put('/service-options/:optionId', authenticate, assignmentController.updateServiceOption);
+router.delete('/service-options/:optionId', authenticate, assignmentController.deleteServiceOption);
+
+// ============================================================================
+// BAD ORDER ROUTES
+// ============================================================================
+
+// List bad orders with filters
+router.get('/bad-orders', optionalAuth, badOrderController.listBadOrders);
+
+// Get single bad order
+router.get('/bad-orders/:id', optionalAuth, badOrderController.getBadOrder);
+
+// Create bad order report (detects existing assignments)
+router.post('/bad-orders', authenticate, badOrderController.createBadOrder);
+
+// Resolve bad order (choose action: expedite_existing, new_shop_combined, repair_only, planning_review)
+router.post('/bad-orders/:id/resolve', authenticate, badOrderController.resolveBadOrder);
 
 // ============================================================================
 // HEALTH CHECK

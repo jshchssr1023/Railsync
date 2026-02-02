@@ -37,7 +37,10 @@ last_updated: "2026-02-02T03:35:00Z"
 ### 📋 TODO (from railsync_tasks.md)
 | ID | Task | Priority |
 |----|------|----------|
-| (All immediate tasks complete - checking IN PROGRESS) |
+| #26 | Bad Order workflow UI | Medium - requires #25 |
+
+### ✅ JUST COMPLETED
+| #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |
 
 ### ✅ ALREADY DONE (discovered)
 | #15 | Error boundaries + retry button | ErrorBoundary.tsx already complete |
@@ -62,16 +65,21 @@ Allocations: 137
 
 ## Files Modified This Session
 ```
-backend/src/services/budget.service.ts        - Number conversion
-backend/src/services/planning.service.ts      - Number conversion
-frontend/src/app/planning/page.tsx            - Shop Now + debug logging
-frontend/src/lib/api.ts                       - Allocations API fix
-backend/scripts/importShops.ts                - Shop import (has errors)
-backend/src/services/shopImport.service.ts    - Import service
-backend/src/controllers/shopImport.controller.ts - Import controller
+backend/src/services/serviceOption.service.ts - Fix lint errors (_unused params)
+docs/ralph-loop.local.md                      - Task tracking updates
+```
+
+## SSOT Architecture Status
+```
+✅ car_assignments table exists
+✅ assignment_service_options table exists
+✅ Assignment API routes wired (CRUD, expedite, cancel)
+✅ Service options API routes wired
+✅ Conflict detection implemented
+✅ Source tracking on all assignments
 ```
 
 ## Next Actions
-1. Fix shop import script OR use alternative approach
-2. User to verify Shop Now button works
-3. Start on error boundaries task (#15)
+1. User to verify Shop Now button works (#11)
+2. Test SSOT assignment workflow end-to-end
+3. Implement Bad Order workflow (from PRD Phase 2)
