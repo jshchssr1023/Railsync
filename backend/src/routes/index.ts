@@ -9,6 +9,7 @@ import shopImportController from '../controllers/shopImport.controller';
 import assignmentController from '../controllers/assignment.controller';
 import badOrderController from '../controllers/badOrder.controller';
 import servicePlanController from '../controllers/servicePlan.controller';
+import shopFilterController from '../controllers/shopFilter.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -113,6 +114,67 @@ router.get('/shops', shopController.listShops);
  *          }
  */
 router.post('/shops/evaluate', optionalAuth, validateEvaluationRequest, shopController.evaluateShops);
+
+// ============================================================================
+// SHOP FILTERING ROUTES (Phase B - Proximity & Capability Filtering)
+// Static routes MUST come BEFORE parameterized :shopCode routes
+// ============================================================================
+
+/**
+ * @route   GET /api/shops/filter
+ * @desc    Combined filter: proximity + capabilities + tier + region
+ * @access  Public
+ * @query   latitude, longitude, radiusMiles, capabilityTypes, tier, preferredNetworkOnly, region
+ */
+router.get('/shops/filter', shopFilterController.filterShops);
+
+/**
+ * @route   GET /api/shops/nearby
+ * @desc    Find shops within a radius of a given point
+ * @access  Public
+ * @query   latitude (required), longitude (required), radiusMiles (default: 500)
+ */
+router.get('/shops/nearby', shopFilterController.findNearbyShops);
+
+/**
+ * @route   GET /api/shops/filter-options
+ * @desc    Get filter options for dropdowns (regions, tiers, capability types)
+ * @access  Public
+ */
+router.get('/shops/filter-options', shopFilterController.getFilterOptions);
+
+/**
+ * @route   GET /api/shops/capability-types
+ * @desc    Get list of all capability types
+ * @access  Public
+ */
+router.get('/shops/capability-types', shopFilterController.getCapabilityTypes);
+
+/**
+ * @route   GET /api/shops/capability-values/:type
+ * @desc    Get unique values for a capability type
+ * @access  Public
+ */
+router.get('/shops/capability-values/:type', shopFilterController.getCapabilityValues);
+
+/**
+ * @route   GET /api/shops/by-capabilities
+ * @desc    Filter shops by capability types
+ * @access  Public
+ * @query   capabilityTypes (comma-separated or array)
+ */
+router.get('/shops/by-capabilities', shopFilterController.filterByCapabilities);
+
+/**
+ * @route   GET /api/shops/regions
+ * @desc    Get list of all regions
+ * @access  Public
+ */
+router.get('/shops/regions', shopFilterController.getRegions);
+
+// ============================================================================
+// SHOP BACKLOG/CAPACITY ROUTES (Parameterized routes)
+// ============================================================================
 
 /**
  * @route   GET /api/shops/:shopCode/backlog
@@ -862,6 +924,50 @@ router.get('/fleet/cars-with-amendments', optionalAuth, fleetController.getCarsW
 
 // Car Shopping Validation (checks for outdated terms)
 router.get('/cars/:carNumber/validate-shopping', optionalAuth, fleetController.validateCarForShopping);
+
+// ============================================================================
+// SHOPPING CLASSIFICATION ROUTES
+// ============================================================================
+
+// Shopping Types (12 canonical types)
+router.get('/shopping-types', async (req, res) => {
+  try {
+    const types = await query(`
+      SELECT id, code, name, description, is_planned, default_cost_owner, tier_preference, sort_order
+      FROM shopping_types WHERE is_active = TRUE ORDER BY sort_order
+    `);
+    res.json({ success: true, data: types });
+  } catch (err) {
+    console.error('Shopping types error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch shopping types' });
+  }
+});
+
+// Shopping Reasons (filtered by type)
+router.get('/shopping-reasons', async (req, res) => {
+  try {
+    const typeId = req.query.type_id as string;
+    const typeCode = req.query.type_code as string;
+
+    let sql = `SELECT * FROM v_shopping_reasons`;
+    const params: any[] = [];
+
+    if (typeId) {
+      sql += ` WHERE type_id = $1`;
+      params.push(typeId);
+    } else if (typeCode) {
+      sql += ` WHERE type_code = $1`;
+      params.push(typeCode);
+    }
+
+    sql += ` ORDER BY sort_order`;
+    const reasons = await query(sql, params);
+    res.json({ success: true, data: reasons });
+  } catch (err) {
+    console.error('Shopping reasons error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch shopping reasons' });
+  }
+});
 
 // ============================================================================
 // HEALTH CHECK
