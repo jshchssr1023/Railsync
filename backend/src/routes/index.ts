@@ -414,12 +414,12 @@ router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (r
 // PHASE 9 - BUDGET ROUTES
 // ============================================================================
 
-router.get('/budget/running-repairs', authenticate, planningController.getRunningRepairsBudget);
+router.get('/budget/running-repairs', optionalAuth, planningController.getRunningRepairsBudget);
 router.put('/budget/running-repairs/:month', authenticate, authorize('admin', 'operator'), planningController.updateRunningRepairsBudget);
 router.post('/budget/running-repairs/calculate', authenticate, authorize('admin'), planningController.calculateRunningRepairsBudget);
-router.get('/budget/service-events', authenticate, planningController.getServiceEventBudgets);
+router.get('/budget/service-events', optionalAuth, planningController.getServiceEventBudgets);
 router.post('/budget/service-events', authenticate, authorize('admin', 'operator'), planningController.createServiceEventBudget);
-router.get('/budget/summary', authenticate, planningController.getBudgetSummary);
+router.get('/budget/summary', optionalAuth, planningController.getBudgetSummary);
 
 // ============================================================================
 // PHASE 9 - CAR MASTER ROUTES
@@ -434,8 +434,8 @@ router.post('/cars/import', authenticate, authorize('admin'), planningController
 // PHASE 9 - DEMAND ROUTES
 // ============================================================================
 
-router.get('/demands', authenticate, planningController.listDemands);
-router.get('/demands/:id', authenticate, planningController.getDemandById);
+router.get('/demands', optionalAuth, planningController.listDemands);
+router.get('/demands/:id', optionalAuth, planningController.getDemandById);
 router.post('/demands', authenticate, authorize('admin', 'operator'), planningController.createDemand);
 router.put('/demands/:id', authenticate, authorize('admin', 'operator'), planningController.updateDemand);
 router.put('/demands/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateDemandStatus);
@@ -445,7 +445,7 @@ router.delete('/demands/:id', authenticate, authorize('admin'), planningControll
 // PHASE 9 - CAPACITY ROUTES
 // ============================================================================
 
-router.get('/capacity', authenticate, planningController.getCapacity);
+router.get('/capacity', optionalAuth, planningController.getCapacity);
 router.put('/capacity/:shopCode/:month', authenticate, authorize('admin', 'operator'), planningController.updateCapacity);
 router.post('/capacity/initialize', authenticate, authorize('admin'), planningController.initializeCapacity);
 
@@ -453,7 +453,7 @@ router.post('/capacity/initialize', authenticate, authorize('admin'), planningCo
 // PHASE 9 - SCENARIO ROUTES
 // ============================================================================
 
-router.get('/scenarios', authenticate, planningController.listScenarios);
+router.get('/scenarios', optionalAuth, planningController.listScenarios);
 router.post('/scenarios', authenticate, authorize('admin', 'operator'), planningController.createScenario);
 router.put('/scenarios/:id', authenticate, authorize('admin', 'operator'), planningController.updateScenario);
 
@@ -461,7 +461,7 @@ router.put('/scenarios/:id', authenticate, authorize('admin', 'operator'), plann
 // PHASE 9 - ALLOCATION ROUTES
 // ============================================================================
 
-router.get('/allocations', authenticate, planningController.listAllocations);
+router.get('/allocations', optionalAuth, planningController.listAllocations);
 router.post('/allocations', authenticate, authorize('admin', 'operator'), planningController.createAllocation);
 router.post('/allocations/generate', authenticate, authorize('admin', 'operator'), planningController.generateAllocations);
 router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateAllocationStatus);
@@ -480,8 +480,8 @@ router.get('/brc/history', authenticate, planningController.getBRCHistory);
 // PHASE 9 - FORECAST ROUTES
 // ============================================================================
 
-router.get('/forecast', authenticate, planningController.getForecast);
-router.get('/forecast/trends', authenticate, planningController.getForecastTrends);
+router.get('/forecast', optionalAuth, planningController.getForecast);
+router.get('/forecast/trends', optionalAuth, planningController.getForecastTrends);
 
 // ============================================================================
 // PHASE 9 - DASHBOARD ROUTES
