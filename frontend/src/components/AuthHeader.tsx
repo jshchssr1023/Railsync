@@ -53,6 +53,9 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
               <a href="/rules" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
                 Rules
               </a>
+              <a href="/budget" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
+                Budget
+              </a>
               {isAdmin && (
                 <a href="/admin" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
                   Admin
@@ -142,6 +145,12 @@ export default function AuthHeader() {
                   className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
                 >
                   Rules
+                </a>
+                <a
+                  href="/budget"
+                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Budget
                 </a>
                 {user?.role === 'admin' && (
                   <a
