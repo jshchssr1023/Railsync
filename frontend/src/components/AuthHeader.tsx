@@ -40,6 +40,9 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
               <a href="/pipeline" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
                 Pipeline
               </a>
+              <a href="/bad-orders" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
+                Bad Orders
+              </a>
               <a href="/rules" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
                 Rules
               </a>
@@ -104,6 +107,12 @@ export default function AuthHeader() {
                   className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
                 >
                   Pipeline
+                </a>
+                <a
+                  href="/bad-orders"
+                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Bad Orders
                 </a>
                 <a
                   href="/rules"
