@@ -37,9 +37,11 @@ last_updated: "2026-02-02T13:10:00Z"
 ### 📋 TODO (from Implementation Roadmap)
 | ID | Task | Phase | Priority |
 |----|------|-------|----------|
-| #32 | Quick Shop writes to car_assignments | P1 | High |
 | #33 | Service plan tables + service | P3 | Low |
 | #34 | Master plan versioning | P4 | Low |
+
+### ✅ VERIFIED ALREADY IMPLEMENTED
+| #32 | Quick Shop writes to car_assignments | shop.controller.ts:349-364 creates SSOT assignment |
 
 ### ✅ SESSION COMMITS
 | #27 | Quick Shop conflict detection | Warning banner when car has existing assignment |
