@@ -312,6 +312,20 @@ export async function initializeCapacity(defaultCapacity?: number): Promise<{ co
   return response.data || { count: 0 };
 }
 
+export interface CapacityCar {
+  car_number: string;
+  status: string;
+  estimated_cost: number | null;
+}
+
+export async function getCapacityCars(
+  shopCode: string,
+  month: string
+): Promise<CapacityCar[]> {
+  const response = await fetchApi<CapacityCar[]>(`/capacity/${encodeURIComponent(shopCode)}/${encodeURIComponent(month)}/cars`);
+  return response.data || [];
+}
+
 // ============================================================================
 // PHASE 9 - SCENARIO API
 // ============================================================================

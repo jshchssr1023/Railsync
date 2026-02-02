@@ -129,6 +129,28 @@ export async function initializeCapacity(
   return count;
 }
 
+/**
+ * Get cars assigned to a specific shop/month (for capacity cell tooltip)
+ */
+export async function getCarsForShopMonth(
+  shopCode: string,
+  month: string
+): Promise<{ car_number: string; status: string; estimated_cost: number | null }[]> {
+  const sql = `
+    SELECT
+      COALESCE(a.car_number, LEFT(a.car_id::text, 8)) as car_number,
+      a.status,
+      a.estimated_cost
+    FROM allocations a
+    WHERE a.shop_code = $1
+      AND a.target_month = $2
+      AND a.status NOT IN ('Released', 'cancelled')
+    ORDER BY a.status, a.car_number
+    LIMIT 50
+  `;
+  return query<{ car_number: string; status: string; estimated_cost: number | null }>(sql, [shopCode, month]);
+}
+
 // ============================================================================
 // SCENARIOS
 // ============================================================================
@@ -298,6 +320,93 @@ export async function listAllocations(filters: {
   );
 
   return { allocations, total };
+}
+
+/**
+ * Assign allocation to a shop and month (for drag-and-drop shop loading)
+ * Uses optimistic locking with version field
+ */
+export async function assignAllocation(
+  id: string,
+  shopCode: string,
+  targetMonth: string,
+  expectedVersion?: number
+): Promise<{ allocation: Allocation | null; error?: string }> {
+  // Get current allocation
+  const current = await queryOne<Allocation & { version: number }>(
+    'SELECT * FROM allocations WHERE id = $1',
+    [id]
+  );
+
+  if (!current) {
+    return { allocation: null, error: 'Allocation not found' };
+  }
+
+  // Optimistic locking check
+  if (expectedVersion !== undefined && current.version !== expectedVersion) {
+    return { allocation: null, error: 'Allocation has been modified. Please refresh and try again.' };
+  }
+
+  const previousShop = current.shop_code;
+  const previousMonth = current.target_month;
+
+  // Check capacity at new shop/month
+  const capacityRow = await queryOne<{ available: number; total: number }>(
+    `SELECT
+       (total_capacity - allocated_count) as available,
+       total_capacity as total
+     FROM shop_monthly_capacity
+     WHERE shop_code = $1 AND month = $2`,
+    [shopCode, targetMonth]
+  );
+
+  if (capacityRow && capacityRow.available <= 0) {
+    // Check if within 10% overcommit threshold
+    const overcommitLimit = Math.ceil(capacityRow.total * 0.1);
+    if (-capacityRow.available >= overcommitLimit) {
+      return { allocation: null, error: `Shop ${shopCode} is at capacity for ${targetMonth}` };
+    }
+  }
+
+  // Update allocation
+  const rows = await query<Allocation>(
+    `UPDATE allocations SET
+       shop_code = $2,
+       target_month = $3,
+       version = COALESCE(version, 0) + 1,
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, shopCode, targetMonth]
+  );
+
+  if (rows.length === 0) {
+    return { allocation: null, error: 'Failed to update allocation' };
+  }
+
+  // Update capacity counts
+  // Decrement from old shop/month
+  if (previousShop && previousMonth) {
+    await query(
+      `UPDATE shop_monthly_capacity SET
+         allocated_count = GREATEST(0, allocated_count - 1),
+         updated_at = NOW()
+       WHERE shop_code = $1 AND month = $2`,
+      [previousShop, previousMonth]
+    );
+  }
+
+  // Increment at new shop/month
+  await query(
+    `INSERT INTO shop_monthly_capacity (shop_code, month, total_capacity, allocated_count)
+     VALUES ($1, $2, 50, 1)
+     ON CONFLICT (shop_code, month) DO UPDATE SET
+       allocated_count = shop_monthly_capacity.allocated_count + 1,
+       updated_at = NOW()`,
+    [shopCode, targetMonth]
+  );
+
+  return { allocation: rows[0] };
 }
 
 /**
@@ -775,6 +884,7 @@ export default {
   deleteScenario,
   listAllocations,
   createAllocation,
+  assignAllocation,
   updateAllocationStatus,
   generateAllocations,
   getShopCapacityRange,

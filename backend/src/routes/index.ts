@@ -484,6 +484,7 @@ router.delete('/demands/:id', authenticate, authorize('admin'), planningControll
 // ============================================================================
 
 router.get('/capacity', optionalAuth, planningController.getCapacity);
+router.get('/capacity/:shopCode/:month/cars', optionalAuth, planningController.getCapacityCars);
 router.put('/capacity/:shopCode/:month', authenticate, authorize('admin', 'operator'), planningController.updateCapacity);
 router.post('/capacity/initialize', authenticate, authorize('admin'), planningController.initializeCapacity);
 
@@ -503,6 +504,7 @@ router.get('/allocations', optionalAuth, planningController.listAllocations);
 router.post('/allocations', authenticate, authorize('admin', 'operator'), planningController.createAllocation);
 router.post('/allocations/generate', authenticate, authorize('admin', 'operator'), planningController.generateAllocations);
 router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateAllocationStatus);
+router.post('/allocations/:id/assign', authenticate, authorize('admin', 'operator'), planningController.assignAllocation);
 
 // Shop monthly capacity for Quick Shop
 router.get('/shops/:shopCode/monthly-capacity', optionalAuth, planningController.getShopMonthlyCapacity);

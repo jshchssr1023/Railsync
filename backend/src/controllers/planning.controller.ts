@@ -362,6 +362,17 @@ export async function initializeCapacity(req: Request, res: Response): Promise<v
   }
 }
 
+export async function getCapacityCars(req: Request, res: Response): Promise<void> {
+  try {
+    const { shopCode, month } = req.params;
+    const cars = await planningService.getCarsForShopMonth(shopCode, month);
+    res.json({ success: true, data: cars });
+  } catch (error: unknown) {
+    console.error('Get capacity cars error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
 // ============================================================================
 // SCENARIO ENDPOINTS
 // ============================================================================
@@ -465,6 +476,47 @@ export async function updateAllocationStatus(req: Request, res: Response): Promi
     res.json({ success: true, data: allocation });
   } catch (error: unknown) {
     console.error('Update allocation status error:', error);
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
+export async function assignAllocation(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { shop_code, target_month, version } = req.body;
+
+    if (!shop_code || !target_month) {
+      res.status(400).json({
+        success: false,
+        error: 'shop_code and target_month are required',
+      });
+      return;
+    }
+
+    const result = await planningService.assignAllocation(
+      id,
+      shop_code,
+      target_month,
+      version
+    );
+
+    if (result.error) {
+      res.status(result.allocation ? 200 : 409).json({
+        success: false,
+        error: result.error,
+      });
+      return;
+    }
+
+    await logFromRequest(req, 'update', 'allocation', id, undefined, {
+      shop_code,
+      target_month,
+      action: 'assign',
+    });
+
+    res.json({ success: true, data: result.allocation });
+  } catch (error: unknown) {
+    console.error('Assign allocation error:', error);
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -693,6 +745,7 @@ export default {
   deleteDemand,
   // Capacity
   getCapacity,
+  getCapacityCars,
   updateCapacity,
   initializeCapacity,
   // Scenarios
@@ -704,6 +757,7 @@ export default {
   createAllocation,
   generateAllocations,
   updateAllocationStatus,
+  assignAllocation,
   getShopMonthlyCapacity,
   // BRC
   importBRC,

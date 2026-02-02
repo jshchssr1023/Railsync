@@ -1,13 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ShopMonthlyCapacity } from '@/types';
-import { getCapacity, initializeCapacity } from '@/lib/api';
+import { getCapacity, initializeCapacity, getCapacityCars, CapacityCar } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
 
 interface CapacityGridProps {
   startMonth?: string;
   months?: number;
+}
+
+interface TooltipState {
+  visible: boolean;
+  shopCode: string;
+  month: string;
+  x: number;
+  y: number;
+  cars: CapacityCar[];
+  loading: boolean;
 }
 
 export default function CapacityGrid({
@@ -19,6 +29,18 @@ export default function CapacityGrid({
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
   const [networkFilter, setNetworkFilter] = useState<string>('');
+  const [tooltip, setTooltip] = useState<TooltipState>({
+    visible: false,
+    shopCode: '',
+    month: '',
+    x: 0,
+    y: 0,
+    cars: [],
+    loading: false,
+  });
+
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Calculate date range
   const dateRange = useMemo(() => {
@@ -80,6 +102,58 @@ export default function CapacityGrid({
     }
   };
 
+  // Tooltip handlers
+  const handleCellMouseEnter = async (
+    e: React.MouseEvent<HTMLTableCellElement>,
+    shopCode: string,
+    month: string,
+    cap: ShopMonthlyCapacity
+  ) => {
+    if (cap.allocated_count === 0) return;
+
+    // Clear any pending timeout
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+
+    // Delay showing tooltip to avoid flicker
+    tooltipTimeoutRef.current = setTimeout(async () => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const gridRect = gridRef.current?.getBoundingClientRect();
+
+      setTooltip({
+        visible: true,
+        shopCode,
+        month,
+        x: rect.left - (gridRect?.left || 0) + rect.width / 2,
+        y: rect.bottom - (gridRect?.top || 0) + 8,
+        cars: [],
+        loading: true,
+      });
+
+      try {
+        const cars = await getCapacityCars(shopCode, month);
+        setTooltip(prev => ({
+          ...prev,
+          cars,
+          loading: false,
+        }));
+      } catch {
+        setTooltip(prev => ({
+          ...prev,
+          loading: false,
+        }));
+      }
+    }, 300);
+  };
+
+  const handleCellMouseLeave = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    setTooltip(prev => ({ ...prev, visible: false }));
+  };
+
   // Group by shop
   const shopData = useMemo(() => {
     const byShop = new Map<string, Map<string, ShopMonthlyCapacity>>();
@@ -109,6 +183,12 @@ export default function CapacityGrid({
     return date.toLocaleDateString('en-US', { month: 'short' });
   };
 
+  const formatMonthFull = (month: string) => {
+    const [year, m] = month.split('-');
+    const date = new Date(parseInt(year), parseInt(m) - 1);
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  };
+
   if (loading) {
     return (
       <div className="card">
@@ -131,7 +211,7 @@ export default function CapacityGrid({
             Shop Capacity Grid
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {shopData.length} shops, {months} months
+            {shopData.length} shops, {months} months • Hover cells to see assigned cars
           </p>
         </div>
         <div className="flex gap-2">
@@ -180,23 +260,23 @@ export default function CapacityGrid({
       </div>
 
       {/* Grid */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden relative" ref={gridRef}>
         {shopData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No capacity data found. Click &quot;Initialize Capacity&quot; to set up.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 z-20">
                 <tr className="bg-gray-50 dark:bg-gray-800">
-                  <th className="sticky left-0 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700">
+                  <th className="sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-r border-b border-gray-200 dark:border-gray-700 min-w-[100px]">
                     Shop
                   </th>
                   {dateRange.monthHeaders.map((month) => (
                     <th
                       key={month}
-                      className="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300 min-w-[60px]"
+                      className="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300 min-w-[60px] border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
                     >
                       {formatMonth(month)}
                     </th>
@@ -206,7 +286,7 @@ export default function CapacityGrid({
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {shopData.map(({ shop_code, months }) => (
                   <tr key={shop_code} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="sticky left-0 bg-white dark:bg-gray-900 px-3 py-2 font-medium text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 font-medium text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       {shop_code}
                     </td>
                     {dateRange.monthHeaders.map((month) => {
@@ -221,8 +301,9 @@ export default function CapacityGrid({
                       return (
                         <td
                           key={month}
-                          className={`px-2 py-2 text-center ${getUtilizationClass(cap.utilization_pct)}`}
-                          title={`${cap.allocated_count}/${cap.total_capacity} (${cap.utilization_pct.toFixed(0)}%)`}
+                          className={`px-2 py-2 text-center cursor-pointer transition-all hover:ring-2 hover:ring-primary-400 hover:ring-inset ${getUtilizationClass(cap.utilization_pct)}`}
+                          onMouseEnter={(e) => handleCellMouseEnter(e, shop_code, month, cap)}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {cap.allocated_count}/{cap.total_capacity}
                         </td>
@@ -232,6 +313,62 @@ export default function CapacityGrid({
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Tooltip */}
+        {tooltip.visible && (
+          <div
+            className="absolute z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 min-w-[200px] max-w-[300px] pointer-events-none"
+            style={{
+              left: `${tooltip.x}px`,
+              top: `${tooltip.y}px`,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {tooltip.shopCode}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatMonthFull(tooltip.month)}
+              </span>
+            </div>
+
+            {tooltip.loading ? (
+              <div className="text-center py-2 text-gray-500 dark:text-gray-400 text-sm">
+                Loading...
+              </div>
+            ) : tooltip.cars.length === 0 ? (
+              <div className="text-center py-2 text-gray-500 dark:text-gray-400 text-sm">
+                No cars assigned
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                {tooltip.cars.map((car, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="font-mono text-gray-900 dark:text-gray-100">
+                      {car.car_number}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs ${
+                      car.status === 'Complete' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                      car.status === 'Enroute' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    }`}>
+                      {car.status}
+                    </span>
+                  </div>
+                ))}
+                {tooltip.cars.length >= 50 && (
+                  <div className="text-center text-xs text-gray-400 pt-1">
+                    + more cars...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
