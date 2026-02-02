@@ -48,7 +48,17 @@
       "Bash(git reset:*)",
       "Bash(start http://localhost:3000/planning)",
       "Bash(powershell -Command \"Start-Process ''http://localhost:3000/planning''\")",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(awk:*)",
+      "Bash(python3:*)",
+      "Bash(npx ts-node scripts/importShops.ts)",
+      "Bash(node scripts/importShops.js:*)",
+      "Bash(DB_PASSWORD=railsync_password node scripts/importShops.js:*)",
+      "Bash(xxd:*)",
+      "Bash(docker restart:*)",
+      "Bash(npm run verify:*)",
+      "Bash(npm run test)",
+      "Bash(npm run test:backend:*)"
     ]
   }
 }

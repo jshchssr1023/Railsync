@@ -1,0 +1,34 @@
+Integration Priority,Data Feed Name,Source System,Target Table(s),Record Count (Est),File Format,Frequency,Owner,Status,Notes
+1 - CRITICAL,Car Master,ERP/SAP,cars,10000+,CSV or API,Daily,Fleet Ops,NEEDED,Core fleet data - car numbers attributes qualification dates
+1 - CRITICAL,Shop Network,Shop System,shops + shop_capabilities + commodity_restrictions,1000+,CSV or API,Monthly,Shop Network,LOADED,963 shops loaded - need ongoing updates
+1 - CRITICAL,Shop Backlog,Shop Operations,shop_backlog,100/day,CSV or API,Daily,Shop Ops,NEEDED,Current workload at each facility
+
+2 - HIGH,BRC Billing,AAR Billing,brc_imports,500/week,AAR 500-byte,Weekly,Finance,NEEDED,Actual repair costs from shops
+2 - HIGH,Budget Data,Finance,running_repairs_budget + service_event_budget,50/year,CSV or API,Monthly,Finance,NEEDED,Budget tracking
+2 - HIGH,Commodity Master,Product System,commodities,500+,CSV or API,Monthly,Product,PARTIAL,Commodity cleaning requirements
+
+3 - MEDIUM,Customer Data,CRM,customers,100+,CSV or API,Monthly,Sales,OPTIONAL,For service plan features
+3 - MEDIUM,Work Type Rates,Shop Network,work_type_rates,50,CSV,Quarterly,Shop Network,NEEDED,Labor hours by work type
+
+4 - LOW,Historical Data,Legacy System,allocations,10000+,CSV,One-time,IT,LOADED,137 records loaded for demo
+
+,,,,,,,,,
+DATA FLOW SUMMARY,,,,,,,,,
+,,,,,,,,,
+Step,From,To,Data,Trigger,Result,,,
+1,External Systems,Railsync DB,Car Master + Shop Data,Scheduled Feed,Populated reference tables,,,
+2,User/Planner,Railsync,Car Number + Overrides,Quick Shop Request,Shop evaluation with costs,,,
+3,User/Planner,Railsync,Shop Selection,Shop Now Button,Assignment created in SSOT,,,
+4,Field Operations,Railsync,Bad Order Report,Issue Reported,Bad order + conflict check,,,
+5,User/Planner,Railsync,Resolution Action,Resolve Bad Order,Assignment updated/created,,,
+6,Shop Operations,Railsync,Status Updates,Car Movement,Assignment status updated,,,
+7,Shop Billing,Railsync,BRC File,Weekly Import,Actual costs matched to assignments,,,
+8,Railsync,Reports,Metrics + Costs,Dashboard View,Pipeline/Budget/Fleet views,,,
+
+,,,,,,,,,
+KEY TABLES (SSOT),,,,,,,,,
+Table,Purpose,Primary Key,Foreign Keys,Row Count,,,
+car_assignments,Single source of truth for all car-to-shop assignments,id,shop_code -> shops,125+,,,
+assignment_service_options,Work items attached to each assignment,id,assignment_id -> car_assignments,200+,,,
+bad_order_reports,Unplanned repair tracking,id,assignment_id -> car_assignments,0+,,,
+service_plans,Customer service agreements,id,approved_option_id -> service_plan_options,0+,,,

@@ -146,9 +146,14 @@ Only remaining item: #11 Shop Now button needs user verification
 
 ## Next Actions
 1. ⏳ Verify Shop Now button with user (#11)
-2. ⏳ Update Quick Shop to write to car_assignments (SSOT)
+2. ✅ Fix Rules page authorization (#28) - Admin users can now edit, others see read-only
 3. ⏳ Phase 3: Service Plans (if needed)
 4. ⏳ Phase 4: Master Planning (if needed)
+
+## Iteration 9 Updates (2026-02-02)
+- Fleet page: ✅ Working at http://localhost:3000/fleet (refresh browser if not visible)
+- Rules page: ✅ Fixed authorization - shows read-only notice for non-admin, edit controls for admin
+- Frontend container rebuilt with latest changes
 
 ## SSOT Phase 1 Status ✅ COMPLETE
 | Component | Status |

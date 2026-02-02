@@ -94,32 +94,39 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
         </div>
       )}
 
-      {/* Sample car numbers for testing */}
+      {/* Quick access to real cars in the database */}
       <div className="text-xs text-gray-500 dark:text-gray-400">
-        <span className="font-medium">Sample cars:</span>{' '}
+        <span className="font-medium">Try these cars:</span>{' '}
         <button
           type="button"
-          onClick={() => setCarNumber('UTLX123456')}
-          className="text-primary-600 hover:underline"
+          onClick={() => setCarNumber('ACFX600001')}
+          className="text-primary-600 hover:underline font-mono"
         >
-          UTLX123456
+          ACFX600001
         </button>
         {', '}
         <button
           type="button"
-          onClick={() => setCarNumber('GATX789012')}
-          className="text-primary-600 hover:underline"
+          onClick={() => setCarNumber('ACFX600002')}
+          className="text-primary-600 hover:underline font-mono"
         >
-          GATX789012
+          ACFX600002
         </button>
         {', '}
         <button
           type="button"
-          onClick={() => setCarNumber('PROX345678')}
-          className="text-primary-600 hover:underline"
+          onClick={() => setCarNumber('ACFX600003')}
+          className="text-primary-600 hover:underline font-mono"
         >
-          PROX345678
+          ACFX600003
         </button>
+        {' '}
+        <a
+          href="/fleet"
+          className="text-gray-400 hover:text-primary-600 hover:underline ml-1"
+        >
+          (view all 137 cars)
+        </a>
       </div>
     </form>
   );

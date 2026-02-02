@@ -1,0 +1,34 @@
+Data Category,Source System,Data Element,Database Table,Column(s),Purpose,Update Frequency,Priority
+FLEET DATA,ERP/Asset System,Car Master Data,cars,"car_number, product_code, material_type, stencil_class, lining_type",Core fleet inventory - identifies all railcars and their attributes,Daily or Real-time,Critical
+FLEET DATA,ERP/Asset System,Car Qualification Dates,cars,"tank_qual_year, rule_88b_year, safety_relief_year, service_equipment_year, stub_sill_year, tank_thickness_year, interior_lining_year",Compliance tracking - determines when cars need qualification work,Monthly,Critical
+FLEET DATA,ERP/Asset System,Car Ownership,cars,"owner_code, lessee_code, lessee_name, contract_number, contract_expiration",Customer assignment and billing,Monthly,High
+FLEET DATA,ERP/Asset System,Car Status,cars,"current_status, adjusted_status, plan_status, portfolio_status",Tracks car lifecycle status,Daily,High
+FLEET DATA,Commodity System,Commodity Information,commodities,"cin_code, description, cleaning_class, hazmat_class, requires_kosher, requires_nitrogen",Determines cleaning and handling requirements,Monthly,Medium
+
+SHOP DATA,Shop Network,Shop Attributes,shops,"shop_code, shop_name, primary_railroad, region, city, state, tier",Identifies repair facilities and locations,Monthly,Critical
+SHOP DATA,Shop Network,Shop Capabilities,shop_capabilities,"capability_type, capability_value, certified_date, expiration_date",What work each shop can perform (car types materials certifications),Monthly,Critical
+SHOP DATA,Shop Network,Commodity Restrictions,commodity_restrictions,"cin_code, shop_code, restriction_code, restriction_reason",Which commodities each shop can/cannot handle (Y/N/RC1-4),Monthly,Critical
+SHOP DATA,Shop Network,Labor Rates,shops,"labor_rate, material_multiplier",Cost calculation inputs,Quarterly,High
+SHOP DATA,Shop Operations,Shop Backlog,shop_backlog,"hours_backlog, cars_backlog, cars_en_route_0_6, cars_en_route_7_14, cars_en_route_15_plus",Current workload at each shop,Daily,High
+SHOP DATA,Shop Operations,Shop Capacity,shop_monthly_capacity,"total_capacity, allocated_count, available_capacity, utilization_pct",Monthly throughput limits,Weekly,High
+
+PLANNING DATA,Planning System,Demands/Work Orders,demands,"name, fiscal_year, target_month, car_count, event_type, priority",Planned qualification and service events,Weekly,High
+PLANNING DATA,Planning System,Allocations,allocations,"car_number, shop_code, target_month, status, estimated_cost",Legacy car-to-shop assignments,Daily,High
+PLANNING DATA,Planning System,Car Assignments (SSOT),car_assignments,"car_number, shop_code, target_month, status, priority, source, estimated_cost",Single source of truth for all assignments,Real-time,Critical
+PLANNING DATA,Planning System,Service Options,assignment_service_options,"assignment_id, service_type, service_category, estimated_cost, is_required",Work to be performed at shop visit,Real-time,High
+
+FINANCIAL DATA,Finance System,Running Repairs Budget,running_repairs_budget,"fiscal_year, month, monthly_budget, actual_spend, remaining_budget",Budget tracking for running repairs,Monthly,High
+FINANCIAL DATA,Finance System,Service Event Budget,service_event_budget,"fiscal_year, event_type, total_budget, budgeted_car_count, avg_cost_per_car",Budget tracking for planned events,Monthly,High
+FINANCIAL DATA,Billing System,BRC Records,brc_imports,"car_number, shop_code, labor_amount, material_amount, completion_date",Actual repair costs from shops,Weekly,High
+
+OPERATIONAL DATA,Field Operations,Bad Order Reports,bad_order_reports,"car_number, issue_type, severity, location, reported_by",Unplanned repair needs from field,Real-time,Critical
+OPERATIONAL DATA,Shop Operations,Status Updates,car_assignments,"status, scheduled_at, enroute_at, arrived_at, in_shop_at, completed_at",Car movement through repair process,Daily,High
+
+SERVICE PLANS,Customer Service,Service Plans,service_plans,"customer_code, name, car_flow_rate, start_date, end_date, status",Customer service agreements,As Needed,Medium
+SERVICE PLANS,Customer Service,Plan Options,service_plan_options,"option_name, total_estimated_cost, avg_turn_time, is_recommended",Multiple pricing options per plan,As Needed,Medium
+SERVICE PLANS,Customer Service,Plan Cars,service_plan_option_cars,"car_number, shop_code, target_month, estimated_cost",Cars included in each option,As Needed,Medium
+
+REFERENCE DATA,Configuration,Eligibility Rules,eligibility_rules,"rule_name, rule_category, condition_json, is_blocking",Business rules for shop eligibility,Monthly,Medium
+REFERENCE DATA,Configuration,Scenarios,scenarios,"name, weights (cost/cycle_time/aitx_preference), constraints",Optimization parameters,As Needed,Low
+REFERENCE DATA,System,Alerts,alerts,"alert_type, severity, title, message, entity_type",System notifications and warnings,Real-time,Medium
+REFERENCE DATA,System,Audit Logs,audit_logs,"user_id, action, entity_type, old_value, new_value",Change tracking for compliance,Real-time,High

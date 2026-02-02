@@ -3,8 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { listRules, updateRule } from '@/lib/api';
 import { EligibilityRule } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RulesPage() {
+  const { user, isAuthenticated } = useAuth();
+  const isAdmin = isAuthenticated && user?.role === 'admin';
+
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +138,15 @@ export default function RulesPage() {
         </label>
       </div>
 
+      {/* Admin Notice */}
+      {!isAdmin && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
+          <p className="text-sm">
+            <strong>Note:</strong> You are viewing rules in read-only mode. Sign in as an admin to modify rules.
+          </p>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="bg-danger-50 border border-danger-500 text-danger-700 px-4 py-3 rounded-lg">
@@ -186,35 +199,57 @@ export default function RulesPage() {
                       </td>
                       <td className="text-center">{rule.priority}</td>
                       <td className="text-center">
-                        <button
-                          onClick={() => handleToggleBlocking(rule)}
-                          disabled={saving}
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                        {isAdmin ? (
+                          <button
+                            onClick={() => handleToggleBlocking(rule)}
+                            disabled={saving}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                              rule.is_blocking
+                                ? 'bg-danger-50 text-danger-700 hover:bg-danger-100'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {rule.is_blocking ? 'Yes' : 'No'}
+                          </button>
+                        ) : (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             rule.is_blocking
-                              ? 'bg-danger-50 text-danger-700 hover:bg-danger-100'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          {rule.is_blocking ? 'Yes' : 'No'}
-                        </button>
+                              ? 'bg-danger-50 text-danger-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {rule.is_blocking ? 'Yes' : 'No'}
+                          </span>
+                        )}
                       </td>
                       <td className="text-center">
-                        <button
-                          onClick={() => handleToggleActive(rule)}
-                          disabled={saving}
-                          className="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                          style={{
-                            backgroundColor: rule.is_active
-                              ? '#22c55e'
-                              : '#d1d5db',
-                          }}
-                        >
+                        {isAdmin ? (
+                          <button
+                            onClick={() => handleToggleActive(rule)}
+                            disabled={saving}
+                            className="relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            style={{
+                              backgroundColor: rule.is_active
+                                ? '#22c55e'
+                                : '#d1d5db',
+                            }}
+                          >
+                            <span
+                              className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+                                rule.is_active ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        ) : (
                           <span
-                            className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
-                              rule.is_active ? 'translate-x-6' : 'translate-x-1'
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              rule.is_active
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500'
                             }`}
-                          />
-                        </button>
+                          >
+                            {rule.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

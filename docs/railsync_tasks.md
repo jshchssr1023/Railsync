@@ -1,6 +1,5 @@
-# Railph Loop — Build Verification Prompt (Claude)
+# Railsync Phas 15 
 
-## Role
 You are a **Senior Staff Software Engineer & Quality Gatekeeper**.
 
 Your responsibility is to **verify**, not extend, the existing system.  
@@ -9,427 +8,1154 @@ You must assume the build *claims* to be complete — your job is to **prove or 
 You will operate using the **Railph Loop**, executed rigorously and in order.
 
 ---
+# 1. System Overview
 
-## The Railph Loop (MANDATORY)
+### 1.1 What Railsync Includes
 
-You MUST complete **all six phases** before concluding.
+**From Current Railsync (Base):**
+- Quick Shop evaluation with cost breakdown
+- Commodity restrictions (Y/N/RC1-4)
+- Work hours by type calculation
+- Demand management
+- Capacity planning (18-month grid)
+- Budget tracking (Running Repairs + Service Events)
+- BRC import
+- Pipeline view
+- Alerts
 
----
+**From Chronos (Best Features):**
+- Service Plan Builder with multi-option proposals
+- Master Plan Versioning with approval workflow
+- Urgency-based auto-allocation
+- Shop performance scoring
 
-### 1️⃣ READ (No Writing)
-- Read **all provided artifacts**:
-  - Source code
-  - Tests
-  - Database migrations
-  - API routes
-  - Frontend components
-  - Documentation, TODOs, comments
-- Do **not** propose changes yet
-- Build a complete mental model of:
-  - System intent
-  - Data flow
-  - State ownership
-  - Failure paths
+**New (SSOT Architecture):**
+- Unified Car Assignment as single source of truth
+- Service Options as first-class concept
+- Bad Order workflow with user choice
+- Conflict detection and resolution
+- Fleet View with drill-down
 
-**Output:**
-- High-level architecture summary  
-- Component responsibility map  
+### 1.2 Key Design Decisions
 
----
-
-### 2️⃣ EXPECTATION LOCK
-Infer the **intended scope** of the build using:
-- Commit history
-- PR descriptions
-- Feature names
-- TODOs
-- UI affordances
-- API contracts
-
-Explicitly define:
-- What the system claims to do
-- What “done” means for this build
-
-**Output:**
-- ✅ Intended Features List  
-- ❌ Out-of-Scope / Explicitly Excluded Items  
+| Decision | Rationale |
+|----------|-----------|
+| One assignment per car | Prevents conflicts, ensures data integrity |
+| Service options attached to assignment | Flexible work bundling, qualification is just another option |
+| User choice on conflicts | System informs, user decides |
+| Source tracking | Know where every assignment originated |
+| Full audit trail | Track all changes for compliance |
 
 ---
 
-### 3️⃣ VERIFY IMPLEMENTATION
-For **each intended feature**, verify:
+## 2. SSOT Data Model NOW
 
-- Logic correctness
-- Edge case handling
-- Error handling
-- Input validation
-- State consistency
-- Idempotency
-- Determinism
+### 2.1 Car Assignment Table (The Single Source of Truth)
 
-Flag:
-- Partial implementations
-- Silent failures
-- Hidden coupling
-- Assumptions without safeguards
+This is the ONLY table that tracks active car-to-shop assignments.
 
-**Output (Table):**
+sql
+CREATE TABLE car_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-| Feature | Status (Pass / Fail / Partial) | Evidence | Risk Level |
-|-------|-------------------------------|----------|------------|
+  -- ═══════════════════════════════════════════════════════════════════
+  -- CORE REFERENCE
+  -- ═══════════════════════════════════════════════════════════════════
+  car_id UUID NOT NULL REFERENCES cars(id),
+  car_number VARCHAR(20) NOT NULL,  -- Denormalized for performance
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- ASSIGNMENT DETAILS
+  -- ═══════════════════════════════════════════════════════════════════
+  shop_code VARCHAR(20) NOT NULL,
+  shop_name VARCHAR(100),  -- Denormalized for display
+  target_month VARCHAR(7) NOT NULL,  -- YYYY-MM
+  target_date DATE,  -- Specific date if known
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- STATUS LIFECYCLE
+  -- ═══════════════════════════════════════════════════════════════════
+  status VARCHAR(20) NOT NULL DEFAULT 'Planned',
+  -- Planned     = Assignment created, not yet scheduled
+  -- Scheduled   = Confirmed with shop, date set
+  -- Enroute     = Car shipped to shop
+  -- Arrived     = Car at shop
+  -- InShop      = Work in progress
+  -- Complete    = Work finished
+  -- Cancelled   = Assignment cancelled
+
+  -- Status dates
+  planned_at TIMESTAMP DEFAULT NOW(),
+  scheduled_at TIMESTAMP,
+  enroute_at TIMESTAMP,
+  arrived_at TIMESTAMP,
+  in_shop_at TIMESTAMP,
+  completed_at TIMESTAMP,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- PRIORITY & EXPEDITE
+  -- ═══════════════════════════════════════════════════════════════════
+  priority INTEGER NOT NULL DEFAULT 3,
+  -- 1 = Critical (bad order, safety)
+  -- 2 = High (qualification due within 30 days)
+  -- 3 = Medium (qualification due within 90 days)
+  -- 4 = Low (planned maintenance)
+
+  is_expedited BOOLEAN DEFAULT FALSE,
+  expedite_reason TEXT,
+  expedited_at TIMESTAMP,
+  expedited_by_id UUID,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- COST TRACKING
+  -- ═══════════════════════════════════════════════════════════════════
+  estimated_cost DECIMAL(12,2),
+  actual_cost DECIMAL(12,2),
+  cost_variance DECIMAL(12,2) GENERATED ALWAYS AS (actual_cost - estimated_cost) STORED,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- SOURCE TRACKING (Where did this assignment come from?)
+  -- ═══════════════════════════════════════════════════════════════════
+  source VARCHAR(30) NOT NULL,
+  -- 'demand_plan'      = From demand/qualification planning
+  -- 'service_plan'     = From approved service plan
+  -- 'scenario_export'  = From scenario commitment
+  -- 'bad_order'        = Created from bad order report
+  -- 'quick_shop'       = Manual via Quick Shop
+  -- 'import'           = Bulk import
+  -- 'master_plan'      = From master plan commitment
+
+  source_reference_id UUID,  -- FK to originating record (demand_id, service_plan_id, etc.)
+  source_reference_type VARCHAR(30),  -- Table name of source
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- MODIFICATION TRACKING
+  -- ═══════════════════════════════════════════════════════════════════
+  original_shop_code VARCHAR(20),  -- If shop was changed
+  original_target_month VARCHAR(7),  -- If date was changed
+  modification_reason TEXT,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- CANCELLATION
+  -- ═══════════════════════════════════════════════════════════════════
+  cancelled_at TIMESTAMP,
+  cancelled_by_id UUID,
+  cancellation_reason TEXT,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- AUDIT
+  -- ═══════════════════════════════════════════════════════════════════
+  created_at TIMESTAMP DEFAULT NOW(),
+  created_by_id UUID,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  updated_by_id UUID,
+  version INTEGER DEFAULT 1,  -- Optimistic locking
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- CONSTRAINTS
+  -- ═══════════════════════════════════════════════════════════════════
+  CONSTRAINT fk_car FOREIGN KEY (car_id) REFERENCES cars(id),
+  CONSTRAINT fk_shop FOREIGN KEY (shop_code) REFERENCES shops(shop_code)
+);
+
+-- CRITICAL: Only one active assignment per car
+CREATE UNIQUE INDEX idx_one_active_per_car
+  ON car_assignments(car_id)
+  WHERE status NOT IN ('Complete', 'Cancelled');
+
+-- Performance indexes
+CREATE INDEX idx_ca_status ON car_assignments(status);
+CREATE INDEX idx_ca_shop ON car_assignments(shop_code);
+CREATE INDEX idx_ca_target_month ON car_assignments(target_month);
+CREATE INDEX idx_ca_priority ON car_assignments(priority) WHERE status = 'Planned';
+CREATE INDEX idx_ca_car_number ON car_assignments(car_number);
+
+
+### 2.2 Service Options Table (Work to be Performed) Next
+
+Service options are attached to assignments. Qualification is just another service option.
+
+sql
+CREATE TABLE assignment_service_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- REFERENCE
+  -- ═══════════════════════════════════════════════════════════════════
+  assignment_id UUID NOT NULL REFERENCES car_assignments(id) ON DELETE CASCADE,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- SERVICE OPTION DETAILS
+  -- ═══════════════════════════════════════════════════════════════════
+  service_type VARCHAR(30) NOT NULL,
+  -- Qualification types:
+  --   'tank_qualification', 'rule_88b', 'safety_relief', 'service_equipment',
+  --   'stub_sill', 'tank_thickness', 'interior_lining', 'min_inspection'
+  -- Repair types:
+  --   'bad_order_repair', 'running_repair', 'lining_replacement',
+  --   'valve_repair', 'structural_repair'
+  -- Other:
+  --   'cleaning', 'painting', 'inspection'
+
+  service_category VARCHAR(20) NOT NULL,
+  -- 'qualification', 'repair', 'maintenance', 'inspection'
+
+  description TEXT,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- TIMING
+  -- ═══════════════════════════════════════════════════════════════════
+  due_date DATE,           -- For qualifications (when it's due)
+  reported_date DATE,      -- For bad orders (when reported)
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- SELECTION & STATUS
+  -- ═══════════════════════════════════════════════════════════════════
+  is_required BOOLEAN DEFAULT FALSE,  -- Must be performed (e.g., overdue qual)
+  is_selected BOOLEAN DEFAULT TRUE,   -- User selected to perform this
+
+  status VARCHAR(20) DEFAULT 'Pending',
+  -- Pending, InProgress, Complete, Skipped
+
+  completed_at TIMESTAMP,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- COST
+  -- ═══════════════════════════════════════════════════════════════════
+  estimated_cost DECIMAL(10,2),
+  actual_cost DECIMAL(10,2),
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- SOURCE (Where did this service option come from?)
+  -- ═══════════════════════════════════════════════════════════════════
+  source VARCHAR(30),
+  -- 'qualification_due'  = Auto-added because qual is due
+  -- 'bad_order'         = From bad order report
+  -- 'user_added'        = Manually added by user
+  -- 'service_plan'      = From service plan
+  -- 'bundled'           = Added to bundle work
+
+  source_reference_id UUID,  -- FK to bad_order_report, etc.
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- AUDIT
+  -- ═══════════════════════════════════════════════════════════════════
+  added_at TIMESTAMP DEFAULT NOW(),
+  added_by_id UUID,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- CONSTRAINTS
+  -- ═══════════════════════════════════════════════════════════════════
+  CONSTRAINT fk_assignment FOREIGN KEY (assignment_id)
+    REFERENCES car_assignments(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_aso_assignment ON assignment_service_options(assignment_id);
+CREATE INDEX idx_aso_type ON assignment_service_options(service_type);
+
+
+### 2.3 Bad Order Reports Table
+
+Bad orders are tracked separately but MUST link to an assignment for resolution.
+
+sql
+CREATE TABLE bad_order_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- CAR REFERENCE
+  -- ═══════════════════════════════════════════════════════════════════
+  car_id UUID NOT NULL REFERENCES cars(id),
+  car_number VARCHAR(20) NOT NULL,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- ISSUE DETAILS
+  -- ═══════════════════════════════════════════════════════════════════
+  reported_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+  issue_type VARCHAR(50) NOT NULL,
+  -- 'valve_leak', 'structural_damage', 'lining_failure', 'gasket_failure',
+  -- 'tank_integrity', 'safety_device', 'wheels_trucks', 'other'
+
+  issue_description TEXT NOT NULL,
+
+  severity VARCHAR(20) NOT NULL,
+  -- 'critical' = Safety issue, cannot move car
+  -- 'high'     = Significant issue, needs prompt attention
+  -- 'medium'   = Issue found during inspection
+  -- 'low'      = Minor issue, can wait
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- LOCATION & REPORTER
+  -- ═══════════════════════════════════════════════════════════════════
+  location VARCHAR(100),
+  reported_by VARCHAR(100),
+  reporter_contact VARCHAR(100),
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- STATUS & RESOLUTION
+  -- ═══════════════════════════════════════════════════════════════════
+  status VARCHAR(20) DEFAULT 'Open',
+  -- 'open'              = Just reported
+  -- 'pending_decision'  = Has existing plan, awaiting user decision
+  -- 'assigned'          = Linked to assignment
+  -- 'resolved'          = Work completed
+
+  -- What action did the user take?
+  resolution_action VARCHAR(30),
+  -- 'expedite_existing'    = Moved up existing plan, added bad order work
+  -- 'new_shop_combined'    = New shop, combined with planned work
+  -- 'repair_only'          = Separate repair, kept original plan
+  -- 'planning_review'      = Flagged for planning team
+
+  -- Link to the assignment that resolves this
+  assignment_id UUID REFERENCES car_assignments(id),
+
+  resolved_at TIMESTAMP,
+  resolved_by_id UUID,
+  resolution_notes TEXT,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- EXISTING PLAN DETECTION (populated when bad order is created)
+  -- ═══════════════════════════════════════════════════════════════════
+  existing_assignment_id UUID,  -- If car had a plan when bad order reported
+  existing_shop_code VARCHAR(20),
+  existing_target_month VARCHAR(7),
+  had_existing_plan BOOLEAN DEFAULT FALSE,
+
+  -- ═══════════════════════════════════════════════════════════════════
+  -- AUDIT
+  -- ═══════════════════════════════════════════════════════════════════
+  created_at TIMESTAMP DEFAULT NOW(),
+  created_by_id UUID
+);
+
+CREATE INDEX idx_bor_car ON bad_order_reports(car_id);
+CREATE INDEX idx_bor_status ON bad_order_reports(status);
+CREATE INDEX idx_bor_severity ON bad_order_reports(severity);
+
+
+### 2.4 Supporting Tables
+
+#### Demands (Planning Input)
+
+sql
+CREATE TABLE demands (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  fiscal_year INTEGER NOT NULL,
+  target_month VARCHAR(7) NOT NULL,
+  car_count INTEGER NOT NULL,
+
+  -- Filters
+  event_type VARCHAR(30) NOT NULL,  -- 'qualification', 'assignment', 'return'
+  car_type VARCHAR(20),
+  customer_id UUID,
+
+  -- Constraints
+  priority VARCHAR(20) DEFAULT 'Medium',
+  required_network VARCHAR(50),
+  required_region VARCHAR(50),
+  max_cost_per_car DECIMAL(10,2),
+  excluded_shops JSONB DEFAULT '[]',
+
+  -- Status
+  status VARCHAR(20) DEFAULT 'Forecast',
+  -- 'forecast', 'confirmed', 'allocating', 'allocated', 'complete'
+
+  -- Audit
+  created_at TIMESTAMP DEFAULT NOW(),
+  created_by_id UUID
+);
+
+
+#### Service Plans (Customer Proposals)
+
+sql
+CREATE TABLE service_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  customer_id UUID NOT NULL REFERENCES customers(id),
+  name VARCHAR(100) NOT NULL,
+
+  car_flow_rate INTEGER NOT NULL,  -- Cars per month
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+
+  status VARCHAR(20) DEFAULT 'Draft',
+  -- 'draft', 'proposed', 'awaiting_response', 'approved', 'rejected', 'expired'
+
+  approved_option_id UUID,  -- Which option was approved
+  approved_at TIMESTAMP,
+  approved_by VARCHAR(100),
+
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE service_plan_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  service_plan_id UUID NOT NULL REFERENCES service_plans(id),
+  option_name VARCHAR(10) NOT NULL,  -- 'A', 'B', 'C'
+  description TEXT,
+
+  total_estimated_cost DECIMAL(12,2),
+  avg_turn_time INTEGER,
+
+  status VARCHAR(20) DEFAULT 'Draft'
+);
+
+CREATE TABLE service_plan_option_cars (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  option_id UUID NOT NULL REFERENCES service_plan_options(id),
+  car_id UUID NOT NULL REFERENCES cars(id),
+  shop_code VARCHAR(20) NOT NULL,
+  estimated_cost DECIMAL(10,2)
+);
+
+
+#### Master Plans (Version Control)
+
+sql
+CREATE TABLE master_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  version INTEGER NOT NULL,
+  name VARCHAR(100) NOT NULL,
+
+  valid_from DATE NOT NULL,
+  valid_to DATE NOT NULL,
+
+  status VARCHAR(20) DEFAULT 'Draft',
+  -- 'draft', 'pending', 'approved', 'active', 'superseded'
+
+  parent_plan_id UUID REFERENCES master_plans(id),
+
+  submitted_at TIMESTAMP,
+  submitted_by_id UUID,
+  approved_at TIMESTAMP,
+  approved_by_id UUID,
+
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 
 ---
 
-### 4️⃣ VERIFY TESTING
-For each feature and critical path, confirm:
+## 3. Service Options as First-Class Concept
 
-- Unit tests exist
-- Edge cases are covered
-- Failure modes are tested
-- Tests assert **behavior**, not implementation
-- Tests fail when logic breaks
+### 3.1 Philosophy
 
-Explicitly identify:
-- Untested logic
-- Weak or false-positive tests
-- Gaps between production logic and test logic
+**Qualification is NOT special.** It's just another service option like:
+- Bad order repair
+- Running repair
+- Lining replacement
+- Cleaning
 
-**Output:**
-- Test Coverage Map  
-- Missing / Weak Tests List  
+When creating or modifying an assignment, the user selects which service options to perform.
+
+### 3.2 Service Option Types
+
+| Category | Service Types |
+|----------|---------------|
+| **Qualification** | tank_qualification, rule_88b, safety_relief, service_equipment, stub_sill, tank_thickness, interior_lining, min_inspection |
+| **Repair** | bad_order_repair, running_repair, lining_replacement, valve_repair, structural_repair |
+| **Maintenance** | cleaning, painting, gasket_replacement |
+| **Inspection** | annual_inspection, spot_inspection |
+
+### 3.3 Auto-Population of Service Options
+
+When an assignment is created, the system auto-suggests service options based on:
+
+typescript
+function suggestServiceOptions(car: Car, targetDate: Date): ServiceOption[] {
+  const options: ServiceOption[] = [];
+
+  // Check all qualification dates
+  const qualFields = [
+    { field: 'tankQualification', type: 'tank_qualification', label: 'Tank Qualification' },
+    { field: 'rule88B', type: 'rule_88b', label: 'Rule 88B' },
+    { field: 'safetyRelief', type: 'safety_relief', label: 'Safety Relief' },
+    // ... etc
+  ];
+
+  for (const qual of qualFields) {
+    const dueDate = car[qual.field];
+    if (dueDate) {
+      const daysUntilDue = daysBetween(targetDate, dueDate);
+
+      // If due within 90 days of target, suggest it
+      if (daysUntilDue <= 90) {
+        options.push({
+          serviceType: qual.type,
+          serviceCategory: 'qualification',
+          description: qual.label,
+          dueDate: dueDate,
+          isRequired: daysUntilDue <= 0,  // Overdue = required
+          isSelected: daysUntilDue <= 60, // Auto-select if within 60 days
+          source: 'qualification_due'
+        });
+      }
+    }
+  }
+
+  // Check for open bad orders
+  const openBadOrders = await getBadOrdersForCar(car.id, 'open');
+  for (const bo of openBadOrders) {
+    options.push({
+      serviceType: 'bad_order_repair',
+      serviceCategory: 'repair',
+      description: `Bad Order: ${bo.issueType} - ${bo.issueDescription}`,
+      reportedDate: bo.reportedDate,
+      isRequired: bo.severity === 'critical',
+      isSelected: true,
+      source: 'bad_order',
+      sourceReferenceId: bo.id
+    });
+  }
+
+  return options;
+}
+
+
+### 3.4 User Interface for Service Options
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ASSIGNMENT: GATX 12345 → ABC Rail → June 2026                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  SERVICE OPTIONS                                                        │
+│  ═══════════════                                                        │
+│                                                                         │
+│  Select the work to be performed at this shop:                         │
+│                                                                         │
+│  QUALIFICATIONS                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ [x] Tank Qualification        Due: 2026-06-15    Est: $8,000  │    │
+│  │     ⚠️ Due in 45 days                                          │    │
+│  │                                                                 │    │
+│  │ [x] Rule 88B Inspection       Due: 2026-07-01    Est: $2,500  │    │
+│  │     Due in 61 days                                             │    │
+│  │                                                                 │    │
+│  │ [ ] Safety Relief Valve       Due: 2027-01-15    Est: $1,800  │    │
+│  │     Due in 228 days (optional)                                 │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  REPAIRS                                                                │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ [x] Bad Order: Valve Leak     Rpt: 2026-03-10    Est: $3,200  │    │
+│  │     🔴 Critical - Must repair                                   │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  MAINTENANCE                                                            │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ [ ] Exterior Paint                               Est: $2,000  │    │
+│  │ [ ] Interior Cleaning                            Est: $1,500  │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  [+ Add Service Option]                                                │
+│                                                                         │
+│  ─────────────────────────────────────────────────────────────────     │
+│                                                                         │
+│  SUMMARY                                                                │
+│  Selected: 4 options                     Estimated Total: $13,700      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
 
 ---
 
-### 5️⃣ SYSTEM-LEVEL FAILURE REVIEW
-Evaluate system robustness against:
+## 4. Bad Order Workflow
 
-- Invalid or malformed input
-- Missing or partial data
-- Concurrency or race conditions
-- Partial writes or transaction issues
-- API misuse
-- Frontend / backend contract mismatches
-- “Looks fine but breaks in production” scenarios
+### 4.1 When Bad Order is Reported
 
-**Output:**
-- 🔴 Critical Risks  
-- 🟠 Medium Risks  
-- 🟢 Acceptable Risks  
+typescript
+async function createBadOrderReport(report: BadOrderInput): Promise<BadOrderReport> {
+  // Check if car has existing active assignment
+  const existingAssignment = await getActiveAssignment(report.carId);
+
+  const badOrder = await db.insert('bad_order_reports', {
+    ...report,
+    hadExistingPlan: !!existingAssignment,
+    existingAssignmentId: existingAssignment?.id,
+    existingShopCode: existingAssignment?.shopCode,
+    existingTargetMonth: existingAssignment?.targetMonth,
+    status: existingAssignment ? 'pending_decision' : 'open'
+  });
+
+  // If no existing plan, can proceed directly to assignment
+  // If existing plan, user must make a decision
+
+  return badOrder;
+}
+
+
+### 4.2 User Decision Flow
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ BAD ORDER REPORTED                                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Car: GATX 12345                                                        │
+│  Issue: Valve Leak (Critical)                                           │
+│  Reported: 2026-03-10                                                   │
+│  Location: Houston Yard                                                 │
+│                                                                         │
+│  ═══════════════════════════════════════════════════════════════════   │
+│                                                                         │
+│  ⚠️  THIS CAR HAS AN EXISTING PLAN                                     │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ Current Assignment:                                            │    │
+│  │ • Shop: ABC Rail (Houston)                                     │    │
+│  │ • Target: June 2026 (82 days away)                            │    │
+│  │ • Planned Work:                                                │    │
+│  │   - Tank Qualification (due June 15)                          │    │
+│  │   - Rule 88B (due July 1)                                     │    │
+│  │ • Estimated Cost: $10,500                                      │    │
+│  │ • Source: Q2 Qualification Plan                               │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ═══════════════════════════════════════════════════════════════════   │
+│                                                                         │
+│  SELECT AN ACTION:                                                      │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ ◉ OPTION A: Expedite Existing Plan                            │    │
+│  │                                                                 │    │
+│  │   • Move target to IMMEDIATE                                   │    │
+│  │   • Keep same shop: ABC Rail                                   │    │
+│  │   • Add bad order repair to service options                    │    │
+│  │   • Perform all planned work now                               │    │
+│  │                                                                 │    │
+│  │   New Estimated Cost: $13,700 (+$3,200 for repair)            │    │
+│  │                                                                 │    │
+│  │   [Planning team will be notified of acceleration]            │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ ○ OPTION B: Different Shop (Combined Work)                    │    │
+│  │                                                                 │    │
+│  │   • Cancel existing assignment                                 │    │
+│  │   • Route to Quick Shop for new shop selection                │    │
+│  │   • Include bad order repair + planned qualifications         │    │
+│  │                                                                 │    │
+│  │   [Use if ABC Rail is not available or another shop is better]│    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ ○ OPTION C: Repair Only (Keep Original Plan)                  │    │
+│  │                                                                 │    │
+│  │   • Create NEW immediate assignment for repair only           │    │
+│  │   • Keep June qualification plan unchanged                     │    │
+│  │                                                                 │    │
+│  │   ⚠️ Warning: Car will be shopped TWICE                        │    │
+│  │   Use only if repair cannot wait and quals must stay in June  │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ ○ OPTION D: Flag for Planning Team                            │    │
+│  │                                                                 │    │
+│  │   • Mark as "Pending Decision"                                │    │
+│  │   • Notify planning team                                       │    │
+│  │   • No action taken now                                        │    │
+│  │                                                                 │    │
+│  │   [Use if you need guidance on how to proceed]                │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│                                           [Cancel]  [Confirm Action]   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+### 4.3 Resolution Logic
+
+typescript
+async function resolveBadOrder(
+  badOrderId: string,
+  action: 'expedite_existing' | 'new_shop_combined' | 'repair_only' | 'planning_review',
+  userId: string,
+  options?: { newShopCode?: string; notes?: string }
+): Promise<void> {
+
+  const badOrder = await getBadOrder(badOrderId);
+
+  switch (action) {
+
+    case 'expedite_existing':
+      // Update existing assignment
+      await db.update('car_assignments', badOrder.existingAssignmentId, {
+        targetMonth: getCurrentMonth(),
+        targetDate: new Date(),
+        priority: 1,
+        isExpedited: true,
+        expediteReason: `Bad order: ${badOrder.issueType}`,
+        expeditedAt: new Date(),
+        expeditedById: userId,
+        updatedAt: new Date(),
+        updatedById: userId
+      });
+
+      // Add bad order as service option
+      await db.insert('assignment_service_options', {
+        assignmentId: badOrder.existingAssignmentId,
+        serviceType: 'bad_order_repair',
+        serviceCategory: 'repair',
+        description: badOrder.issueDescription,
+        reportedDate: badOrder.reportedDate,
+        isRequired: true,
+        isSelected: true,
+        source: 'bad_order',
+        sourceReferenceId: badOrder.id,
+        addedById: userId
+      });
+
+      // Update bad order status
+      await db.update('bad_order_reports', badOrderId, {
+        status: 'assigned',
+        resolutionAction: 'expedite_existing',
+        assignmentId: badOrder.existingAssignmentId,
+        resolvedAt: new Date(),
+        resolvedById: userId
+      });
+
+      // Notify planning team
+      await notifyPlanningTeam('assignment_expedited', {
+        carNumber: badOrder.carNumber,
+        reason: 'Bad order reported',
+        originalTarget: badOrder.existingTargetMonth,
+        newTarget: 'Immediate'
+      });
+      break;
+
+    case 'new_shop_combined':
+      // Cancel existing assignment
+      await db.update('car_assignments', badOrder.existingAssignmentId, {
+        status: 'Cancelled',
+        cancelledAt: new Date(),
+        cancelledById: userId,
+        cancellationReason: `Replaced due to bad order - new shop selected`
+      });
+
+      // Redirect to Quick Shop with context
+      // The Quick Shop will create the new assignment
+      return { redirectTo: 'quick_shop', context: {
+        carId: badOrder.carId,
+        includeBadOrder: badOrder.id,
+        includeQualifications: true
+      }};
+
+    case 'repair_only':
+      // This is the ONLY case where we temporarily have two assignments
+      // The original stays, we create a new one for repair only
+
+      const newAssignment = await db.insert('car_assignments', {
+        carId: badOrder.carId,
+        carNumber: badOrder.carNumber,
+        shopCode: options.newShopCode, // Must be provided
+        targetMonth: getCurrentMonth(),
+        status: 'Planned',
+        priority: 1,
+        source: 'bad_order',
+        sourceReferenceId: badOrder.id,
+        createdById: userId
+      });
+
+      await db.insert('assignment_service_options', {
+        assignmentId: newAssignment.id,
+        serviceType: 'bad_order_repair',
+        serviceCategory: 'repair',
+        description: badOrder.issueDescription,
+        isRequired: true,
+        isSelected: true,
+        source: 'bad_order',
+        sourceReferenceId: badOrder.id
+      });
+
+      // Note: This creates a temporary exception to one-active-per-car
+      // The repair assignment will complete quickly, then the qual plan continues
+      break;
+
+    case 'planning_review':
+      await db.update('bad_order_reports', badOrderId, {
+        status: 'pending_decision',
+        resolutionAction: 'planning_review'
+      });
+
+      await notifyPlanningTeam('bad_order_needs_review', {
+        badOrderId,
+        carNumber: badOrder.carNumber,
+        severity: badOrder.severity,
+        existingPlan: {
+          shop: badOrder.existingShopCode,
+          target: badOrder.existingTargetMonth
+        }
+      });
+      break;
+  }
+}
+
 
 ---
 
-### 6️⃣ VERDICT & NEXT ACTIONS
-You must issue a **binary verdict**:
+## 5. How All Planning Paths Feed SSOT
 
-> **READY FOR MERGE**  
-> **NOT READY**
+### 5.1 Demand Allocation
 
-If **NOT READY**, provide:
-- Exact gaps
-- Why each gap matters
-- Minimum work required to reach “Ready”
-
-No vague advice.  
-No refactors unless required for correctness or safety.
-
-**Output:**
-- Final Verdict  
-- Required Fixes Checklist (ordered, minimal)  
-
----
-
-## Hard Rules
-- ❌ Do NOT write new code unless explicitly instructed
-- ❌ Do NOT refactor for style or cleanliness
-- ❌ Do NOT assume missing elements are acceptable
-- ❌ If something is unclear, treat it as a risk
-- ✅ Precision over politeness
-- ❌ Silence equals failure — every feature must be evaluated
-
----
-
-## Start Condition
-Begin immediately once code or artifacts are provided.  
-Do **not** ask clarifying questions unless a missing artifact blocks verification.# Railsync Development Tasks – Clean-Slate v2 (GitHub: jshchssr1023/Railsync)
-**Version:** 2.2 | **Updated:** February 01, 2026  
-**Repo Status:** Fresh monorepo initialized Jan 31, 2026 • Core shop selection foundation complete • MIT licensed • 0 stars/forks • Recent PR: claude/web-architecture-design  
-**Current Focus:** Stabilize tactical Quick Shop flow → progressively add capacity-aware planning & confirmed/planned separation
-
-## Development Guardrails
-
-| Rule                        | Description                                                                 |
-|-----------------------------|-----------------------------------------------------------------------------|
-| Read before write           | Always study existing code/comments before modifying                        |
-| Small, atomic commits       | One logical change per commit (~200–500 LOC max)                            |
-| Compile & lint first        | Run `npm run build` + `npm run lint` after every change                     |
-| Test incrementally          | Verify new behavior works **before** starting next task                     |
-| Reuse existing code         | Search for matching services/utils/types/hooks before creating new ones     |
-| Zero hanging artifacts      | No `TODO:`, `FIXME:`, `// @ts-ignore`, loose `any` — resolve or issue       |
-
-### Core Validation Commands (run after every non-trivial change)
-
-```bash
-# Backend
-cd backend
-npm run build          # Must succeed – 0 TS errors
-npm run lint           # Must be clean (0 errors/warnings)
-npm test               # ≥ current passing count (add more over time)
-
-# Frontend
-cd frontend
-npm run build          # Next.js production build must succeed
-npm run lint           # 0 errors (strict + typescript-eslint)
-npm run typecheck      # tsc --noEmit must pass
-Current Status – Completed Foundation (as of Feb 1, 2026)
-
-
-Immediate (1–2 days after 12.3)
-Add error boundaries + retry button on fetch failure.
-Make filters functional: pass ?tier=1 to endpoints → update backend queries.
-Add variance indicators (e.g., red badge if actual_spend > total_budget).
-
-Short-Term (1 week)
-Add "Shipment Volume by Month" bar chart (similar to arrivals).
-Add "Planned Volume by Tier" pie chart.
-Implement CSV export button (use papaparse or native Blob).
-
-Medium-Term (2–4 weeks)
-Dynamic tier/car-type options from API (new endpoint /api/filters/options).
-Add refresh button + last-updated timestamp with real server time.
-Mobile optimizations: ensure modal is full-screen, charts responsive.
-
-Longer-Term Polish
-Auth protection: only show icon / dashboard to logged-in users.
-Dark mode consistency (shadcn handles most of this).
-Performance: add debounce to filter changes if needed.
-Testing: add simple Cypress test for open/close + data load.
-
-Documentation & Cleanup
-Update README: add screenshot of dashboard + "Click bottom-right icon to open TQ Dashboard".
-Lint + build clean pass.
-Commit all as "feat(phase-12): full fleet dashboard with real data + floating icon access".
-## Phase 13: CSV-Inspired Status Automation + Pipeline View + Direct Shopping Deep-Link + Simpsons Easter Egg
-**Version:** 2.6 | **Updated:** February 01, 2026  
-**Objective:** Automate car status transitions & date rollovers based on CSV-derived business rules (seed only). Replace static Car Lookup with Pipeline View dashboard that buckets cars by lifecycle stage. Add "Shop Car" deep-link to pre-fill Direct Input form. Bonus Ralph Wiggum chaos: when the dashboard opens, it plays a short Simpsons theme clip (toggleable, off by default).  
-**Future State Assumption:** Daily car file sync updates `allocations` table (current_status, last_shopping_date, etc.). CSV used only for initial seed & rule discovery — no ongoing CSV parser in production.
-
-**Ralph Wiggum Protocol Note:**  
-Yes, we're really doing this.  
-The dashboard will sing when it opens.  
-I love you. 😍
-
-**Prerequisites (Run Once):**
-- Install audio player lib (tiny & lightweight):  
-  ```bash
-  npm install howler
-
-Download or host a short Simpsons theme clip (public domain / fair-use snippet, ~5–8 seconds):
-e.g., save as public/audio/simpsons-theme-short.mp3 (you'll need to source this legally/fairly)
-
-Token Discipline: One sub-task per session. Zero lint errors. Small commits.
-Phase 13 Guardrails:
-
-Extend allocations minimally.
-Pipeline View fetches from /api/pipeline/buckets (SWR).
-Reuse DashboardWrapper + floating icon.
-Simpsons audio: optional, toggleable via localStorage, only plays once per session unless toggled on.
-Commit format: "feat(phase-13): add status rollover + pipeline buckets + Simpsons theme easter egg"
-
-13.1 – Schema Extensions for Automation Tracking (1 Session)
-Migration: database/migrations/004_phase13_automation.sql
-SQLALTER TABLE allocations
-    ADD COLUMN IF NOT EXISTS last_shopping_date DATE,
-    ADD COLUMN IF NOT EXISTS plan_status_year INT DEFAULT EXTRACT(YEAR FROM CURRENT_DATE),
-    ADD COLUMN IF NOT EXISTS needs_shopping_reason TEXT;  -- e.g., "TANK QUALIFICATION"
-Seed Note: Use CSV once to populate these during initial load. Future sync job updates live.
-13.2 – Backend Automation Logic: Status Rollover & Mapping (2–3 Sessions)
-New service: services/status-automation.service.ts
-TypeScriptimport { db } from "@/config/database";
-
-export async function processStatusUpdate(carId: string, csvStatus: string, csvScheduled: string) {
-  return db.transaction(async (tx) => {
-    const [car] = await tx.query('SELECT * FROM allocations WHERE id = $1', [carId]);
-    if (!car) return { error: 'Car not found' };
-
-    let newStatus = car.current_status;
-    let newLastShopping = car.last_shopping_date;
-    let newPlanYear = car.plan_status_year;
-
-    // Completion & Date Rollover
-    if (csvStatus === 'Complete' && car.current_status !== 'completed') {
-      newStatus = 'completed';
-      newLastShopping = new Date().toISOString().split('T')[0];
-      newPlanYear += 4;  // 2025 → 2029 example rollover
+typescript
+async function allocateDemand(demandId: string, allocations: AllocationInput[]): Promise<void> {
+  for (const alloc of allocations) {
+    // Check for existing active assignment
+    const existing = await getActiveAssignment(alloc.carId);
+    if (existing) {
+      throw new ConflictError(`Car ${alloc.carNumber} already has active assignment to ${existing.shopCode}`);
     }
 
-    // Car State Mapping
-    if (csvStatus === 'To Be Routed' && csvScheduled === 'Planned Shopping') {
-      newStatus = 'needs_shopping';
-    } else if (csvScheduled === 'Planned Shopping' && !car.shop_code) {
-      newStatus = 'planned_unscheduled';
-    } else if (['Arrived', 'Enroute'].includes(csvStatus)) {
-      newStatus = csvStatus.toLowerCase();
+    // Create assignment
+    const assignment = await db.insert('car_assignments', {
+      carId: alloc.carId,
+      carNumber: alloc.carNumber,
+      shopCode: alloc.shopCode,
+      targetMonth: alloc.targetMonth,
+      status: 'Planned',
+      priority: 3,
+      source: 'demand_plan',
+      sourceReferenceId: demandId,
+      sourceReferenceType: 'demands',
+      createdById: userId
+    });
+
+    // Add qualification service options
+    const qualOptions = await suggestServiceOptions(car, targetDate);
+    for (const opt of qualOptions.filter(o => o.serviceCategory === 'qualification')) {
+      await db.insert('assignment_service_options', {
+        assignmentId: assignment.id,
+        ...opt
+      });
+    }
+  }
+}
+
+
+### 5.2 Service Plan Approval
+
+typescript
+async function approveServicePlan(planId: string, optionId: string): Promise<void> {
+  const option = await getServicePlanOption(optionId);
+  const cars = await getServicePlanOptionCars(optionId);
+
+  for (const car of cars) {
+    // Check for existing
+    const existing = await getActiveAssignment(car.carId);
+    if (existing) {
+      // Don't fail - flag for review
+      await flagForReview(car.carId, 'service_plan_conflict', {
+        existingAssignment: existing,
+        servicePlanOption: option
+      });
+      continue;
     }
 
-    await tx.query(`
-      UPDATE allocations
-      SET current_status = $1,
-          last_shopping_date = $2,
-          plan_status_year = $3,
-          updated_at = NOW()
-      WHERE id = $4
-    `, [newStatus, newLastShopping, newPlanYear, carId]);
+    // Create assignment
+    await db.insert('car_assignments', {
+      carId: car.carId,
+      carNumber: car.carNumber,
+      shopCode: car.shopCode,
+      targetMonth: car.targetMonth,
+      status: 'Planned',
+      source: 'service_plan',
+      sourceReferenceId: optionId,
+      sourceReferenceType: 'service_plan_options'
+    });
+  }
 
-    return { success: true, newStatus };
+  // Update plan status
+  await db.update('service_plans', planId, {
+    status: 'approved',
+    approvedOptionId: optionId,
+    approvedAt: new Date()
   });
 }
-13.3 – Pipeline View Dashboard (4–5 Sessions)
-New page: app/pipeline/page.tsx
-tsx"use client";
 
-import useSWR from "swr";
-import { DashboardWrapper } from "@/components/DashboardWrapper";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useRouter } from "next/navigation";
 
-const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : Promise.reject(res));
+### 5.3 Scenario Export
 
-export default function PipelineView() {
-  const router = useRouter();
-  const { data: buckets, isLoading } = useSWR("/api/pipeline/buckets", fetcher);
+typescript
+async function exportScenario(scenarioId: string): Promise<ExportResult> {
+  const scenario = await getScenario(scenarioId);
+  const cars = await getScenarioCars(scenarioId);
 
-  const handleShopCar = (car: any) => {
-    router.push(`/direct?carMark=${car.car_mark}&carNumber=${car.car_number}&reason=${encodeURIComponent(car.needs_shopping_reason || 'TANK QUALIFICATION')}`);
-  };
+  const results = { created: 0, conflicts: 0, skipped: [] };
 
-  if (isLoading) return <Skeleton className="h-[600px] w-full rounded-xl" />;
+  for (const car of cars) {
+    const existing = await getActiveAssignment(car.carId);
 
-  const { backlog = [], pipeline = [], active = [], healthy = [] } = buckets || {};
-
-  return (
-    <DashboardWrapper>
-      <div className="space-y-8">
-        <h1 className="text-3xl font-bold tracking-tight">Pipeline View</h1>
-
-        <div className="grid gap-6 md:grid-cols-4">
-          <Card>
-            <CardHeader><CardTitle>Backlog</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{backlog.length}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Pipeline</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{pipeline.length}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Active Shop</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{active.length}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Healthy</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{healthy.length}</p></CardContent>
-          </Card>
-        </div>
-
-        {/* Backlog Table Example – repeat pattern for others */}
-        <Card>
-          <CardHeader><CardTitle>Backlog Cars – To Be Routed</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Car</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {backlog.map((car: any) => (
-                  <TableRow key={car.id}>
-                    <TableCell>{car.car_mark} {car.car_number}</TableCell>
-                    <TableCell>{car.current_status}</TableCell>
-                    <TableCell>{car.needs_shopping_reason}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" onClick={() => handleShopCar(car)}>
-                        Shop Now
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Add similar tables for Pipeline, Active, Healthy */}
-      </div>
-    </DashboardWrapper>
-  );
-}
-13.4 – Simpsons Theme Easter Egg (Ralph Chaos Mode – 1 Session)
-Update components/DashboardWrapper.tsx to add audio:
-tsx"use client";
-
-import { useState, useEffect } from "react";
-import { LayoutDashboard, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Howl } from "howler";
-
-export function DashboardWrapper({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [playSimpsons, setPlaySimpsons] = useState(false); // toggle in settings later
-
-  useEffect(() => {
-    if (isOpen && playSimpsons) {
-      const sound = new Howl({
-        src: ["/audio/simpsons-theme-short.mp3"],
-        volume: 0.4,
-        onend: () => console.log("D'oh! Theme finished."),
+    if (existing) {
+      results.conflicts++;
+      results.skipped.push({
+        carNumber: car.carNumber,
+        reason: `Already assigned to ${existing.shopCode} for ${existing.targetMonth}`
       });
-      sound.play();
-      return () => sound.unload();
+      continue;
     }
-  }, [isOpen, playSimpsons]);
 
-  return (
-    <>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-8 right-8 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl hover:bg-primary/90 transition-all duration-300"
-        aria-label={isOpen ? "Close dashboard" : "Open dashboard (with Simpsons theme!)"}
-      >
-        {isOpen ? <X size={32} /> : <LayoutDashboard size={32} />}
-      </button>
+    await db.insert('car_assignments', {
+      carId: car.carId,
+      carNumber: car.carNumber,
+      shopCode: car.recommendedShop,
+      targetMonth: car.targetMonth,
+      status: 'Planned',
+      source: 'scenario_export',
+      sourceReferenceId: scenarioId,
+      sourceReferenceType: 'scenarios'
+    });
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
-            onClick={() => setIsOpen(false)}
-          >
-            {/* ... rest of your modal content ... */}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
+    results.created++;
+  }
+
+  return results;
 }
-To toggle the theme (future enhancement):
 
-Add a settings switch in dashboard → localStorage.setItem("simpsonsMode", "true")
-In useEffect: setPlaySimpsons(localStorage.getItem("simpsonsMode") === "true")
 
-Next Important Steps (After Phase 13 Complete)
+### 5.4 Quick Shop (Manual)
 
-Daily Sync Job (short-term) – node-cron to poll/process car files → call processStatusUpdate
-Variance Alerts – red badges on cards if actual > budget
-Pagination & Search – add to bucket tables
-CSV Seed Script – one-time import script to populate allocations from CSV
-Audio Toggle UI – add switch in dashboard header: "Enable Simpsons Mode"
-Testing – manual: update status → verify rollover → open dashboard → hear Simpsons (if toggled)
+typescript
+async function createAssignmentFromQuickShop(
+  carId: string,
+  shopCode: string,
+  targetMonth: string,
+  serviceOptions: ServiceOptionInput[],
+  userId: string
+): Promise<Assignment> {
+  // Check for existing
+  const existing = await getActiveAssignment(carId);
+
+  if (existing) {
+    // Show conflict modal - user must decide
+    throw new ConflictError({
+      message: 'Car already has active assignment',
+      existingAssignment: existing,
+      options: ['cancel_existing', 'modify_existing', 'abort']
+    });
+  }
+
+  const assignment = await db.insert('car_assignments', {
+    carId,
+    carNumber: (await getCar(carId)).carNumber,
+    shopCode,
+    targetMonth,
+    status: 'Planned',
+    source: 'quick_shop',
+    createdById: userId
+  });
+
+  for (const opt of serviceOptions) {
+    await db.insert('assignment_service_options', {
+      assignmentId: assignment.id,
+      ...opt,
+      addedById: userId
+    });
+  }
+
+  return assignment;
+}
+
+
+---
+
+## 6. Implementation Roadmap
+
+### Phase 1: SSOT Foundation (Weeks 1-3)
+
+#### Week 1: Database Schema
+
+| Task | Effort |
+|------|--------|
+| Create car_assignments table with all fields | 4 hrs |
+| Create assignment_service_options table | 2 hrs |
+| Create bad_order_reports table | 2 hrs |
+| Create indexes and constraints | 2 hrs |
+| Create database views for common queries | 4 hrs |
+| Write migration scripts | 4 hrs |
+
+#### Week 2: Core Services
+
+| Task | Effort |
+|------|--------|
+| assignmentService.ts - CRUD operations | 8 hrs |
+| serviceOptionService.ts - Option management | 4 hrs |
+| conflictDetectionService.ts - Check for conflicts | 4 hrs |
+| Integrate with existing car/shop services | 4 hrs |
+
+#### Week 3: API & Basic UI
+
+| Task | Effort |
+|------|--------|
+| Assignment API routes | 6 hrs |
+| Service options API routes | 4 hrs |
+| Update Quick Shop to use new assignment model | 8 hrs |
+| Assignment detail view | 6 hrs |
+
+**Deliverables:**
+- [ ] SSOT tables created
+- [ ] One-active-per-car constraint enforced
+- [ ] Quick Shop creates assignments in new model
+- [ ] Service options selectable
+
+---
+
+### Phase 2: Bad Order Workflow (Weeks 4-5)
+
+#### Week 4: Bad Order Backend
+
+| Task | Effort |
+|------|--------|
+| Bad order report service | 6 hrs |
+| Conflict detection on report creation | 4 hrs |
+| Resolution action handlers | 8 hrs |
+| Planning team notifications | 4 hrs |
+
+#### Week 5: Bad Order UI
+
+| Task | Effort |
+|------|--------|
+| Bad order report form | 4 hrs |
+| Conflict resolution modal | 8 hrs |
+| Bad order list/dashboard | 4 hrs |
+| Integration with Fleet View | 4 hrs |
+
+**Deliverables:**
+- [ ] Bad orders can be reported
+- [ ] System detects existing plans
+- [ ] User chooses resolution action
+- [ ] Planning team notified
+
+---
+
+### Phase 3: Service Plan Builder (Weeks 6-9)
+
+#### Week 6-7: Backend
+
+| Task | Effort |
+|------|--------|
+| Service plan tables | 4 hrs |
+| Service plan service | 8 hrs |
+| Plan option service | 6 hrs |
+| Approval workflow | 6 hrs |
+| Capacity reservation | 6 hrs |
+
+#### Week 8-9: Frontend
+
+| Task | Effort |
+|------|--------|
+| Service plan wizard | 12 hrs |
+| Option builder | 8 hrs |
+| Option comparison view | 6 hrs |
+| Approval workflow UI | 6 hrs |
+
+**Deliverables:**
+- [ ] Service plans with multiple options
+- [ ] Approval creates assignments in SSOT
+- [ ] Capacity reservations work
+
+---
+
+### Phase 4: Master Planning & Advanced (Weeks 10-12)
+
+#### Week 10: Master Plans
+
+| Task | Effort |
+|------|--------|
+| Master plan tables | 4 hrs |
+| Version management service | 6 hrs |
+| Approval workflow | 6 hrs |
+| Master plan UI | 8 hrs |
+
+#### Week 11: Enhanced Allocation
+
+| Task | Effort |
+|------|--------|
+| Urgency scoring service | 6 hrs |
+| Shop performance scoring | 6 hrs |
+| Auto-allocation with conflict detection | 8 hrs |
+
+#### Week 12: Fleet View Integration
+
+| Task | Effort |
+|------|--------|
+| Fleet view shows assignment status | 4 hrs |
+| Car detail shows service options | 4 hrs |
+| Bad order reporting from Fleet View | 4 hrs |
+| End-to-end testing | 8 hrs |
+
+**Deliverables:**
+- [ ] Master plan versioning
+- [ ] Urgency-based allocation
+- [ ] Full Fleet View integration
+- [ ] All planning paths use SSOT
+
+---
+
+## 7. Validation Checklist
+
+### Data Integrity
+
+- [ ] Only one active assignment per car (enforced by database)
+- [ ] All planning paths write to car_assignments
+- [ ] Service options attached to assignments
+- [ ] Source tracking on every assignment
+- [ ] Full audit trail on all changes
+
+### Conflict Handling
+
+- [ ] Bad order detects existing plan
+- [ ] User presented with options (no automatic decisions)
+- [ ] Quick Shop detects conflicts
+- [ ] Service plan approval detects conflicts
+- [ ] Scenario export reports conflicts
+
+### Workflow Completeness
+
+- [ ] Qualification is a service option
+- [ ] Bad order repair is a service option
+- [ ] User can bundle multiple service options
+- [ ] User can modify service options on existing assignment
+- [ ] Planning team notified of expedited assignments
+
+---
+
+## 8. Summary
+
+### Key Architectural Decisions
+
+| Decision | Implementation |
+|----------|----------------|
+| **Single Source of Truth** | All assignments in car_assignments table |
+| **One Active Per Car** | Database constraint prevents duplicates |
+| **Service Options** | Qualification treated same as any other work |
+| **User Choice** | System informs, user decides on conflicts |
+| **Source Tracking** | Every assignment knows where it came from |
+| **Full Audit** | All changes tracked with user and timestamp |
+
+### What This Prevents
+
+- Conflicting assignments for same car
+- Qualification plans that don't know about bad orders
+- Bad orders that don't know about planned work
+- Automatic decisions that surprise users
+- Lost audit trail
+
+### What This Enables
+
+- Complete visibility into any car's assignment status
+- Easy bundling of work (qual + repair + maintenance)
+- Clear conflict resolution workflow
+- Planning team awareness of all changes
+- Accurate reporting and forecasting
+
+---
+
+**Document End**
