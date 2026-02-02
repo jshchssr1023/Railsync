@@ -1,5 +1,6 @@
 import { query, queryOne, transaction } from '../config/database';
 import { PoolClient } from 'pg';
+import * as assignmentService from './assignment.service';
 
 export interface Allocation {
   id: string;
@@ -121,6 +122,29 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
         created_by || null,
       ]
     );
+
+    // SSOT: Also write to car_assignments if car_number is provided
+    if (car_number) {
+      try {
+        // Check if already has active assignment (avoid duplicates)
+        const existing = await assignmentService.getActiveAssignment(car_number);
+        if (!existing) {
+          await assignmentService.createAssignment({
+            car_number,
+            shop_code,
+            target_month,
+            estimated_cost,
+            source: 'demand_plan',
+            source_reference_id: result.rows[0].id,
+            source_reference_type: 'allocation',
+            created_by_id: created_by,
+          });
+        }
+      } catch (err) {
+        // Log but don't fail - legacy flow should still work
+        console.warn('SSOT write failed (non-blocking):', err);
+      }
+    }
 
     return result.rows[0];
   });
