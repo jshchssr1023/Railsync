@@ -20,6 +20,9 @@
 | Bulk Shop Re-assignment | "Re-sync Schedule" button + SQL function | `resync_rider_schedules()`, `/api/riders/:id/resync-schedule` | `b1d369e` |
 | Car Shopping Validation | Check for outdated terms before shop | `/api/cars/:carNumber/validate-shopping` | `b1d369e` |
 | Shop Validation Modal | Confirmation modal with Before/After when shopping car with outdated terms | `frontend/src/app/fleet/page.tsx` | `a467f65` |
+| Bulk Selection & Actions | Checkbox column in AllocationList with batch actions | `AllocationList.tsx` | `74d558d` |
+| Virtual Grid Sticky Headers | Sticky top (months) and left (shops) in CapacityGrid | `CapacityGrid.tsx` | `74d558d` |
+| Hover Details Tooltip | Tooltip showing car numbers on capacity cell hover | `CapacityGrid.tsx`, `GET /capacity/:shop/:month/cars` | `74d558d` |
 
 ### In Progress 🔄
 
@@ -33,11 +36,8 @@
 |---------|----------|-----------|----------------|
 | Drag-and-Drop Shop Loading | High | 0% | Split-pane interface for allocation |
 | Real-time Capacity Sync | High | 40% | WebSocket/SSE for live updates |
-| Bulk Selection & Actions | Medium | 20% | Multi-car selection, batch API |
 | Proximity Filter | Medium | 10% | Rail-mile radius suggestions |
 | Capability Match Filter | Medium | 10% | Gray out incompatible shops |
-| Virtual Grid Sticky Headers | Low | 0% | Horizontal/vertical sticky |
-| Hover Details Tooltip | Low | 0% | Show car numbers in capacity cell |
 
 ---
 
@@ -83,7 +83,7 @@
 
 ---
 
-### 3. Bulk Selection & Actions (20% Complete)
+### 3. Bulk Selection & Actions (100% Complete) ✅
 
 **What Exists:**
 - Shop comparison multi-select (max 3 shops) in `ResultsGrid.tsx:64-71`
@@ -142,7 +142,7 @@ CREATE INDEX idx_shops_location ON shops(latitude, longitude);
 
 ---
 
-### 6. Virtual Grid Sticky Headers (0% Complete)
+### 6. Virtual Grid Sticky Headers (100% Complete) ✅
 
 **What Exists:**
 - `CapacityGrid.tsx` with basic table headers
@@ -156,7 +156,7 @@ CREATE INDEX idx_shops_location ON shops(latitude, longitude);
 
 ---
 
-### 7. Hover Details Tooltip (0% Complete)
+### 7. Hover Details Tooltip (100% Complete) ✅
 
 **What Exists:**
 - Capacity cells show `allocated/total` format
