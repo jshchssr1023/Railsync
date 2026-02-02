@@ -15,22 +15,28 @@
 | Budget Input Screen | Running Repairs + Service Events editing | `frontend/src/app/budget/page.tsx` | `735e1c2` |
 | S&OP Planning Schema | Monthly snapshots, maintenance forecast v2 | `database/migrations/009_sop_planning.sql` | `77360ed` |
 | Amendment Tracking | Visual badges, conflict detection | `v_amendment_summary` view, `lease_amendments` table | `b1d369e` |
+| Auth Token Fix | Fixed localStorage key mismatch for API auth | `frontend/src/lib/api.ts` | `19a17ff` |
+| Amendment Conflict Modal | Before/After comparison when shopping car | `frontend/src/components/fleet/AmendmentModal.tsx` | `b1d369e` |
+| Bulk Shop Re-assignment | "Re-sync Schedule" button + SQL function | `resync_rider_schedules()`, `/api/riders/:id/resync-schedule` | `b1d369e` |
+| Car Shopping Validation | Check for outdated terms before shop | `/api/cars/:carNumber/validate-shopping` | `b1d369e` |
 
 ### In Progress 🔄
 
 | Feature | Owner | Notes |
 |---------|-------|-------|
-| Auth Token Fix | Other Dev | Fixed localStorage key mismatch (`19a17ff`) |
+| *None currently* | - | - |
 
 ### Pending 📋
 
 | Feature | Priority | Spec Reference |
 |---------|----------|----------------|
-| Bulk Shop Re-assignment | High | "Re-sync Schedule" button for managers |
-| Amendment Conflict Modal | Medium | Before/After comparison when shopping car |
-| Drag-and-Drop Shop Loading | Medium | Split-pane interface for allocation |
-| Shop Capacity Real-time Sync | Medium | Decrement capacity on assignment |
+| Drag-and-Drop Shop Loading | High | Split-pane interface for allocation (Left: Demand, Right: Capacity) |
+| Shop Capacity Real-time Sync | High | Decrement capacity on assignment via UI |
+| Virtual Grid Sticky Headers | Medium | Horizontal/vertical sticky for Shop Capacity Grid |
+| Bulk Drag Multi-Car | Medium | Select multiple cars and drop into shop at once |
+| Hover Details Tooltip | Low | Show car numbers assigned to capacity cell |
 | Proximity Filter | Low | Smart suggest based on rail-mile radius |
+| Capability Match Filter | Low | Gray out shops that can't perform required service |
 
 ### Database Views Created
 
