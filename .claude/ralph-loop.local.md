@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 10
+iteration: 11
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-01T18:31:56Z"
-last_updated: "2026-02-02T16:45:00Z"
+last_updated: "2026-02-02T17:15:00Z"
 ---
 
 # Ralph Loop - Railsync Work Tracking
@@ -51,6 +51,9 @@ Allocations: 137
 car_assignments: 125 (19 Complete, 30 Enroute, 21 InShop, 16 Planned, 39 Scheduled)
 assignment_service_options: 125
 bad_order_reports: 0 (ready)
+running_repairs_budget: 12 months ($7.1M total)
+service_event_budget: 3 event types ($27.6M total)
+Total Budget: $34.7M
 ```
 
 ## Current Blockers
@@ -110,8 +113,18 @@ All core features complete:
 - Error boundaries: ✅ Complete
 - Tier filters: ✅ Working
 - Budget variance: ✅ Complete
+- Shop Evaluation: ✅ Working (19 eligible shops, full cost breakdowns)
+- Budget API: ✅ $34.7M total budget ($7.1M running + $27.6M service events)
 
-Only remaining item: #11 Shop Now button needs user verification
+All API Endpoints Verified (Iteration 11):
+- /api/health: healthy
+- /api/shops: 963 shops
+- /api/cars/{id}: working with full attributes
+- /api/assignments: 125 SSOT records
+- /api/budget/summary: $34.7M budget
+- /api/bad-orders: working
+- /api/forecast: working
+- POST /api/shops/evaluate: 19 eligible shops for ACFX600001
 
 ---
 
@@ -127,7 +140,7 @@ Only remaining item: #11 Shop Now button needs user verification
 | Item | Status |
 |------|--------|
 | One active assignment per car | ✅ Unique constraint enforced |
-| All planning paths write to SSOT | ❌ GAP - See below |
+| All planning paths write to SSOT | ✅ ALL GAPS CLOSED (Iteration 10) |
 | Service options attached to assignments | ✅ 125 options exist |
 | Source tracking on all assignments | ✅ Present |
 | Full audit trail | ✅ version, timestamps, user IDs |
@@ -149,6 +162,13 @@ Only remaining item: #11 Shop Now button needs user verification
 2. ✅ Fix Rules page authorization (#28) - Admin users can now edit, others see read-only
 3. ⏳ Phase 3: Service Plans (if needed)
 4. ⏳ Phase 4: Master Planning (if needed)
+
+## Iteration 11 Updates (2026-02-02 17:15)
+- Budget Data: ✅ Service event budget seeded (Qual $8.75M, Assignment $10.08M, Return $8.8M)
+- Budget API: ✅ Returns $34.7M total budget ($7.1M running repairs + $27.6M service events)
+- Backend: ✅ 119 tests passing
+- Frontend: ✅ 10 pages building successfully
+- API Health: ✅ All endpoints responding
 
 ## Iteration 10 Updates (2026-02-02 16:45)
 - SSOT Migration: ✅ BRC Import now writes to car_assignments (#29)
