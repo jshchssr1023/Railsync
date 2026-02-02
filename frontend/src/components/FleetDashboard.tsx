@@ -52,20 +52,22 @@ export default function FleetDashboard() {
   const currentYear = new Date().getFullYear();
   const [tierFilter, setTierFilter] = useState<string>('all');
 
+  const tierParam = tierFilter !== 'all' ? `&tier=${tierFilter}` : '';
+
   const { data: metrics, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<FleetMetrics>(
-    `${API_BASE}/fleet/metrics`,
+    `${API_BASE}/fleet/metrics?_=${tierFilter}${tierParam}`,
     fetcher,
     { refreshInterval: 30000 }
   );
 
   const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading, mutate: mutateVolumes } = useSWR<MonthlyVolume[]>(
-    `${API_BASE}/fleet/monthly-volumes?year=${currentYear}`,
+    `${API_BASE}/fleet/monthly-volumes?year=${currentYear}${tierParam}`,
     fetcher,
     { refreshInterval: 60000 }
   );
 
   const { data: tierData, error: tierError, isLoading: tierLoading, mutate: mutateTiers } = useSWR<TierData[]>(
-    `${API_BASE}/fleet/tier-summary`,
+    `${API_BASE}/fleet/tier-summary?_=${tierFilter}${tierParam}`,
     fetcher,
     { refreshInterval: 60000 }
   );

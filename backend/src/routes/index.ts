@@ -5,6 +5,7 @@ import ruleController from '../controllers/rule.controller';
 import * as authController from '../controllers/auth.controller';
 import planningController from '../controllers/planning.controller';
 import alertsController from '../controllers/alerts.controller';
+import shopImportController from '../controllers/shopImport.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -163,6 +164,38 @@ router.put('/shops/:shopCode/capacity', authenticate, authorize('admin', 'operat
  *          }
  */
 router.post('/shops/backlog/batch', authenticate, authorize('admin', 'operator'), shopController.batchUpdateBacklog);
+
+// ============================================================================
+// SHOP IMPORT ROUTES (Admin only)
+// ============================================================================
+
+/**
+ * @route   POST /api/shops/import/attributes
+ * @desc    Import shop attributes from CSV data
+ * @access  Protected - Admin only
+ */
+router.post('/shops/import/attributes', authenticate, authorize('admin'), shopImportController.importShopAttributes);
+
+/**
+ * @route   POST /api/shops/import/capabilities
+ * @desc    Import shop capabilities from CSV data
+ * @access  Protected - Admin only
+ */
+router.post('/shops/import/capabilities', authenticate, authorize('admin'), shopImportController.importShopCapabilities);
+
+/**
+ * @route   POST /api/capacity/import/monthly
+ * @desc    Import monthly capacity data from CSV
+ * @access  Protected - Admin only
+ */
+router.post('/capacity/import/monthly', authenticate, authorize('admin'), shopImportController.importMonthlyCapacity);
+
+/**
+ * @route   POST /api/capacity/import/work
+ * @desc    Import work type capacity data from CSV
+ * @access  Protected - Admin only
+ */
+router.post('/capacity/import/work', authenticate, authorize('admin'), shopImportController.importWorkCapacity);
 
 // ============================================================================
 // RULE ROUTES
@@ -499,8 +532,29 @@ router.delete('/dashboard/configs/:id', authenticate, planningController.deleteD
 // ============================================================================
 
 router.get('/fleet/metrics', async (req, res) => {
+  const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
-    const result = await query('SELECT * FROM v_fleet_summary LIMIT 1');
+    let result;
+    if (tier) {
+      result = await query(`
+        SELECT
+          COUNT(*) FILTER (WHERE a.current_status = 'in_shop') AS in_shop_count,
+          COUNT(*) FILTER (WHERE a.current_status IN ('planned','proposed')) AS planned_count,
+          COUNT(*) FILTER (WHERE a.current_status = 'enroute') AS enroute_count,
+          COUNT(*) FILTER (WHERE a.current_status = 'dispo') AS dispo_count,
+          COUNT(*) FILTER (WHERE a.current_status = 'scheduled') AS scheduled_count,
+          COUNT(*) FILTER (WHERE a.current_status = 'completed') AS completed_count,
+          COUNT(*) AS total_fleet,
+          COALESCE(SUM(CAST(a.estimated_cost AS DECIMAL)), 0) AS total_planned_cost,
+          COALESCE(SUM(CAST(a.actual_cost AS DECIMAL)), 0) AS total_actual_cost
+        FROM allocations a
+        LEFT JOIN shops s ON a.shop_code = s.shop_code
+        WHERE a.status NOT IN ('Released', 'cancelled')
+          AND COALESCE(s.tier, 1) = $1
+      `, [tier]);
+    } else {
+      result = await query('SELECT * FROM v_fleet_summary LIMIT 1');
+    }
     res.json({ success: true, data: result[0] || {} });
   } catch (error) {
     console.error('Fleet metrics error:', error);
@@ -510,11 +564,34 @@ router.get('/fleet/metrics', async (req, res) => {
 
 router.get('/fleet/monthly-volumes', async (req, res) => {
   const year = parseInt(req.query.year as string) || new Date().getFullYear();
+  const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
-    const result = await query(
-      "SELECT * FROM v_monthly_volumes WHERE month LIKE $1 ORDER BY month",
-      [`${year}%`]
-    );
+    let result;
+    if (tier) {
+      result = await query(`
+        SELECT
+          a.target_month as month,
+          COUNT(*) FILTER (WHERE a.current_status = 'in_shop') AS in_shop,
+          COUNT(*) FILTER (WHERE a.current_status = 'planned') AS planned,
+          COUNT(*) FILTER (WHERE a.current_status = 'scheduled') AS scheduled,
+          COUNT(*) FILTER (WHERE a.current_status = 'enroute') AS enroute,
+          COUNT(*) AS total_cars,
+          COALESCE(SUM(CAST(a.estimated_cost AS DECIMAL)), 0) AS planned_cost,
+          COALESCE(SUM(CAST(a.actual_cost AS DECIMAL)), 0) AS actual_cost
+        FROM allocations a
+        LEFT JOIN shops s ON a.shop_code = s.shop_code
+        WHERE a.target_month LIKE $1
+          AND a.status NOT IN ('Released', 'cancelled')
+          AND COALESCE(s.tier, 1) = $2
+        GROUP BY a.target_month
+        ORDER BY a.target_month
+      `, [`${year}%`, tier]);
+    } else {
+      result = await query(
+        "SELECT * FROM v_monthly_volumes WHERE month LIKE $1 ORDER BY month",
+        [`${year}%`]
+      );
+    }
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Monthly volumes error:', error);
@@ -523,8 +600,17 @@ router.get('/fleet/monthly-volumes', async (req, res) => {
 });
 
 router.get('/fleet/tier-summary', async (req, res) => {
+  const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
-    const result = await query('SELECT * FROM v_tier_summary ORDER BY tier');
+    let result;
+    if (tier) {
+      result = await query(
+        'SELECT * FROM v_tier_summary WHERE tier = $1 ORDER BY tier',
+        [tier]
+      );
+    } else {
+      result = await query('SELECT * FROM v_tier_summary ORDER BY tier');
+    }
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Tier summary error:', error);
