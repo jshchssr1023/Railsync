@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 8
+iteration: 9
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-01T18:31:56Z"
-last_updated: "2026-02-02T12:45:00Z"
+last_updated: "2026-02-02T12:55:00Z"
 ---
 
 # Ralph Loop - Railsync Work Tracking
@@ -29,6 +29,7 @@ last_updated: "2026-02-02T12:45:00Z"
 | #14 | Shop import API endpoints | Routes wired to index.ts |
 | #23 | Migrate Quick Shop to SSOT | shop.controller.ts now writes to car_assignments |
 | #24 | Migrate allocation.service to SSOT | allocation.service.ts now writes to car_assignments |
+| #25 | Migrate planning.service to SSOT | Both createAllocation and generateAllocations |
 | #23 | Quick Shop → SSOT | shop.controller.ts writes to car_assignments |
 
 ### 📋 TODO (from railsync_tasks.md)
@@ -73,6 +74,7 @@ frontend/src/components/BudgetOverview.tsx    - FetchError integration
 frontend/src/components/AllocationList.tsx    - FetchError integration
 backend/src/controllers/shop.controller.ts    - SSOT: Quick Shop now writes to car_assignments ✓
 backend/src/services/allocation.service.ts    - SSOT: Also writes to car_assignments ✓
+backend/src/services/planning.service.ts      - SSOT: Both allocation functions write to car_assignments ✓
 ```
 
 ## Ralph Verification Status (Iteration 4)
@@ -134,8 +136,8 @@ Only remaining item: #11 Shop Now button needs user verification
 | Path | File:Line | Target Table | Status |
 |------|-----------|--------------|--------|
 | Quick Shop | shop.controller.ts:332 | service_events | ✅ #23 Done |
-| Create Allocation | planning.service.ts:388 | allocations | ⚠️ |
-| Generate Allocations | planning.service.ts:632 | allocations | ⚠️ |
+| Create Allocation | planning.service.ts:388 | allocations | ✅ #25 Done |
+| Generate Allocations | planning.service.ts:632 | allocations | ✅ #25 Done |
 | BRC Import | brc.service.ts:251 | allocations | ⚠️ |
 | Allocation Service | allocation.service.ts:105 | allocations | ✅ #24 Done |
 | Car Model | car.model.ts:83 | service_events | ⚠️ |

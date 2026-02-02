@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { evaluateShops } from './evaluation.service';
 import { getDemandById, updateDemandStatus } from './demand.service';
+import * as assignmentService from './assignment.service';
 
 // ============================================================================
 // SHOP MONTHLY CAPACITY
@@ -405,6 +406,27 @@ export async function createAllocation(input: {
     ]
   );
 
+  // SSOT: Also write to car_assignments if car_number is provided
+  if (car_number) {
+    try {
+      const existing = await assignmentService.getActiveAssignment(car_number);
+      if (!existing) {
+        await assignmentService.createAssignment({
+          car_number,
+          shop_code,
+          target_month,
+          estimated_cost,
+          source: 'demand_plan',
+          source_reference_id: rows[0].id,
+          source_reference_type: 'allocation',
+          created_by_id: created_by,
+        });
+      }
+    } catch (err) {
+      console.warn('SSOT write failed (non-blocking):', err);
+    }
+  }
+
   // Update capacity count
   if (status === 'confirmed') {
     await query(
@@ -628,11 +650,12 @@ export async function generateAllocations(
   // Save allocations if not preview
   if (!request.preview_only && allocations.length > 0) {
     for (const alloc of allocations) {
-      await query(
+      const allocResult = await query(
         `INSERT INTO allocations (
           demand_id, scenario_id, car_id, shop_code, target_month,
           estimated_cost, estimated_cost_breakdown, status, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id`,
         [
           alloc.demand_id,
           alloc.scenario_id,
@@ -645,6 +668,27 @@ export async function generateAllocations(
           alloc.created_by,
         ]
       );
+
+      // SSOT: Also write to car_assignments if car_number, shop_code, and target_month are provided
+      if (alloc.car_number && alloc.shop_code && alloc.target_month) {
+        try {
+          const existing = await assignmentService.getActiveAssignment(alloc.car_number);
+          if (!existing) {
+            await assignmentService.createAssignment({
+              car_number: alloc.car_number,
+              shop_code: alloc.shop_code,
+              target_month: alloc.target_month,
+              estimated_cost: alloc.estimated_cost,
+              source: 'scenario_export',
+              source_reference_id: allocResult[0]?.id,
+              source_reference_type: 'allocation',
+              created_by_id: alloc.created_by,
+            });
+          }
+        } catch (err) {
+          console.warn('SSOT write failed (non-blocking):', err);
+        }
+      }
 
       // Update capacity table
       await query(
