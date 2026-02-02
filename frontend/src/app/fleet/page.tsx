@@ -13,6 +13,7 @@ import RiderCard from '@/components/fleet/RiderCard';
 import CarCard from '@/components/fleet/CarCard';
 import AmendmentModal from '@/components/fleet/AmendmentModal';
 import FleetHealthDashboard from '@/components/FleetHealthDashboard';
+import FacetedSidebar, { FilterState } from '@/components/FacetedSidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -139,6 +140,18 @@ export default function FleetPage() {
     warnings: string[];
   } | null>(null);
   const [validatingShop, setValidatingShop] = useState(false);
+
+  // Sidebar filter state
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarFilters, setSidebarFilters] = useState<FilterState>({
+    customers: [],
+    leaseIds: [],
+    carTypes: [],
+    materialTypes: [],
+    commodities: [],
+    shopCodes: [],
+    statuses: [],
+  });
 
   // Fetch customers
   const { data: customers, error: customersError, isLoading: customersLoading } = useSWR<Customer[]>(
@@ -302,14 +315,32 @@ export default function FleetPage() {
   }, [riders, searchQuery]);
 
   const filteredCars = useMemo(() => {
-    if (!cars || !searchQuery) return cars || [];
-    const q = searchQuery.toLowerCase();
-    return cars.filter(c =>
-      c.car_number.toLowerCase().includes(q) ||
-      c.lessee_name?.toLowerCase().includes(q) ||
-      c.material_type?.toLowerCase().includes(q)
-    );
-  }, [cars, searchQuery]);
+    if (!cars) return [];
+    let result = cars;
+
+    // Search query filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(c =>
+        c.car_number.toLowerCase().includes(q) ||
+        c.lessee_name?.toLowerCase().includes(q) ||
+        c.material_type?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sidebar filters
+    if (sidebarFilters.carTypes.length > 0) {
+      result = result.filter(c => sidebarFilters.carTypes.includes(c.car_type));
+    }
+    if (sidebarFilters.materialTypes.length > 0) {
+      result = result.filter(c => sidebarFilters.materialTypes.includes(c.material_type));
+    }
+    if (sidebarFilters.statuses.length > 0) {
+      result = result.filter(c => sidebarFilters.statuses.includes(c.current_status));
+    }
+
+    return result;
+  }, [cars, searchQuery, sidebarFilters]);
 
   // Pagination
   const paginatedCars = useMemo(() => {
@@ -498,6 +529,26 @@ export default function FleetPage() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
+            {level === 'cars' && (
+              <button
+                onClick={() => setShowSidebar(!showSidebar)}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  showSidebar
+                    ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+                {Object.values(sidebarFilters).flat().length > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs bg-primary-500 text-white rounded-full">
+                    {Object.values(sidebarFilters).flat().length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -566,7 +617,19 @@ export default function FleetPage() {
 
               {/* Cars Table */}
               {level === 'cars' && (
-                <>
+                <div className="flex gap-4">
+                  {/* Sidebar */}
+                  {showSidebar && (
+                    <div className="flex-shrink-0">
+                      <FacetedSidebar
+                        onFilterChange={setSidebarFilters}
+                        initialFilters={sidebarFilters}
+                      />
+                    </div>
+                  )}
+
+                  {/* Table */}
+                  <div className="flex-1 min-w-0">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700">
@@ -645,7 +708,8 @@ export default function FleetPage() {
                       </div>
                     </div>
                   )}
-                </>
+                  </div>
+                </div>
               )}
             </>
           )}
