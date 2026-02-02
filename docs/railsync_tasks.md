@@ -29,15 +29,172 @@
 
 ### Pending 📋
 
-| Feature | Priority | Spec Reference |
-|---------|----------|----------------|
-| Drag-and-Drop Shop Loading | High | Split-pane interface for allocation (Left: Demand, Right: Capacity) |
-| Shop Capacity Real-time Sync | High | Decrement capacity on assignment via UI |
-| Virtual Grid Sticky Headers | Medium | Horizontal/vertical sticky for Shop Capacity Grid |
-| Bulk Drag Multi-Car | Medium | Select multiple cars and drop into shop at once |
-| Hover Details Tooltip | Low | Show car numbers assigned to capacity cell |
-| Proximity Filter | Low | Smart suggest based on rail-mile radius |
-| Capability Match Filter | Low | Gray out shops that can't perform required service |
+| Feature | Priority | Current % | Spec Reference |
+|---------|----------|-----------|----------------|
+| Drag-and-Drop Shop Loading | High | 0% | Split-pane interface for allocation |
+| Real-time Capacity Sync | High | 40% | WebSocket/SSE for live updates |
+| Bulk Selection & Actions | Medium | 20% | Multi-car selection, batch API |
+| Proximity Filter | Medium | 10% | Rail-mile radius suggestions |
+| Capability Match Filter | Medium | 10% | Gray out incompatible shops |
+| Virtual Grid Sticky Headers | Low | 0% | Horizontal/vertical sticky |
+| Hover Details Tooltip | Low | 0% | Show car numbers in capacity cell |
+
+---
+
+## Detailed Gap Analysis
+
+> **Last Analyzed:** 2026-02-02 by Claude Opus 4.5
+
+### 1. Drag-and-Drop Shop Loading (0% Complete)
+
+**What Exists:**
+- Framer Motion library available (`framer-motion: ^12.29.2`)
+- Modal/Drawer patterns: `ShopDetailDrawer.tsx`, `SelectShopModal.tsx`
+- Results grid with allocation list column
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No drag-drop library installed | package.json | S |
+| No drag handlers in AllocationList | `AllocationList.tsx` | M |
+| No visual drag feedback (hover zones) | `ResultsGrid.tsx` | M |
+| No batch allocation API endpoint | `planning.controller.ts` | M |
+| No split-pane resizer component | New component needed | M |
+
+**Recommended Library:** `@dnd-kit/core` (modern, accessible, React 18 compatible)
+
+---
+
+### 2. Real-time Capacity Sync (40% Complete)
+
+**What Exists:**
+- Allocation → Capacity atomic transaction (`allocation.service.ts:61-150`)
+- Row-level locking with `FOR UPDATE` prevents race conditions
+- 10% overcommit buffer validation
+- Status management: proposed → planned → confirmed → complete
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No WebSocket/SSE for live updates | New service + frontend hook | L |
+| No optimistic UI updates | `CapacityGrid.tsx` | M |
+| No pending confirmation state before deducting | `allocation.service.ts` | M |
+| No conflict retry/reconciliation | `planning/page.tsx` | S |
+
+---
+
+### 3. Bulk Selection & Actions (20% Complete)
+
+**What Exists:**
+- Shop comparison multi-select (max 3 shops) in `ResultsGrid.tsx:64-71`
+- Compare badge and modal trigger
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No checkbox column in AllocationList | `AllocationList.tsx` | S |
+| No "select all" / range selection | `AllocationList.tsx` | M |
+| No batch operations UI | New component | M |
+| No `PATCH /api/allocations/batch` endpoint | `planning.controller.ts` | M |
+| No keyboard shortcuts (Shift+Click) | Event handlers | S |
+
+---
+
+### 4. Proximity Filter (10% Complete)
+
+**What Exists:**
+- Shop region field (string, not lookup)
+- `is_preferred_network` boolean filter
+- Network filter dropdown in CapacityGrid
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No lat/lon fields in shops table | Migration needed | S |
+| No PostGIS or distance calculation | Database + service | L |
+| No "Shops within X miles" UI filter | `ResultsGrid.tsx` | M |
+| No region lookup table | Migration needed | S |
+| No spatial index | Migration needed | S |
+
+**Schema Change Required:**
+```sql
+ALTER TABLE shops ADD COLUMN latitude DECIMAL(9,6);
+ALTER TABLE shops ADD COLUMN longitude DECIMAL(9,6);
+CREATE INDEX idx_shops_location ON shops(latitude, longitude);
+```
+
+---
+
+### 5. Capability Match Filter (10% Complete)
+
+**What Exists:**
+- `shop_capabilities` table with capability_type/value
+- `getCapabilities(shopCode)` function
+- Evaluation service checks capabilities vs car requirements
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No capability multi-select filter UI | `ResultsGrid.tsx` | M |
+| No "Show only shops with X" toggle | `CapacityGrid.tsx` | S |
+| No capability matching display | `ShopDetailDrawer.tsx` | M |
+| No combined filter panel | New component | M |
+
+---
+
+### 6. Virtual Grid Sticky Headers (0% Complete)
+
+**What Exists:**
+- `CapacityGrid.tsx` with basic table headers
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No sticky position on shop column | CSS + `CapacityGrid.tsx` | S |
+| No sticky month headers | CSS + `CapacityGrid.tsx` | S |
+| No intersection observer for large grids | `CapacityGrid.tsx` | M |
+
+---
+
+### 7. Hover Details Tooltip (0% Complete)
+
+**What Exists:**
+- Capacity cells show `allocated/total` format
+
+**What's Missing:**
+| Gap | Files Affected | Effort |
+|-----|----------------|--------|
+| No tooltip component on capacity cells | `CapacityGrid.tsx` | S |
+| No API to fetch car numbers per shop/month | `planning.controller.ts` | S |
+| No hover state management | `CapacityGrid.tsx` | S |
+
+---
+
+## Recommended Implementation Order
+
+```
+Phase A (Foundation):
+  1. Bulk Selection (20% → 100%) - Enables batch operations
+  2. Hover Details Tooltip (0% → 100%) - Quick win, improves UX
+  3. Virtual Grid Sticky Headers (0% → 100%) - Quick win, improves UX
+
+Phase B (Filtering):
+  4. Proximity Filter (10% → 100%) - Requires schema migration
+  5. Capability Match Filter (10% → 100%) - Builds on existing capabilities
+
+Phase C (Advanced):
+  6. Real-time Capacity Sync (40% → 100%) - Requires WebSocket infrastructure
+  7. Drag-and-Drop Shop Loading (0% → 100%) - Depends on batch API from #1
+```
+
+---
+
+## Technical Debt Notes
+
+1. **Shop location data**: Currently no geographic coordinates in `shops` table
+2. **Region as string**: `shop.region` should be FK to lookup table
+3. **No WebSocket infrastructure**: All updates require manual refresh
+4. **Allocation batch API missing**: Cannot process multiple allocations atomically
 
 ### Database Views Created
 
