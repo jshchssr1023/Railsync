@@ -139,11 +139,11 @@ export default function GlobalCommandBar() {
       {/* Trigger Button */}
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
       >
         <Search className="w-4 h-4" />
         <span className="hidden sm:inline">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">
+        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-600 rounded">
           <span className="text-xs">⌘</span>K
         </kbd>
       </button>
@@ -170,7 +170,7 @@ export default function GlobalCommandBar() {
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Search customers, cars, shops..."
-                  className="flex-1 px-4 py-4 text-gray-900 dark:text-gray-100 bg-transparent outline-none placeholder-gray-400"
+                  className="flex-1 px-4 py-4 text-gray-900 dark:text-gray-100 bg-transparent outline-none placeholder-gray-400 dark:placeholder-gray-500"
                 />
                 {query && (
                   <button onClick={() => setQuery('')} className="p-2 mr-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
@@ -229,11 +229,11 @@ export default function GlobalCommandBar() {
               {/* Footer */}
               <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400">
                 <span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">↑↓</kbd> Navigate
-                  <kbd className="ml-2 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">↵</kbd> Select
+                  <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">↑↓</kbd> Navigate
+                  <kbd className="ml-2 px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">↵</kbd> Select
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">Esc</kbd> Close
+                  <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">Esc</kbd> Close
                 </span>
               </div>
             </div>

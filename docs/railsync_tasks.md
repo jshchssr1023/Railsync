@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 13:45 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 14:00 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -26,7 +26,8 @@
 | Drag-and-Drop Shop Loading | Split-pane interface for shop assignment | `ShopLoadingTool.tsx`, `POST /allocations/:id/assign` | pending |
 | Proximity Filter | Haversine distance calculation, nearby shops search | `013_shop_geo_filtering.sql`, `shopFilter.service.ts` | pending |
 | Capability Match Filter | Filter shops by capability types | `shopFilter.controller.ts`, `ShopFilterPanel.tsx` | pending |
-| Shop Finder Page | Combined filter UI with results table | `/shops` page, navigation links | pending |
+| Shop Finder Page | Combined filter UI with results table | `/shops` page, navigation links | `3a27ff0` |
+| Real-time Capacity Sync | SSE for live capacity updates with auto-reconnect | `capacity-events.service.ts`, `useCapacityEvents.ts`, `CapacityGrid.tsx` | pending |
 | Shopping Classification | 12 types, 30+ reasons, dependent dropdowns | `014_shopping_classification.sql`, `AllocationList.tsx` | `3de7195` |
 | Timeline/Gantt Toggle | Visual timeline view with table toggle | `AllocationTimeline.tsx`, `planning/page.tsx` | `a6fa237` |
 | Fleet Health Dashboard | Stoplight cards for shopping/utilization/risk | `FleetHealthDashboard.tsx`, `fleet/page.tsx` | `e03e637` |
@@ -44,7 +45,7 @@
 
 | Feature | Priority | Current % | Spec Reference |
 |---------|----------|-----------|----------------|
-| Real-time Capacity Sync | High | 40% | WebSocket/SSE for live updates |
+| *All Phase C features complete* | - | - | - |
 
 ---
 
@@ -72,21 +73,26 @@
 
 ---
 
-### 2. Real-time Capacity Sync (40% Complete)
+### 2. Real-time Capacity Sync (100% Complete) ✅
 
 **What Exists:**
-- Allocation → Capacity atomic transaction (`allocation.service.ts:61-150`)
-- Row-level locking with `FOR UPDATE` prevents race conditions
-- 10% overcommit buffer validation
-- Status management: proposed → planned → confirmed → complete
+- SSE endpoint at `/api/events/capacity` with auto-reconnect
+- `CapacityEventEmitter` singleton broadcasts allocation changes
+- Event emission on create/update/delete allocation operations
+- `useCapacityEvents` React hook with exponential backoff reconnection
+- `useOptimisticCapacity` hook for pending update tracking
+- Live connection status indicator (green/yellow/red) in CapacityGrid header
+- Real-time grid updates without page refresh
 
-**What's Missing:**
-| Gap | Files Affected | Effort |
-|-----|----------------|--------|
-| No WebSocket/SSE for live updates | New service + frontend hook | L |
-| No optimistic UI updates | `CapacityGrid.tsx` | M |
-| No pending confirmation state before deducting | `allocation.service.ts` | M |
-| No conflict retry/reconciliation | `planning/page.tsx` | S |
+**Files Created/Modified:**
+- `backend/src/services/capacity-events.service.ts` - EventEmitter singleton
+- `backend/src/controllers/sse.controller.ts` - SSE endpoint handler
+- `backend/src/services/allocation.service.ts` - Event emission on CRUD
+- `backend/src/routes/index.ts` - SSE routes
+- `frontend/src/hooks/useCapacityEvents.ts` - SSE subscription hook
+- `frontend/src/hooks/useOptimisticCapacity.ts` - Optimistic updates
+- `frontend/src/hooks/index.ts` - Hook exports
+- `frontend/src/components/CapacityGrid.tsx` - Live updates + status indicator
 
 ---
 
@@ -185,8 +191,8 @@ Phase B (Filtering): ✅ COMPLETE
   4. Proximity Filter (100%) - Haversine formula, nearby shops search
   5. Capability Match Filter (100%) - Multi-select capability filtering
 
-Phase C (Advanced):
-  6. Real-time Capacity Sync (40%) - Requires WebSocket infrastructure
+Phase C (Advanced): ✅ COMPLETE
+  6. Real-time Capacity Sync (100%) - SSE infrastructure complete
   7. Drag-and-Drop Shop Loading (100%) - Split-pane interface complete
 ```
 
@@ -196,7 +202,7 @@ Phase C (Advanced):
 
 1. ~~**Shop location data**: Currently no geographic coordinates in `shops` table~~ ✅ RESOLVED - Added lat/lon with migration 013
 2. **Region as string**: `shop.region` should be FK to lookup table (low priority)
-3. **No WebSocket infrastructure**: All updates require manual refresh
+3. ~~**No WebSocket infrastructure**: All updates require manual refresh~~ ✅ RESOLVED - SSE implemented for real-time updates
 4. **Allocation batch API missing**: Cannot process multiple allocations atomically
 
 ### Database Views Created
@@ -226,6 +232,9 @@ GET  /api/fleet/cars-with-amendments   - Cars with amendment status
 GET  /api/cars/:carNumber/validate-shopping - Check for outdated terms
 POST /api/allocations/:id/assign       - Drag-and-drop shop assignment
 GET  /api/capacity/:shopCode/:month/cars - Cars in capacity cell (tooltip)
+GET  /api/events/capacity               - SSE subscription for real-time updates
+GET  /api/events/status                 - SSE connection status
+POST /api/events/test                   - Test event emission (admin only)
 ```
 
 ### Demo Data Seeded

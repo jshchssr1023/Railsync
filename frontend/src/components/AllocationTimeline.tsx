@@ -22,13 +22,13 @@ interface ShoppingType {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  'Need Shopping': 'bg-amber-400',
-  'To Be Routed': 'bg-amber-300',
-  'Planned Shopping': 'bg-blue-400',
-  'Enroute': 'bg-yellow-400',
-  'Arrived': 'bg-green-400',
-  'Complete': 'bg-green-600',
-  'Released': 'bg-gray-400',
+  'Need Shopping': 'bg-amber-500 text-white',
+  'To Be Routed': 'bg-amber-400 text-gray-900',
+  'Planned Shopping': 'bg-blue-500 text-white',
+  'Enroute': 'bg-yellow-500 text-gray-900',
+  'Arrived': 'bg-green-500 text-white',
+  'Complete': 'bg-green-600 text-white',
+  'Released': 'bg-gray-500 text-white',
 };
 
 export default function AllocationTimeline() {
@@ -119,7 +119,7 @@ export default function AllocationTimeline() {
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Shopping Timeline</h2>
-          <p className="text-sm text-gray-500">{allocations.length} allocations across {timelineData.length} shops</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{allocations.length} allocations across {timelineData.length} shops</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -172,19 +172,19 @@ export default function AllocationTimeline() {
             </thead>
             <tbody>
               {timelineData.slice(0, 20).map(({ shop, months: shopMonths }) => (
-                <tr key={shop} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <tr key={shop} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 font-medium border-r border-gray-200 dark:border-gray-700">
                     {shop}
                   </td>
                   {months.map(m => {
                     const cellAllocs = shopMonths.get(m) || [];
                     return (
-                      <td key={m} className="px-1 py-1 border-r border-gray-100 dark:border-gray-800">
+                      <td key={m} className="px-1 py-1 border-r border-gray-200 dark:border-gray-700">
                         <div className="flex flex-wrap gap-0.5">
                           {cellAllocs.slice(0, 8).map(a => (
                             <div
                               key={a.id}
-                              className={`w-6 h-5 rounded text-[9px] flex items-center justify-center text-white font-medium ${STATUS_COLORS[a.status] || 'bg-gray-400'}`}
+                              className={`w-6 h-5 rounded text-[9px] flex items-center justify-center font-medium ${STATUS_COLORS[a.status] || 'bg-gray-500 text-white'}`}
                               title={`${a.car_number || a.car_id.slice(0,6)} - ${a.status}${getTypeName(a.shopping_type_id) ? ` (${getTypeName(a.shopping_type_id)})` : ''}`}
                             >
                               {(a.car_number || a.car_id).slice(-3)}
@@ -226,13 +226,13 @@ export default function AllocationTimeline() {
             </thead>
             <tbody>
               {allocations.filter(a => months.includes(a.target_month)).slice(0, 100).map(a => (
-                <tr key={a.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <tr key={a.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-3 py-2 font-mono">{a.car_number || a.car_id.slice(0, 8)}</td>
                   <td className="px-3 py-2">{a.shop_code}</td>
                   <td className="px-3 py-2">{formatMonth(a.target_month)}</td>
                   <td className="px-3 py-2 text-xs">{getTypeName(a.shopping_type_id) || '-'}</td>
                   <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs text-white ${STATUS_COLORS[a.status] || 'bg-gray-400'}`}>
+                    <span className={`px-2 py-0.5 rounded text-xs ${STATUS_COLORS[a.status] || 'bg-gray-500 text-white'}`}>
                       {a.status}
                     </span>
                   </td>

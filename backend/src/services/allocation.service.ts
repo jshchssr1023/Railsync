@@ -1,6 +1,7 @@
 import { query, queryOne, transaction } from '../config/database';
 import { PoolClient } from 'pg';
 import * as assignmentService from './assignment.service';
+import { capacityEvents } from './capacity-events.service';
 
 export interface Allocation {
   id: string;
@@ -147,6 +148,20 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
     }
 
     return result.rows[0];
+  }).then(async (allocation) => {
+    // Emit SSE event after transaction commits
+    capacityEvents.emitAllocationCreated(
+      allocation.shop_code,
+      allocation.target_month,
+      {
+        id: allocation.id,
+        car_number: allocation.car_number,
+        status: allocation.status,
+        version: allocation.version,
+      },
+      created_by
+    );
+    return allocation;
   });
 }
 
@@ -213,6 +228,21 @@ export async function updateAllocationStatus(
     );
 
     return result.rows[0];
+  }).then((allocation) => {
+    if (allocation) {
+      // Emit SSE event after transaction commits
+      capacityEvents.emitAllocationUpdated(
+        allocation.shop_code,
+        allocation.target_month,
+        {
+          id: allocation.id,
+          car_number: allocation.car_number,
+          status: allocation.status,
+          version: allocation.version,
+        }
+      );
+    }
+    return allocation;
   });
 }
 
@@ -324,6 +354,19 @@ export async function getAllocationById(id: string): Promise<Allocation | null> 
 
 // Delete allocation
 export async function deleteAllocation(id: string): Promise<boolean> {
+  // Get allocation details before deleting for the event
+  const allocation = await queryOne<Allocation>('SELECT * FROM allocations WHERE id = $1', [id]);
+
   await query('DELETE FROM allocations WHERE id = $1', [id]);
+
+  // Emit SSE event after deletion
+  if (allocation) {
+    capacityEvents.emitAllocationDeleted(
+      allocation.shop_code,
+      allocation.target_month,
+      id
+    );
+  }
+
   return true;
 }

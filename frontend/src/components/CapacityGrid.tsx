@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ShopMonthlyCapacity } from '@/types';
 import { getCapacity, initializeCapacity, getCapacityCars, CapacityCar } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
+import { useCapacityEvents, CapacityChangeEvent, ConnectionStatus } from '@/hooks/useCapacityEvents';
 
 interface CapacityGridProps {
   startMonth?: string;
@@ -41,6 +42,64 @@ export default function CapacityGrid({
 
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  // Real-time SSE connection status
+  const [sseStatus, setSseStatus] = useState<ConnectionStatus>('disconnected');
+  const [lastEventTime, setLastEventTime] = useState<string | null>(null);
+
+  // Handle incoming SSE capacity change events
+  const handleCapacityChange = useCallback((event: CapacityChangeEvent) => {
+    setLastEventTime(event.timestamp);
+
+    // Update capacity data based on event
+    setCapacityData(prev => {
+      // Find and update the affected shop/month capacity
+      const updated = prev.map(cap => {
+        if (cap.shop_code === event.shopCode && cap.month === event.month) {
+          // If we have capacity data in the event, use it
+          if (event.capacity) {
+            return {
+              ...cap,
+              total_capacity: event.capacity.total_capacity,
+              allocated_count: event.capacity.allocated_count,
+              available_capacity: event.capacity.available_capacity,
+              utilization_pct: event.capacity.utilization_pct,
+            };
+          }
+
+          // Otherwise, adjust based on event type
+          let delta = 0;
+          if (event.type === 'allocation_created') delta = 1;
+          else if (event.type === 'allocation_deleted') delta = -1;
+
+          if (delta !== 0) {
+            const newAllocated = Math.max(0, cap.allocated_count + delta);
+            const newAvailable = Math.max(0, cap.total_capacity - newAllocated);
+            const newUtilization = cap.total_capacity > 0
+              ? Math.round((newAllocated / cap.total_capacity) * 100)
+              : 0;
+
+            return {
+              ...cap,
+              allocated_count: newAllocated,
+              available_capacity: newAvailable,
+              utilization_pct: newUtilization,
+            };
+          }
+        }
+        return cap;
+      });
+
+      return updated;
+    });
+  }, []);
+
+  // Subscribe to real-time capacity events
+  const { status: connectionStatus, reconnect } = useCapacityEvents({
+    onCapacityChange: handleCapacityChange,
+    onConnectionChange: setSseStatus,
+    enabled: true,
+  });
 
   // Calculate date range
   const dateRange = useMemo(() => {
@@ -207,9 +266,29 @@ export default function CapacityGrid({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Shop Capacity Grid
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Shop Capacity Grid
+            </h3>
+            {/* Real-time connection status indicator */}
+            <div className="flex items-center gap-1.5" title={lastEventTime ? `Last update: ${new Date(lastEventTime).toLocaleTimeString()}` : 'No updates yet'}>
+              <span className={`w-2 h-2 rounded-full ${
+                sseStatus === 'connected' ? 'bg-green-500' :
+                sseStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                sseStatus === 'error' ? 'bg-red-500' :
+                'bg-gray-400'
+              }`} />
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {sseStatus === 'connected' ? 'Live' :
+                 sseStatus === 'connecting' ? 'Connecting...' :
+                 sseStatus === 'error' ? (
+                   <button onClick={reconnect} className="text-red-600 hover:underline">
+                     Reconnect
+                   </button>
+                 ) : 'Offline'}
+              </span>
+            </div>
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {shopData.length} shops, {months} months • Hover cells to see assigned cars
           </p>

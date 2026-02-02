@@ -115,7 +115,7 @@ export default function EstimateLinesTable({
                 const needsOverride = line.allocateToCustomer !== defaultAllocateToCustomer && !line.allocationOverrideReason;
 
                 return (
-                  <tr key={line.id} className="border-b border-gray-100 dark:border-gray-800">
+                  <tr key={line.id} className="border-b border-gray-200 dark:border-gray-700">
                     <td className="py-2 px-2">
                       {readOnly ? (
                         <span className="text-gray-900 dark:text-gray-100">{line.description || '-'}</span>
@@ -192,13 +192,13 @@ export default function EstimateLinesTable({
                             onBlur={() => setEditingOverride(null)}
                             placeholder="Override reason..."
                             autoFocus
-                            className="w-full px-1 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-amber-50 dark:bg-amber-900/20"
+                            className="w-full px-1 py-0.5 text-xs border border-amber-300 dark:border-amber-600 rounded bg-amber-50 dark:bg-amber-900/40 dark:text-amber-100"
                           />
                         )}
                         {line.allocationOverrideReason && editingOverride !== line.id && (
                           <button
                             onClick={() => !readOnly && setEditingOverride(line.id)}
-                            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 truncate max-w-[120px]"
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 truncate max-w-[120px]"
                             title={line.allocationOverrideReason}
                           >
                             {line.allocationOverrideReason}

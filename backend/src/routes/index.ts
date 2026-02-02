@@ -10,6 +10,7 @@ import assignmentController from '../controllers/assignment.controller';
 import badOrderController from '../controllers/badOrder.controller';
 import servicePlanController from '../controllers/servicePlan.controller';
 import shopFilterController from '../controllers/shopFilter.controller';
+import sseController from '../controllers/sse.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -968,6 +969,31 @@ router.get('/shopping-reasons', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch shopping reasons' });
   }
 });
+
+// ============================================================================
+// SSE (Server-Sent Events) ROUTES - Real-time Capacity Updates
+// ============================================================================
+
+/**
+ * @route   GET /api/events/capacity
+ * @desc    Subscribe to real-time capacity change events via SSE
+ * @access  Public (optionally authenticated)
+ */
+router.get('/events/capacity', sseController.subscribeToCapacityEvents);
+
+/**
+ * @route   GET /api/events/status
+ * @desc    Get SSE connection status for monitoring
+ * @access  Public
+ */
+router.get('/events/status', sseController.getConnectionStatus);
+
+/**
+ * @route   POST /api/events/test
+ * @desc    Emit a test event for debugging
+ * @access  Protected - Admin only
+ */
+router.post('/events/test', authenticate, authorize('admin'), sseController.emitTestEvent);
 
 // ============================================================================
 // HEALTH CHECK
