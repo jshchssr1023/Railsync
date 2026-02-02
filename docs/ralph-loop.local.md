@@ -1,10 +1,10 @@
 ---
 active: true
-iteration: 3
+iteration: 4
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-01T18:31:56Z"
-last_updated: "2026-02-02T13:10:00Z"
+last_updated: "2026-02-02T13:55:00Z"
 ---
 
 # Ralph Loop - Railsync Work Tracking
@@ -37,7 +37,6 @@ last_updated: "2026-02-02T13:10:00Z"
 ### 📋 TODO (from Implementation Roadmap)
 | ID | Task | Phase | Priority |
 |----|------|-------|----------|
-| #33 | Service plan tables + service | P3 | Low |
 | #34 | Master plan versioning | P4 | Low |
 
 ### ✅ VERIFIED ALREADY IMPLEMENTED
@@ -49,6 +48,7 @@ last_updated: "2026-02-02T13:10:00Z"
 | #29 | Fleet View assignment status | Already implemented in FleetDashboard metrics |
 | #30 | Planning team notifications | Alerts for bad orders + expedited assignments |
 | #31 | Bad order from Fleet View | Report Issue button in Pipeline + prefill form |
+| #33 | Service plan tables + service | Migration, service, controller, API routes |
 
 ### ✅ JUST COMPLETED
 | #25 | Bad Order API endpoints | badOrder.service.ts, badOrder.controller.ts, routes wired |
@@ -77,8 +77,12 @@ Allocations: 137
 
 ## Files Modified This Session
 ```
-backend/src/services/serviceOption.service.ts - Fix lint errors (_unused params)
-docs/ralph-loop.local.md                      - Task tracking updates
+database/migrations/008_service_plans.sql    - Service plan tables + views + triggers
+backend/src/services/servicePlan.service.ts  - Service plan CRUD + approval workflow
+backend/src/controllers/servicePlan.controller.ts - API endpoints for service plans
+backend/src/routes/index.ts                  - Service plan routes wired
+backend/src/services/planning.service.ts     - Fix TypeScript errors in SSOT write
+docs/ralph-loop.local.md                     - Task tracking updates
 ```
 
 ## SSOT Architecture Status
@@ -89,9 +93,14 @@ docs/ralph-loop.local.md                      - Task tracking updates
 ✅ Service options API routes wired
 ✅ Conflict detection implemented
 ✅ Source tracking on all assignments
+✅ Service plans tables (service_plans, service_plan_options, service_plan_option_cars)
+✅ Service plan API routes wired (CRUD, approve, reject, options, cars)
+✅ Service plan approval creates SSOT assignments
 ```
 
 ## Next Actions
 1. User to verify Shop Now button works (#11)
-2. Test full workflow: Bad Order → Assignment → Service Options
-3. Consider migrating fleet/metrics to use car_assignments SSOT
+2. Run database migration 008_service_plans.sql
+3. Test service plan workflow: Create plan → Add options → Add cars → Approve → Check assignments
+4. Build service plan UI (frontend) - Phase 3 feature
+5. Consider #34 Master plan versioning

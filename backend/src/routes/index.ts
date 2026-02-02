@@ -8,6 +8,7 @@ import alertsController from '../controllers/alerts.controller';
 import shopImportController from '../controllers/shopImport.controller';
 import assignmentController from '../controllers/assignment.controller';
 import badOrderController from '../controllers/badOrder.controller';
+import servicePlanController from '../controllers/servicePlan.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -795,6 +796,34 @@ router.post('/bad-orders', authenticate, badOrderController.createBadOrder);
 
 // Resolve bad order (choose action: expedite_existing, new_shop_combined, repair_only, planning_review)
 router.post('/bad-orders/:id/resolve', authenticate, badOrderController.resolveBadOrder);
+
+// ============================================================================
+// SERVICE PLAN ROUTES (Phase 3)
+// ============================================================================
+
+// Service Plans CRUD
+router.get('/service-plans', optionalAuth, servicePlanController.listPlans);
+router.get('/service-plans/:id', optionalAuth, servicePlanController.getPlan);
+router.post('/service-plans', authenticate, servicePlanController.createPlan);
+router.put('/service-plans/:id', authenticate, servicePlanController.updatePlan);
+router.delete('/service-plans/:id', authenticate, authorize('admin'), servicePlanController.deletePlan);
+
+// Service Plan Approval Workflow
+router.post('/service-plans/:id/approve', authenticate, servicePlanController.approvePlan);
+router.post('/service-plans/:id/reject', authenticate, servicePlanController.rejectPlan);
+
+// Service Plan Options
+router.get('/service-plans/:planId/options', optionalAuth, servicePlanController.listPlanOptions);
+router.post('/service-plans/:planId/options', authenticate, servicePlanController.createPlanOption);
+router.get('/service-plan-options/:optionId', optionalAuth, servicePlanController.getPlanOption);
+router.put('/service-plan-options/:optionId', authenticate, servicePlanController.updatePlanOption);
+router.delete('/service-plan-options/:optionId', authenticate, servicePlanController.deletePlanOption);
+router.post('/service-plan-options/:optionId/finalize', authenticate, servicePlanController.finalizePlanOption);
+
+// Option Cars
+router.get('/service-plan-options/:optionId/cars', optionalAuth, servicePlanController.listOptionCarsHandler);
+router.post('/service-plan-options/:optionId/cars', authenticate, servicePlanController.addCarToOptionHandler);
+router.delete('/service-plan-option-cars/:carId', authenticate, servicePlanController.removeCarFromOptionHandler);
 
 // ============================================================================
 // HEALTH CHECK
