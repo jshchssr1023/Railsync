@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 13:35 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 13:45 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -28,7 +28,11 @@
 | Capability Match Filter | Filter shops by capability types | `shopFilter.controller.ts`, `ShopFilterPanel.tsx` | pending |
 | Shop Finder Page | Combined filter UI with results table | `/shops` page, navigation links | pending |
 | Shopping Classification | 12 types, 30+ reasons, dependent dropdowns | `014_shopping_classification.sql`, `AllocationList.tsx` | `3de7195` |
-| Timeline/Gantt Toggle | Visual timeline view with table toggle | `AllocationTimeline.tsx`, `planning/page.tsx` | `39a3e45` |
+| Timeline/Gantt Toggle | Visual timeline view with table toggle | `AllocationTimeline.tsx`, `planning/page.tsx` | `a6fa237` |
+| Fleet Health Dashboard | Stoplight cards for shopping/utilization/risk | `FleetHealthDashboard.tsx`, `fleet/page.tsx` | `e03e637` |
+| Global Command Bar | Unified search (Cmd+K) for customers/cars/shops | `GlobalCommandBar.tsx`, `AuthHeader.tsx` | `e03e637` |
+| Faceted Sidebar | Collapsible filter panels for advanced filtering | `FacetedSidebar.tsx` | `e03e637` |
+| Estimate Lines Table | Cost allocation with override reasons | `EstimateLinesTable.tsx` | `e03e637` |
 
 ### In Progress 🔄
 

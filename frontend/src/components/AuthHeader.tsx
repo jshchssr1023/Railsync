@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeProvider';
 import LoginForm from '@/components/LoginForm';
+import GlobalCommandBar from '@/components/GlobalCommandBar';
 
 function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,6 +90,10 @@ export default function AuthHeader() {
               </a>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Global Search */}
+              <div className="hidden sm:block">
+                <GlobalCommandBar />
+              </div>
               <nav className="hidden md:flex space-x-1">
                 <a
                   href="/planning"

@@ -12,6 +12,7 @@ import LeaseCard from '@/components/fleet/LeaseCard';
 import RiderCard from '@/components/fleet/RiderCard';
 import CarCard from '@/components/fleet/CarCard';
 import AmendmentModal from '@/components/fleet/AmendmentModal';
+import FleetHealthDashboard from '@/components/FleetHealthDashboard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -392,6 +393,13 @@ export default function FleetPage() {
           ))}
         </nav>
       </div>
+
+      {/* Fleet Health Dashboard */}
+      {level === 'customers' && (
+        <div className="mb-6">
+          <FleetHealthDashboard />
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
