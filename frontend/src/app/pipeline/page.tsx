@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 interface PipelineCar {
   id: string;
   car_id: string;
@@ -56,7 +58,7 @@ export default function PipelinePage() {
   const [pageSize, setPageSize] = useState(25);
 
   const { data, error, isLoading, mutate } = useSWR<PipelineData>(
-    '/api/pipeline/buckets',
+    `${API_URL}/pipeline/buckets`,
     fetcher,
     { refreshInterval: 30000 }
   );
