@@ -831,6 +831,37 @@ router.post('/service-plan-options/:optionId/cars', authenticate, servicePlanCon
 router.delete('/service-plan-option-cars/:carId', authenticate, servicePlanController.removeCarFromOptionHandler);
 
 // ============================================================================
+// FLEET HIERARCHY ROUTES (Customer → Lease → Rider → Cars)
+// ============================================================================
+
+import fleetController from '../controllers/fleet.controller';
+
+// Customers
+router.get('/customers', optionalAuth, fleetController.listCustomers);
+router.get('/customers/:customerId', optionalAuth, fleetController.getCustomer);
+router.get('/customers/:customerId/leases', optionalAuth, fleetController.getCustomerLeases);
+
+// Leases
+router.get('/leases/:leaseId', optionalAuth, fleetController.getLease);
+router.get('/leases/:leaseId/riders', optionalAuth, fleetController.getLeaseRiders);
+
+// Riders
+router.get('/riders/:riderId', optionalAuth, fleetController.getRider);
+router.get('/riders/:riderId/cars', optionalAuth, fleetController.getRiderCars);
+router.get('/riders/:riderId/amendments', optionalAuth, fleetController.getRiderAmendments);
+router.post('/riders/:riderId/resync-schedule', authenticate, authorize('admin', 'operator'), fleetController.resyncRiderSchedules);
+
+// Amendments
+router.get('/amendments/:amendmentId', optionalAuth, fleetController.getAmendment);
+router.post('/amendments/:amendmentId/detect-conflicts', authenticate, fleetController.detectAmendmentConflicts);
+
+// Fleet with Amendment Status
+router.get('/fleet/cars-with-amendments', optionalAuth, fleetController.getCarsWithAmendments);
+
+// Car Shopping Validation (checks for outdated terms)
+router.get('/cars/:carNumber/validate-shopping', optionalAuth, fleetController.validateCarForShopping);
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 
