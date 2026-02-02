@@ -15,6 +15,15 @@ const fetcher = (url: string) => fetch(url).then(res => {
   return res.json().then(data => data.data);
 });
 
+// Special fetcher that also returns server time
+const metricsWithTimeFetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('Fetch failed');
+  return res.json().then(json => ({
+    data: json.data,
+    serverTime: json.serverTime,
+  }));
+});
+
 const TIER_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -67,11 +76,14 @@ export default function FleetDashboard() {
 
   const tierParam = tierFilter !== 'all' ? `&tier=${tierFilter}` : '';
 
-  const { data: metrics, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<FleetMetrics>(
+  const { data: metricsResponse, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<{ data: FleetMetrics; serverTime: string }>(
     `${API_BASE}/fleet/metrics?_=${tierFilter}${tierParam}`,
-    fetcher,
+    metricsWithTimeFetcher,
     { refreshInterval: 30000 }
   );
+
+  const metrics = metricsResponse?.data;
+  const serverTime = metricsResponse?.serverTime;
 
   const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading, mutate: mutateVolumes } = useSWR<MonthlyVolume[]>(
     `${API_BASE}/fleet/monthly-volumes?year=${currentYear}${tierParam}`,
@@ -174,7 +186,9 @@ export default function FleetDashboard() {
     actual: v.in_shop
   })) || [];
 
-  const lastUpdated = new Date().toLocaleTimeString();
+  const lastUpdated = serverTime
+    ? new Date(serverTime).toLocaleTimeString()
+    : new Date().toLocaleTimeString();
 
   return (
     <div className="space-y-6">

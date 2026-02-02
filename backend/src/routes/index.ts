@@ -555,7 +555,11 @@ router.get('/fleet/metrics', async (req, res) => {
     } else {
       result = await query('SELECT * FROM v_fleet_summary LIMIT 1');
     }
-    res.json({ success: true, data: result[0] || {} });
+    res.json({
+      success: true,
+      data: result[0] || {},
+      serverTime: new Date().toISOString(),
+    });
   } catch (error) {
     console.error('Fleet metrics error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch fleet metrics' });
