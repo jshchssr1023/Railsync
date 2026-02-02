@@ -493,6 +493,67 @@ export async function deleteDashboardConfig(id: string): Promise<void> {
   await fetchApi(`/dashboard/configs/${id}`, { method: 'DELETE' });
 }
 
+// ============================================================================
+// BAD ORDER API
+// ============================================================================
+
+export interface BadOrderReport {
+  id: string;
+  car_number: string;
+  reported_date: string;
+  issue_type: string;
+  issue_description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  location?: string;
+  reported_by?: string;
+  status: 'open' | 'pending_decision' | 'assigned' | 'resolved';
+  resolution_action?: string;
+  had_existing_plan: boolean;
+  existing_shop_code?: string;
+  existing_target_month?: string;
+  created_at: string;
+}
+
+export async function listBadOrders(filters?: {
+  car_number?: string;
+  status?: string;
+  severity?: string;
+}): Promise<BadOrderReport[]> {
+  const params = new URLSearchParams();
+  if (filters?.car_number) params.append('car_number', filters.car_number);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.severity) params.append('severity', filters.severity);
+  const response = await fetchApi<BadOrderReport[]>(`/bad-orders?${params.toString()}`);
+  return response.data || [];
+}
+
+export async function createBadOrder(data: {
+  car_number: string;
+  issue_type: string;
+  issue_description: string;
+  severity: string;
+  location?: string;
+  reported_by?: string;
+}): Promise<BadOrderReport> {
+  const response = await fetchApi<BadOrderReport>('/bad-orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to create bad order');
+  return response.data;
+}
+
+export async function resolveBadOrder(id: string, action: string, notes?: string): Promise<BadOrderReport> {
+  const response = await fetchApi<BadOrderReport>(`/bad-orders/${id}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, resolution_notes: notes }),
+  });
+  if (!response.data) throw new Error('Failed to resolve bad order');
+  return response.data;
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -529,6 +590,10 @@ const api = {
   createDashboardConfig,
   updateDashboardConfig,
   deleteDashboardConfig,
+  // Bad Orders
+  listBadOrders,
+  createBadOrder,
+  resolveBadOrder,
 };
 
 export default api;
