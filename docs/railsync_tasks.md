@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 18:25 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 18:35 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -37,7 +37,8 @@
 | UI Polish (Dark Mode) | Border/badge/contrast fixes | Multiple components | `d35a9d7` |
 | Budget Nav Link | Added to header navigation | `AuthHeader.tsx` | `134c7bf` |
 | Shop Event Modal | Classification + Estimate Lines flow | `ShopEventModal.tsx` | `b9ec29c` |
-| Master Plan Versioning | Version control for planning scenarios | `016_master_plan_versioning.sql`, `masterPlan.service.ts` | pending |
+| Master Plan Versioning | Version control for planning scenarios | `016_master_plan_versioning.sql`, `masterPlan.service.ts` | `bfa8b0a` |
+| Navigation Restructure | Operations/Planning/Assets dropdown menus | `AuthHeader.tsx` | `bfa8b0a` |
 
 ### In Progress 🔄
 
@@ -95,6 +96,14 @@ GET  /api/events/capacity              - SSE endpoint
 GET  /api/budget/summary
 GET  /api/budget/running-repairs
 GET  /api/budget/service-events
+GET  /api/master-plans              - List master plans
+POST /api/master-plans              - Create master plan
+GET  /api/master-plans/:id          - Get master plan details
+PUT  /api/master-plans/:id          - Update master plan
+DELETE /api/master-plans/:id        - Delete master plan
+GET  /api/master-plans/:id/versions - List plan versions
+POST /api/master-plans/:id/versions - Create version snapshot
+POST /api/master-plans/versions/compare - Compare two versions
 ```
 
 ---
@@ -111,6 +120,8 @@ v_maintenance_forecast_v2
 v_sop_budget_impact
 v_shopping_reasons      - Type + reason joined
 v_shop_capabilities_summary
+v_master_plan_summary       - Plan with version count and totals
+v_plan_version_comparison   - Version diff with allocation/cost deltas
 ```
 
 ---

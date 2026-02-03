@@ -37,7 +37,12 @@ last_updated: "2026-02-02T13:55:00Z"
 ### 📋 TODO (from Implementation Roadmap)
 | ID | Task | Phase | Priority |
 |----|------|-------|----------|
-| #34 | Master plan versioning | P4 | Low |
+| *All tasks complete* | - | - | - |
+
+### ✅ JUST COMPLETED (Session 2026-02-02)
+| #34 | Master plan versioning | P4 | `bfa8b0a` - Tables, service, API complete |
+| #35 | Navigation restructure | - | Operations/Planning/Assets dropdown menus |
+| #36 | Real-time SSE sync | - | `b6dec9c` - Capacity events broadcast to frontend |
 
 ### ✅ VERIFIED ALREADY IMPLEMENTED
 | #32 | Quick Shop writes to car_assignments | shop.controller.ts:349-364 creates SSOT assignment |
