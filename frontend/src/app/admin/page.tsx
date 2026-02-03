@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
@@ -179,6 +179,9 @@ function UserManagement() {
   const authFetch = useAuthFetch();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -200,6 +203,27 @@ function UserManagement() {
     }
   };
 
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Search filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+          user.email?.toLowerCase().includes(term) ||
+          user.first_name?.toLowerCase().includes(term) ||
+          user.last_name?.toLowerCase().includes(term) ||
+          user.organization?.toLowerCase().includes(term);
+        if (!matchesSearch) return false;
+      }
+      // Role filter
+      if (filterRole && user.role !== filterRole) return false;
+      // Status filter
+      if (filterStatus === 'active' && !user.is_active) return false;
+      if (filterStatus === 'inactive' && user.is_active) return false;
+      return true;
+    });
+  }, [users, searchTerm, filterRole, filterStatus]);
+
   if (loading) {
     return (
       <div className="p-8 text-center">
@@ -209,7 +233,54 @@ function UserManagement() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
+      {/* Search and Filters */}
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px] max-w-sm">
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</label>
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search name, email, org..."
+              className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Role</label>
+          <select
+            value={filterRole}
+            onChange={e => setFilterRole(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+          >
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="operator">Operator</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Status</label>
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {filteredUsers.length} of {users.length} users
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead>
@@ -232,7 +303,7 @@ function UserManagement() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <tr key={user.id}>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div>
@@ -270,6 +341,13 @@ function UserManagement() {
                 </td>
               </tr>
             ))}
+            {filteredUsers.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  {searchTerm || filterRole || filterStatus ? 'No users match your filters' : 'No users found'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -282,6 +360,9 @@ function AuditLogs() {
   const authFetch = useAuthFetch();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterAction, setFilterAction] = useState('');
+  const [filterEntity, setFilterEntity] = useState('');
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -291,7 +372,7 @@ function AuditLogs() {
 
   const fetchLogs = async () => {
     try {
-      const response = await authFetch(`${API_BASE}/audit-logs?limit=50`);
+      const response = await authFetch(`${API_BASE}/audit-logs?limit=100`);
       const data = await response.json();
       if (data.success) {
         setLogs(data.data || []);
@@ -303,6 +384,32 @@ function AuditLogs() {
     }
   };
 
+  // Get unique actions and entities for filter dropdowns
+  const uniqueActions = useMemo(() => {
+    const actions = new Set(logs.map(l => l.action).filter(Boolean));
+    return Array.from(actions).sort();
+  }, [logs]);
+
+  const uniqueEntities = useMemo(() => {
+    const entities = new Set(logs.map(l => l.entity_type).filter(Boolean));
+    return Array.from(entities).sort();
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      // Search filter (user email)
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        if (!log.user_email?.toLowerCase().includes(term)) return false;
+      }
+      // Action filter
+      if (filterAction && log.action !== filterAction) return false;
+      // Entity filter
+      if (filterEntity && log.entity_type !== filterEntity) return false;
+      return true;
+    });
+  }, [logs, searchTerm, filterAction, filterEntity]);
+
   if (loading) {
     return (
       <div className="p-8 text-center">
@@ -312,7 +419,55 @@ function AuditLogs() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px] max-w-sm">
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search User</label>
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search by user email..."
+              className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Action</label>
+          <select
+            value={filterAction}
+            onChange={e => setFilterAction(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+          >
+            <option value="">All Actions</option>
+            {uniqueActions.map(action => (
+              <option key={action} value={action}>{action}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Entity Type</label>
+          <select
+            value={filterEntity}
+            onChange={e => setFilterEntity(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+          >
+            <option value="">All Entities</option>
+            {uniqueEntities.map(entity => (
+              <option key={entity} value={entity}>{entity}</option>
+            ))}
+          </select>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {filteredLogs.length} of {logs.length} logs
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead>
@@ -335,7 +490,7 @@ function AuditLogs() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {logs.map((log) => (
+            {filteredLogs.map((log) => (
               <tr key={log.id}>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {new Date(log.created_at).toLocaleString()}
@@ -363,6 +518,13 @@ function AuditLogs() {
                 </td>
               </tr>
             ))}
+            {filteredLogs.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  {searchTerm || filterAction || filterEntity ? 'No logs match your filters' : 'No audit logs found'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

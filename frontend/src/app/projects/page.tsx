@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 interface Project {
@@ -85,6 +85,7 @@ export default function ProjectsPage() {
   const [showAddCarsModal, setShowAddCarsModal] = useState(false);
 
   // Filters
+  const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [activeOnly, setActiveOnly] = useState(true);
@@ -153,6 +154,20 @@ export default function ProjectsPage() {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString();
   };
+
+  // Client-side filtering for search
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm.trim()) return projects;
+    const term = searchTerm.toLowerCase();
+    return projects.filter(p =>
+      p.project_number.toLowerCase().includes(term) ||
+      p.project_name.toLowerCase().includes(term) ||
+      (p.lessee_name && p.lessee_name.toLowerCase().includes(term)) ||
+      (p.lessee_code && p.lessee_code.toLowerCase().includes(term)) ||
+      (p.mc_name && p.mc_name.toLowerCase().includes(term)) ||
+      (p.ec_name && p.ec_name.toLowerCase().includes(term))
+    );
+  }, [projects, searchTerm]);
 
   // Create Project Form
   const [newProject, setNewProject] = useState({
@@ -332,6 +347,31 @@ export default function ProjectsPage() {
 
         {/* Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow flex flex-wrap gap-4 items-center">
+          <div className="flex-1 min-w-[200px] max-w-md">
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</label>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search project name, number, lessee..."
+                className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded"
+                >
+                  <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
             <select
@@ -372,7 +412,7 @@ export default function ProjectsPage() {
             </label>
           </div>
           <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-            {projects.length} projects
+            {filteredProjects.length} of {projects.length} projects
           </div>
         </div>
 
@@ -390,7 +430,7 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {projects.map(project => (
+              {filteredProjects.map(project => (
                 <tr
                   key={project.id}
                   onClick={() => fetchProjectDetails(project.id)}
@@ -429,10 +469,10 @@ export default function ProjectsPage() {
                   </td>
                 </tr>
               ))}
-              {projects.length === 0 && (
+              {filteredProjects.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                    No projects found
+                    {searchTerm ? 'No projects match your search' : 'No projects found'}
                   </td>
                 </tr>
               )}

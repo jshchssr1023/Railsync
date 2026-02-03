@@ -197,11 +197,17 @@ export default function ShopsPage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Shop
                         </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Category
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Region
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Tier
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Capacity
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Network
@@ -228,6 +234,19 @@ export default function ShopsPage() {
                               {shop.shop_code}
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                shop.shop_designation === 'storage'
+                                  ? 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-400'
+                                  : shop.shop_designation === 'scrap'
+                                  ? 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400'
+                                  : 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400'
+                              }`}
+                            >
+                              {shop.shop_designation ? shop.shop_designation.charAt(0).toUpperCase() + shop.shop_designation.slice(1) : 'Repair'}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                             {shop.region}
                           </td>
@@ -243,6 +262,9 @@ export default function ShopsPage() {
                             >
                               Tier {shop.tier}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">
+                            {shop.capacity !== null ? shop.capacity : '-'}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {shop.is_preferred_network ? (

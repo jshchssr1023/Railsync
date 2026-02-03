@@ -46,6 +46,7 @@ export default function ShopFilterPanel({
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
   const [selectedTier, setSelectedTier] = useState<string>('');
   const [selectedRegion, setSelectedRegion] = useState<string>('');
+  const [selectedDesignation, setSelectedDesignation] = useState<string>('');
   const [preferredNetworkOnly, setPreferredNetworkOnly] = useState(false);
 
   const [searching, setSearching] = useState(false);
@@ -123,6 +124,10 @@ export default function ShopFilterPanel({
         params.preferredNetworkOnly = true;
       }
 
+      if (selectedDesignation) {
+        params.designation = selectedDesignation as 'repair' | 'storage' | 'scrap';
+      }
+
       const results = await filterShops(params);
       onResults(results);
     } catch (err) {
@@ -140,6 +145,7 @@ export default function ShopFilterPanel({
     selectedCapabilities,
     selectedTier,
     selectedRegion,
+    selectedDesignation,
     preferredNetworkOnly,
     onResults,
     onLoading,
@@ -155,6 +161,7 @@ export default function ShopFilterPanel({
     setSelectedCapabilities([]);
     setSelectedTier('');
     setSelectedRegion('');
+    setSelectedDesignation('');
     setPreferredNetworkOnly(false);
     setError(null);
   };
@@ -342,6 +349,62 @@ export default function ShopFilterPanel({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Shop Category/Designation Filter */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Shop Category
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedDesignation('')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                selectedDesignation === ''
+                  ? 'bg-primary-100 border-primary-300 text-primary-800 dark:bg-primary-900/50 dark:border-primary-700 dark:text-primary-200'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDesignation('repair')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                selectedDesignation === 'repair'
+                  ? 'bg-primary-100 border-primary-300 text-primary-800 dark:bg-primary-900/50 dark:border-primary-700 dark:text-primary-200'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Repair
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDesignation('storage')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                selectedDesignation === 'storage'
+                  ? 'bg-warning-100 border-warning-300 text-warning-800 dark:bg-warning-900/50 dark:border-warning-700 dark:text-warning-200'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Storage
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDesignation('scrap')}
+              className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                selectedDesignation === 'scrap'
+                  ? 'bg-danger-100 border-danger-300 text-danger-800 dark:bg-danger-900/50 dark:border-danger-700 dark:text-danger-200'
+                  : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Scrap
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Y-prefix = Storage, Z-prefix = Scrap, Others = Repair shops
+          </p>
         </div>
 
         {/* Preferred Network Only */}

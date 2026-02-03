@@ -604,6 +604,8 @@ export interface ShopWithDistance {
   distance_miles: number | null;
   tier: number;
   is_preferred_network: boolean;
+  shop_designation: string;
+  capacity: number | null;
 }
 
 export interface CapabilityType {
@@ -617,6 +619,7 @@ export interface ShopFilterOptions {
   regions: string[];
   tiers: number[];
   capabilityTypes: CapabilityType[];
+  designations: string[];
 }
 
 export interface ShopFilterParams {
@@ -627,6 +630,7 @@ export interface ShopFilterParams {
   tier?: number;
   preferredNetworkOnly?: boolean;
   region?: string;
+  designation?: 'repair' | 'storage' | 'scrap';
 }
 
 /**
@@ -653,6 +657,7 @@ export async function filterShops(params: ShopFilterParams): Promise<ShopWithDis
   if (params.tier !== undefined) queryParams.append('tier', params.tier.toString());
   if (params.preferredNetworkOnly) queryParams.append('preferredNetworkOnly', 'true');
   if (params.region) queryParams.append('region', params.region);
+  if (params.designation) queryParams.append('designation', params.designation);
 
   const response = await fetchApi<ShopWithDistance[]>(`/shops/filter?${queryParams.toString()}`);
   return response.data || [];

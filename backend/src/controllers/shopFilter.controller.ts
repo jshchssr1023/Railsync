@@ -21,6 +21,7 @@ export async function filterShops(req: Request, res: Response): Promise<void> {
       tier,
       preferredNetworkOnly,
       region,
+      designation,
     } = req.query;
 
     const options: FilterOptions = {};
@@ -80,6 +81,20 @@ export async function filterShops(req: Request, res: Response): Promise<void> {
     // Parse region
     if (region) {
       options.region = region as string;
+    }
+
+    // Parse designation (repair, storage, scrap)
+    if (designation) {
+      const des = designation as string;
+      if (['repair', 'storage', 'scrap'].includes(des)) {
+        options.designation = des as 'repair' | 'storage' | 'scrap';
+      } else {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid designation. Must be repair, storage, or scrap.',
+        });
+        return;
+      }
     }
 
     const shops = await shopFilterService.filterShops(options);

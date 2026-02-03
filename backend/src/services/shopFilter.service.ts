@@ -14,6 +14,8 @@ export interface ShopWithDistance {
   distance_miles: number | null;
   tier: number;
   is_preferred_network: boolean;
+  shop_designation: string;
+  capacity: number | null;
 }
 
 export interface CapabilityType {
@@ -44,6 +46,7 @@ export interface FilterOptions {
   tier?: number;
   preferredNetworkOnly?: boolean;
   region?: string;
+  designation?: 'repair' | 'storage' | 'scrap';
 }
 
 /**
@@ -140,6 +143,8 @@ export async function filterShops(options: FilterOptions): Promise<ShopWithDista
       s.longitude,
       s.tier,
       s.is_preferred_network,
+      s.shop_designation,
+      s.capacity,
   `;
 
   // Add distance calculation if coordinates provided
@@ -204,6 +209,13 @@ export async function filterShops(options: FilterOptions): Promise<ShopWithDista
     paramIndex++;
   }
 
+  // Filter by designation (repair, storage, scrap)
+  if (options.designation) {
+    sql += ` AND s.shop_designation = $${paramIndex}`;
+    params.push(options.designation);
+    paramIndex++;
+  }
+
   // Order by distance if available, otherwise by shop code
   if (options.latitude !== undefined && options.longitude !== undefined) {
     sql += ` ORDER BY distance_miles NULLS LAST, s.shop_code`;
@@ -215,26 +227,49 @@ export async function filterShops(options: FilterOptions): Promise<ShopWithDista
 }
 
 /**
+ * Get available designations
+ */
+export async function getDesignations(): Promise<string[]> {
+  const sql = `
+    SELECT DISTINCT shop_designation
+    FROM shops
+    WHERE is_active = TRUE AND shop_designation IS NOT NULL
+    ORDER BY
+      CASE shop_designation
+        WHEN 'repair' THEN 1
+        WHEN 'storage' THEN 2
+        WHEN 'scrap' THEN 3
+        ELSE 4
+      END
+  `;
+  const rows = await query<{ shop_designation: string }>(sql);
+  return rows.map(r => r.shop_designation);
+}
+
+/**
  * Get filter options (for populating dropdowns)
  */
 export async function getFilterOptions(): Promise<{
   regions: string[];
   tiers: number[];
   capabilityTypes: CapabilityType[];
+  designations: string[];
 }> {
-  const [regions, tiers, capabilityTypes] = await Promise.all([
+  const [regions, tiers, capabilityTypes, designations] = await Promise.all([
     getRegions(),
     query<{ tier: number }>('SELECT DISTINCT tier FROM shops WHERE is_active = TRUE ORDER BY tier').then(r => r.map(t => t.tier)),
     getCapabilityTypes(),
+    getDesignations(),
   ]);
 
-  return { regions, tiers, capabilityTypes };
+  return { regions, tiers, capabilityTypes, designations };
 }
 
 export default {
   getCapabilityTypes,
   getCapabilityValues,
   getRegions,
+  getDesignations,
   findShopsWithinRadius,
   filterShopsByCapabilities,
   filterShops,
