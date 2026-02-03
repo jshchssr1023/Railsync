@@ -13,7 +13,26 @@ import shopFilterController from '../controllers/shopFilter.controller';
 import sseController from '../controllers/sse.controller';
 import masterPlanController from '../controllers/masterPlan.controller';
 import notificationController from '../controllers/notification.controller';
+import invoiceController from '../controllers/invoice.controller';
+import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
+
+// Configure multer for invoice file uploads (memory storage)
+const invoiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.pdf', '.edi', '.txt', '.500'];
+    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    if (allowedTypes.includes(ext) || file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Allowed: PDF, EDI, TXT, 500'));
+    }
+  },
+});
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
 
@@ -2821,6 +2840,108 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
     res.status(500).json({ success: false, error: 'Failed to fetch car project history' });
   }
 });
+
+// ============================================================================
+// INVOICE MANAGEMENT
+// ============================================================================
+
+/**
+ * @route   GET /api/invoices
+ * @desc    List invoices with filters
+ * @access  Protected
+ */
+router.get('/invoices', authenticate, invoiceController.listInvoices);
+
+/**
+ * @route   POST /api/invoices
+ * @desc    Create invoice (for manual entry - upload endpoint separate)
+ * @access  Protected - Operator+
+ */
+router.post('/invoices', authenticate, authorize('admin', 'operator'), invoiceController.createInvoice);
+
+/**
+ * @route   POST /api/invoices/upload
+ * @desc    Upload and parse invoice file (PDF or EDI 500-byte)
+ * @access  Protected - Operator+
+ */
+router.post('/invoices/upload', authenticate, authorize('admin', 'operator'), invoiceUpload.single('file'), invoiceController.uploadInvoice);
+
+/**
+ * @route   GET /api/invoices/approval-queue
+ * @desc    Get approval queue statistics
+ * @access  Protected
+ */
+router.get('/invoices/approval-queue', authenticate, invoiceController.getApprovalQueueStats);
+
+/**
+ * @route   GET /api/invoices/pending-review
+ * @desc    Get invoices pending review
+ * @access  Protected
+ */
+router.get('/invoices/pending-review', authenticate, invoiceController.getPendingReviewInvoices);
+
+/**
+ * @route   GET /api/invoices/:id
+ * @desc    Get single invoice
+ * @access  Protected
+ */
+router.get('/invoices/:id', authenticate, invoiceController.getInvoice);
+
+/**
+ * @route   PUT /api/invoices/:id/status
+ * @desc    Update invoice status
+ * @access  Protected - Operator+
+ */
+router.put('/invoices/:id/status', authenticate, authorize('admin', 'operator'), invoiceController.updateInvoiceStatus);
+
+/**
+ * @route   GET /api/invoices/:id/comparison
+ * @desc    Get invoice comparison with BRC data
+ * @access  Protected
+ */
+router.get('/invoices/:id/comparison', authenticate, invoiceController.getInvoiceComparison);
+
+/**
+ * @route   POST /api/invoices/:id/rematch
+ * @desc    Re-run matching for an invoice (after manual corrections)
+ * @access  Protected - Operator+
+ */
+router.post('/invoices/:id/rematch', authenticate, authorize('admin', 'operator'), invoiceController.rematchInvoice);
+
+/**
+ * @route   GET /api/invoices/:id/line-items
+ * @desc    Get invoice line items
+ * @access  Protected
+ */
+router.get('/invoices/:id/line-items', authenticate, invoiceController.getInvoiceLineItems);
+
+/**
+ * @route   PUT /api/invoices/:id/line-items/:lineId/match
+ * @desc    Manually match a line item to an allocation
+ * @access  Protected - Operator+
+ */
+router.put('/invoices/:id/line-items/:lineId/match', authenticate, authorize('admin', 'operator'), invoiceController.updateLineItemMatch);
+
+/**
+ * @route   POST /api/invoices/:id/line-items/:lineId/verify
+ * @desc    Mark line item as manually verified
+ * @access  Protected - Operator+
+ */
+router.post('/invoices/:id/line-items/:lineId/verify', authenticate, authorize('admin', 'operator'), invoiceController.verifyLineItem);
+
+/**
+ * @route   POST /api/invoices/:id/approve
+ * @desc    Approve invoice and queue for SAP push
+ * @access  Protected - Operator+
+ */
+router.post('/invoices/:id/approve', authenticate, authorize('admin', 'operator'), invoiceController.approveInvoice);
+
+/**
+ * @route   POST /api/invoices/:id/reject
+ * @desc    Reject invoice with reason
+ * @access  Protected - Operator+
+ */
+router.post('/invoices/:id/reject', authenticate, authorize('admin', 'operator'), invoiceController.rejectInvoice);
 
 // ============================================================================
 // HEALTH CHECK

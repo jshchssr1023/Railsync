@@ -3,12 +3,13 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 20:30 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-03 00:45 CST by Claude Opus 4.5
 
 ### Completed ✅
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
+| **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | - |
 | Fleet Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Fleet Hierarchy API | REST endpoints for hierarchy navigation | `fleet.controller.ts`, `fleet.service.ts` | `b1d369e` |
 | Fleet Hierarchy UI | Drill-down navigation with breadcrumbs | `fleet/page.tsx`, `fleet/*` components | `b1d369e` |
@@ -121,6 +122,22 @@ PUT  /api/shops/:shopCode/designation   - Update shop designation (admin)
 PUT  /api/shops/bulk-designation        - Bulk update designations (admin)
 GET  /api/storage-commodities           - List storage prep commodities
 GET  /api/shops/for-shopping-type/:id   - Shops filtered by shopping type
+
+# Invoice Management
+GET  /api/invoices                      - List invoices with filters
+POST /api/invoices                      - Create invoice (manual entry)
+POST /api/invoices/upload               - Upload & parse invoice (PDF/EDI)
+GET  /api/invoices/approval-queue       - Approval queue statistics
+GET  /api/invoices/pending-review       - Invoices pending manual review
+GET  /api/invoices/:id                  - Get invoice details
+PUT  /api/invoices/:id/status           - Update invoice status
+GET  /api/invoices/:id/comparison       - Side-by-side BRC comparison
+POST /api/invoices/:id/rematch          - Re-run matching after corrections
+GET  /api/invoices/:id/line-items       - Get invoice line items
+PUT  /api/invoices/:id/line-items/:lineId/match   - Manual line item matching
+POST /api/invoices/:id/line-items/:lineId/verify  - Mark line as verified
+POST /api/invoices/:id/approve          - Approve and queue for SAP
+POST /api/invoices/:id/reject           - Reject with reason
 ```
 
 ---
@@ -140,6 +157,10 @@ v_shop_capabilities_summary
 v_master_plan_summary       - Plan with version count and totals
 v_plan_version_comparison   - Version diff with allocation/cost deltas
 v_email_stats               - Email queue statistics by date
+v_invoice_summary           - Invoice with line count and reviewer info
+v_invoice_line_comparison   - Line items with BRC comparison data
+v_invoices_pending_review   - Invoices awaiting manual review
+v_invoice_approval_queue    - Queue stats by status
 ```
 
 ---
@@ -156,5 +177,6 @@ All features from Phase 16 and Fleet Overview UI Redesign are complete.
 - http://localhost:3000/plans - Master plan versioning
 - http://localhost:3000/reports - KPI dashboard and reports
 - http://localhost:3000/audit - Audit log viewer (admin)
+- http://localhost:3000/invoices - Invoice management (Phase 17)
 - http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search
