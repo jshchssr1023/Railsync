@@ -12,7 +12,7 @@ interface CreateUserParams {
   last_name: string;
   role?: 'admin' | 'operator' | 'viewer';
   organization?: string;
-  customer_id?: number;
+  customer_id?: string;
   phone?: string;
   job_title?: string;
   department?: string;
@@ -24,7 +24,7 @@ interface UpdateUserParams {
   last_name?: string;
   role?: 'admin' | 'operator' | 'viewer';
   organization?: string;
-  customer_id?: number | null;
+  customer_id?: string | null;
   phone?: string;
   job_title?: string;
   department?: string;
@@ -33,7 +33,7 @@ interface UpdateUserParams {
 
 export async function listUsers(filters?: {
   role?: string;
-  customer_id?: number;
+  customer_id?: string;
   is_active?: boolean;
   search?: string;
 }) {
@@ -225,7 +225,7 @@ export async function denyUserPermission(userId: string, permissionCode: string,
 // USER GROUPS
 // =============================================================================
 
-export async function listGroups(customerId?: number) {
+export async function listGroups(customerId?: string) {
   let sql = 'SELECT * FROM v_user_groups_summary';
   const params: any[] = [];
 
@@ -242,7 +242,7 @@ export async function getGroupById(groupId: number) {
   return queryOne('SELECT * FROM v_user_groups_summary WHERE id = $1', [groupId]);
 }
 
-export async function createGroup(name: string, description?: string, customerId?: number, createdBy?: string) {
+export async function createGroup(name: string, description?: string, customerId?: string, createdBy?: string) {
   const result = await queryOne<{ id: number }>(
     `INSERT INTO user_groups (name, description, customer_id, created_by)
      VALUES ($1, $2, $3, $4)
@@ -349,14 +349,14 @@ export async function setGroupPermissions(groupId: number, permissionCodes: stri
 // CUSTOMER PORTAL
 // =============================================================================
 
-export async function getCustomerUsers(customerId: number) {
+export async function getCustomerUsers(customerId: string) {
   return query(
     'SELECT * FROM v_user_summary WHERE customer_id = $1 ORDER BY email',
     [customerId]
   );
 }
 
-export async function assignUserToCustomer(userId: string, customerId: number | null) {
+export async function assignUserToCustomer(userId: string, customerId: string | null) {
   await query(
     'UPDATE users SET customer_id = $1, updated_at = NOW() WHERE id = $2',
     [customerId, userId]

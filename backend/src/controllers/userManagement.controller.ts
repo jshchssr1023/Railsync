@@ -13,7 +13,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
 
     const users = await userManagementService.listUsers({
       role: role as string,
-      customer_id: customer_id ? parseInt(customer_id as string) : undefined,
+      customer_id: customer_id as string | undefined,
       is_active: is_active !== undefined ? is_active === 'true' : undefined,
       search: search as string,
     });
@@ -339,7 +339,7 @@ export async function listGroups(req: Request, res: Response): Promise<void> {
   try {
     const { customer_id } = req.query;
     const groups = await userManagementService.listGroups(
-      customer_id ? parseInt(customer_id as string) : undefined
+      customer_id as string | undefined
     );
 
     res.json({
@@ -540,7 +540,7 @@ export async function updateGroupPermissions(req: Request, res: Response): Promi
 export async function getCustomerUsers(req: Request, res: Response): Promise<void> {
   try {
     const { customerId } = req.params;
-    const users = await userManagementService.getCustomerUsers(parseInt(customerId));
+    const users = await userManagementService.getCustomerUsers(customerId);
 
     res.json({
       success: true,

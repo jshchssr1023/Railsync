@@ -6,7 +6,7 @@
 -- ============================================================================
 
 -- Add customer_id to users table for customer portal access
-ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id);
 
 -- Add additional user fields
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS user_groups (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    customer_id INTEGER REFERENCES customers(id),
+    customer_id UUID REFERENCES customers(id),
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -224,7 +224,7 @@ SELECT
     u.job_title,
     u.department,
     u.customer_id,
-    c.name as customer_name,
+    c.customer_name as customer_name,
     u.is_active,
     u.last_login,
     u.last_activity_at,
@@ -241,7 +241,7 @@ SELECT
     g.name,
     g.description,
     g.customer_id,
-    c.name as customer_name,
+    c.customer_name as customer_name,
     (SELECT COUNT(*) FROM user_group_members ugm WHERE ugm.group_id = g.id) as member_count,
     (SELECT COUNT(*) FROM group_permissions gp WHERE gp.group_id = g.id) as permission_count,
     g.created_at
