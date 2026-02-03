@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 18:12 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 18:25 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -37,6 +37,7 @@
 | UI Polish (Dark Mode) | Border/badge/contrast fixes | Multiple components | `d35a9d7` |
 | Budget Nav Link | Added to header navigation | `AuthHeader.tsx` | `134c7bf` |
 | Shop Event Modal | Classification + Estimate Lines flow | `ShopEventModal.tsx` | `b9ec29c` |
+| Master Plan Versioning | Version control for planning scenarios | `016_master_plan_versioning.sql`, `masterPlan.service.ts` | pending |
 
 ### In Progress 🔄
 

@@ -1,13 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeProvider';
 import LoginForm from '@/components/LoginForm';
 import GlobalCommandBar from '@/components/GlobalCommandBar';
 
+interface NavDropdownProps {
+  label: string;
+  subtitle: string;
+  items: { href: string; label: string }[];
+}
+
+function NavDropdown({ label, subtitle, items }: NavDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
+      >
+        <span>{label}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
+          <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+            {subtitle}
+          </div>
+          {items.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => setIsOpen(false)}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
 
   return (
     <>
@@ -29,37 +86,56 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute top-16 left-0 right-0 bg-primary-800 dark:bg-gray-800 shadow-lg z-50 border-t border-primary-600 dark:border-gray-700">
             <nav className="flex flex-col p-2">
-              <a href="/planning" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Quick Shop
-              </a>
-              <a href="/planning?tab=monthly-load" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Monthly Load
-              </a>
-              <a href="/planning?tab=network-view" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Network View
-              </a>
-              <a href="/fleet" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Fleet
-              </a>
-              <a href="/shops" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Shops
-              </a>
-              <a href="/pipeline" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Pipeline
-              </a>
-              <a href="/bad-orders" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Bad Orders
-              </a>
-              <a href="/rules" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Rules
-              </a>
-              <a href="/budget" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                Budget
-              </a>
-              {isAdmin && (
-                <a href="/admin" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
-                  Admin
-                </a>
+              {/* Operations */}
+              <button
+                onClick={() => toggleSection('operations')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Operations</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Now</span>
+              </button>
+              {expandedSection === 'operations' && (
+                <div className="pl-6 pb-2">
+                  <a href="/pipeline" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Pipeline</a>
+                  <a href="/pipeline?status=active" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Active</a>
+                  <a href="/bad-orders" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Bad Orders</a>
+                </div>
+              )}
+
+              {/* Planning */}
+              <button
+                onClick={() => toggleSection('planning')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Planning</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Next</span>
+              </button>
+              {expandedSection === 'planning' && (
+                <div className="pl-6 pb-2">
+                  <a href="/planning?tab=monthly-load" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Monthly Load</a>
+                  <a href="/planning" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Quick Shop</a>
+                  <a href="/planning?tab=network-view" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Network</a>
+                  <a href="/shops" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shop Finder</a>
+                  <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget</a>
+                </div>
+              )}
+
+              {/* Assets & Logic */}
+              <button
+                onClick={() => toggleSection('assets')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Assets & Logic</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">Infrastructure</span>
+              </button>
+              {expandedSection === 'assets' && (
+                <div className="pl-6 pb-2">
+                  <a href="/fleet" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Fleet</a>
+                  <a href="/rules" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Rules</a>
+                  {isAdmin && (
+                    <a href="/admin" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Admin</a>
+                  )}
+                </div>
               )}
             </nav>
           </div>
@@ -97,70 +173,45 @@ export default function AuthHeader() {
               <div className="hidden sm:block">
                 <GlobalCommandBar />
               </div>
-              <nav className="hidden md:flex space-x-1">
-                <a
-                  href="/planning"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Quick Shop
-                </a>
-                <a
-                  href="/planning?tab=monthly-load"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Monthly Load
-                </a>
-                <a
-                  href="/planning?tab=network-view"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Network
-                </a>
-                <a
-                  href="/fleet"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Fleet
-                </a>
-                <a
-                  href="/shops"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Shops
-                </a>
-                <a
-                  href="/pipeline"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Pipeline
-                </a>
-                <a
-                  href="/bad-orders"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Bad Orders
-                </a>
-                <a
-                  href="/rules"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Rules
-                </a>
-                <a
-                  href="/budget"
-                  className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Budget
-                </a>
-                {user?.role === 'admin' && (
-                  <a
-                    href="/admin"
-                    className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Admin
-                  </a>
-                )}
+
+              {/* Desktop Navigation with Dropdowns */}
+              <nav className="hidden md:flex items-center space-x-1">
+                {/* Operations - The Now */}
+                <NavDropdown
+                  label="Operations"
+                  subtitle="The Now"
+                  items={[
+                    { href: '/pipeline', label: 'Pipeline' },
+                    { href: '/pipeline?status=active', label: 'Active' },
+                    { href: '/bad-orders', label: 'Bad Orders' },
+                  ]}
+                />
+
+                {/* Planning - The Next */}
+                <NavDropdown
+                  label="Planning"
+                  subtitle="The Next"
+                  items={[
+                    { href: '/planning?tab=monthly-load', label: 'Monthly Load' },
+                    { href: '/planning', label: 'Quick Shop' },
+                    { href: '/planning?tab=network-view', label: 'Network' },
+                    { href: '/shops', label: 'Shop Finder' },
+                    { href: '/budget', label: 'Budget' },
+                  ]}
+                />
+
+                {/* Assets & Logic - Infrastructure */}
+                <NavDropdown
+                  label="Assets"
+                  subtitle="Infrastructure"
+                  items={[
+                    { href: '/fleet', label: 'Fleet' },
+                    { href: '/rules', label: 'Rules' },
+                    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
+                  ]}
+                />
               </nav>
+
               {/* Mobile menu button */}
               <div className="md:hidden">
                 <MobileMenu isAdmin={user?.role === 'admin'} />
@@ -203,7 +254,7 @@ export default function AuthHeader() {
                           className="fixed inset-0 z-40"
                           onClick={() => setShowUserMenu(false)}
                         />
-                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50">
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
                           <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {user?.first_name} {user?.last_name}
@@ -224,13 +275,6 @@ export default function AuthHeader() {
                               Admin Dashboard
                             </a>
                           )}
-                          <a
-                            href="/service-events"
-                            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            My Service Events
-                          </a>
                           <button
                             onClick={handleLogout}
                             className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
