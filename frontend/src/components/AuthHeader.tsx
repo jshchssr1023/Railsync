@@ -212,6 +212,7 @@ export default function AuthHeader() {
                   subtitle="Infrastructure"
                   items={[
                     { href: '/fleet', label: 'Fleet' },
+                    { href: '/cars', label: 'Cars' },
                     { href: '/rules', label: 'Rules' },
                     { href: '/reports', label: 'Reports' },
                     ...(user?.role === 'admin' ? [

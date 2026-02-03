@@ -36,6 +36,14 @@ export default function ReportsPage() {
   const [metrics, setMetrics] = useState<MetricCard[]>([]);
   const [shopMetrics, setShopMetrics] = useState<ShopMetrics[]>([]);
   const [trends, setTrends] = useState<MonthlyTrend[]>([]);
+  const [qualDashboard, setQualDashboard] = useState<{
+    total_cars: number;
+    overdue_cars: number;
+    due_next_year: number;
+    current_cars: number;
+  } | null>(null);
+  const [qualByCsr, setQualByCsr] = useState<{ csr_name: string; total_cars: number; overdue: number; due_next_year: number; current: number }[]>([]);
+  const [qualByLessee, setQualByLessee] = useState<{ lessee_name: string; total_cars: number; overdue: number; due_next_year: number }[]>([]);
 
   const getToken = () => localStorage.getItem('auth_token');
 
@@ -114,6 +122,19 @@ export default function ReportsPage() {
           { month: '2026-05', allocations: 172, completed: 160, total_cost: 5400000 },
           { month: '2026-06', allocations: 158, completed: 148, total_cost: 4900000 },
         ]);
+
+        // Fetch qualification data
+        const qualDashRes = await fetch(`${API_URL}/reports/qual-dashboard`);
+        const qualDashData = await qualDashRes.json();
+        if (qualDashData.data) setQualDashboard(qualDashData.data);
+
+        const qualCsrRes = await fetch(`${API_URL}/reports/qual-by-csr`);
+        const qualCsrData = await qualCsrRes.json();
+        if (qualCsrData.data) setQualByCsr(qualCsrData.data.slice(0, 10));
+
+        const qualLesseeRes = await fetch(`${API_URL}/reports/qual-by-lessee`);
+        const qualLesseeData = await qualLesseeRes.json();
+        if (qualLesseeData.data) setQualByLessee(qualLesseeData.data.slice(0, 10));
 
       } catch (err) {
         console.error('Failed to fetch report data:', err);
@@ -339,6 +360,118 @@ export default function ReportsPage() {
                 </table>
               </div>
             </div>
+
+            {/* Qualification Metrics Section */}
+            {qualDashboard && (
+              <div className="mt-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Tank Qualification Status
+                </h2>
+
+                {/* Qual Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Cars</div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      {qualDashboard.total_cars?.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-red-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Overdue</div>
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {qualDashboard.overdue_cars?.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {((qualDashboard.overdue_cars / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-amber-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Due Next Year</div>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {qualDashboard.due_next_year?.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {((qualDashboard.due_next_year / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Current</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {qualDashboard.current_cars?.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {((qualDashboard.current_cars / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Qual by CSR */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Qualification by CSR
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">CSR</th>
+                            <th className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Total</th>
+                            <th className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">Overdue</th>
+                            <th className="px-4 py-2 text-right font-medium text-amber-600 dark:text-amber-400">Next Yr</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {qualByCsr.map((row) => (
+                            <tr key={row.csr_name} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                              <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{row.csr_name || 'Unassigned'}</td>
+                              <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.total_cars}</td>
+                              <td className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">{row.overdue}</td>
+                              <td className="px-4 py-2 text-right text-amber-600 dark:text-amber-400">{row.due_next_year}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Qual by Lessee */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Qualification by Lessee
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Lessee</th>
+                            <th className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Total</th>
+                            <th className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">Overdue</th>
+                            <th className="px-4 py-2 text-right font-medium text-amber-600 dark:text-amber-400">Next Yr</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {qualByLessee.map((row, i) => (
+                            <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                              <td className="px-4 py-2 text-gray-900 dark:text-gray-100 truncate max-w-[200px]" title={row.lessee_name}>
+                                {row.lessee_name || 'Unassigned'}
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.total_cars}</td>
+                              <td className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">{row.overdue}</td>
+                              <td className="px-4 py-2 text-right text-amber-600 dark:text-amber-400">{row.due_next_year}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

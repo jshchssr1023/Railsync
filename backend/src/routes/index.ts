@@ -70,6 +70,29 @@ router.get('/auth/me', authenticate, authController.me);
 router.get('/cars/:carNumber', optionalAuth, carController.getCarByNumber);
 
 /**
+ * @route   GET /api/cars-browse
+ * @desc    List all cars for browse page with essential fields
+ * @access  Public
+ */
+router.get('/cars-browse', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT car_number, car_mark, car_type, lessee_name, lessee_code,
+             commodity, current_status, tank_qual_year, car_age,
+             is_jacketed, is_lined, csr_name, current_region,
+             contract_expiration, portfolio_status
+      FROM cars
+      WHERE is_active = TRUE
+      ORDER BY car_number
+    `);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Cars browse error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch cars' });
+  }
+});
+
+/**
  * @route   GET /api/cars/:carNumber/details
  * @desc    Get comprehensive car details for car card view
  * @access  Public
@@ -876,6 +899,216 @@ router.get('/assignments/:assignmentId/service-options', optionalAuth, assignmen
 router.post('/assignments/:assignmentId/service-options', authenticate, assignmentController.addServiceOption);
 router.put('/service-options/:optionId', authenticate, assignmentController.updateServiceOption);
 router.delete('/service-options/:optionId', authenticate, assignmentController.deleteServiceOption);
+
+// ============================================================================
+// ALLOCATION LINE ITEMS (Budget Integration)
+// ============================================================================
+
+/**
+ * @route   POST /api/allocations/:id/line-items
+ * @desc    Add shopping type line items to allocation for budget tracking
+ * @access  Protected
+ */
+router.post('/allocations/:id/line-items', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { line_items } = req.body;
+
+    if (!line_items || !Array.isArray(line_items)) {
+      return res.status(400).json({ success: false, error: 'line_items array required' });
+    }
+
+    // Clear existing line items
+    await query('DELETE FROM allocation_line_items WHERE allocation_id = $1', [id]);
+
+    // Insert new line items
+    for (const item of line_items) {
+      await query(`
+        INSERT INTO allocation_line_items (
+          allocation_id, shopping_type_id, shopping_reason_id,
+          description, estimated_cost, cost_owner, customer_billable, project_number
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        id,
+        item.shopping_type_id,
+        item.shopping_reason_id || null,
+        item.description || null,
+        item.estimated_cost || 0,
+        item.cost_owner || 'lessor',
+        item.customer_billable || false,
+        item.project_number || null,
+      ]);
+    }
+
+    // Get updated allocation with totals
+    const result = await query(`
+      SELECT a.*,
+        (SELECT jsonb_agg(jsonb_build_object(
+          'id', li.id,
+          'type_code', st.code,
+          'type_name', st.name,
+          'reason_name', sr.name,
+          'estimated_cost', li.estimated_cost,
+          'customer_billable', li.customer_billable
+        ))
+        FROM allocation_line_items li
+        JOIN shopping_types st ON li.shopping_type_id = st.id
+        LEFT JOIN shopping_reasons sr ON li.shopping_reason_id = sr.id
+        WHERE li.allocation_id = a.id) AS line_items
+      FROM allocations a WHERE a.id = $1
+    `, [id]);
+
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Add line items error:', err);
+    res.status(500).json({ success: false, error: 'Failed to add line items' });
+  }
+});
+
+/**
+ * @route   GET /api/allocations/:id/line-items
+ * @desc    Get line items for an allocation
+ * @access  Public
+ */
+router.get('/allocations/:id/line-items', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query(`
+      SELECT li.*, st.code AS type_code, st.name AS type_name, sr.name AS reason_name
+      FROM allocation_line_items li
+      JOIN shopping_types st ON li.shopping_type_id = st.id
+      LEFT JOIN shopping_reasons sr ON li.shopping_reason_id = sr.id
+      WHERE li.allocation_id = $1
+      ORDER BY st.sort_order
+    `, [id]);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Get line items error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get line items' });
+  }
+});
+
+/**
+ * @route   GET /api/budget/summary
+ * @desc    Get budget summary by month
+ * @access  Public
+ */
+router.get('/budget/monthly-summary', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_budget_by_month');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Budget summary error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get budget summary' });
+  }
+});
+
+/**
+ * @route   GET /api/budget/by-type
+ * @desc    Get budget breakdown by shopping type
+ * @access  Public
+ */
+router.get('/budget/by-type', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_budget_by_type');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Budget by type error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get budget by type' });
+  }
+});
+
+/**
+ * @route   GET /api/budget/by-lessee
+ * @desc    Get customer billable amounts by lessee
+ * @access  Public
+ */
+router.get('/budget/by-lessee', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_budget_by_lessee');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Budget by lessee error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get budget by lessee' });
+  }
+});
+
+// ============================================================================
+// QUALIFICATION REPORTS
+// ============================================================================
+
+router.get('/reports/qual-dashboard', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_qual_dashboard');
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Qual dashboard error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get qual dashboard' });
+  }
+});
+
+router.get('/reports/qual-by-year', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_qual_by_year');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Qual by year error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get qual by year' });
+  }
+});
+
+router.get('/reports/overdue-cars', optionalAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const result = await query('SELECT * FROM v_overdue_cars LIMIT $1', [limit]);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Overdue cars error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get overdue cars' });
+  }
+});
+
+router.get('/reports/upcoming-quals', optionalAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const result = await query('SELECT * FROM v_upcoming_quals LIMIT $1', [limit]);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Upcoming quals error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get upcoming quals' });
+  }
+});
+
+router.get('/reports/qual-by-csr', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_qual_by_csr');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Qual by CSR error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get qual by CSR' });
+  }
+});
+
+router.get('/reports/qual-by-lessee', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_qual_by_lessee');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Qual by lessee error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get qual by lessee' });
+  }
+});
+
+router.get('/reports/qual-by-region', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_qual_by_region');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Qual by region error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get qual by region' });
+  }
+});
 
 // ============================================================================
 // BAD ORDER ROUTES

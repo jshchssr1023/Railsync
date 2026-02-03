@@ -25,6 +25,10 @@ export interface ShoppingReason {
   code: string;
   name: string;
   sort_order: number;
+  description?: string;
+  overrides_to_customer?: boolean;
+  cost_multiplier?: number;
+  effective_customer_billable?: boolean;
 }
 
 export interface SelectedShoppingType {
@@ -155,13 +159,22 @@ export default function ServiceOptionsSelector({
   }, []);
 
   const setReason = useCallback((code: string, reason: ShoppingReason | undefined) => {
-    setSelections(prev => ({
-      ...prev,
-      [code]: {
-        ...prev[code],
-        shopping_reason: reason,
-      },
-    }));
+    setSelections(prev => {
+      const current = prev[code];
+      // If reason has override, apply it; otherwise keep type default
+      const newAllocateToCustomer = reason?.effective_customer_billable !== undefined
+        ? reason.effective_customer_billable
+        : current.shopping_type.customer_billable;
+
+      return {
+        ...prev,
+        [code]: {
+          ...current,
+          shopping_reason: reason,
+          allocate_to_customer: newAllocateToCustomer,
+        },
+      };
+    });
   }, []);
 
   const setProjectNumber = useCallback((code: string, projectNumber: string) => {
@@ -314,9 +327,17 @@ export default function ServiceOptionsSelector({
                           >
                             <option value="">Select reason...</option>
                             {typeReasons.map(r => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
+                              <option key={r.id} value={r.id}>
+                                {r.name}{r.overrides_to_customer ? ' ⬤' : ''}
+                              </option>
                             ))}
                           </select>
+                          {sel.shopping_reason?.overrides_to_customer && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              This reason bills to customer
+                            </p>
+                          )}
                         </div>
                       )}
 
