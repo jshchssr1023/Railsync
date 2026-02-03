@@ -3,13 +3,17 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-03 00:45 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-03 by Claude Opus 4.5
 
 ### Completed ✅
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
-| **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | - |
+| **User Management** | Roles, permissions, groups, customer portal support | `026_user_management.sql`, `userManagement.*.ts`, `/admin/users` | - |
+| **Mobile/Responsive Views** | Bottom nav, touch-friendly cards, mobile layouts | `MobileNavBar.tsx`, `MobileShopCard.tsx`, `MobileCarCard.tsx` | - |
+| **Analytics & BI Dashboard** | Capacity forecasting, cost analytics, operations KPIs, demand forecasting | `analytics.service.ts`, `/analytics` page | - |
+| **Shop Details Drawer** | Slide-out drawer with shop info, backlog, capabilities | `ShopInfoDrawer.tsx`, `/shops` page | - |
+| **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | `235b26e` |
 | Fleet Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Fleet Hierarchy API | REST endpoints for hierarchy navigation | `fleet.controller.ts`, `fleet.service.ts` | `b1d369e` |
 | Fleet Hierarchy UI | Drill-down navigation with breadcrumbs | `fleet/page.tsx`, `fleet/*` components | `b1d369e` |
@@ -138,6 +142,41 @@ PUT  /api/invoices/:id/line-items/:lineId/match   - Manual line item matching
 POST /api/invoices/:id/line-items/:lineId/verify  - Mark line as verified
 POST /api/invoices/:id/approve          - Approve and queue for SAP
 POST /api/invoices/:id/reject           - Reject with reason
+
+# Analytics & BI
+GET  /api/analytics/capacity/forecast     - Capacity forecast by shop/month
+GET  /api/analytics/capacity/trends       - Historical capacity utilization
+GET  /api/analytics/capacity/bottlenecks  - Shops with highest utilization
+GET  /api/analytics/cost/trends           - Cost trends over time
+GET  /api/analytics/cost/budget-comparison - Budget vs actual by category
+GET  /api/analytics/cost/by-shop          - Cost comparison across shops
+GET  /api/analytics/operations/kpis       - Operations KPI metrics
+GET  /api/analytics/operations/dwell-time - Dwell time by shop
+GET  /api/analytics/operations/throughput - Cars in/out throughput
+GET  /api/analytics/demand/forecast       - Demand forecast with confidence
+GET  /api/analytics/demand/by-region      - Demand by geographic region
+GET  /api/analytics/demand/by-customer    - Demand by customer
+
+# User Management
+GET  /api/admin/users                     - List users with filters
+POST /api/admin/users                     - Create new user
+GET  /api/admin/users/:id                 - Get user details with permissions
+PUT  /api/admin/users/:id                 - Update user
+PUT  /api/admin/users/:id/password        - Update user password
+POST /api/admin/users/:id/activate        - Activate user
+POST /api/admin/users/:id/deactivate      - Deactivate user
+GET  /api/admin/users/:id/permissions     - Get user permissions
+PUT  /api/admin/users/:id/permissions     - Update user permissions (grant/revoke/deny)
+POST /api/admin/users/:id/customer        - Assign user to customer
+GET  /api/admin/permissions               - List all permissions grouped by category
+GET  /api/admin/groups                    - List user groups
+POST /api/admin/groups                    - Create user group
+GET  /api/admin/groups/:id                - Get group with members and permissions
+PUT  /api/admin/groups/:id                - Update group
+DELETE /api/admin/groups/:id              - Delete group
+PUT  /api/admin/groups/:id/members        - Update group members (add/remove)
+PUT  /api/admin/groups/:id/permissions    - Update group permissions
+GET  /api/admin/customers/:id/users       - Get customer's users
 ```
 
 ---
@@ -161,6 +200,9 @@ v_invoice_summary           - Invoice with line count and reviewer info
 v_invoice_line_comparison   - Line items with BRC comparison data
 v_invoices_pending_review   - Invoices awaiting manual review
 v_invoice_approval_queue    - Queue stats by status
+v_user_permissions          - Effective user permissions (role + group + overrides)
+v_user_summary              - User details with customer and group counts
+v_user_groups_summary       - Groups with member and permission counts
 ```
 
 ---
@@ -178,5 +220,7 @@ All features from Phase 16 and Fleet Overview UI Redesign are complete.
 - http://localhost:3000/reports - KPI dashboard and reports
 - http://localhost:3000/audit - Audit log viewer (admin)
 - http://localhost:3000/invoices - Invoice management (Phase 17)
+- http://localhost:3000/analytics - Analytics & BI dashboard
+- http://localhost:3000/admin/users - User management (admin)
 - http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search

@@ -14,6 +14,8 @@ import sseController from '../controllers/sse.controller';
 import masterPlanController from '../controllers/masterPlan.controller';
 import notificationController from '../controllers/notification.controller';
 import invoiceController from '../controllers/invoice.controller';
+import analyticsController from '../controllers/analytics.controller';
+import userManagementController from '../controllers/userManagement.controller';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -2942,6 +2944,61 @@ router.post('/invoices/:id/approve', authenticate, authorize('admin', 'operator'
  * @access  Protected - Operator+
  */
 router.post('/invoices/:id/reject', authenticate, authorize('admin', 'operator'), invoiceController.rejectInvoice);
+
+// ============================================================================
+// USER MANAGEMENT ROUTES
+// ============================================================================
+
+// Users
+router.get('/admin/users', authenticate, authorize('admin'), userManagementController.listUsers);
+router.get('/admin/users/:userId', authenticate, authorize('admin'), userManagementController.getUserById);
+router.post('/admin/users', authenticate, authorize('admin'), userManagementController.createUser);
+router.put('/admin/users/:userId', authenticate, authorize('admin'), userManagementController.updateUser);
+router.put('/admin/users/:userId/password', authenticate, authorize('admin'), userManagementController.updatePassword);
+router.post('/admin/users/:userId/deactivate', authenticate, authorize('admin'), userManagementController.deactivateUser);
+router.post('/admin/users/:userId/activate', authenticate, authorize('admin'), userManagementController.activateUser);
+
+// Permissions
+router.get('/admin/permissions', authenticate, authorize('admin'), userManagementController.listPermissions);
+router.get('/admin/users/:userId/permissions', authenticate, authorize('admin'), userManagementController.getUserPermissions);
+router.put('/admin/users/:userId/permissions', authenticate, authorize('admin'), userManagementController.updateUserPermissions);
+
+// User Groups
+router.get('/admin/groups', authenticate, authorize('admin'), userManagementController.listGroups);
+router.get('/admin/groups/:groupId', authenticate, authorize('admin'), userManagementController.getGroupById);
+router.post('/admin/groups', authenticate, authorize('admin'), userManagementController.createGroup);
+router.put('/admin/groups/:groupId', authenticate, authorize('admin'), userManagementController.updateGroup);
+router.delete('/admin/groups/:groupId', authenticate, authorize('admin'), userManagementController.deleteGroup);
+router.put('/admin/groups/:groupId/members', authenticate, authorize('admin'), userManagementController.updateGroupMembers);
+router.put('/admin/groups/:groupId/permissions', authenticate, authorize('admin'), userManagementController.updateGroupPermissions);
+
+// Customer Portal Users
+router.get('/admin/customers/:customerId/users', authenticate, authorize('admin'), userManagementController.getCustomerUsers);
+router.put('/admin/users/:userId/customer', authenticate, authorize('admin'), userManagementController.assignUserToCustomer);
+
+// ============================================================================
+// ANALYTICS ROUTES
+// ============================================================================
+
+// Capacity Forecasting
+router.get('/analytics/capacity/forecast', authenticate, analyticsController.getCapacityForecast);
+router.get('/analytics/capacity/trends', authenticate, analyticsController.getCapacityTrends);
+router.get('/analytics/capacity/bottlenecks', authenticate, analyticsController.getBottleneckShops);
+
+// Cost Analytics
+router.get('/analytics/cost/trends', authenticate, analyticsController.getCostTrends);
+router.get('/analytics/cost/budget-comparison', authenticate, analyticsController.getBudgetComparison);
+router.get('/analytics/cost/by-shop', authenticate, analyticsController.getShopCostComparison);
+
+// Operations KPIs
+router.get('/analytics/operations/kpis', authenticate, analyticsController.getOperationsKPIs);
+router.get('/analytics/operations/dwell-time', authenticate, analyticsController.getDwellTimeByShop);
+router.get('/analytics/operations/throughput', authenticate, analyticsController.getThroughputTrends);
+
+// Demand Forecasting
+router.get('/analytics/demand/forecast', authenticate, analyticsController.getDemandForecast);
+router.get('/analytics/demand/by-region', authenticate, analyticsController.getDemandByRegion);
+router.get('/analytics/demand/by-customer', authenticate, analyticsController.getDemandByCustomer);
 
 // ============================================================================
 // HEALTH CHECK

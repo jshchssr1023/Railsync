@@ -79,7 +79,12 @@ export type AuditAction =
   | 'password_change'
   | 'evaluate'
   | 'shop_select'
-  | 'import';
+  | 'import'
+  | 'deactivate'
+  | 'activate'
+  | 'update_permissions'
+  | 'update_members'
+  | 'assign_customer';
 
 // ============================================================================
 // SHOP TYPES

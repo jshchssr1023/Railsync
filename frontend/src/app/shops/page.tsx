@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ShopFilterPanel from '@/components/ShopFilterPanel';
+import ShopInfoDrawer from '@/components/ShopInfoDrawer';
+import MobileShopCard from '@/components/MobileShopCard';
 import { ShopWithDistance } from '@/lib/api';
 
 export default function ShopsPage() {
@@ -9,13 +11,37 @@ export default function ShopsPage() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Drawer state
+  const [selectedShop, setSelectedShop] = useState<ShopWithDistance | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   // Sort options
   const [sortBy, setSortBy] = useState<'distance' | 'name' | 'tier'>('distance');
   const [sortAsc, setSortAsc] = useState(true);
 
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const handleResults = (shops: ShopWithDistance[]) => {
     setResults(shops);
     setHasSearched(true);
+  };
+
+  const openShopDetails = (shop: ShopWithDistance) => {
+    setSelectedShop(shop);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setSelectedShop(null);
   };
 
   // Sort results
@@ -188,120 +214,150 @@ export default function ShopsPage() {
                 </div>
               )}
 
-              {/* Results Table */}
+              {/* Results - Mobile Cards or Desktop Table */}
               {!loading && results.length > 0 && (
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Shop
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Region
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Tier
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Capacity
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Network
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Distance
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                <>
+                  {/* Mobile Card View */}
+                  {isMobile ? (
+                    <div className="space-y-3 -mx-2">
                       {sortedResults.map((shop) => (
-                        <tr
+                        <MobileShopCard
                           key={shop.shop_code}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {shop.shop_name}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                              {shop.shop_code}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                shop.shop_designation === 'storage'
-                                  ? 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-400'
-                                  : shop.shop_designation === 'scrap'
-                                  ? 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400'
-                                  : 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400'
-                              }`}
-                            >
-                              {shop.shop_designation ? shop.shop_designation.charAt(0).toUpperCase() + shop.shop_designation.slice(1) : 'Repair'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                            {shop.region}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                shop.tier === 1
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                  : shop.tier === 2
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                              }`}
-                            >
-                              Tier {shop.tier}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">
-                            {shop.capacity !== null ? shop.capacity : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {shop.is_preferred_network ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400">
-                                Preferred
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
-                            {shop.distance_miles !== null ? (
-                              <span className="font-mono">
-                                {parseFloat(shop.distance_miles.toString()).toFixed(1)} mi
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => window.open(`/planning?shop=${shop.shop_code}`, '_blank')}
-                              className="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
-                            >
-                              View Details
-                            </button>
-                          </td>
-                        </tr>
+                          shopCode={shop.shop_code}
+                          shopName={shop.shop_name}
+                          region={shop.region}
+                          tier={shop.tier}
+                          designation={shop.shop_designation}
+                          capacity={shop.capacity}
+                          distanceMiles={shop.distance_miles}
+                          isPreferredNetwork={shop.is_preferred_network}
+                          onClick={() => openShopDetails(shop)}
+                        />
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  ) : (
+                    /* Desktop Table View */
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Shop
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Category
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Region
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Tier
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Capacity
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Network
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Distance
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                          {sortedResults.map((shop) => (
+                            <tr
+                              key={shop.shop_code}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            >
+                              <td className="px-4 py-3">
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                  {shop.shop_name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                  {shop.shop_code}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    shop.shop_designation === 'storage'
+                                      ? 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-400'
+                                      : shop.shop_designation === 'scrap'
+                                      ? 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400'
+                                      : 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400'
+                                  }`}
+                                >
+                                  {shop.shop_designation ? shop.shop_designation.charAt(0).toUpperCase() + shop.shop_designation.slice(1) : 'Repair'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                {shop.region}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    shop.tier === 1
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                      : shop.tier === 2
+                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                  }`}
+                                >
+                                  Tier {shop.tier}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">
+                                {shop.capacity !== null ? shop.capacity : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {shop.is_preferred_network ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-400">
+                                    Preferred
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                                {shop.distance_miles !== null ? (
+                                  <span className="font-mono">
+                                    {parseFloat(shop.distance_miles.toString()).toFixed(1)} mi
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-500">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => openShopDetails(shop)}
+                                  className="text-sm text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
+                                >
+                                  View Details
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Shop Details Drawer */}
+      <ShopInfoDrawer
+        shop={selectedShop}
+        isOpen={drawerOpen}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }

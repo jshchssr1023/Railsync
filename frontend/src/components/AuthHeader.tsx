@@ -138,6 +138,7 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                   <a href="/projects" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Projects</a>
                   <a href="/rules" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Rules</a>
                   <a href="/reports" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Reports</a>
+                  <a href="/analytics" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Analytics</a>
                   {isAdmin && (
                     <>
                       <a href="/audit" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Audit Log</a>
@@ -222,6 +223,7 @@ export default function AuthHeader() {
                     { href: '/projects', label: 'Projects' },
                     { href: '/rules', label: 'Rules' },
                     { href: '/reports', label: 'Reports' },
+                    { href: '/analytics', label: 'Analytics' },
                     ...(user?.role === 'admin' ? [
                       { href: '/audit', label: 'Audit Log' },
                       { href: '/admin', label: 'Admin' },

@@ -138,3 +138,107 @@ body {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out forwards;
 }
+
+/* Safe area handling for mobile devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Mobile bottom nav spacing */
+@media (max-width: 768px) {
+  .mobile-nav-spacing {
+    padding-bottom: 5rem;
+  }
+}
+
+/* Touch-friendly button sizes */
+@layer components {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .btn-touch {
+    @apply px-6 py-3 text-base min-h-[48px];
+  }
+
+  /* Mobile card layout */
+  .mobile-card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4;
+  }
+
+  .mobile-card-header {
+    @apply text-sm font-medium text-gray-500 dark:text-gray-400 mb-1;
+  }
+
+  .mobile-card-value {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
+  }
+
+  /* Mobile list item */
+  .mobile-list-item {
+    @apply flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 last:border-b-0 active:bg-gray-50 dark:active:bg-gray-700/50;
+  }
+
+  /* Mobile status badge - larger for touch */
+  .mobile-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  /* Full-width mobile button */
+  .btn-mobile-full {
+    @apply w-full py-4 text-base font-medium rounded-lg;
+  }
+
+  /* Mobile search input */
+  .mobile-search {
+    @apply w-full h-12 px-4 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800;
+  }
+
+  /* Mobile floating action button */
+  .fab {
+    @apply fixed bottom-20 right-4 w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg flex items-center justify-center z-40 md:bottom-6;
+  }
+
+  .fab:hover {
+    @apply bg-primary-700;
+  }
+
+  .fab:active {
+    @apply bg-primary-800 scale-95;
+  }
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+  @apply absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full p-2 text-gray-400;
+}
+
+/* Hide scrollbar on mobile but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Swipe gesture hint */
+.swipe-hint {
+  @apply absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-gray-400;
+}
+
+/* Mobile modal - full screen on small devices */
+@media (max-width: 640px) {
+  .mobile-modal {
+    @apply fixed inset-0 bg-white dark:bg-gray-900 z-50 overflow-y-auto;
+  }
+
+  .mobile-modal-header {
+    @apply sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-10;
+  }
+}
