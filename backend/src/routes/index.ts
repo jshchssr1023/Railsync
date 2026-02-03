@@ -11,6 +11,7 @@ import badOrderController from '../controllers/badOrder.controller';
 import servicePlanController from '../controllers/servicePlan.controller';
 import shopFilterController from '../controllers/shopFilter.controller';
 import sseController from '../controllers/sse.controller';
+import masterPlanController from '../controllers/masterPlan.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -930,11 +931,12 @@ router.get('/cars/:carNumber/validate-shopping', optionalAuth, fleetController.v
 // SHOPPING CLASSIFICATION ROUTES
 // ============================================================================
 
-// Shopping Types (12 canonical types)
+// Shopping Types (18 canonical types with cost allocation)
 router.get('/shopping-types', async (req, res) => {
   try {
     const types = await query(`
-      SELECT id, code, name, description, is_planned, default_cost_owner, tier_preference, sort_order
+      SELECT id, code, name, description, is_planned, default_cost_owner, tier_preference, sort_order,
+             estimated_cost, customer_billable, project_required
       FROM shopping_types WHERE is_active = TRUE ORDER BY sort_order
     `);
     res.json({ success: true, data: types });
@@ -994,6 +996,22 @@ router.get('/events/status', sseController.getConnectionStatus);
  * @access  Protected - Admin only
  */
 router.post('/events/test', authenticate, authorize('admin'), sseController.emitTestEvent);
+
+// ============================================================================
+// ============================================================================
+// MASTER PLAN VERSIONING
+// ============================================================================
+
+router.get('/master-plans', authenticate, masterPlanController.listMasterPlans);
+router.get('/master-plans/versions/:versionId', authenticate, masterPlanController.getVersion);
+router.get('/master-plans/versions/:versionId/allocations', authenticate, masterPlanController.getVersionAllocations);
+router.post('/master-plans/versions/compare', authenticate, masterPlanController.compareVersions);
+router.get('/master-plans/:id', authenticate, masterPlanController.getMasterPlan);
+router.post('/master-plans', authenticate, authorize('admin', 'operator'), masterPlanController.createMasterPlan);
+router.put('/master-plans/:id', authenticate, authorize('admin', 'operator'), masterPlanController.updateMasterPlan);
+router.delete('/master-plans/:id', authenticate, authorize('admin'), masterPlanController.deleteMasterPlan);
+router.get('/master-plans/:id/versions', authenticate, masterPlanController.listVersions);
+router.post('/master-plans/:id/versions', authenticate, authorize('admin', 'operator'), masterPlanController.createVersion);
 
 // ============================================================================
 // HEALTH CHECK
