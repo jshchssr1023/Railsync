@@ -169,7 +169,7 @@ Before demo, verify:
 - [ ] Docker containers running (`docker-compose ps`)
 - [ ] Backend health check (`curl http://localhost:3001/api/health`)
 - [ ] Frontend accessible (`http://localhost:3000`)
-- [ ] Login works (demo@railsync.com / demo123)
+- [ ] Login works (admin@railsync.com / admin123)
 - [ ] Pipeline shows data (53 cars in buckets)
 - [ ] Quick Shop evaluates correctly
 - [ ] Bad Order workflow functions
@@ -182,4 +182,4 @@ Before demo, verify:
 
 All planned Phase 1-3 features have been implemented and verified. The system compiles without errors, all API endpoints respond correctly, and the frontend displays data properly.
 
-The only remaining item (Master Plan Versioning) is a low-priority Phase 4 enhancement that does not affect core functionality.
+Master Plan Versioning has been completed. All planned features are implemented.
