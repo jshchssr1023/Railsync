@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
-import { Edit2, Save, X, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart3 } from 'lucide-react';
+import BudgetOverview from '@/components/BudgetOverview';
+import DemandList from '@/components/DemandList';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+type TabId = 'overview' | 'configuration';
 
 interface RunningRepairsBudget {
   id: string;
@@ -43,13 +49,36 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
+// Wrapper component to handle the Suspense boundary for useSearchParams
 export default function BudgetPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+      </div>
+    }>
+      <BudgetContent />
+    </Suspense>
+  );
+}
+
+function BudgetContent() {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
   const [editingRR, setEditingRR] = useState<string | null>(null);
   const [editingSE, setEditingSE] = useState<string | null>(null);
   const [rrAllocation, setRrAllocation] = useState(150);
   const [showAddSE, setShowAddSE] = useState(false);
   const [newSE, setNewSE] = useState({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0 });
+
+  // Handle URL parameters for tab selection
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['overview', 'configuration'].includes(tabParam)) {
+      setActiveTab(tabParam as TabId);
+    }
+  }, [searchParams]);
 
   // Fetch data
   const { data: summaryData } = useSWR(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`, fetcher);
@@ -170,13 +199,26 @@ export default function BudgetPage() {
 
   const years = [fiscalYear - 1, fiscalYear, fiscalYear + 1];
 
+  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'overview',
+      label: 'Overview & Forecasts',
+      icon: <BarChart3 className="w-5 h-5" />,
+    },
+    {
+      id: 'configuration',
+      label: 'Budget Configuration',
+      icon: <Settings className="w-5 h-5" />,
+    },
+  ];
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Maintenance Budget</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Configure running repairs and service event budgets</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Budget tracking, demand forecasts, and configuration</p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -191,232 +233,276 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
-            <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.committed)}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
-            <p className={`text-2xl font-bold ${summary.total.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(summary.total.remaining)}
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
-            <p className="text-2xl font-bold text-blue-600">{summary.total.consumed_pct.toFixed(1)}%</p>
-            <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500" style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }} />
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Overview & Forecasts Tab */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Budget Overview Component */}
+          <ErrorBoundary>
+            <BudgetOverview fiscalYear={fiscalYear} />
+          </ErrorBoundary>
+
+          {/* Demand Forecasts Component */}
+          <ErrorBoundary>
+            <div className="card">
+              <div className="card-body">
+                <DemandList fiscalYear={fiscalYear} />
+              </div>
             </div>
-          </div>
+          </ErrorBoundary>
         </div>
       )}
 
-      {/* Running Repairs Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Pool-based: Monthly Allocation x Cars on Lease</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-600 dark:text-gray-400">$/Car/Month:</label>
-            <input
-              type="number"
-              value={rrAllocation}
-              onChange={(e) => setRrAllocation(parseFloat(e.target.value) || 0)}
-              className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-right"
-            />
-            <button
-              onClick={handleUpdateRRAllocation}
-              className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Recalculate
-            </button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-4 py-2 text-left">Month</th>
-                <th className="px-4 py-2 text-right">Cars on Lease</th>
-                <th className="px-4 py-2 text-right">$/Car</th>
-                <th className="px-4 py-2 text-right">Monthly Budget</th>
-                <th className="px-4 py-2 text-right">Actual</th>
-                <th className="px-4 py-2 text-right">Remaining</th>
-                <th className="px-4 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {runningRepairs.map((rr) => (
-                <RRRow
-                  key={rr.id}
-                  data={rr}
-                  isEditing={editingRR === rr.id}
-                  onEdit={() => setEditingRR(rr.id)}
-                  onCancel={() => setEditingRR(null)}
-                  onSave={(data) => handleUpdateRRMonth(rr.month, data)}
-                  formatCurrency={formatCurrency}
-                  formatMonth={formatMonth}
-                />
-              ))}
-              {runningRepairs.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    No running repairs budget. Click Recalculate to generate.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            {runningRepairs.length > 0 && (
-              <tfoot className="bg-gray-50 dark:bg-gray-700 font-semibold">
-                <tr>
-                  <td className="px-4 py-2">TOTAL</td>
-                  <td className="px-4 py-2 text-right">-</td>
-                  <td className="px-4 py-2 text-right">-</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.monthly_budget, 0))}</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.actual_spend, 0))}</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.remaining_budget, 0))}</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
+      {/* Configuration Tab */}
+      {activeTab === 'configuration' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          {summary && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.committed)}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
+                <p className={`text-2xl font-bold ${summary.total.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(summary.total.remaining)}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
+                <p className="text-2xl font-bold text-blue-600">{summary.total.consumed_pct.toFixed(1)}%</p>
+                <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500" style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Service Events Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Service Events</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Event-based: Qualifications, Assignments, Returns</p>
-          </div>
-          <button
-            onClick={() => setShowAddSE(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add Event
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-4 py-2 text-left">Event Type</th>
-                <th className="px-4 py-2 text-right">Budgeted Cars</th>
-                <th className="px-4 py-2 text-right">Avg $/Car</th>
-                <th className="px-4 py-2 text-right">Total Budget</th>
-                <th className="px-4 py-2 text-left">Segment</th>
-                <th className="px-4 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {showAddSE && (
-                <tr className="bg-green-50 dark:bg-green-900/20">
-                  <td className="px-4 py-2">
-                    <select
-                      value={newSE.event_type}
-                      onChange={(e) => setNewSE({ ...newSE, event_type: e.target.value })}
-                      className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700"
-                    >
-                      <option value="Qualification">Qualification</option>
-                      <option value="Assignment">Assignment</option>
-                      <option value="Return">Return</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-2">
-                    <input
-                      type="number"
-                      value={newSE.budgeted_car_count}
-                      onChange={(e) => setNewSE({ ...newSE, budgeted_car_count: parseInt(e.target.value) || 0 })}
-                      className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-                    />
-                  </td>
-                  <td className="px-4 py-2">
-                    <input
-                      type="number"
-                      value={newSE.avg_cost_per_car}
-                      onChange={(e) => setNewSE({ ...newSE, avg_cost_per_car: parseFloat(e.target.value) || 0 })}
-                      className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-                    />
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium">
-                    {formatCurrency(newSE.budgeted_car_count * newSE.avg_cost_per_car)}
-                  </td>
-                  <td className="px-4 py-2 text-gray-400">All</td>
-                  <td className="px-4 py-2 text-right">
-                    <button onClick={handleAddServiceEvent} className="p-1 text-green-600 hover:text-green-700">
-                      <Save className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setShowAddSE(false)} className="p-1 text-gray-400 hover:text-gray-600 ml-1">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              )}
-              {serviceEvents.map((se) => (
-                <SERow
-                  key={se.id}
-                  data={se}
-                  isEditing={editingSE === se.id}
-                  onEdit={() => setEditingSE(se.id)}
-                  onCancel={() => setEditingSE(null)}
-                  onSave={(data) => handleUpdateServiceEvent(se.id, data)}
-                  onDelete={() => handleDeleteServiceEvent(se.id)}
-                  formatCurrency={formatCurrency}
+          {/* Running Repairs Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pool-based: Monthly Allocation x Cars on Lease</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-600 dark:text-gray-400">$/Car/Month:</label>
+                <input
+                  type="number"
+                  value={rrAllocation}
+                  onChange={(e) => setRrAllocation(parseFloat(e.target.value) || 0)}
+                  className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-right"
                 />
-              ))}
-              {serviceEvents.length === 0 && !showAddSE && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    No service event budgets. Click Add Event to create one.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            {serviceEvents.length > 0 && (
-              <tfoot className="bg-gray-50 dark:bg-gray-700 font-semibold">
-                <tr>
-                  <td className="px-4 py-2">TOTAL</td>
-                  <td className="px-4 py-2 text-right">{serviceEvents.reduce((s, e) => s + e.budgeted_car_count, 0).toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">-</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(serviceEvents.reduce((s, e) => s + e.total_budget, 0))}</td>
-                  <td></td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
-
-      {/* Grand Total */}
-      {summary && (
-        <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-primary-100">Total Maintenance Budget - FY{fiscalYear}</p>
-              <p className="text-3xl font-bold mt-1">{formatCurrency(summary.total.budget)}</p>
+                <button
+                  onClick={handleUpdateRRAllocation}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Recalculate
+                </button>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-primary-100">Committed (Plan + Actual)</p>
-              <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.committed)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-primary-100">Remaining ({(100 - summary.total.consumed_pct).toFixed(0)}% available)</p>
-              <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.remaining)}</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Month</th>
+                    <th className="px-4 py-2 text-right">Cars on Lease</th>
+                    <th className="px-4 py-2 text-right">$/Car</th>
+                    <th className="px-4 py-2 text-right">Monthly Budget</th>
+                    <th className="px-4 py-2 text-right">Actual</th>
+                    <th className="px-4 py-2 text-right">Remaining</th>
+                    <th className="px-4 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {runningRepairs.map((rr) => (
+                    <RRRow
+                      key={rr.id}
+                      data={rr}
+                      isEditing={editingRR === rr.id}
+                      onEdit={() => setEditingRR(rr.id)}
+                      onCancel={() => setEditingRR(null)}
+                      onSave={(data) => handleUpdateRRMonth(rr.month, data)}
+                      formatCurrency={formatCurrency}
+                      formatMonth={formatMonth}
+                    />
+                  ))}
+                  {runningRepairs.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                        No running repairs budget. Click Recalculate to generate.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {runningRepairs.length > 0 && (
+                  <tfoot className="bg-gray-50 dark:bg-gray-700 font-semibold">
+                    <tr>
+                      <td className="px-4 py-2">TOTAL</td>
+                      <td className="px-4 py-2 text-right">-</td>
+                      <td className="px-4 py-2 text-right">-</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.monthly_budget, 0))}</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.actual_spend, 0))}</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.remaining_budget, 0))}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
             </div>
           </div>
+
+          {/* Service Events Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Service Events</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Event-based: Qualifications, Assignments, Returns</p>
+              </div>
+              <button
+                onClick={() => setShowAddSE(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add Event
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Event Type</th>
+                    <th className="px-4 py-2 text-right">Budgeted Cars</th>
+                    <th className="px-4 py-2 text-right">Avg $/Car</th>
+                    <th className="px-4 py-2 text-right">Total Budget</th>
+                    <th className="px-4 py-2 text-left">Segment</th>
+                    <th className="px-4 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {showAddSE && (
+                    <tr className="bg-green-50 dark:bg-green-900/20">
+                      <td className="px-4 py-2">
+                        <select
+                          value={newSE.event_type}
+                          onChange={(e) => setNewSE({ ...newSE, event_type: e.target.value })}
+                          className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700"
+                        >
+                          <option value="Qualification">Qualification</option>
+                          <option value="Assignment">Assignment</option>
+                          <option value="Return">Return</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          value={newSE.budgeted_car_count}
+                          onChange={(e) => setNewSE({ ...newSE, budgeted_car_count: parseInt(e.target.value) || 0 })}
+                          className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          value={newSE.avg_cost_per_car}
+                          onChange={(e) => setNewSE({ ...newSE, avg_cost_per_car: parseFloat(e.target.value) || 0 })}
+                          className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium">
+                        {formatCurrency(newSE.budgeted_car_count * newSE.avg_cost_per_car)}
+                      </td>
+                      <td className="px-4 py-2 text-gray-400">All</td>
+                      <td className="px-4 py-2 text-right">
+                        <button onClick={handleAddServiceEvent} className="p-1 text-green-600 hover:text-green-700">
+                          <Save className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setShowAddSE(false)} className="p-1 text-gray-400 hover:text-gray-600 ml-1">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {serviceEvents.map((se) => (
+                    <SERow
+                      key={se.id}
+                      data={se}
+                      isEditing={editingSE === se.id}
+                      onEdit={() => setEditingSE(se.id)}
+                      onCancel={() => setEditingSE(null)}
+                      onSave={(data) => handleUpdateServiceEvent(se.id, data)}
+                      onDelete={() => handleDeleteServiceEvent(se.id)}
+                      formatCurrency={formatCurrency}
+                    />
+                  ))}
+                  {serviceEvents.length === 0 && !showAddSE && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        No service event budgets. Click Add Event to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {serviceEvents.length > 0 && (
+                  <tfoot className="bg-gray-50 dark:bg-gray-700 font-semibold">
+                    <tr>
+                      <td className="px-4 py-2">TOTAL</td>
+                      <td className="px-4 py-2 text-right">{serviceEvents.reduce((s, e) => s + e.budgeted_car_count, 0).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">-</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(serviceEvents.reduce((s, e) => s + e.total_budget, 0))}</td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+
+          {/* Grand Total */}
+          {summary && (
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-primary-100">Total Maintenance Budget - FY{fiscalYear}</p>
+                  <p className="text-3xl font-bold mt-1">{formatCurrency(summary.total.budget)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-primary-100">Committed (Plan + Actual)</p>
+                  <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.committed)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-primary-100">Remaining ({(100 - summary.total.consumed_pct).toFixed(0)}% available)</p>
+                  <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.remaining)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

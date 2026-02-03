@@ -4,9 +4,7 @@ import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import ForecastSummary from '@/components/ForecastSummary';
-import DemandList from '@/components/DemandList';
 import CapacityGrid from '@/components/CapacityGrid';
-import BudgetOverview from '@/components/BudgetOverview';
 import ScenarioBuilder from '@/components/ScenarioBuilder';
 import CarLookup from '@/components/CarLookup';
 import OverrideOptions from '@/components/OverrideOptions';
@@ -504,17 +502,34 @@ function PlanningContent() {
             <AllocationList onShopCarNow={handleShopCarNow} />
           </ErrorBoundary>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ErrorBoundary>
-              <DemandList fiscalYear={fiscalYear} />
-            </ErrorBoundary>
-            <ErrorBoundary>
-              <BudgetOverview fiscalYear={fiscalYear} />
-            </ErrorBoundary>
-          </div>
+          {/* Capacity Grid */}
           <ErrorBoundary>
             <CapacityGrid months={18} />
           </ErrorBoundary>
+
+          {/* Link to Budget page for forecasts */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Budget & Demand Forecasts</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">View budget tracking and demand forecasts on the Budget page</p>
+                </div>
+              </div>
+              <a
+                href="/budget"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 hover:bg-blue-200 dark:hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                View Budget
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
       )}
 

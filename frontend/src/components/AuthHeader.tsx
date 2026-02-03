@@ -99,6 +99,7 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                   <a href="/pipeline" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Pipeline</a>
                   <a href="/pipeline?status=active" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Active</a>
                   <a href="/bad-orders" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Bad Orders</a>
+                  <a href="/invoices" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Invoices</a>
                 </div>
               )}
 
@@ -117,7 +118,8 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                   <a href="/planning?tab=network-view" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Network</a>
                   <a href="/shops" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shop Finder</a>
                   <a href="/plans" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Master Plans</a>
-                  <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget</a>
+                  <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget & Forecasts</a>
+                  <a href="/budget?tab=configuration" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget Config</a>
                 </div>
               )}
 
@@ -191,6 +193,7 @@ export default function AuthHeader() {
                     { href: '/pipeline', label: 'Pipeline' },
                     { href: '/pipeline?status=active', label: 'Active' },
                     { href: '/bad-orders', label: 'Bad Orders' },
+                    { href: '/invoices', label: 'Invoices' },
                   ]}
                 />
 
@@ -204,7 +207,8 @@ export default function AuthHeader() {
                     { href: '/planning?tab=network-view', label: 'Network' },
                     { href: '/shops', label: 'Shop Finder' },
                     { href: '/plans', label: 'Master Plans' },
-                    { href: '/budget', label: 'Budget' },
+                    { href: '/budget', label: 'Budget & Forecasts' },
+                    { href: '/budget?tab=configuration', label: 'Budget Config' },
                   ]}
                 />
 
