@@ -16,6 +16,7 @@ import AllocationList from '@/components/AllocationList';
 import AllocationTimeline from '@/components/AllocationTimeline';
 import ServiceOptionsSelector from '@/components/ServiceOptionsSelector';
 import ShopLoadingTool from '@/components/ShopLoadingTool';
+import CarDetailCard from '@/components/CarDetailCard';
 import { ErrorBoundary, FetchError } from '@/components/ErrorBoundary';
 import { evaluateShops, evaluateShopsDirect, getCarByNumber, checkAssignmentConflicts, AssignmentConflict } from '@/lib/api';
 import { Car, EvaluationOverrides, EvaluationResult } from '@/types';
@@ -53,6 +54,7 @@ function PlanningContent() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [conflict, setConflict] = useState<AssignmentConflict | null>(null);
+  const [showCarDetail, setShowCarDetail] = useState<string | null>(null);
 
   // Handle URL parameters for tab selection and car pre-fill
   useEffect(() => {
@@ -316,16 +318,28 @@ function PlanningContent() {
                 <div className="card">
                   <div className="card-header flex items-center justify-between">
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Car Details</h3>
-                    <button
-                      onClick={handleEvaluate}
-                      disabled={loading}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Shop This Car Now
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowCarDetail(car.car_number)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Full Details
+                      </button>
+                      <button
+                        onClick={handleEvaluate}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Shop This Car Now
+                      </button>
+                    </div>
                   </div>
                   {conflict && (
                     <div className="mx-4 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -522,6 +536,18 @@ function PlanningContent() {
             <ScenarioBuilder />
           </ErrorBoundary>
         </div>
+      )}
+
+      {/* Car Detail Card Modal */}
+      {showCarDetail && (
+        <CarDetailCard
+          carNumber={showCarDetail}
+          onClose={() => setShowCarDetail(null)}
+          onShopNow={(carNumber) => {
+            setShowCarDetail(null);
+            handleShopCarNow(carNumber);
+          }}
+        />
       )}
     </div>
   );

@@ -68,6 +68,30 @@ router.get('/auth/me', authenticate, authController.me);
  */
 router.get('/cars/:carNumber', optionalAuth, carController.getCarByNumber);
 
+/**
+ * @route   GET /api/cars/:carNumber/details
+ * @desc    Get comprehensive car details for car card view
+ * @access  Public
+ */
+router.get('/cars/:carNumber/details', optionalAuth, async (req, res) => {
+  try {
+    const { carNumber } = req.params;
+    const result = await query(
+      `SELECT * FROM v_car_details WHERE car_number = $1`,
+      [carNumber]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, error: 'Car not found' });
+    }
+
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Car details error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch car details' });
+  }
+});
+
 // ============================================================================
 // SHOP ROUTES
 // ============================================================================

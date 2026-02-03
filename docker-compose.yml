@@ -27,6 +27,7 @@ services:
       - ./database/migrations/014_shopping_classification.sql:/docker-entrypoint-initdb.d/12-shopping-classification.sql
       - ./database/migrations/015_shopping_classification_additions.sql:/docker-entrypoint-initdb.d/13-shopping-classification-additions.sql
       - ./database/migrations/016_shopping_type_cost_allocation.sql:/docker-entrypoint-initdb.d/14-shopping-type-cost-allocation.sql
+      - ./database/migrations/017_car_detail_fields.sql:/docker-entrypoint-initdb.d/15-car-detail-fields.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
       interval: 10s
