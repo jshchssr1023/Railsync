@@ -2244,6 +2244,585 @@ router.get('/cars/:carNumber/billable-items', authenticate, async (req, res) => 
 });
 
 // ============================================================================
+// SHOPPING PACKETS
+// ============================================================================
+
+/**
+ * @route   GET /api/shopping-packets
+ * @desc    List shopping packets
+ * @access  Protected
+ */
+router.get('/shopping-packets', authenticate, async (req, res) => {
+  try {
+    const { status, car_number, allocation_id } = req.query;
+
+    let sql = 'SELECT * FROM v_shopping_packets WHERE 1=1';
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (status) {
+      paramCount++;
+      sql += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+    if (car_number) {
+      paramCount++;
+      sql += ` AND car_number = $${paramCount}`;
+      params.push(car_number);
+    }
+    if (allocation_id) {
+      paramCount++;
+      sql += ` AND allocation_id = $${paramCount}`;
+      params.push(allocation_id);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Shopping packets error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch shopping packets' });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-packets/pending
+ * @desc    Get packets pending issue
+ * @access  Protected
+ */
+router.get('/shopping-packets/pending', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_packets_pending');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Pending packets error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch pending packets' });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-packets/recent
+ * @desc    Get recently issued packets (last 7 days)
+ * @access  Protected
+ */
+router.get('/shopping-packets/recent', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_packets_recent');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Recent packets error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch recent packets' });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-packets/:id
+ * @desc    Get single packet
+ * @access  Protected
+ */
+router.get('/shopping-packets/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [req.params.id]);
+    if (result.length === 0) {
+      res.status(404).json({ success: false, error: 'Packet not found' });
+      return;
+    }
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Packet get error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch packet' });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-packets
+ * @desc    Create shopping packet for an allocation
+ * @access  Protected - Operator+
+ */
+router.post('/shopping-packets', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { allocation_id } = req.body;
+
+    if (!allocation_id) {
+      res.status(400).json({ success: false, error: 'allocation_id required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    const result = await query('SELECT create_shopping_packet($1, $2) AS id', [allocation_id, userId]);
+
+    const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
+    res.status(201).json({ success: true, data: packet[0] });
+  } catch (err: any) {
+    console.error('Packet create error:', err);
+    res.status(400).json({ success: false, error: err.message || 'Failed to create packet' });
+  }
+});
+
+/**
+ * @route   PUT /api/shopping-packets/:id
+ * @desc    Update packet details
+ * @access  Protected - Operator+
+ */
+router.put('/shopping-packets/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { shopping_types, shopping_reasons, scope_of_work, special_instructions } = req.body;
+
+    await query(`
+      UPDATE shopping_packets SET
+        shopping_types = COALESCE($1, shopping_types),
+        shopping_reasons = COALESCE($2, shopping_reasons),
+        scope_of_work = COALESCE($3, scope_of_work),
+        special_instructions = COALESCE($4, special_instructions),
+        updated_at = NOW()
+      WHERE id = $5
+    `, [
+      shopping_types ? JSON.stringify(shopping_types) : null,
+      shopping_reasons ? JSON.stringify(shopping_reasons) : null,
+      scope_of_work,
+      special_instructions,
+      req.params.id
+    ]);
+
+    const updated = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Packet update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update packet' });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-packets/:id/issue
+ * @desc    Issue packet (send to shop)
+ * @access  Protected - Operator+
+ */
+router.post('/shopping-packets/:id/issue', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { email_to } = req.body;
+    const userId = (req as any).user?.id;
+
+    await query(`
+      UPDATE shopping_packets SET
+        status = 'issued',
+        issued_at = NOW(),
+        issued_by = $1,
+        issued_to = $2,
+        updated_at = NOW()
+      WHERE id = $3
+    `, [userId, email_to, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Packet issue error:', err);
+    res.status(500).json({ success: false, error: 'Failed to issue packet' });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-packets/:id/reissue
+ * @desc    Reissue packet (creates new version)
+ * @access  Protected - Operator+
+ */
+router.post('/shopping-packets/:id/reissue', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    if (!reason) {
+      res.status(400).json({ success: false, error: 'reason required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    const result = await query('SELECT reissue_shopping_packet($1, $2, $3) AS id', [req.params.id, userId, reason]);
+
+    const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
+    res.json({ success: true, data: packet[0] });
+  } catch (err: any) {
+    console.error('Packet reissue error:', err);
+    res.status(400).json({ success: false, error: err.message || 'Failed to reissue packet' });
+  }
+});
+
+/**
+ * @route   GET /api/allocations/:id/packet-history
+ * @desc    Get packet history for an allocation
+ * @access  Protected
+ */
+router.get('/allocations/:id/packet-history', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_packet_history WHERE allocation_id = $1', [req.params.id]);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Packet history error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch packet history' });
+  }
+});
+
+// ============================================================================
+// PROJECTS (Car Grouping for Coordinated Work)
+// ============================================================================
+
+/**
+ * @route   GET /api/projects
+ * @desc    List all projects
+ * @access  Protected
+ */
+router.get('/projects', authenticate, async (req, res) => {
+  try {
+    const { status, type, lessee_code, mc_user_id, active_only } = req.query;
+
+    let sql = active_only === 'true' ? 'SELECT * FROM v_active_projects WHERE 1=1' : 'SELECT * FROM v_projects WHERE 1=1';
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (status) {
+      paramCount++;
+      sql += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+    if (type) {
+      paramCount++;
+      sql += ` AND project_type = $${paramCount}`;
+      params.push(type);
+    }
+    if (lessee_code) {
+      paramCount++;
+      sql += ` AND lessee_code = $${paramCount}`;
+      params.push(lessee_code);
+    }
+    if (mc_user_id) {
+      paramCount++;
+      sql += ` AND mc_user_id = $${paramCount}`;
+      params.push(mc_user_id);
+    }
+
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Projects error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch projects' });
+  }
+});
+
+/**
+ * @route   GET /api/projects/summary
+ * @desc    Get projects summary by type
+ * @access  Protected
+ */
+router.get('/projects/summary', authenticate, async (req, res) => {
+  try {
+    const [byType, byMc] = await Promise.all([
+      query('SELECT * FROM v_projects_by_type'),
+      query('SELECT * FROM v_projects_by_mc')
+    ]);
+    res.json({ success: true, data: { by_type: byType, by_mc: byMc } });
+  } catch (err) {
+    console.error('Projects summary error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch projects summary' });
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id
+ * @desc    Get single project with cars
+ * @access  Protected
+ */
+router.get('/projects/:id', authenticate, async (req, res) => {
+  try {
+    const project = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
+    if (project.length === 0) {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+
+    const cars = await query('SELECT * FROM v_project_cars WHERE project_id = $1 ORDER BY added_at', [req.params.id]);
+
+    res.json({ success: true, data: { ...project[0], cars } });
+  } catch (err) {
+    console.error('Project get error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch project' });
+  }
+});
+
+/**
+ * @route   POST /api/projects
+ * @desc    Create new project
+ * @access  Protected - Operator+
+ */
+router.post('/projects', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const {
+      project_name, project_type, shopping_reason_id, scope_of_work, special_instructions,
+      customer_billable, estimated_total_cost, lessee_code, lessee_name, due_date, priority,
+      mc_user_id, ec_user_id
+    } = req.body;
+
+    if (!project_name || !project_type || !scope_of_work) {
+      res.status(400).json({ success: false, error: 'project_name, project_type, and scope_of_work required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+
+    // Get shopping reason details if provided
+    let reasonCode = null, reasonName = null;
+    if (shopping_reason_id) {
+      const reason = await query('SELECT code, name FROM shopping_reasons WHERE id = $1', [shopping_reason_id]);
+      if (reason.length > 0) {
+        reasonCode = reason[0].code;
+        reasonName = reason[0].name;
+      }
+    }
+
+    // Generate project number
+    const projectNumber = await query('SELECT generate_project_number($1) AS num', [project_type]);
+
+    const result = await query(`
+      INSERT INTO projects (
+        project_number, project_name, project_type, shopping_reason_id, shopping_reason_code, shopping_reason_name,
+        scope_of_work, special_instructions, customer_billable, estimated_total_cost,
+        lessee_code, lessee_name, due_date, priority, mc_user_id, ec_user_id, created_by, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'draft')
+      RETURNING id
+    `, [
+      projectNumber[0].num, project_name, project_type, shopping_reason_id, reasonCode, reasonName,
+      scope_of_work, special_instructions, customer_billable || false, estimated_total_cost || 0,
+      lessee_code, lessee_name, due_date, priority || 2, mc_user_id, ec_user_id, userId
+    ]);
+
+    const created = await query('SELECT * FROM v_projects WHERE id = $1', [result[0].id]);
+    res.status(201).json({ success: true, data: created[0] });
+  } catch (err) {
+    console.error('Project create error:', err);
+    res.status(500).json({ success: false, error: 'Failed to create project' });
+  }
+});
+
+/**
+ * @route   PUT /api/projects/:id
+ * @desc    Update project
+ * @access  Protected - Operator+
+ */
+router.put('/projects/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const {
+      project_name, scope_of_work, special_instructions, engineer_notes,
+      customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status
+    } = req.body;
+
+    await query(`
+      UPDATE projects SET
+        project_name = COALESCE($1, project_name),
+        scope_of_work = COALESCE($2, scope_of_work),
+        special_instructions = COALESCE($3, special_instructions),
+        engineer_notes = COALESCE($4, engineer_notes),
+        customer_billable = COALESCE($5, customer_billable),
+        estimated_total_cost = COALESCE($6, estimated_total_cost),
+        due_date = COALESCE($7, due_date),
+        priority = COALESCE($8, priority),
+        mc_user_id = COALESCE($9, mc_user_id),
+        ec_user_id = COALESCE($10, ec_user_id),
+        status = COALESCE($11, status),
+        updated_at = NOW()
+      WHERE id = $12
+    `, [project_name, scope_of_work, special_instructions, engineer_notes, customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Project update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update project' });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/activate
+ * @desc    Activate project (change from draft to active)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/activate', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    await query(`UPDATE projects SET status = 'active', updated_at = NOW() WHERE id = $1 AND status = 'draft'`, [req.params.id]);
+    const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Project activate error:', err);
+    res.status(500).json({ success: false, error: 'Failed to activate project' });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/complete
+ * @desc    Complete project (MC designates via BRC review)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/complete', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { completion_notes } = req.body;
+    const userId = (req as any).user?.id;
+
+    await query(`
+      UPDATE projects SET
+        status = 'completed',
+        completed_at = NOW(),
+        completed_by = $1,
+        completion_notes = $2,
+        updated_at = NOW()
+      WHERE id = $3
+    `, [userId, completion_notes, req.params.id]);
+
+    // Mark all pending/in_progress cars as completed
+    await query(`
+      UPDATE project_cars SET
+        status = 'completed',
+        completed_at = NOW(),
+        completed_by = $1
+      WHERE project_id = $2 AND status IN ('pending', 'in_progress')
+    `, [userId, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Project complete error:', err);
+    res.status(500).json({ success: false, error: 'Failed to complete project' });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/cars
+ * @desc    Add cars to project
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { car_numbers } = req.body;
+
+    if (!car_numbers || !Array.isArray(car_numbers) || car_numbers.length === 0) {
+      res.status(400).json({ success: false, error: 'car_numbers array required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    let added = 0;
+
+    for (const carNumber of car_numbers) {
+      try {
+        await query(`
+          INSERT INTO project_cars (project_id, car_number, added_by)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (project_id, car_number) DO NOTHING
+        `, [req.params.id, carNumber, userId]);
+        added++;
+      } catch (e) {
+        // Skip invalid car numbers
+      }
+    }
+
+    const cars = await query('SELECT * FROM v_project_cars WHERE project_id = $1', [req.params.id]);
+    res.json({ success: true, data: { added, cars } });
+  } catch (err) {
+    console.error('Add cars error:', err);
+    res.status(500).json({ success: false, error: 'Failed to add cars to project' });
+  }
+});
+
+/**
+ * @route   DELETE /api/projects/:projectId/cars/:carNumber
+ * @desc    Remove car from project
+ * @access  Protected - Operator+
+ */
+router.delete('/projects/:projectId/cars/:carNumber', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    await query('DELETE FROM project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
+    res.json({ success: true, message: 'Car removed from project' });
+  } catch (err) {
+    console.error('Remove car error:', err);
+    res.status(500).json({ success: false, error: 'Failed to remove car from project' });
+  }
+});
+
+/**
+ * @route   PUT /api/projects/:projectId/cars/:carNumber/status
+ * @desc    Update car status within project
+ * @access  Protected - Operator+
+ */
+router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { status, completion_notes } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!['pending', 'in_progress', 'completed', 'excluded'].includes(status)) {
+      res.status(400).json({ success: false, error: 'Invalid status' });
+      return;
+    }
+
+    const updates = status === 'completed'
+      ? `status = $1, completed_at = NOW(), completed_by = $2, completion_notes = $3`
+      : `status = $1`;
+
+    const params = status === 'completed'
+      ? [status, userId, completion_notes, req.params.projectId, req.params.carNumber]
+      : [status, req.params.projectId, req.params.carNumber];
+
+    await query(`
+      UPDATE project_cars SET ${updates}
+      WHERE project_id = $${status === 'completed' ? 4 : 2} AND car_number = $${status === 'completed' ? 5 : 3}
+    `, params);
+
+    const updated = await query('SELECT * FROM v_project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Update car status error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update car status' });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:projectId/cars/:carNumber/brc-review
+ * @desc    Mark car as BRC reviewed (MC approval)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:projectId/cars/:carNumber/brc-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+
+    await query(`
+      UPDATE project_cars SET
+        brc_reviewed = TRUE,
+        brc_reviewed_at = NOW(),
+        brc_reviewed_by = $1,
+        status = 'completed',
+        completed_at = NOW(),
+        completed_by = $1
+      WHERE project_id = $2 AND car_number = $3
+    `, [userId, req.params.projectId, req.params.carNumber]);
+
+    const updated = await query('SELECT * FROM v_project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('BRC review error:', err);
+    res.status(500).json({ success: false, error: 'Failed to mark BRC reviewed' });
+  }
+});
+
+/**
+ * @route   GET /api/cars/:carNumber/project-history
+ * @desc    Get all projects a car has been in
+ * @access  Protected
+ */
+router.get('/cars/:carNumber/project-history', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_car_project_history WHERE car_number = $1', [req.params.carNumber]);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Car project history error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch car project history' });
+  }
+});
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 
