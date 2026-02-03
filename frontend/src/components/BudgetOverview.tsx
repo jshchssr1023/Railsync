@@ -15,7 +15,6 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
   const [serviceEvents, setServiceEvents] = useState<ServiceEventBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'running' | 'service'>('summary');
 
   const currentYear = fiscalYear || new Date().getFullYear();
 
@@ -91,9 +90,9 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
         <div className="card-body">
           <div className="animate-pulse space-y-4">
             <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
-            <div className="grid grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="grid grid-cols-2 gap-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-40 bg-gray-200 dark:bg-gray-700 rounded"></div>
               ))}
             </div>
           </div>
@@ -112,258 +111,156 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
     );
   }
 
+  // Calculate running repairs totals
+  const rrTotalBudget = runningRepairs.reduce((s, r) => s + r.monthly_budget, 0);
+  const rrTotalActual = runningRepairs.reduce((s, r) => s + r.actual_spend, 0);
+  const rrTotalRemaining = runningRepairs.reduce((s, r) => s + r.remaining_budget, 0);
+
+  // Calculate service events totals
+  const seTotalBudget = serviceEvents.reduce((s, e) => s + e.total_budget, 0);
+  const seTotalCars = serviceEvents.reduce((s, e) => s + e.budgeted_car_count, 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Budget Overview - FY{currentYear}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Maintenance budget tracking and allocation
-          </p>
-        </div>
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          Budget Overview - FY{currentYear}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Maintenance budget tracking and allocation
+        </p>
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card">
-            <div className="card-body">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {formatCurrency(summary.total.budget)}
-              </p>
-              <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary-500"
-                  style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }}
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {summary.total.consumed_pct.toFixed(1)}% committed
-              </p>
-            </div>
+      {/* Budget Health - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Running Repairs Card */}
+        <div className="card">
+          <div className="card-header flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h3>
+            {summary && (
+              <VarianceIndicator actual={summary.running_repairs.actual_spend} budget={summary.running_repairs.total_budget} />
+            )}
           </div>
-
-          <div className="card">
-            <div className="card-body">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
-                <VarianceIndicator actual={summary.total.committed} budget={summary.total.budget} />
-              </div>
-              <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">
-                {formatCurrency(summary.total.committed)}
-              </p>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Planned + Actual spending
-              </p>
+          <div className="card-body space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Annual Budget</span>
+              <span className="font-medium">{formatCurrency(rrTotalBudget)}</span>
             </div>
-          </div>
-
-          <div className="card">
-            <div className="card-body">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
-              <p className={`text-2xl font-bold ${
-                summary.total.remaining >= 0
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Actual Spend</span>
+              <span className="font-medium text-success-600 dark:text-success-400">
+                {formatCurrency(rrTotalActual)}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
+              <span className="text-gray-600 dark:text-gray-400">Remaining</span>
+              <span className={`font-bold ${
+                rrTotalRemaining >= 0
                   ? 'text-success-600 dark:text-success-400'
                   : 'text-danger-600 dark:text-danger-400'
               }`}>
-                {formatCurrency(summary.total.remaining)}
-              </p>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Available for allocation
-              </p>
+                {formatCurrency(rrTotalRemaining)}
+              </span>
             </div>
+            {/* Monthly Trend */}
+            {runningRepairs.length > 0 && (
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Monthly Trend</p>
+                <div className="flex gap-1 items-end h-16">
+                  {runningRepairs.map((rr) => {
+                    const maxBudget = Math.max(...runningRepairs.map(r => r.monthly_budget));
+                    const heightPct = maxBudget > 0 ? (rr.monthly_budget / maxBudget) * 100 : 0;
+                    const spendPct = rr.monthly_budget > 0 ? (rr.actual_spend / rr.monthly_budget) * 100 : 0;
+                    return (
+                      <div key={rr.id} className="flex-1 flex flex-col items-center gap-0.5" title={`${formatMonth(rr.month)}: ${formatCurrency(rr.actual_spend)} / ${formatCurrency(rr.monthly_budget)}`}>
+                        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-sm relative" style={{ height: `${heightPct}%`, minHeight: '4px' }}>
+                          <div
+                            className={`absolute bottom-0 w-full rounded-sm ${spendPct > 100 ? 'bg-red-400' : 'bg-primary-400'}`}
+                            style={{ height: `${Math.min(spendPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-gray-400">Jan</span>
+                  <span className="text-[10px] text-gray-400">Dec</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex gap-4">
-          {[
-            { id: 'summary', label: 'Summary' },
-            { id: 'running', label: 'Running Repairs' },
-            { id: 'service', label: 'Service Events' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'summary' && summary && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Running Repairs Summary */}
-          <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h3>
-              <VarianceIndicator actual={summary.running_repairs.actual_spend} budget={summary.running_repairs.total_budget} />
-            </div>
-            <div className="card-body space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Annual Budget</span>
-                <span className="font-medium">{formatCurrency(summary.running_repairs.total_budget)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Actual Spend</span>
-                <span className="font-medium text-success-600 dark:text-success-400">
-                  {formatCurrency(summary.running_repairs.actual_spend)}
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
-                <span className="text-gray-600 dark:text-gray-400">Remaining</span>
-                <span className={`font-bold ${
-                  summary.running_repairs.remaining >= 0
-                    ? 'text-success-600 dark:text-success-400'
-                    : 'text-danger-600 dark:text-danger-400'
-                }`}>
-                  {formatCurrency(summary.running_repairs.remaining)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Service Events Summary */}
-          <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Service Events</h3>
+        {/* Service Events Card */}
+        <div className="card">
+          <div className="card-header flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Service Events</h3>
+            {summary && (
               <VarianceIndicator
                 actual={summary.service_events.planned_cost + summary.service_events.actual_cost}
                 budget={summary.service_events.total_budget || (summary.service_events.planned_cost + summary.service_events.actual_cost)}
               />
+            )}
+          </div>
+          <div className="card-body space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Annual Budget</span>
+              <span className="font-medium">{formatCurrency(seTotalBudget)}</span>
             </div>
-            <div className="card-body space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Annual Budget</span>
-                <span className="font-medium">{formatCurrency(summary.service_events.total_budget)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Planned</span>
-                <span className="font-medium text-warning-600 dark:text-warning-400">
-                  {formatCurrency(summary.service_events.planned_cost)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Actual</span>
-                <span className="font-medium text-success-600 dark:text-success-400">
-                  {formatCurrency(summary.service_events.actual_cost)}
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
-                <span className="text-gray-600 dark:text-gray-400">Remaining</span>
-                <span className={`font-bold ${
-                  summary.service_events.remaining >= 0
-                    ? 'text-success-600 dark:text-success-400'
-                    : 'text-danger-600 dark:text-danger-400'
-                }`}>
-                  {formatCurrency(summary.service_events.remaining)}
-                </span>
-              </div>
+            {summary && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Planned</span>
+                  <span className="font-medium text-warning-600 dark:text-warning-400">
+                    {formatCurrency(summary.service_events.planned_cost)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Actual</span>
+                  <span className="font-medium text-success-600 dark:text-success-400">
+                    {formatCurrency(summary.service_events.actual_cost)}
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
+              <span className="text-gray-600 dark:text-gray-400">Remaining</span>
+              <span className={`font-bold ${
+                (summary?.service_events.remaining ?? seTotalBudget) >= 0
+                  ? 'text-success-600 dark:text-success-400'
+                  : 'text-danger-600 dark:text-danger-400'
+              }`}>
+                {formatCurrency(summary?.service_events.remaining ?? seTotalBudget)}
+              </span>
             </div>
+            {/* Event Type Breakdown */}
+            {serviceEvents.length > 0 && (
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">By Event Type</p>
+                <div className="space-y-2">
+                  {['Qualification', 'Assignment', 'Return'].map((type) => {
+                    const events = serviceEvents.filter(e => e.event_type === type);
+                    const typeBudget = events.reduce((s, e) => s + e.total_budget, 0);
+                    const typeCars = events.reduce((s, e) => s + e.budgeted_car_count, 0);
+                    if (events.length === 0) return null;
+                    return (
+                      <div key={type} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">{type}</span>
+                        <div className="text-right">
+                          <span className="font-medium">{formatCurrency(typeBudget)}</span>
+                          <span className="text-xs text-gray-400 ml-2">({typeCars} cars)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {activeTab === 'running' && (
-        <div className="card overflow-hidden">
-          {runningRepairs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              No running repairs budget data for FY{currentYear}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table text-sm">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th className="text-right">Cars on Lease</th>
-                    <th className="text-right">$/Car/Month</th>
-                    <th className="text-right">Monthly Budget</th>
-                    <th className="text-right">Actual Spend</th>
-                    <th className="text-right">Variance</th>
-                    <th className="text-right">Remaining</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {runningRepairs.map((rr) => (
-                    <tr key={rr.id}>
-                      <td className="font-medium">{formatMonth(rr.month)}</td>
-                      <td className="text-right">{rr.cars_on_lease.toLocaleString()}</td>
-                      <td className="text-right">{formatCurrency(rr.allocation_per_car)}</td>
-                      <td className="text-right">{formatCurrency(rr.monthly_budget)}</td>
-                      <td className="text-right text-success-600 dark:text-success-400">
-                        {formatCurrency(rr.actual_spend)}
-                      </td>
-                      <td className="text-right">
-                        <VarianceIndicator actual={rr.actual_spend} budget={rr.monthly_budget} />
-                      </td>
-                      <td className={`text-right font-medium ${
-                        rr.remaining_budget >= 0
-                          ? 'text-gray-900 dark:text-gray-100'
-                          : 'text-danger-600 dark:text-danger-400'
-                      }`}>
-                        {formatCurrency(rr.remaining_budget)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'service' && (
-        <div className="card overflow-hidden">
-          {serviceEvents.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              No service event budgets for FY{currentYear}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table text-sm">
-                <thead>
-                  <tr>
-                    <th>Event Type</th>
-                    <th className="text-right">Budgeted Cars</th>
-                    <th className="text-right">Avg Cost/Car</th>
-                    <th className="text-right">Total Budget</th>
-                    <th>Segment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {serviceEvents.map((se) => (
-                    <tr key={se.id}>
-                      <td className="font-medium">{se.event_type}</td>
-                      <td className="text-right">{se.budgeted_car_count.toLocaleString()}</td>
-                      <td className="text-right">{formatCurrency(se.avg_cost_per_car)}</td>
-                      <td className="text-right font-medium">
-                        {formatCurrency(se.total_budget)}
-                      </td>
-                      <td className="text-gray-500 dark:text-gray-400">
-                        {se.customer_code || se.fleet_segment || se.car_type || 'All'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -68,9 +68,10 @@ function BudgetContent() {
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
   const [editingRR, setEditingRR] = useState<string | null>(null);
   const [editingSE, setEditingSE] = useState<string | null>(null);
-  const [rrAllocation, setRrAllocation] = useState(150);
-  const [showAddSE, setShowAddSE] = useState(false);
-  const [newSE, setNewSE] = useState({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0 });
+  const [rrAllocation, setRrAllocation] = useState(450);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [seSegmentFilter, setSeSegmentFilter] = useState('All');
+  const [newSE, setNewSE] = useState({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -92,7 +93,7 @@ function BudgetContent() {
   // Set initial allocation from data
   useEffect(() => {
     if (runningRepairs.length > 0) {
-      setRrAllocation(runningRepairs[0].allocation_per_car || 150);
+      setRrAllocation(runningRepairs[0].allocation_per_car || 450);
     }
   }, [runningRepairs]);
 
@@ -149,21 +150,33 @@ function BudgetContent() {
   // Add service event budget
   const handleAddServiceEvent = async () => {
     try {
+      const { fleet_segment, notes, ...rest } = newSE;
       const res = await fetch(`${API_URL}/budget/service-events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fiscal_year: fiscalYear, ...newSE }),
+        body: JSON.stringify({
+          fiscal_year: fiscalYear,
+          ...rest,
+          fleet_segment: fleet_segment || undefined,
+          notes: notes || undefined,
+        }),
       });
       if (res.ok) {
         mutateSE();
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
-        setShowAddSE(false);
-        setNewSE({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0 });
+        setShowAddModal(false);
+        setNewSE({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
       }
     } catch (err) {
       console.error('Failed to add service event:', err);
     }
   };
+
+  // Get unique segments for filter
+  const segmentOptions = ['All', ...Array.from(new Set(serviceEvents.map(se => se.fleet_segment || se.customer_code).filter(Boolean))) as string[]];
+  const filteredServiceEvents = seSegmentFilter === 'All'
+    ? serviceEvents
+    : serviceEvents.filter(se => (se.fleet_segment || se.customer_code) === seSegmentFilter);
 
   // Update service event budget
   const handleUpdateServiceEvent = async (id: string, data: Partial<ServiceEventBudget>) => {
@@ -233,6 +246,38 @@ function BudgetContent() {
         </div>
       </div>
 
+      {/* Summary Cards (above tabs) */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">FY{fiscalYear} aggregate allocation</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+            <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.committed)}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Planned + actual spending</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
+            <p className={`text-2xl font-bold ${summary.total.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(summary.total.remaining)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {(100 - summary.total.consumed_pct).toFixed(0)}% available
+            </p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
+            <p className="text-2xl font-bold text-blue-600">{summary.total.consumed_pct.toFixed(1)}%</p>
+            <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex gap-1">
@@ -275,33 +320,6 @@ function BudgetContent() {
       {/* Configuration Tab */}
       {activeTab === 'configuration' && (
         <div className="space-y-6">
-          {/* Summary Cards */}
-          {summary && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
-                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.committed)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
-                <p className={`text-2xl font-bold ${summary.total.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(summary.total.remaining)}
-                </p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
-                <p className="text-2xl font-bold text-blue-600">{summary.total.consumed_pct.toFixed(1)}%</p>
-                <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500" style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }} />
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Running Repairs Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -384,13 +402,24 @@ function BudgetContent() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Service Events</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Event-based: Qualifications, Assignments, Returns</p>
               </div>
-              <button
-                onClick={() => setShowAddSE(true)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Event
-              </button>
+              <div className="flex items-center gap-3">
+                <select
+                  value={seSegmentFilter}
+                  onChange={(e) => setSeSegmentFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                >
+                  {segmentOptions.map((seg) => (
+                    <option key={seg} value={seg}>{seg}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Event
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -405,50 +434,7 @@ function BudgetContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {showAddSE && (
-                    <tr className="bg-green-50 dark:bg-green-900/20">
-                      <td className="px-4 py-2">
-                        <select
-                          value={newSE.event_type}
-                          onChange={(e) => setNewSE({ ...newSE, event_type: e.target.value })}
-                          className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-700"
-                        >
-                          <option value="Qualification">Qualification</option>
-                          <option value="Assignment">Assignment</option>
-                          <option value="Return">Return</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          value={newSE.budgeted_car_count}
-                          onChange={(e) => setNewSE({ ...newSE, budgeted_car_count: parseInt(e.target.value) || 0 })}
-                          className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number"
-                          value={newSE.avg_cost_per_car}
-                          onChange={(e) => setNewSE({ ...newSE, avg_cost_per_car: parseFloat(e.target.value) || 0 })}
-                          className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium">
-                        {formatCurrency(newSE.budgeted_car_count * newSE.avg_cost_per_car)}
-                      </td>
-                      <td className="px-4 py-2 text-gray-400">All</td>
-                      <td className="px-4 py-2 text-right">
-                        <button onClick={handleAddServiceEvent} className="p-1 text-green-600 hover:text-green-700">
-                          <Save className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setShowAddSE(false)} className="p-1 text-gray-400 hover:text-gray-600 ml-1">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                  {serviceEvents.map((se) => (
+                  {filteredServiceEvents.map((se) => (
                     <SERow
                       key={se.id}
                       data={se}
@@ -460,7 +446,7 @@ function BudgetContent() {
                       formatCurrency={formatCurrency}
                     />
                   ))}
-                  {serviceEvents.length === 0 && !showAddSE && (
+                  {filteredServiceEvents.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                         No service event budgets. Click Add Event to create one.
@@ -468,13 +454,13 @@ function BudgetContent() {
                     </tr>
                   )}
                 </tbody>
-                {serviceEvents.length > 0 && (
+                {filteredServiceEvents.length > 0 && (
                   <tfoot className="bg-gray-50 dark:bg-gray-700 font-semibold">
                     <tr>
                       <td className="px-4 py-2">TOTAL</td>
-                      <td className="px-4 py-2 text-right">{serviceEvents.reduce((s, e) => s + e.budgeted_car_count, 0).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">{filteredServiceEvents.reduce((s, e) => s + e.budgeted_car_count, 0).toLocaleString()}</td>
                       <td className="px-4 py-2 text-right">-</td>
-                      <td className="px-4 py-2 text-right">{formatCurrency(serviceEvents.reduce((s, e) => s + e.total_budget, 0))}</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(filteredServiceEvents.reduce((s, e) => s + e.total_budget, 0))}</td>
                       <td></td>
                       <td></td>
                     </tr>
@@ -503,6 +489,100 @@ function BudgetContent() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add Service Event Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Service Event Budget</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type</label>
+                <select
+                  value={newSE.event_type}
+                  onChange={(e) => setNewSE({ ...newSE, event_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="Qualification">Qualification</option>
+                  <option value="Assignment">Assignment</option>
+                  <option value="Return">Return</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Budgeted Cars</label>
+                  <input
+                    type="number"
+                    value={newSE.budgeted_car_count || ''}
+                    onChange={(e) => setNewSE({ ...newSE, budgeted_car_count: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Avg $/Car</label>
+                  <input
+                    type="number"
+                    value={newSE.avg_cost_per_car || ''}
+                    onChange={(e) => setNewSE({ ...newSE, avg_cost_per_car: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Budget</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(newSE.budgeted_car_count * newSE.avg_cost_per_car)}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fleet Segment</label>
+                <input
+                  type="text"
+                  value={newSE.fleet_segment}
+                  onChange={(e) => setNewSE({ ...newSE, fleet_segment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="All (leave blank for all segments)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                <textarea
+                  value={newSE.notes}
+                  onChange={(e) => setNewSE({ ...newSE, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewSE({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
+                  }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddServiceEvent}
+                  disabled={!newSE.budgeted_car_count || !newSE.avg_cost_per_car}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add Event
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
