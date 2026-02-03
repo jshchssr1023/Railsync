@@ -116,6 +116,7 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                   <a href="/planning" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Quick Shop</a>
                   <a href="/planning?tab=network-view" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Network</a>
                   <a href="/shops" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shop Finder</a>
+                  <a href="/plans" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Master Plans</a>
                   <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget</a>
                 </div>
               )}
@@ -132,8 +133,12 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                 <div className="pl-6 pb-2">
                   <a href="/fleet" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Fleet</a>
                   <a href="/rules" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Rules</a>
+                  <a href="/reports" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Reports</a>
                   {isAdmin && (
-                    <a href="/admin" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Admin</a>
+                    <>
+                      <a href="/audit" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Audit Log</a>
+                      <a href="/admin" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Admin</a>
+                    </>
                   )}
                 </div>
               )}
@@ -196,6 +201,7 @@ export default function AuthHeader() {
                     { href: '/planning', label: 'Quick Shop' },
                     { href: '/planning?tab=network-view', label: 'Network' },
                     { href: '/shops', label: 'Shop Finder' },
+                    { href: '/plans', label: 'Master Plans' },
                     { href: '/budget', label: 'Budget' },
                   ]}
                 />
@@ -207,7 +213,11 @@ export default function AuthHeader() {
                   items={[
                     { href: '/fleet', label: 'Fleet' },
                     { href: '/rules', label: 'Rules' },
-                    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
+                    { href: '/reports', label: 'Reports' },
+                    ...(user?.role === 'admin' ? [
+                      { href: '/audit', label: 'Audit Log' },
+                      { href: '/admin', label: 'Admin' },
+                    ] : []),
                   ]}
                 />
               </nav>

@@ -61,7 +61,10 @@
       "Bash(npm run test:backend:*)",
       "Bash(__NEW_LINE_201bd309a30d8851__ echo \"=== Testing ACFX600002 \\(Carbon, Rubber lined\\) ===\")",
       "Bash(__NEW_LINE_7960d818799a2bfa__ echo \"=== Testing ACFX600003 \\(Aluminum\\) ===\")",
-      "Bash(__NEW_LINE_be122605d7a94101__ echo \"=== Testing ACFX600004 \\(Asbestos\\) ===\")"
+      "Bash(__NEW_LINE_be122605d7a94101__ echo \"=== Testing ACFX600004 \\(Asbestos\\) ===\")",
+      "Bash(start http://localhost:3000/fleet)",
+      "Bash(python:*)",
+      "Bash(docker-compose ps:*)"
     ]
   }
 }
