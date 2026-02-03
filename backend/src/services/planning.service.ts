@@ -11,6 +11,7 @@ import {
 import { evaluateShops } from './evaluation.service';
 import { getDemandById, updateDemandStatus } from './demand.service';
 import * as assignmentService from './assignment.service';
+import { capacityEvents } from './capacity-events.service';
 
 // ============================================================================
 // SHOP MONTHLY CAPACITY
@@ -548,7 +549,22 @@ export async function createAllocation(input: {
     );
   }
 
-  return rows[0];
+  const allocation = rows[0];
+
+  // Emit SSE event for real-time updates
+  capacityEvents.emitAllocationCreated(
+    allocation.shop_code,
+    allocation.target_month,
+    {
+      id: allocation.id,
+      car_number: allocation.car_number,
+      status: allocation.status,
+      version: (allocation as { version?: number }).version || 1,
+    },
+    created_by
+  );
+
+  return allocation;
 }
 
 /**

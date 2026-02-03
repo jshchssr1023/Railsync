@@ -561,7 +561,7 @@ export async function createAllocation(req: Request, res: Response): Promise<voi
       estimated_cost_breakdown,
       service_event_id,
       notes,
-      created_by: req.user?.email,
+      created_by: req.user?.id,
     });
 
     await logFromRequest(req, 'create', 'allocation', allocation.id, undefined, {
