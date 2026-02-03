@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 19:00 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 20:30 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -42,8 +42,8 @@
 | Master Plans UI | Version history, snapshots, comparisons | `/plans` page | `1df445f` |
 | Reports Dashboard | KPI cards, trends, shop performance | `/reports` page | `1df445f` |
 | Audit Log Viewer | Activity history with filters | `/audit` page | `1df445f` |
-| Email Notifications | Queue-based async email system | `email.service.ts`, `017_email_notifications.sql` | - |
-| Notification Preferences UI | User settings for email subscriptions | `/settings` page | - |
+| Email Notifications | Queue-based async email system | `email.service.ts`, `017_email_notifications.sql` | `abd426c` |
+| Notification Preferences UI | User settings for email subscriptions | `/settings` page | `abd426c` |
 
 ### In Progress 🔄
 
@@ -131,6 +131,7 @@ v_shopping_reasons      - Type + reason joined
 v_shop_capabilities_summary
 v_master_plan_summary       - Plan with version count and totals
 v_plan_version_comparison   - Version diff with allocation/cost deltas
+v_email_stats               - Email queue statistics by date
 ```
 
 ---
@@ -144,4 +145,8 @@ All features from Phase 16 and Fleet Overview UI Redesign are complete.
 - http://localhost:3000/fleet - Fleet hierarchy with health dashboard
 - http://localhost:3000/shops - Shop finder with filters
 - http://localhost:3000/budget - Maintenance budget input
+- http://localhost:3000/plans - Master plan versioning
+- http://localhost:3000/reports - KPI dashboard and reports
+- http://localhost:3000/audit - Audit log viewer (admin)
+- http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search
