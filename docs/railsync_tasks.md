@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-02 18:35 CST by Claude Opus 4.5
+> **Last Updated:** 2026-02-02 19:00 CST by Claude Opus 4.5
 
 ### Completed ✅
 
@@ -39,6 +39,9 @@
 | Shop Event Modal | Classification + Estimate Lines flow | `ShopEventModal.tsx` | `b9ec29c` |
 | Master Plan Versioning | Version control for planning scenarios | `016_master_plan_versioning.sql`, `masterPlan.service.ts` | `bfa8b0a` |
 | Navigation Restructure | Operations/Planning/Assets dropdown menus | `AuthHeader.tsx` | `bfa8b0a` |
+| Master Plans UI | Version history, snapshots, comparisons | `/plans` page | `1df445f` |
+| Reports Dashboard | KPI cards, trends, shop performance | `/reports` page | `1df445f` |
+| Audit Log Viewer | Activity history with filters | `/audit` page | `1df445f` |
 
 ### In Progress 🔄
 
