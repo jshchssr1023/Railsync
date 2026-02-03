@@ -44,6 +44,8 @@
 | Audit Log Viewer | Activity history with filters | `/audit` page | `1df445f` |
 | Email Notifications | Queue-based async email system | `email.service.ts`, `017_email_notifications.sql` | `abd426c` |
 | Notification Preferences UI | User settings for email subscriptions | `/settings` page | `abd426c` |
+| Shop Designations | Storage/Scrap shop type filtering | `018_shop_designations.sql`, `/admin/shop-designations` | `b614a00` |
+| Storage Commodities | Reference table for prep commodity selection | `storage_commodities` table | `b614a00` |
 
 ### In Progress 🔄
 
@@ -113,6 +115,12 @@ GET  /api/notifications/preferences     - Get user notification preferences
 PUT  /api/notifications/preferences     - Update notification preferences
 GET  /api/notifications/queue/status    - Email queue status (admin)
 POST /api/notifications/queue/process   - Process email queue (admin)
+GET  /api/shops/by-designation/:type    - Filter shops by designation
+GET  /api/shops/designation-summary     - Shop counts by designation
+PUT  /api/shops/:shopCode/designation   - Update shop designation (admin)
+PUT  /api/shops/bulk-designation        - Bulk update designations (admin)
+GET  /api/storage-commodities           - List storage prep commodities
+GET  /api/shops/for-shopping-type/:id   - Shops filtered by shopping type
 ```
 
 ---
