@@ -8,6 +8,7 @@
 import { query } from '../config/database';
 import { getActiveAssignment } from './assignment.service';
 import { createAlert } from './alerts.service';
+import { notifyBadOrder } from './email.service';
 
 // ============================================================================
 // TYPES
@@ -117,6 +118,19 @@ export async function createBadOrder(input: CreateBadOrderInput): Promise<BadOrd
       has_existing_plan: !!existingAssignment,
     },
   });
+
+  // Queue email notifications for subscribed users
+  try {
+    await notifyBadOrder({
+      car_number: input.car_number,
+      shop_code: existingAssignment?.shop_code || 'Unassigned',
+      issue: `${input.issue_type.replace(/_/g, ' ')}: ${input.issue_description.substring(0, 100)}`,
+      reporter: input.reported_by || 'Unknown',
+    });
+  } catch (emailErr) {
+    console.error('[BadOrder] Failed to queue email notifications:', emailErr);
+    // Don't fail the bad order creation if email fails
+  }
 
   return badOrder;
 }

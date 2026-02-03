@@ -12,6 +12,7 @@ import servicePlanController from '../controllers/servicePlan.controller';
 import shopFilterController from '../controllers/shopFilter.controller';
 import sseController from '../controllers/sse.controller';
 import masterPlanController from '../controllers/masterPlan.controller';
+import notificationController from '../controllers/notification.controller';
 import { validateEvaluationRequest } from '../middleware/validation';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
@@ -1036,6 +1037,38 @@ router.put('/master-plans/:id', authenticate, authorize('admin', 'operator'), ma
 router.delete('/master-plans/:id', authenticate, authorize('admin'), masterPlanController.deleteMasterPlan);
 router.get('/master-plans/:id/versions', authenticate, masterPlanController.listVersions);
 router.post('/master-plans/:id/versions', authenticate, authorize('admin', 'operator'), masterPlanController.createVersion);
+
+// ============================================================================
+// NOTIFICATION PREFERENCES
+// ============================================================================
+
+/**
+ * @route   GET /api/notifications/preferences
+ * @desc    Get current user's notification preferences
+ * @access  Protected
+ */
+router.get('/notifications/preferences', authenticate, notificationController.getPreferences);
+
+/**
+ * @route   PUT /api/notifications/preferences
+ * @desc    Update current user's notification preferences
+ * @access  Protected
+ */
+router.put('/notifications/preferences', authenticate, notificationController.updatePreferences);
+
+/**
+ * @route   GET /api/notifications/queue/status
+ * @desc    Get email queue status (admin only)
+ * @access  Protected - Admin only
+ */
+router.get('/notifications/queue/status', authenticate, authorize('admin'), notificationController.getQueueStatus);
+
+/**
+ * @route   POST /api/notifications/queue/process
+ * @desc    Manually process email queue (admin only)
+ * @access  Protected - Admin only
+ */
+router.post('/notifications/queue/process', authenticate, authorize('admin'), notificationController.processQueue);
 
 // ============================================================================
 // HEALTH CHECK

@@ -42,6 +42,8 @@
 | Master Plans UI | Version history, snapshots, comparisons | `/plans` page | `1df445f` |
 | Reports Dashboard | KPI cards, trends, shop performance | `/reports` page | `1df445f` |
 | Audit Log Viewer | Activity history with filters | `/audit` page | `1df445f` |
+| Email Notifications | Queue-based async email system | `email.service.ts`, `017_email_notifications.sql` | - |
+| Notification Preferences UI | User settings for email subscriptions | `/settings` page | - |
 
 ### In Progress 🔄
 
@@ -107,6 +109,10 @@ DELETE /api/master-plans/:id        - Delete master plan
 GET  /api/master-plans/:id/versions - List plan versions
 POST /api/master-plans/:id/versions - Create version snapshot
 POST /api/master-plans/versions/compare - Compare two versions
+GET  /api/notifications/preferences     - Get user notification preferences
+PUT  /api/notifications/preferences     - Update notification preferences
+GET  /api/notifications/queue/status    - Email queue status (admin)
+POST /api/notifications/queue/process   - Process email queue (admin)
 ```
 
 ---
