@@ -1127,6 +1127,194 @@ router.post('/bad-orders', authenticate, badOrderController.createBadOrder);
 router.post('/bad-orders/:id/resolve', authenticate, badOrderController.resolveBadOrder);
 
 // ============================================================================
+// SHOP DESIGNATIONS & STORAGE COMMODITIES
+// ============================================================================
+
+/**
+ * @route   GET /api/shops/by-designation/:designation
+ * @desc    Get shops filtered by designation (repair, storage, scrap)
+ * @access  Public
+ */
+router.get('/shops/by-designation/:designation', optionalAuth, async (req, res) => {
+  try {
+    const { designation } = req.params;
+    if (!['repair', 'storage', 'scrap'].includes(designation)) {
+      return res.status(400).json({ success: false, error: 'Invalid designation. Must be: repair, storage, or scrap' });
+    }
+
+    const result = await query(`
+      SELECT shop_code, shop_name, region, city, state, tier, latitude, longitude
+      FROM shops
+      WHERE shop_designation = $1 AND is_active = true
+      ORDER BY region, shop_name
+    `, [designation]);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Shops by designation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get shops by designation' });
+  }
+});
+
+/**
+ * @route   GET /api/shops/designation-summary
+ * @desc    Get count of shops by designation
+ * @access  Public
+ */
+router.get('/shops/designation-summary', optionalAuth, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_shops_by_designation');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Designation summary error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get designation summary' });
+  }
+});
+
+/**
+ * @route   PUT /api/shops/:shopCode/designation
+ * @desc    Update shop designation (admin only)
+ * @access  Protected - Admin only
+ */
+router.put('/shops/:shopCode/designation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { shopCode } = req.params;
+    const { designation } = req.body;
+
+    if (!['repair', 'storage', 'scrap'].includes(designation)) {
+      return res.status(400).json({ success: false, error: 'Invalid designation. Must be: repair, storage, or scrap' });
+    }
+
+    const result = await query(`
+      UPDATE shops SET shop_designation = $2, updated_at = NOW()
+      WHERE shop_code = $1
+      RETURNING shop_code, shop_name, shop_designation, region
+    `, [shopCode, designation]);
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, error: 'Shop not found' });
+    }
+
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Update designation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update shop designation' });
+  }
+});
+
+/**
+ * @route   PUT /api/shops/bulk-designation
+ * @desc    Bulk update shop designations (admin only)
+ * @access  Protected - Admin only
+ */
+router.put('/shops/bulk-designation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { shop_codes, designation } = req.body;
+
+    if (!Array.isArray(shop_codes) || shop_codes.length === 0) {
+      return res.status(400).json({ success: false, error: 'shop_codes array required' });
+    }
+
+    if (!['repair', 'storage', 'scrap'].includes(designation)) {
+      return res.status(400).json({ success: false, error: 'Invalid designation' });
+    }
+
+    const result = await query(`
+      UPDATE shops SET shop_designation = $2, updated_at = NOW()
+      WHERE shop_code = ANY($1)
+      RETURNING shop_code, shop_name, shop_designation
+    `, [shop_codes, designation]);
+
+    res.json({ success: true, data: result, updated: result.length });
+  } catch (err) {
+    console.error('Bulk designation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to bulk update designations' });
+  }
+});
+
+/**
+ * @route   GET /api/storage-commodities
+ * @desc    Get list of commodities for storage prep
+ * @access  Public
+ */
+router.get('/storage-commodities', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT id, cin, name, hazmat_class, requires_cleaning, requires_nitrogen, sort_order
+      FROM storage_commodities
+      WHERE is_active = true
+      ORDER BY sort_order, name
+    `);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Storage commodities error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get storage commodities' });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-types/:typeId/required-designation
+ * @desc    Get required shop designation for a shopping type
+ * @access  Public
+ */
+router.get('/shopping-types/:typeId/required-designation', optionalAuth, async (req, res) => {
+  try {
+    const { typeId } = req.params;
+    const result = await query(`
+      SELECT required_designation
+      FROM shopping_type_designations
+      WHERE shopping_type_id = $1
+    `, [typeId]);
+
+    // If no specific designation required, default to 'repair'
+    const designation = result[0]?.required_designation || 'repair';
+    res.json({ success: true, data: { required_designation: designation } });
+  } catch (err) {
+    console.error('Required designation error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get required designation' });
+  }
+});
+
+/**
+ * @route   GET /api/shops/for-shopping-type/:typeId
+ * @desc    Get shops filtered by shopping type's required designation
+ * @access  Public
+ */
+router.get('/shops/for-shopping-type/:typeId', optionalAuth, async (req, res) => {
+  try {
+    const { typeId } = req.params;
+
+    // Get required designation for this shopping type
+    const designationResult = await query(`
+      SELECT required_designation
+      FROM shopping_type_designations
+      WHERE shopping_type_id = $1
+    `, [typeId]);
+
+    const designation = designationResult[0]?.required_designation || 'repair';
+
+    // Get shops with that designation
+    const shops = await query(`
+      SELECT shop_code, shop_name, region, city, state, tier, latitude, longitude
+      FROM shops
+      WHERE shop_designation = $1 AND is_active = true
+      ORDER BY region, shop_name
+    `, [designation]);
+
+    res.json({
+      success: true,
+      data: {
+        required_designation: designation,
+        shops: shops
+      }
+    });
+  } catch (err) {
+    console.error('Shops for shopping type error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get shops for shopping type' });
+  }
+});
+
+// ============================================================================
 // SERVICE PLAN ROUTES (Phase 3)
 // ============================================================================
 
@@ -1302,6 +1490,758 @@ router.get('/notifications/queue/status', authenticate, authorize('admin'), noti
  * @access  Protected - Admin only
  */
 router.post('/notifications/queue/process', authenticate, authorize('admin'), notificationController.processQueue);
+
+// ============================================================================
+// CAPACITY RESERVATIONS (Master Planning)
+// ============================================================================
+
+/**
+ * @route   GET /api/capacity/calendar
+ * @desc    Get shop capacity calendar by month (base - reserved = available)
+ * @access  Protected
+ */
+router.get('/capacity/calendar', authenticate, async (req, res) => {
+  try {
+    const shopCode = req.query.shop_code as string;
+    const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
+
+    let sql = `SELECT * FROM v_shop_capacity_calendar WHERE year >= $1`;
+    const params: any[] = [year];
+
+    if (shopCode) {
+      sql += ` AND shop_code = $2`;
+      params.push(shopCode);
+    }
+
+    sql += ` ORDER BY shop_name, year, month`;
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Capacity calendar error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch capacity calendar' });
+  }
+});
+
+/**
+ * @route   GET /api/capacity/reservations
+ * @desc    List capacity reservations with filters
+ * @access  Protected
+ */
+router.get('/capacity/reservations', authenticate, async (req, res) => {
+  try {
+    const { shop_code, lessee_code, status, year, month } = req.query;
+
+    let sql = `SELECT * FROM v_capacity_reservations WHERE 1=1`;
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (shop_code) {
+      paramCount++;
+      sql += ` AND shop_code = $${paramCount}`;
+      params.push(shop_code);
+    }
+    if (lessee_code) {
+      paramCount++;
+      sql += ` AND lessee_code = $${paramCount}`;
+      params.push(lessee_code);
+    }
+    if (status) {
+      paramCount++;
+      sql += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+    if (year) {
+      paramCount++;
+      sql += ` AND start_year <= $${paramCount} AND end_year >= $${paramCount}`;
+      params.push(parseInt(year as string));
+    }
+    if (month && year) {
+      paramCount++;
+      sql += ` AND (
+        (start_year < $${paramCount - 1}) OR
+        (start_year = $${paramCount - 1} AND start_month <= $${paramCount})
+      ) AND (
+        (end_year > $${paramCount - 1}) OR
+        (end_year = $${paramCount - 1} AND end_month >= $${paramCount})
+      )`;
+      params.push(parseInt(month as string));
+    }
+
+    sql += ` ORDER BY start_year, start_month, shop_name`;
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Reservations list error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch reservations' });
+  }
+});
+
+/**
+ * @route   GET /api/capacity/reservations/by-lessee
+ * @desc    Get reservations summary by lessee
+ * @access  Protected
+ */
+router.get('/capacity/reservations/by-lessee', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_reservations_by_lessee');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Reservations by lessee error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch reservations by lessee' });
+  }
+});
+
+/**
+ * @route   GET /api/capacity/reservations/:id
+ * @desc    Get single reservation details
+ * @access  Protected
+ */
+router.get('/capacity/reservations/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    if (result.length === 0) {
+      res.status(404).json({ success: false, error: 'Reservation not found' });
+      return;
+    }
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('Reservation get error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch reservation' });
+  }
+});
+
+/**
+ * @route   POST /api/capacity/reservations
+ * @desc    Create new capacity reservation
+ * @access  Protected - Operator+
+ */
+router.post('/capacity/reservations', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { shop_code, lessee_code, lessee_name, start_year, start_month, end_year, end_month, reserved_slots, notes } = req.body;
+
+    if (!shop_code || !lessee_code || !start_year || !start_month || !reserved_slots) {
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+
+    const result = await query(`
+      INSERT INTO capacity_reservations (shop_code, lessee_code, lessee_name, start_year, start_month, end_year, end_month, reserved_slots, notes, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id
+    `, [
+      shop_code, lessee_code, lessee_name || null,
+      start_year, start_month,
+      end_year || start_year, end_month || start_month,
+      reserved_slots, notes || null, userId
+    ]);
+
+    const created = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [result[0].id]);
+    res.status(201).json({ success: true, data: created[0] });
+  } catch (err) {
+    console.error('Reservation create error:', err);
+    res.status(500).json({ success: false, error: 'Failed to create reservation' });
+  }
+});
+
+/**
+ * @route   PUT /api/capacity/reservations/:id
+ * @desc    Update capacity reservation
+ * @access  Protected - Operator+
+ */
+router.put('/capacity/reservations/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { reserved_slots, end_year, end_month, notes } = req.body;
+
+    await query(`
+      UPDATE capacity_reservations
+      SET reserved_slots = COALESCE($1, reserved_slots),
+          end_year = COALESCE($2, end_year),
+          end_month = COALESCE($3, end_month),
+          notes = COALESCE($4, notes),
+          updated_at = NOW()
+      WHERE id = $5
+    `, [reserved_slots, end_year, end_month, notes, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Reservation update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update reservation' });
+  }
+});
+
+/**
+ * @route   POST /api/capacity/reservations/:id/confirm
+ * @desc    Confirm reservation (hard block capacity)
+ * @access  Protected - Operator+
+ */
+router.post('/capacity/reservations/:id/confirm', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+
+    // Check capacity before confirming
+    const reservation = await query('SELECT * FROM capacity_reservations WHERE id = $1', [req.params.id]);
+    if (reservation.length === 0) {
+      res.status(404).json({ success: false, error: 'Reservation not found' });
+      return;
+    }
+
+    const r = reservation[0];
+    if (r.status !== 'draft') {
+      res.status(400).json({ success: false, error: 'Only draft reservations can be confirmed' });
+      return;
+    }
+
+    // Check if capacity is available
+    const capacityCheck = await query(`
+      SELECT * FROM check_reservation_capacity($1, $2, $3, $4, $5, $6, $7)
+    `, [r.shop_code, r.start_year, r.start_month, r.end_year, r.end_month, r.reserved_slots, r.id]);
+
+    const wouldExceed = capacityCheck.some((c: any) => c.would_exceed);
+    if (wouldExceed) {
+      res.status(400).json({
+        success: false,
+        error: 'Insufficient capacity for some months',
+        data: capacityCheck
+      });
+      return;
+    }
+
+    await query(`
+      UPDATE capacity_reservations
+      SET status = 'confirmed', confirmed_at = NOW(), confirmed_by = $1, updated_at = NOW()
+      WHERE id = $2
+    `, [userId, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Reservation confirm error:', err);
+    res.status(500).json({ success: false, error: 'Failed to confirm reservation' });
+  }
+});
+
+/**
+ * @route   POST /api/capacity/reservations/:id/cancel
+ * @desc    Cancel reservation (release capacity)
+ * @access  Protected - Operator+
+ */
+router.post('/capacity/reservations/:id/cancel', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    await query(`
+      UPDATE capacity_reservations
+      SET status = 'cancelled', updated_at = NOW()
+      WHERE id = $1
+    `, [req.params.id]);
+
+    const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Reservation cancel error:', err);
+    res.status(500).json({ success: false, error: 'Failed to cancel reservation' });
+  }
+});
+
+/**
+ * @route   POST /api/capacity/reservations/:id/rollover
+ * @desc    Roll over unfilled slots to next month
+ * @access  Protected - Operator+
+ */
+router.post('/capacity/reservations/:id/rollover', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const result = await query('SELECT rollover_reservation($1) AS new_id', [req.params.id]);
+    const newReservation = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [result[0].new_id]);
+    res.json({ success: true, data: newReservation[0] });
+  } catch (err: any) {
+    console.error('Reservation rollover error:', err);
+    res.status(400).json({ success: false, error: err.message || 'Failed to rollover reservation' });
+  }
+});
+
+/**
+ * @route   POST /api/capacity/reservations/:id/allocate
+ * @desc    Bulk allocate cars to fill a reservation
+ * @access  Protected - Operator+
+ */
+router.post('/capacity/reservations/:id/allocate', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { car_numbers } = req.body;
+
+    if (!car_numbers || !Array.isArray(car_numbers) || car_numbers.length === 0) {
+      res.status(400).json({ success: false, error: 'car_numbers array required' });
+      return;
+    }
+
+    // Get reservation details
+    const reservation = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    if (reservation.length === 0) {
+      res.status(404).json({ success: false, error: 'Reservation not found' });
+      return;
+    }
+
+    const r = reservation[0];
+    if (r.status !== 'confirmed') {
+      res.status(400).json({ success: false, error: 'Only confirmed reservations can have cars allocated' });
+      return;
+    }
+
+    const remaining = r.reserved_slots - r.allocated_slots;
+    if (car_numbers.length > remaining) {
+      res.status(400).json({ success: false, error: `Cannot allocate ${car_numbers.length} cars, only ${remaining} slots remaining` });
+      return;
+    }
+
+    // Create allocations for each car
+    const userId = (req as any).user?.id;
+    const targetMonth = `${r.start_year}-${String(r.start_month).padStart(2, '0')}`;
+
+    for (const carNumber of car_numbers) {
+      // Verify car belongs to this lessee
+      const car = await query('SELECT * FROM cars WHERE car_number = $1', [carNumber]);
+      if (car.length === 0) {
+        continue; // Skip unknown cars
+      }
+      if (car[0].lessee_code !== r.lessee_code) {
+        continue; // Skip cars not belonging to this lessee
+      }
+
+      // Create allocation
+      await query(`
+        INSERT INTO allocations (car_number, shop_code, target_month, status, reservation_id, created_by, work_type)
+        VALUES ($1, $2, $3, 'pending', $4, $5, 'Reservation')
+      `, [carNumber, r.shop_code, targetMonth, req.params.id, userId]);
+    }
+
+    // Update allocated count
+    const allocatedCount = await query(`
+      SELECT COUNT(*) AS count FROM allocations WHERE reservation_id = $1 AND status != 'cancelled'
+    `, [req.params.id]);
+
+    await query(`
+      UPDATE capacity_reservations
+      SET allocated_slots = $1,
+          status = CASE WHEN $1 >= reserved_slots THEN 'fulfilled' ELSE status END,
+          updated_at = NOW()
+      WHERE id = $2
+    `, [parseInt(allocatedCount[0].count), req.params.id]);
+
+    const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Reservation allocate error:', err);
+    res.status(500).json({ success: false, error: 'Failed to allocate cars to reservation' });
+  }
+});
+
+/**
+ * @route   GET /api/capacity/check
+ * @desc    Check if capacity is available for a proposed reservation
+ * @access  Protected
+ */
+router.get('/capacity/check', authenticate, async (req, res) => {
+  try {
+    const { shop_code, start_year, start_month, end_year, end_month, slots } = req.query;
+
+    if (!shop_code || !start_year || !start_month || !slots) {
+      res.status(400).json({ success: false, error: 'Missing required parameters' });
+      return;
+    }
+
+    const result = await query(`
+      SELECT * FROM check_reservation_capacity($1, $2, $3, $4, $5, $6)
+    `, [
+      shop_code,
+      parseInt(start_year as string),
+      parseInt(start_month as string),
+      parseInt((end_year || start_year) as string),
+      parseInt((end_month || start_month) as string),
+      parseInt(slots as string)
+    ]);
+
+    res.json({
+      success: true,
+      data: result,
+      available: !result.some((c: any) => c.would_exceed)
+    });
+  } catch (err) {
+    console.error('Capacity check error:', err);
+    res.status(500).json({ success: false, error: 'Failed to check capacity' });
+  }
+});
+
+// ============================================================================
+// CCM DOCUMENT MANAGEMENT
+// ============================================================================
+
+/**
+ * @route   GET /api/ccm-documents
+ * @desc    List CCM documents (current versions by default)
+ * @access  Protected
+ */
+router.get('/ccm-documents', authenticate, async (req, res) => {
+  try {
+    const { lessee_code, include_history } = req.query;
+
+    let sql = include_history === 'true'
+      ? 'SELECT * FROM v_ccm_document_history'
+      : 'SELECT * FROM v_current_ccm_documents';
+
+    const params: any[] = [];
+    if (lessee_code) {
+      sql += ' WHERE lessee_code = $1';
+      params.push(lessee_code);
+    }
+
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('CCM documents error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch CCM documents' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-documents/:id
+ * @desc    Get single CCM document
+ * @access  Protected
+ */
+router.get('/ccm-documents/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_current_ccm_documents WHERE id = $1', [req.params.id]);
+    if (result.length === 0) {
+      res.status(404).json({ success: false, error: 'Document not found' });
+      return;
+    }
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    console.error('CCM document get error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch document' });
+  }
+});
+
+/**
+ * @route   POST /api/ccm-documents
+ * @desc    Upload new CCM document (metadata only - file handling separate)
+ * @access  Protected - Operator+
+ */
+router.post('/ccm-documents', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { lessee_code, lessee_name, document_name, file_path, file_size_bytes, description, effective_date, expiration_date } = req.body;
+
+    if (!lessee_code || !document_name || !file_path) {
+      res.status(400).json({ success: false, error: 'lessee_code, document_name, and file_path required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+
+    // Mark previous versions as not current
+    await query(`
+      UPDATE ccm_documents SET is_current = FALSE, updated_at = NOW()
+      WHERE lessee_code = $1 AND document_name = $2 AND is_current = TRUE
+    `, [lessee_code, document_name]);
+
+    // Get the next version number
+    const versionResult = await query(`
+      SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+      FROM ccm_documents WHERE lessee_code = $1 AND document_name = $2
+    `, [lessee_code, document_name]);
+
+    const result = await query(`
+      INSERT INTO ccm_documents (lessee_code, lessee_name, document_name, file_path, file_size_bytes, description, effective_date, expiration_date, version, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id
+    `, [lessee_code, lessee_name, document_name, file_path, file_size_bytes, description, effective_date, expiration_date, versionResult[0].next_version, userId]);
+
+    const created = await query('SELECT * FROM v_current_ccm_documents WHERE id = $1', [result[0].id]);
+    res.status(201).json({ success: true, data: created[0] });
+  } catch (err) {
+    console.error('CCM document create error:', err);
+    res.status(500).json({ success: false, error: 'Failed to create document' });
+  }
+});
+
+/**
+ * @route   DELETE /api/ccm-documents/:id
+ * @desc    Delete CCM document
+ * @access  Protected - Admin only
+ */
+router.delete('/ccm-documents/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    await query('DELETE FROM ccm_documents WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Document deleted' });
+  } catch (err) {
+    console.error('CCM document delete error:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete document' });
+  }
+});
+
+// ============================================================================
+// RIDERS (Lease Amendments)
+// ============================================================================
+
+/**
+ * @route   GET /api/riders
+ * @desc    List riders with summary info
+ * @access  Protected
+ */
+router.get('/riders', authenticate, async (req, res) => {
+  try {
+    const { lessee_code, contract_base } = req.query;
+
+    let sql = 'SELECT * FROM v_riders_summary WHERE 1=1';
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (lessee_code) {
+      paramCount++;
+      sql += ` AND lessee_code = $${paramCount}`;
+      params.push(lessee_code);
+    }
+    if (contract_base) {
+      paramCount++;
+      sql += ` AND contract_base = $${paramCount}`;
+      params.push(contract_base);
+    }
+
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Riders error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch riders' });
+  }
+});
+
+/**
+ * @route   GET /api/riders/:id
+ * @desc    Get single rider with cars
+ * @access  Protected
+ */
+router.get('/riders/:id', authenticate, async (req, res) => {
+  try {
+    const rider = await query('SELECT * FROM v_riders_summary WHERE id = $1', [req.params.id]);
+    if (rider.length === 0) {
+      res.status(404).json({ success: false, error: 'Rider not found' });
+      return;
+    }
+
+    const cars = await query(`
+      SELECT car_number, car_type, commodity, tank_qual_year, current_status
+      FROM cars WHERE rider_id = $1 ORDER BY car_number
+    `, [req.params.id]);
+
+    res.json({ success: true, data: { ...rider[0], cars } });
+  } catch (err) {
+    console.error('Rider get error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch rider' });
+  }
+});
+
+/**
+ * @route   POST /api/riders/populate
+ * @desc    Populate riders table from car contract_number data
+ * @access  Protected - Admin only
+ */
+router.post('/riders/populate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const result = await query('SELECT populate_riders_from_cars() AS count');
+    res.json({ success: true, data: { inserted: result[0].count } });
+  } catch (err) {
+    console.error('Riders populate error:', err);
+    res.status(500).json({ success: false, error: 'Failed to populate riders' });
+  }
+});
+
+/**
+ * @route   PUT /api/riders/:id
+ * @desc    Update rider details
+ * @access  Protected - Operator+
+ */
+router.put('/riders/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { terms_summary, effective_date, expiration_date } = req.body;
+
+    await query(`
+      UPDATE riders SET
+        terms_summary = COALESCE($1, terms_summary),
+        effective_date = COALESCE($2, effective_date),
+        expiration_date = COALESCE($3, expiration_date),
+        updated_at = NOW()
+      WHERE id = $4
+    `, [terms_summary, effective_date, expiration_date, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_riders_summary WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Rider update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update rider' });
+  }
+});
+
+// ============================================================================
+// BILLABLE ITEMS (Lessee Responsible Matrix)
+// ============================================================================
+
+/**
+ * @route   GET /api/billable-items
+ * @desc    List billable items
+ * @access  Protected
+ */
+router.get('/billable-items', authenticate, async (req, res) => {
+  try {
+    const { lessee_code, rider_id, customer_responsible } = req.query;
+
+    let sql = 'SELECT * FROM v_billable_items WHERE 1=1';
+    const params: any[] = [];
+    let paramCount = 0;
+
+    if (lessee_code) {
+      paramCount++;
+      sql += ` AND lessee_code = $${paramCount}`;
+      params.push(lessee_code);
+    }
+    if (rider_id) {
+      paramCount++;
+      sql += ` AND rider_id = $${paramCount}`;
+      params.push(rider_id);
+    }
+    if (customer_responsible !== undefined) {
+      paramCount++;
+      sql += ` AND is_customer_responsible = $${paramCount}`;
+      params.push(customer_responsible === 'true');
+    }
+
+    const result = await query(sql, params);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Billable items error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch billable items' });
+  }
+});
+
+/**
+ * @route   GET /api/billable-items/summary
+ * @desc    Get billable items summary by lessee
+ * @access  Protected
+ */
+router.get('/billable-items/summary', authenticate, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM v_lessee_billable_summary');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Billable summary error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch billable summary' });
+  }
+});
+
+/**
+ * @route   POST /api/billable-items
+ * @desc    Create billable item
+ * @access  Protected - Operator+
+ */
+router.post('/billable-items', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible, billing_notes } = req.body;
+
+    if (!lessee_code || !item_code || !item_description) {
+      res.status(400).json({ success: false, error: 'lessee_code, item_code, and item_description required' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+
+    const result = await query(`
+      INSERT INTO billable_items (lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible, billing_notes, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id
+    `, [lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible || false, billing_notes, userId]);
+
+    const created = await query('SELECT * FROM v_billable_items WHERE id = $1', [result[0].id]);
+    res.status(201).json({ success: true, data: created[0] });
+  } catch (err) {
+    console.error('Billable item create error:', err);
+    res.status(500).json({ success: false, error: 'Failed to create billable item' });
+  }
+});
+
+/**
+ * @route   PUT /api/billable-items/:id
+ * @desc    Update billable item
+ * @access  Protected - Operator+
+ */
+router.put('/billable-items/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { item_description, is_customer_responsible, billing_notes } = req.body;
+
+    await query(`
+      UPDATE billable_items SET
+        item_description = COALESCE($1, item_description),
+        is_customer_responsible = COALESCE($2, is_customer_responsible),
+        billing_notes = COALESCE($3, billing_notes),
+        updated_at = NOW()
+      WHERE id = $4
+    `, [item_description, is_customer_responsible, billing_notes, req.params.id]);
+
+    const updated = await query('SELECT * FROM v_billable_items WHERE id = $1', [req.params.id]);
+    res.json({ success: true, data: updated[0] });
+  } catch (err) {
+    console.error('Billable item update error:', err);
+    res.status(500).json({ success: false, error: 'Failed to update billable item' });
+  }
+});
+
+/**
+ * @route   DELETE /api/billable-items/:id
+ * @desc    Delete billable item
+ * @access  Protected - Admin only
+ */
+router.delete('/billable-items/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    await query('DELETE FROM billable_items WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Billable item deleted' });
+  } catch (err) {
+    console.error('Billable item delete error:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete billable item' });
+  }
+});
+
+/**
+ * @route   GET /api/cars/:carNumber/billable-items
+ * @desc    Get applicable billable items for a specific car
+ * @access  Protected
+ */
+router.get('/cars/:carNumber/billable-items', authenticate, async (req, res) => {
+  try {
+    const car = await query('SELECT lessee_code, rider_id, commodity, car_type FROM cars WHERE car_number = $1', [req.params.carNumber]);
+    if (car.length === 0) {
+      res.status(404).json({ success: false, error: 'Car not found' });
+      return;
+    }
+
+    const c = car[0];
+
+    // Get billable items that match this car's lessee, rider, commodity, or car_type
+    const items = await query(`
+      SELECT * FROM v_billable_items
+      WHERE lessee_code = $1
+        AND (rider_id IS NULL OR rider_id = $2)
+        AND (commodity IS NULL OR commodity = $3)
+        AND (car_type IS NULL OR car_type = $4)
+      ORDER BY
+        CASE WHEN rider_id IS NOT NULL THEN 0 ELSE 1 END,
+        CASE WHEN commodity IS NOT NULL THEN 0 ELSE 1 END,
+        CASE WHEN car_type IS NOT NULL THEN 0 ELSE 1 END,
+        item_code
+    `, [c.lessee_code, c.rider_id, c.commodity, c.car_type]);
+
+    res.json({ success: true, data: items });
+  } catch (err) {
+    console.error('Car billable items error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch billable items for car' });
+  }
+});
 
 // ============================================================================
 // HEALTH CHECK

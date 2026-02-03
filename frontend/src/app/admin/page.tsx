@@ -65,6 +65,58 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a
+          href="/admin/shop-designations"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">Shop Designations</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Manage repair, storage, scrap locations</p>
+            </div>
+          </div>
+        </a>
+        <a
+          href="/audit"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">Audit Log</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">View system activity history</p>
+            </div>
+          </div>
+        </a>
+        <a
+          href="/settings"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">Email Queue</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Monitor notification queue status</p>
+            </div>
+          </div>
+        </a>
+      </div>
+
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-8">
