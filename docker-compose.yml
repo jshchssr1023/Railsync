@@ -20,6 +20,12 @@ services:
       - ./database/migrations/003_add_capacity_planning.sql:/docker-entrypoint-initdb.d/05-capacity-planning.sql
       - ./database/migrations/004_add_alerts.sql:/docker-entrypoint-initdb.d/06-alerts.sql
       - ./database/migrations/005_fleet_visibility.sql:/docker-entrypoint-initdb.d/07-fleet-visibility.sql
+      - ./database/migrations/009_sop_planning.sql:/docker-entrypoint-initdb.d/08-sop-planning.sql
+      - ./database/migrations/010_fleet_hierarchy.sql:/docker-entrypoint-initdb.d/09-fleet-hierarchy.sql
+      - ./database/migrations/011_amendment_tracking.sql:/docker-entrypoint-initdb.d/10-amendment-tracking.sql
+      - ./database/migrations/013_shop_geo_filtering.sql:/docker-entrypoint-initdb.d/11-shop-geo-filtering.sql
+      - ./database/migrations/014_shopping_classification.sql:/docker-entrypoint-initdb.d/12-shopping-classification.sql
+      - ./database/migrations/015_shopping_classification_additions.sql:/docker-entrypoint-initdb.d/13-shopping-classification-additions.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
       interval: 10s
