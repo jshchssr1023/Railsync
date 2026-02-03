@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { EvaluationResult, RuleEvaluation } from '@/types';
+import ShopEventModal from './ShopEventModal';
 
 interface ShopDetailDrawerProps {
   shop: EvaluationResult | null;
@@ -8,6 +10,8 @@ interface ShopDetailDrawerProps {
   onClose: () => void;
   onCompare?: (shop: EvaluationResult) => void;
   isComparing?: boolean;
+  carNumber?: string;
+  onAssign?: () => void;
 }
 
 export default function ShopDetailDrawer({
@@ -16,8 +20,16 @@ export default function ShopDetailDrawer({
   onClose,
   onCompare,
   isComparing = false,
+  carNumber,
+  onAssign,
 }: ShopDetailDrawerProps) {
+  const [showAssignModal, setShowAssignModal] = useState(false);
+
   if (!shop) return null;
+
+  // Get current month as target
+  const now = new Date();
+  const targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -326,26 +338,54 @@ export default function ShopDetailDrawer({
 
         {/* Footer Actions */}
         <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
-          {onCompare && (
+          <div className="flex gap-2">
+            {onCompare && (
+              <button
+                onClick={() => onCompare(shop)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  isComparing
+                    ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {isComparing ? 'Remove from Compare' : 'Add to Compare'}
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {carNumber && shop.is_eligible && (
+              <button
+                onClick={() => setShowAssignModal(true)}
+                className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Assign to Shop
+              </button>
+            )}
             <button
-              onClick={() => onCompare(shop)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                isComparing
-                  ? 'bg-primary-100 text-primary-700 border border-primary-300'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
-              {isComparing ? 'Remove from Compare' : 'Add to Compare'}
+              Close
             </button>
-          )}
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Close
-          </button>
+          </div>
         </div>
       </div>
+
+      {/* Shop Event Modal */}
+      {showAssignModal && carNumber && (
+        <ShopEventModal
+          carNumber={carNumber}
+          shopCode={shop.shop.shop_code}
+          shopName={shop.shop.shop_name}
+          targetMonth={targetMonth}
+          onClose={() => setShowAssignModal(false)}
+          onSuccess={() => {
+            setShowAssignModal(false);
+            onAssign?.();
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 }

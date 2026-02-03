@@ -466,6 +466,7 @@ function PlanningContent() {
                 results={results}
                 lastUpdated={lastUpdated || undefined}
                 onRefresh={handleRefresh}
+                carNumber={car?.car_number}
               />
             </div>
           )}
