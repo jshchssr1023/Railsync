@@ -86,6 +86,10 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute top-16 left-0 right-0 bg-primary-800 dark:bg-gray-800 shadow-lg z-50 border-t border-primary-600 dark:border-gray-700">
             <nav className="flex flex-col p-2">
+              <a href="/dashboard" className="px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">
+                Dashboard
+              </a>
+
               {/* Operations */}
               <button
                 onClick={() => toggleSection('operations')}
@@ -186,6 +190,13 @@ export default function AuthHeader() {
 
               {/* Desktop Navigation with Dropdowns */}
               <nav className="hidden md:flex items-center space-x-1">
+                <a
+                  href="/dashboard"
+                  className="px-3 py-2 text-sm font-medium rounded-md hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Dashboard
+                </a>
+
                 {/* Operations - The Now */}
                 <NavDropdown
                   label="Operations"

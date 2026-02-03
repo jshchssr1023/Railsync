@@ -16,6 +16,7 @@ import notificationController from '../controllers/notification.controller';
 import invoiceController from '../controllers/invoice.controller';
 import analyticsController from '../controllers/analytics.controller';
 import userManagementController from '../controllers/userManagement.controller';
+import dashboardController from '../controllers/dashboard.controller';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -3003,6 +3004,21 @@ router.get('/analytics/demand/by-customer', authenticate, analyticsController.ge
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================
+
+// ============================================================================
+// OPERATIONAL DASHBOARD ROUTES
+// ============================================================================
+
+router.get('/dashboard/fleet-readiness', optionalAuth, dashboardController.getFleetReadiness);
+router.get('/dashboard/need-shopping', authenticate, dashboardController.getNeedShoppingAlert);
+router.get('/dashboard/my-fleet', authenticate, dashboardController.getMyFleetHealth);
+router.get('/dashboard/manager-performance', authenticate, authorize('admin', 'operator'), dashboardController.getManagerPerformance);
+router.get('/dashboard/dwell-time', optionalAuth, dashboardController.getDwellTimeHeatmap);
+router.get('/dashboard/throughput', optionalAuth, dashboardController.getShopThroughput);
+router.get('/dashboard/upcoming-releases', optionalAuth, dashboardController.getUpcomingReleases);
+router.get('/dashboard/high-cost-exceptions', authenticate, dashboardController.getHighCostExceptions);
+router.get('/dashboard/expiry-forecast', optionalAuth, dashboardController.getExpiryForecast);
+router.get('/dashboard/budget-burn', authenticate, dashboardController.getBudgetBurnVelocity);
 
 /**
  * @route   GET /api/health

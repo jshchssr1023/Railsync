@@ -1,4 +1,5 @@
 import { pool } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 // ============================================================================
 // DASHBOARD WIDGETS
@@ -248,5 +249,216 @@ export function getDefaultLayout(): DashboardConfig['layout'] {
       { id: 'allocation-status', x: 2, y: 1, w: 1, h: 1 },
       { id: 'top-shops', x: 2, y: 2, w: 1, h: 2 },
     ],
+  };
+}
+
+// ============================================================================
+// OPERATIONAL DASHBOARD DATA QUERIES
+// ============================================================================
+
+// Fleet Readiness Summary
+export async function getFleetReadiness() {
+  const result = await queryOne(`
+    SELECT
+      COUNT(*) AS total_cars,
+      COUNT(*) FILTER (WHERE status IN ('Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived')) AS in_pipeline,
+      COUNT(*) FILTER (WHERE status IN ('Complete', 'Released')) AS available,
+      CASE WHEN COUNT(*) > 0
+        THEN ROUND(COUNT(*) FILTER (WHERE status IN ('Complete', 'Released'))::numeric / COUNT(*)::numeric * 100, 1)
+        ELSE 0
+      END AS availability_pct,
+      COUNT(*) FILTER (WHERE status = 'Need Shopping') AS need_shopping,
+      COUNT(*) FILTER (WHERE status = 'To Be Routed') AS to_be_routed,
+      COUNT(*) FILTER (WHERE status = 'Planned Shopping') AS planned_shopping,
+      COUNT(*) FILTER (WHERE status = 'Enroute') AS enroute,
+      COUNT(*) FILTER (WHERE status = 'Arrived') AS arrived,
+      COUNT(*) FILTER (WHERE status = 'Complete') AS complete,
+      COUNT(*) FILTER (WHERE status = 'Released') AS released
+    FROM allocations
+  `);
+  return result;
+}
+
+export async function getNeedShoppingAlert() {
+  return query(
+    `SELECT a.id, a.car_id, a.car_number, a.shop_code, a.target_month,
+            a.estimated_cost, a.created_at
+     FROM allocations a
+     WHERE a.status = 'Need Shopping'
+     ORDER BY a.created_at ASC`
+  );
+}
+
+// User-Centric: My Fleet Health
+export async function getMyFleetHealth(userId: string) {
+  return query(
+    `SELECT
+       a.status,
+       COUNT(*) AS count,
+       COALESCE(SUM(a.estimated_cost), 0) AS total_estimated,
+       COALESCE(SUM(a.actual_cost), 0) AS total_actual
+     FROM allocations a
+     WHERE a.created_by = $1
+       AND a.status NOT IN ('Released')
+     GROUP BY a.status
+     ORDER BY
+       CASE a.status
+         WHEN 'Need Shopping' THEN 1
+         WHEN 'To Be Routed' THEN 2
+         WHEN 'Planned Shopping' THEN 3
+         WHEN 'Enroute' THEN 4
+         WHEN 'Arrived' THEN 5
+         WHEN 'Complete' THEN 6
+       END`,
+    [userId]
+  );
+}
+
+// Manager Performance Leaderboard
+export async function getManagerPerformance() {
+  return query(
+    `SELECT
+       u.id AS manager_id,
+       u.first_name || ' ' || u.last_name AS manager_name,
+       u.organization,
+       COUNT(a.id) AS total_allocations,
+       COUNT(a.id) FILTER (WHERE a.status = 'Complete') AS completed,
+       COUNT(a.id) FILTER (WHERE a.status IN ('Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived')) AS active,
+       COALESCE(SUM(a.estimated_cost), 0) AS total_estimated,
+       COALESCE(SUM(a.actual_cost), 0) AS total_actual,
+       CASE WHEN SUM(a.estimated_cost) > 0
+         THEN ROUND(((SUM(COALESCE(a.actual_cost, 0)) - SUM(a.estimated_cost)) / SUM(a.estimated_cost) * 100)::numeric, 1)
+         ELSE 0
+       END AS budget_variance_pct,
+       ROUND(AVG(
+         CASE WHEN a.actual_completion_date IS NOT NULL AND a.actual_arrival_date IS NOT NULL
+           THEN a.actual_completion_date - a.actual_arrival_date
+         END
+       )::numeric, 1) AS avg_days_in_shop
+     FROM users u
+     INNER JOIN allocations a ON a.created_by = u.id
+     WHERE u.role IN ('admin', 'operator')
+     GROUP BY u.id, u.first_name, u.last_name, u.organization
+     HAVING COUNT(a.id) > 0
+     ORDER BY COUNT(a.id) DESC`
+  );
+}
+
+// Dwell Time Heatmap by Status
+export async function getDwellTimeHeatmap() {
+  return query(
+    `SELECT
+       a.status,
+       COUNT(*) AS car_count,
+       ROUND(AVG(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS avg_days,
+       ROUND(MIN(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS min_days,
+       ROUND(MAX(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS max_days
+     FROM allocations a
+     WHERE a.status NOT IN ('Complete', 'Released')
+     GROUP BY a.status
+     ORDER BY avg_days DESC`
+  );
+}
+
+// Shop Throughput (last N days)
+export async function getShopThroughput(days: number = 30) {
+  const summary = await queryOne(
+    `SELECT
+       COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - $1 * INTERVAL '1 day') AS entered_pipeline,
+       COUNT(*) FILTER (WHERE actual_completion_date >= CURRENT_DATE - $1 * INTERVAL '1 day') AS completed
+     FROM allocations`,
+    [days]
+  );
+  return summary;
+}
+
+// Upcoming Releases (7-day outlook)
+export async function getUpcomingReleases(days: number = 7) {
+  return query(
+    `SELECT a.id, a.car_id, a.car_number, a.shop_code,
+            a.target_month, a.status, a.actual_cost,
+            a.actual_completion_date
+     FROM allocations a
+     WHERE a.status IN ('Complete', 'Released')
+       AND a.actual_completion_date >= CURRENT_DATE - $1 * INTERVAL '1 day'
+     ORDER BY a.actual_completion_date DESC
+     LIMIT 20`,
+    [days]
+  );
+}
+
+// High-Cost Exceptions (actual > planned by threshold %)
+export async function getHighCostExceptions(thresholdPct: number = 10) {
+  return query(
+    `SELECT a.id, a.car_id, a.car_number, a.shop_code,
+            a.status, a.target_month,
+            a.estimated_cost, a.actual_cost,
+            ROUND(((a.actual_cost - a.estimated_cost) / NULLIF(a.estimated_cost, 0) * 100)::numeric, 1) AS variance_pct,
+            a.actual_cost - a.estimated_cost AS variance_amount
+     FROM allocations a
+     WHERE a.actual_cost > a.estimated_cost * (1 + $1::numeric / 100)
+       AND a.estimated_cost > 0
+       AND a.status NOT IN ('Released')
+     ORDER BY (a.actual_cost - a.estimated_cost) DESC
+     LIMIT 20`,
+    [thresholdPct]
+  );
+}
+
+// Lining & Inspection Expiry Forecast
+export async function getExpiryForecast() {
+  const currentYear = new Date().getFullYear();
+  return query(
+    `SELECT car_number, car_mark, car_type, lessee_name,
+            tank_qual_year, current_status, portfolio_status
+     FROM v_upcoming_quals
+     WHERE tank_qual_year <= $1 + 1
+     ORDER BY tank_qual_year ASC, car_number ASC
+     LIMIT 50`,
+    [currentYear]
+  );
+}
+
+// Budget Burn Velocity
+export async function getBudgetBurnVelocity(fiscalYear: number) {
+  const months = await query<{
+    month: string;
+    monthly_budget: number;
+    actual_spend: number;
+  }>(
+    `SELECT month, monthly_budget, actual_spend
+     FROM running_repairs_budget
+     WHERE fiscal_year = $1
+     ORDER BY month ASC`,
+    [fiscalYear]
+  );
+
+  let cumulativeBudget = 0;
+  let cumulativeActual = 0;
+  const totalAnnualBudget = months.reduce((s, m) => s + (m.monthly_budget || 0), 0);
+
+  const burnData = months.map((m, i) => {
+    cumulativeBudget += m.monthly_budget || 0;
+    cumulativeActual += m.actual_spend || 0;
+    const projectedPace = (totalAnnualBudget / 12) * (i + 1);
+    return {
+      month: m.month,
+      monthly_budget: m.monthly_budget,
+      actual_spend: m.actual_spend,
+      cumulative_budget: cumulativeBudget,
+      cumulative_actual: cumulativeActual,
+      projected_pace: Math.round(projectedPace),
+      on_track: cumulativeActual <= projectedPace,
+    };
+  });
+
+  const monthsWithSpend = months.filter(m => m.actual_spend > 0).length;
+
+  return {
+    fiscal_year: fiscalYear,
+    total_annual_budget: totalAnnualBudget,
+    total_spent: cumulativeActual,
+    avg_monthly_burn: monthsWithSpend > 0 ? Math.round(cumulativeActual / monthsWithSpend) : 0,
+    months: burnData,
   };
 }
