@@ -26,7 +26,8 @@
 | Proximity Filter | Haversine distance, nearby shops | `013_shop_geo_filtering.sql` | `3a27ff0` |
 | Capability Match Filter | Filter by capability types | `shopFilter.service.ts` | `3a27ff0` |
 | Shop Finder Page | Combined filter UI with results | `/shops` page | `3a27ff0` |
-| Shopping Classification | 15 types, 50 reasons, dropdowns | `014/015_shopping_classification.sql` | `3de7195` |
+| Shopping Classification | 18 types, 59 reasons, cost allocation | `014-016_shopping_*.sql` | `3de7195` |
+| Quick Shop Shopping Types | Replaced service options with shopping types, customer billing checkbox | `ServiceOptionsSelector.tsx` | - |
 | Timeline/Gantt Toggle | Visual timeline with table toggle | `AllocationTimeline.tsx` | `a6fa237` |
 | Fleet Health Dashboard | Stoplight cards for health metrics | `FleetHealthDashboard.tsx` | `5aaaee3` |
 | Global Command Bar | Cmd+K unified search | `GlobalCommandBar.tsx` | `5aaaee3` |

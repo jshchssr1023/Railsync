@@ -1,86 +1,116 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Clock, CheckCircle, Wrench, PaintBucket, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { DollarSign, FileText, AlertTriangle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-export interface ServiceOption {
-  service_type: string;
-  service_category: 'qualification' | 'repair' | 'maintenance' | 'inspection';
+export interface ShoppingType {
+  id: number;
+  code: string;
+  name: string;
   description: string;
-  due_date?: string;
-  reported_date?: string;
-  is_required: boolean;
-  is_selected: boolean;
-  estimated_cost?: number;
-  estimated_hours?: number;
-  source?: string;
-  source_reference_id?: string;
-  days_until_due?: number;
-  urgency?: 'overdue' | 'urgent' | 'upcoming' | 'optional';
+  is_planned: boolean;
+  default_cost_owner: 'lessor' | 'lessee';
+  tier_preference: number;
+  sort_order: number;
+  estimated_cost: number;
+  customer_billable: boolean;
+  project_required: boolean;
 }
 
-interface ServiceOptionsSummary {
-  total_options: number;
-  selected_count: number;
-  required_count: number;
-  estimated_total: number;
-  estimated_hours: number;
+export interface ShoppingReason {
+  id: number;
+  shopping_type_id: number;
+  code: string;
+  name: string;
+  sort_order: number;
+}
+
+export interface SelectedShoppingType {
+  shopping_type: ShoppingType;
+  shopping_reason?: ShoppingReason;
+  is_selected: boolean;
+  allocate_to_customer: boolean;
+  override_cost?: number;
+  project_number?: string;
+}
+
+interface ShoppingTypeSummary {
+  total_selected: number;
+  lessor_cost: number;
+  customer_cost: number;
+  total_cost: number;
 }
 
 interface ServiceOptionsSelectorProps {
   carNumber: string;
-  targetDateStr?: string; // Use string to avoid new Date() on every render
+  onChange?: (selections: SelectedShoppingType[]) => void;
   className?: string;
 }
 
 export default function ServiceOptionsSelector({
   carNumber,
-  targetDateStr,
+  onChange,
   className = '',
 }: ServiceOptionsSelectorProps) {
-  const [options, setOptions] = useState<ServiceOption[]>([]);
+  const [shoppingTypes, setShoppingTypes] = useState<ShoppingType[]>([]);
+  const [reasons, setReasons] = useState<Record<number, ShoppingReason[]>>({});
+  const [selections, setSelections] = useState<Record<string, SelectedShoppingType>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Memoize the date string to use in the effect
-  const dateParam = useMemo(() => {
-    if (targetDateStr) return targetDateStr;
-    return new Date().toISOString().split('T')[0];
-  }, [targetDateStr]);
-
-  // Fetch service options when car number changes
+  // Fetch shopping types on mount
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchOptions() {
-      if (!carNumber) {
-        setOptions([]);
-        setLoading(false);
-        return;
-      }
-
+    async function fetchData() {
       setLoading(true);
       setError(null);
 
       try {
-        const res = await fetch(`${API_URL}/cars/${encodeURIComponent(carNumber)}/service-options?target_date=${dateParam}`);
+        const [typesRes, reasonsRes] = await Promise.all([
+          fetch(`${API_URL}/shopping-types`),
+          fetch(`${API_URL}/shopping-reasons`),
+        ]);
 
         if (cancelled) return;
 
-        if (!res.ok) {
-          throw new Error('Failed to fetch service options');
+        if (!typesRes.ok || !reasonsRes.ok) {
+          throw new Error('Failed to fetch shopping types');
         }
 
-        const json = await res.json();
+        const typesJson = await typesRes.json();
+        const reasonsJson = await reasonsRes.json();
+
         if (!cancelled) {
-          setOptions(json.data?.options || []);
+          const types = typesJson.data || [];
+          setShoppingTypes(types);
+
+          // Group reasons by shopping_type_id
+          const reasonsByType: Record<number, ShoppingReason[]> = {};
+          (reasonsJson.data || []).forEach((r: ShoppingReason) => {
+            if (!reasonsByType[r.shopping_type_id]) {
+              reasonsByType[r.shopping_type_id] = [];
+            }
+            reasonsByType[r.shopping_type_id].push(r);
+          });
+          setReasons(reasonsByType);
+
+          // Initialize selections
+          const initial: Record<string, SelectedShoppingType> = {};
+          types.forEach((t: ShoppingType) => {
+            initial[t.code] = {
+              shopping_type: t,
+              is_selected: false,
+              allocate_to_customer: t.customer_billable,
+            };
+          });
+          setSelections(initial);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load service options');
-          setOptions([]);
+          setError(err instanceof Error ? err.message : 'Failed to load shopping types');
         }
       } finally {
         if (!cancelled) {
@@ -89,91 +119,100 @@ export default function ServiceOptionsSelector({
       }
     }
 
-    fetchOptions();
+    fetchData();
 
     return () => {
       cancelled = true;
     };
-  }, [carNumber, dateParam]);
+  }, []);
 
-  // Calculate summary whenever options change
-  const summary = useMemo<ServiceOptionsSummary>(() => {
-    const selected = options.filter(o => o.is_selected);
-    return {
-      total_options: options.length,
-      selected_count: selected.length,
-      required_count: options.filter(o => o.is_required).length,
-      estimated_total: selected.reduce((sum, o) => sum + (o.estimated_cost || 0), 0),
-      estimated_hours: selected.reduce((sum, o) => sum + (o.estimated_hours || 0), 0),
-    };
-  }, [options]);
-
-  // Toggle option selection
-  const toggleOption = (index: number) => {
-    setOptions(prev => {
-      const updated = [...prev];
-      // Cannot deselect required options
-      if (!updated[index].is_required) {
-        updated[index] = { ...updated[index], is_selected: !updated[index].is_selected };
-      }
-      return updated;
-    });
-  };
-
-  // Group options by category
-  const groupedOptions = useMemo(() => {
-    const groups: Record<string, (ServiceOption & { _index: number })[]> = {
-      qualification: [],
-      repair: [],
-      maintenance: [],
-      inspection: [],
-    };
-
-    options.forEach((opt, idx) => {
-      const optWithIndex = { ...opt, _index: idx };
-      if (groups[opt.service_category]) {
-        groups[opt.service_category].push(optWithIndex);
-      }
-    });
-
-    return groups;
-  }, [options]);
-
-  const getUrgencyBadge = (option: ServiceOption) => {
-    if (!option.urgency) return null;
-
-    const badges: Record<string, { text: string; className: string }> = {
-      overdue: { text: 'OVERDUE', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
-      urgent: { text: 'Due Soon', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
-      upcoming: { text: 'Upcoming', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
-      optional: { text: 'Optional', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
-    };
-
-    const badge = badges[option.urgency];
-    if (!badge) return null;
-    return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>{badge.text}</span>;
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'qualification': return <CheckCircle className="w-5 h-5 text-blue-500" />;
-      case 'repair': return <AlertTriangle className="w-5 h-5 text-red-500" />;
-      case 'maintenance': return <PaintBucket className="w-5 h-5 text-green-500" />;
-      case 'inspection': return <Wrench className="w-5 h-5 text-purple-500" />;
-      default: return <Wrench className="w-5 h-5 text-gray-500" />;
+  // Notify parent of selection changes
+  useEffect(() => {
+    if (onChange) {
+      const selected = Object.values(selections).filter(s => s.is_selected);
+      onChange(selected);
     }
-  };
+  }, [selections, onChange]);
 
-  const getCategoryTitle = (category: string) => {
-    return category.charAt(0).toUpperCase() + category.slice(1) + 's';
-  };
+  const toggleSelection = useCallback((code: string) => {
+    setSelections(prev => ({
+      ...prev,
+      [code]: {
+        ...prev[code],
+        is_selected: !prev[code].is_selected,
+      },
+    }));
+  }, []);
+
+  const toggleCustomerAllocation = useCallback((code: string) => {
+    setSelections(prev => ({
+      ...prev,
+      [code]: {
+        ...prev[code],
+        allocate_to_customer: !prev[code].allocate_to_customer,
+      },
+    }));
+  }, []);
+
+  const setReason = useCallback((code: string, reason: ShoppingReason | undefined) => {
+    setSelections(prev => ({
+      ...prev,
+      [code]: {
+        ...prev[code],
+        shopping_reason: reason,
+      },
+    }));
+  }, []);
+
+  const setProjectNumber = useCallback((code: string, projectNumber: string) => {
+    setSelections(prev => ({
+      ...prev,
+      [code]: {
+        ...prev[code],
+        project_number: projectNumber,
+      },
+    }));
+  }, []);
+
+  const setOverrideCost = useCallback((code: string, cost: number | undefined) => {
+    setSelections(prev => ({
+      ...prev,
+      [code]: {
+        ...prev[code],
+        override_cost: cost,
+      },
+    }));
+  }, []);
+
+  // Calculate summary
+  const summary = useMemo<ShoppingTypeSummary>(() => {
+    const selected = Object.values(selections).filter(s => s.is_selected);
+    let lessorCost = 0;
+    let customerCost = 0;
+
+    selected.forEach(s => {
+      const cost = s.override_cost ?? s.shopping_type.estimated_cost;
+      if (s.allocate_to_customer) {
+        customerCost += cost;
+      } else {
+        lessorCost += cost;
+      }
+    });
+
+    return {
+      total_selected: selected.length,
+      lessor_cost: lessorCost,
+      customer_cost: customerCost,
+      total_cost: lessorCost + customerCost,
+    };
+  }, [selections]);
 
   if (loading) {
     return (
       <div className={`animate-pulse space-y-4 ${className}`}>
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
-        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
       </div>
     );
   }
@@ -186,122 +225,197 @@ export default function ServiceOptionsSelector({
     );
   }
 
-  if (options.length === 0) {
-    return (
-      <div className={`p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center ${className}`}>
-        <p className="text-gray-500 dark:text-gray-400">No service options available for this car.</p>
-      </div>
-    );
-  }
-
-  const renderOptionGroup = (category: string, categoryOptions: (ServiceOption & { _index: number })[]) => {
-    if (categoryOptions.length === 0) return null;
-
-    return (
-      <div key={category} className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          {getCategoryIcon(category)}
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-            {getCategoryTitle(category)}
-          </h4>
-        </div>
-        <div className="space-y-2">
-          {categoryOptions.map((option) => (
-            <label
-              key={`${category}-${option._index}`}
-              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                option.is_selected
-                  ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-700'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-              } ${option.is_required ? 'ring-1 ring-red-300 dark:ring-red-700' : ''}`}
-            >
-              <div className="flex items-center h-5 mt-0.5">
-                <input
-                  type="checkbox"
-                  checked={option.is_selected}
-                  disabled={option.is_required}
-                  onChange={() => toggleOption(option._index)}
-                  className="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{option.description}</span>
-                  {option.is_required && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">
-                      Required
-                    </span>
-                  )}
-                  {getUrgencyBadge(option)}
-                </div>
-                <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {option.due_date && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      Due: {new Date(option.due_date).toLocaleDateString()}
-                      {option.days_until_due !== undefined && (
-                        <span className={option.days_until_due <= 0 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
-                          ({option.days_until_due <= 0 ? 'Overdue' : `${option.days_until_due} days`})
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {option.reported_date && (
-                    <span className="flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Reported: {new Date(option.reported_date).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-semibold text-gray-900 dark:text-gray-100">
-                  ${(option.estimated_cost || 0).toLocaleString()}
-                </div>
-                {option.estimated_hours && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {option.estimated_hours} hrs
-                  </div>
-                )}
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className={className}>
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Service Options</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Select the work to be performed at this shop visit</p>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Shopping Types</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Select work to be performed. Check &quot;Bill Customer&quot; to allocate cost.
+        </p>
       </div>
 
-      {/* Option Groups */}
-      {renderOptionGroup('qualification', groupedOptions.qualification)}
-      {renderOptionGroup('repair', groupedOptions.repair)}
-      {renderOptionGroup('maintenance', groupedOptions.maintenance)}
-      {renderOptionGroup('inspection', groupedOptions.inspection)}
+      {/* Shopping Types Grid */}
+      <div className="space-y-3">
+        {shoppingTypes.map((type) => {
+          const sel = selections[type.code];
+          if (!sel) return null;
+          const typeReasons = reasons[type.id] || [];
+          const effectiveCost = sel.override_cost ?? type.estimated_cost;
+
+          return (
+            <div
+              key={type.code}
+              className={`border rounded-lg transition-colors ${
+                sel.is_selected
+                  ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              <div className="p-3">
+                <div className="flex items-start gap-3">
+                  {/* Selection Checkbox */}
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={sel.is_selected}
+                      onChange={() => toggleSelection(type.code)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500"
+                    />
+                  </div>
+
+                  {/* Type Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{type.name}</span>
+                      {type.project_required && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-medium flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          Project #
+                        </span>
+                      )}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        type.default_cost_owner === 'lessee'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                        Default: {type.default_cost_owner === 'lessee' ? 'Customer' : 'Owner'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{type.description}</p>
+                  </div>
+
+                  {/* Cost Display */}
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">
+                      ${effectiveCost.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Options when Selected */}
+                {sel.is_selected && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Shopping Reason Dropdown */}
+                      {typeReasons.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Shopping Reason
+                          </label>
+                          <select
+                            value={sel.shopping_reason?.id || ''}
+                            onChange={(e) => {
+                              const reasonId = parseInt(e.target.value);
+                              const reason = typeReasons.find(r => r.id === reasonId);
+                              setReason(type.code, reason);
+                            }}
+                            className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">Select reason...</option>
+                            {typeReasons.map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Project Number (if required) */}
+                      {type.project_required && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Project Number *
+                          </label>
+                          <input
+                            type="text"
+                            value={sel.project_number || ''}
+                            onChange={(e) => setProjectNumber(type.code, e.target.value)}
+                            placeholder="Enter project #"
+                            className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          />
+                          {!sel.project_number && (
+                            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Required
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Cost Override */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Override Cost
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                          <input
+                            type="number"
+                            value={sel.override_cost ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                              setOverrideCost(type.code, val);
+                            }}
+                            placeholder={type.estimated_cost.toString()}
+                            className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md pl-6 pr-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer Billing Checkbox */}
+                    <div className="flex items-center justify-between pt-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sel.allocate_to_customer}
+                          onChange={() => toggleCustomerAllocation(type.code)}
+                          className="h-4 w-4 text-amber-600 border-gray-300 dark:border-gray-600 rounded focus:ring-amber-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                          <DollarSign className="w-4 h-4 text-amber-600" />
+                          Allocate to Customer Account (Billable)
+                        </span>
+                      </label>
+                      {sel.allocate_to_customer && (
+                        <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 font-medium">
+                          Customer pays ${effectiveCost.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Summary */}
       <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{summary.selected_count}</span> of {summary.total_options} options selected
-            {summary.required_count > 0 && (
-              <span className="ml-2 text-red-600 dark:text-red-400">
-                ({summary.required_count} required)
-              </span>
-            )}
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              ${summary.estimated_total.toLocaleString()}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Selected</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {summary.total_selected} types
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Est. {summary.estimated_hours} hours
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Owner Cost</div>
+            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              ${summary.lessor_cost.toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Customer Cost</div>
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+              ${summary.customer_cost.toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Estimate</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              ${summary.total_cost.toLocaleString()}
             </div>
           </div>
         </div>
@@ -310,5 +424,4 @@ export default function ServiceOptionsSelector({
   );
 }
 
-// Export the summary type for parent components
-export type { ServiceOptionsSummary };
+export type { ShoppingTypeSummary };
