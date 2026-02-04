@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-RailSync is a railcar fleet management system with 90 database tables, 348+ API endpoints, 42 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a fleet browse page with server-side pagination, a car type hierarchy tree, and a side-drawer car detail view.
+RailSync is a railcar fleet management system with 90 database tables, 348+ API endpoints, 42 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a contracts browse page with server-side pagination, a car type hierarchy tree, and a side-drawer car detail view.
 
 **Overall Verdict: NOT production-ready.** The system is a functional prototype suitable for internal demonstration and iterative development. It is not yet suitable for deployment to a production environment where data integrity, security, and uptime are non-negotiable. Specific blockers are detailed below.
 
@@ -167,16 +167,16 @@ The shopping workflow migration (`027_shopping_workflow.sql`) demonstrates prope
 | Soft deletes | NOT IMPLEMENTED - records are hard-deleted |
 | Cascading deletes | CAUTION - some FK constraints use ON DELETE CASCADE |
 
-### Fleet Browse API (New)
+### Contracts Browse API (New)
 
-Four new endpoints added for the Cars page fleet browse feature:
+Four new endpoints added for the Cars page contracts browse feature:
 
 | Endpoint | Purpose | Key Features |
 |----------|---------|-------------|
-| `GET /api/fleet-browse/types` | Car type hierarchy tree | Groups by car_type + commodity with counts. Returns tree structure for navigation. |
-| `GET /api/fleet-browse/cars` | Paginated car list | Server-side pagination (max 200/page), filtering (car_type, commodity, status, region, lessee ILIKE, search ILIKE), sorting (8 allowed columns, SQL injection safe via whitelist). Parameterized queries. |
-| `GET /api/fleet-browse/car/:carNumber` | Car detail for side drawer | Returns all car columns + shopping events count + active shopping event + lease hierarchy join (rider_cars -> lease_riders -> master_leases -> customers). |
-| `GET /api/fleet-browse/filters` | Distinct filter values | Returns unique statuses, regions, and lessee names for dropdown population. |
+| `GET /api/contracts-browse/types` | Car type hierarchy tree | Groups by car_type + commodity with counts. Returns tree structure for navigation. |
+| `GET /api/contracts-browse/cars` | Paginated car list | Server-side pagination (max 200/page), filtering (car_type, commodity, status, region, lessee ILIKE, search ILIKE), sorting (8 allowed columns, SQL injection safe via whitelist). Parameterized queries. |
+| `GET /api/contracts-browse/car/:carNumber` | Car detail for side drawer | Returns all car columns + shopping events count + active shopping event + lease hierarchy join (rider_cars -> lease_riders -> master_leases -> customers). |
+| `GET /api/contracts-browse/filters` | Distinct filter values | Returns unique statuses, regions, and lessee names for dropdown population. |
 
 **Performance:** Server-side pagination means the frontend never loads all 1,500+ cars at once. The `/types` endpoint aggregates with `GROUP BY` (single query), and the `/cars` endpoint uses `LIMIT/OFFSET` with dynamic `WHERE` clause construction. Sort column injection is prevented via a whitelist of 8 allowed column names.
 
@@ -249,6 +249,7 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 - Tailwind CSS with custom design system (dark mode support)
 - `fetchApi<T>()` wrapper for all API calls
 - No state management library (useState/useEffect patterns)
+- **Vertical sidebar navigation** (new) — replaces top banner navigation. Fixed-position left sidebar with icon-only collapsed state (56px) and expanded state (224px). 8 primary categories with nested subcategories. Mobile responsive with hamburger menu overlay. Built with lucide-react icons and CSS transitions.
 
 ### Concerns
 
@@ -264,7 +265,7 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 ### Page Coverage
 
 24 frontend page modules exist covering:
-- Dashboard, Fleet, Cars (rebuilt with 3-panel layout), Shops
+- Dashboard, Contracts, Cars (rebuilt with 3-panel layout), Shops
 - Bad Orders, Invoices, Assignments
 - Shopping Events, Scope Library, CCM Forms
 - Planning, Pipeline, Reports, Analytics
@@ -337,7 +338,7 @@ All tests run on February 3, 2026 against live Docker containers.
 
 ### What Was NOT Tested
 
-- ~280 additional API endpoints (fleet, cars, shops, invoices, assignments, planning, etc.)
+- ~280 additional API endpoints (contracts, cars, shops, invoices, assignments, planning, etc.)
 - Frontend functionality (no Cypress/Playwright tests)
 - Concurrent access / race conditions
 - Large dataset performance

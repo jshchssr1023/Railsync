@@ -14,7 +14,7 @@
 2. [Navigation](#2-navigation)
 3. [User Roles and Permissions](#3-user-roles-and-permissions)
 4. [Dashboard](#4-dashboard)
-5. [Fleet Management](#5-fleet-management)
+5. [Contracts Management](#5-contracts-management)
 6. [Shop Management](#6-shop-management)
 7. [Car Assignments](#7-car-assignments)
 8. [Shopping Events](#8-shopping-events)
@@ -63,25 +63,36 @@ If you are an administrator setting up RailSync for the first time:
 
 ## 2. Navigation
 
-RailSync uses a top navigation bar with dropdown menus organized by function.
+RailSync uses a vertical sidebar navigation on the left side of the screen. The sidebar shows icon-only primary categories when collapsed and expands to show full labels and subcategories when clicked.
 
-### Desktop Navigation
+### Sidebar Structure
 
-| Menu | Items |
-|------|-------|
-| **Assets** | Fleet, Cars, Projects |
-| **Maintenance** | Pipeline, Active Pipeline, Shopping Events, Bad Orders, Quick Shop, Monthly Load, Network, Shop Finder, Master Plans |
-| **Financial** | Invoices, Budget & Forecasts, Budget Config, Analytics |
-| **Standards** | SOW Library, Care Manuals |
-| **Compliance** | Rules, Reports, Audit Log (admin only), Admin (admin only) |
+| Category | Icon | Subcategories |
+|----------|------|---------------|
+| **Dashboard** | LayoutDashboard | (direct link to /dashboard) |
+| **Shopping** | ShoppingCart | Shopping Events, Quick Shop, Bad Orders, Shop Finder |
+| **Pipeline** | Truck | Pipeline, Monthly Load, Network View, Master Plans |
+| **Contracts** | FileText | Contracts, Projects |
+| **Cars** | Train | All Cars, In Shop, Enroute, Overdue, Service Due |
+| **Operations** | BarChart | Invoices, Budget & Forecasts, Analytics, Reports |
+| **Standards** | BookOpen | SOW Library, Care Manuals |
+| **Admin** | Settings | Rules, Audit Log, Users, Settings (admin only) |
+
+### Sidebar Behavior
+
+- **Collapsed state** (default): Shows icons only, 56px wide. Hover over an icon to see a tooltip with the category name.
+- **Expanded state**: Click the chevron at the bottom of the sidebar to expand it to 224px. Shows full category labels and subcategory items.
+- **Category click**: Clicking a category icon expands its subcategory list (accordion-style). Only one category can be expanded at a time.
+- **Active highlight**: The current page's category and subcategory are highlighted in blue.
+- **User menu**: Click your avatar at the bottom of the sidebar to access Settings and Sign Out.
 
 ### Mobile Navigation
 
-On mobile devices, tap the hamburger menu icon to access the same navigation sections in a slide-out menu.
+On mobile devices, the sidebar is replaced by a top header bar with a hamburger menu. Tapping the menu opens a full sidebar overlay that slides in from the left. Tap outside or the X button to close.
 
 ### Dark Mode
 
-RailSync supports dark mode. Toggle it via the sun/moon icon in the top navigation bar. Your preference is saved locally.
+RailSync supports dark mode. Toggle it via the sun/moon icon at the bottom of the sidebar. Your preference is saved locally.
 
 ---
 
@@ -115,13 +126,13 @@ The Dashboard is read-only. Click on any summary card to navigate to the corresp
 
 ---
 
-## 5. Fleet Management
+## 5. Contracts Management
 
-### Fleet Overview
+### Contracts Overview
 
-**URL:** `/fleet`
+**URL:** `/contracts`
 
-The Fleet page displays your entire railcar fleet with filtering and search capabilities.
+The Contracts page displays your entire railcar fleet with filtering and search capabilities.
 
 **Available Filters:**
 - Car type (tank, hopper, gondola, boxcar, etc.)
@@ -134,7 +145,7 @@ The Fleet page displays your entire railcar fleet with filtering and search capa
 - Use the search bar to find a specific car by car number
 - Export fleet data (if available)
 
-### Car Details (Fleet Browse)
+### Car Details (Contracts Browse)
 
 **URL:** `/cars`
 
@@ -195,7 +206,7 @@ The drawer header shows:
 - Quick stats row: Age, Tank Qual badge, Status badge, Shopping Events count
 - Active shopping event link (if the car is currently in a shop)
 
-Footer buttons link to the car's shopping history and fleet view.
+Footer buttons link to the car's shopping history and contracts view.
 
 ---
 

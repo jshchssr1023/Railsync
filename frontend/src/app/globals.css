@@ -149,6 +149,12 @@ body {
   animation: slide-in-right 0.25s ease-out forwards;
 }
 
+/* Sidebar slide-in from left (mobile) */
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 /* Safe area handling for mobile devices */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

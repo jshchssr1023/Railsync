@@ -5,8 +5,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
-import AuthHeader from '@/components/AuthHeader';
-import MobileNavBar from '@/components/MobileNavBar';
+import Sidebar from '@/components/Sidebar';
 
 // Dynamic import to avoid SSR hydration issues with framer-motion
 const DashboardWithWrapper = dynamic(
@@ -45,25 +44,28 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>
-              <div className="min-h-screen flex flex-col">
-                <AuthHeader />
+              <div className="min-h-screen flex">
+                {/* Sidebar Navigation */}
+                <Sidebar />
 
-                {/* Main Content */}
-                <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-20 md:pb-8">
-                  {children}
-                </main>
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col md:ml-14 min-h-screen">
+                  {/* Mobile top spacer */}
+                  <div className="h-14 md:hidden flex-shrink-0" />
 
-                {/* Footer - hidden on mobile */}
-                <footer className="hidden md:block bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
-                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                      Railsync Shop Loading Tool v2.0.0
-                    </p>
-                  </div>
-                </footer>
+                  <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                    {children}
+                  </main>
 
-                {/* Mobile Bottom Navigation */}
-                <MobileNavBar />
+                  {/* Footer - hidden on mobile */}
+                  <footer className="hidden md:block bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                      <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                        Railsync Shop Loading Tool v2.1.0
+                      </p>
+                    </div>
+                  </footer>
+                </div>
 
                 {/* Contracts Dashboard Floating Button */}
                 <DashboardWithWrapper />

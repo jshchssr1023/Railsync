@@ -284,8 +284,8 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
       pagination: { page, limit, total, totalPages }
     });
   } catch (err) {
-    console.error('Fleet browse cars error:', err);
-    res.status(500).json({ success: false, error: 'Failed to fetch fleet cars' });
+    console.error('Contracts browse cars error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch cars' });
   }
 });
 
@@ -346,7 +346,7 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
       }
     });
   } catch (err) {
-    console.error('Fleet browse car detail error:', err);
+    console.error('Contracts browse car detail error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch car detail' });
   }
 });
@@ -1602,35 +1602,35 @@ router.post('/service-plan-options/:optionId/cars', authenticate, servicePlanCon
 router.delete('/service-plan-option-cars/:carId', authenticate, servicePlanController.removeCarFromOptionHandler);
 
 // ============================================================================
-// FLEET HIERARCHY ROUTES (Customer → Lease → Rider → Cars)
+// CONTRACTS HIERARCHY ROUTES (Customer → Lease → Rider → Cars)
 // ============================================================================
 
-import fleetController from '../controllers/fleet.controller';
+import contractsController from '../controllers/contracts.controller';
 
 // Customers
-router.get('/customers', optionalAuth, fleetController.listCustomers);
-router.get('/customers/:customerId', optionalAuth, fleetController.getCustomer);
-router.get('/customers/:customerId/leases', optionalAuth, fleetController.getCustomerLeases);
+router.get('/customers', optionalAuth, contractsController.listCustomers);
+router.get('/customers/:customerId', optionalAuth, contractsController.getCustomer);
+router.get('/customers/:customerId/leases', optionalAuth, contractsController.getCustomerLeases);
 
 // Leases
-router.get('/leases/:leaseId', optionalAuth, fleetController.getLease);
-router.get('/leases/:leaseId/riders', optionalAuth, fleetController.getLeaseRiders);
+router.get('/leases/:leaseId', optionalAuth, contractsController.getLease);
+router.get('/leases/:leaseId/riders', optionalAuth, contractsController.getLeaseRiders);
 
 // Riders
-router.get('/riders/:riderId', optionalAuth, fleetController.getRider);
-router.get('/riders/:riderId/cars', optionalAuth, fleetController.getRiderCars);
-router.get('/riders/:riderId/amendments', optionalAuth, fleetController.getRiderAmendments);
-router.post('/riders/:riderId/resync-schedule', authenticate, authorize('admin', 'operator'), fleetController.resyncRiderSchedules);
+router.get('/riders/:riderId', optionalAuth, contractsController.getRider);
+router.get('/riders/:riderId/cars', optionalAuth, contractsController.getRiderCars);
+router.get('/riders/:riderId/amendments', optionalAuth, contractsController.getRiderAmendments);
+router.post('/riders/:riderId/resync-schedule', authenticate, authorize('admin', 'operator'), contractsController.resyncRiderSchedules);
 
 // Amendments
-router.get('/amendments/:amendmentId', optionalAuth, fleetController.getAmendment);
-router.post('/amendments/:amendmentId/detect-conflicts', authenticate, fleetController.detectAmendmentConflicts);
+router.get('/amendments/:amendmentId', optionalAuth, contractsController.getAmendment);
+router.post('/amendments/:amendmentId/detect-conflicts', authenticate, contractsController.detectAmendmentConflicts);
 
-// Fleet with Amendment Status
-router.get('/fleet/cars-with-amendments', optionalAuth, fleetController.getCarsWithAmendments);
+// Contracts with Amendment Status
+router.get('/contracts/cars-with-amendments', optionalAuth, contractsController.getCarsWithAmendments);
 
 // Car Shopping Validation (checks for outdated terms)
-router.get('/cars/:carNumber/validate-shopping', optionalAuth, fleetController.validateCarForShopping);
+router.get('/cars/:carNumber/validate-shopping', optionalAuth, contractsController.validateCarForShopping);
 
 // ============================================================================
 // SHOPPING CLASSIFICATION ROUTES
@@ -3361,9 +3361,9 @@ router.put('/packets/:id/acknowledge', authenticate, shoppingPacketController.ac
 // OPERATIONAL DASHBOARD ROUTES
 // ============================================================================
 
-router.get('/dashboard/fleet-readiness', optionalAuth, dashboardController.getFleetReadiness);
+router.get('/dashboard/contracts-readiness', optionalAuth, dashboardController.getContractsReadiness);
 router.get('/dashboard/need-shopping', authenticate, dashboardController.getNeedShoppingAlert);
-router.get('/dashboard/my-fleet', authenticate, dashboardController.getMyFleetHealth);
+router.get('/dashboard/my-contracts', authenticate, dashboardController.getMyContractsHealth);
 router.get('/dashboard/manager-performance', authenticate, authorize('admin', 'operator'), dashboardController.getManagerPerformance);
 router.get('/dashboard/dwell-time', optionalAuth, dashboardController.getDwellTimeHeatmap);
 router.get('/dashboard/throughput', optionalAuth, dashboardController.getShopThroughput);

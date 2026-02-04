@@ -256,8 +256,8 @@ export function getDefaultLayout(): DashboardConfig['layout'] {
 // OPERATIONAL DASHBOARD DATA QUERIES
 // ============================================================================
 
-// Fleet Readiness Summary
-export async function getFleetReadiness() {
+// Contracts Readiness Summary
+export async function getContractsReadiness() {
   const result = await queryOne(`
     SELECT
       COUNT(*) AS total_cars,
@@ -289,8 +289,8 @@ export async function getNeedShoppingAlert() {
   );
 }
 
-// User-Centric: My Fleet Health
-export async function getMyFleetHealth(userId: string) {
+// User-Centric: My Contracts Health
+export async function getMyContractsHealth(userId: string) {
   return query(
     `SELECT
        a.status,

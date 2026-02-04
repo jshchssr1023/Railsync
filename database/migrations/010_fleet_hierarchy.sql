@@ -1,4 +1,4 @@
--- Migration 010: Fleet Hierarchy Views and Demo Data
+-- Migration 010: Contracts Hierarchy Views and Demo Data
 -- Customer → Master Lease → Rider → Amendment → Cars
 -- Adapts to existing schema
 

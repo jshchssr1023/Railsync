@@ -3,22 +3,22 @@ import * as dashboardService from '../services/dashboard.service';
 import { ApiResponse } from '../types';
 
 // =============================================================================
-// FLEET READINESS
+// CONTRACTS READINESS
 // =============================================================================
 
-export async function getFleetReadiness(req: Request, res: Response): Promise<void> {
+export async function getContractsReadiness(req: Request, res: Response): Promise<void> {
   try {
-    const data = await dashboardService.getFleetReadiness();
+    const data = await dashboardService.getContractsReadiness();
 
     res.json({
       success: true,
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching fleet readiness:', error);
+    console.error('Error fetching contracts readiness:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch fleet readiness',
+      error: 'Failed to fetch contracts readiness',
     } as ApiResponse<null>);
   }
 }
@@ -44,7 +44,7 @@ export async function getNeedShoppingAlert(req: Request, res: Response): Promise
 // USER-CENTRIC ACCOUNTABILITY
 // =============================================================================
 
-export async function getMyFleetHealth(req: Request, res: Response): Promise<void> {
+export async function getMyContractsHealth(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -55,17 +55,17 @@ export async function getMyFleetHealth(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const data = await dashboardService.getMyFleetHealth(userId);
+    const data = await dashboardService.getMyContractsHealth(userId);
 
     res.json({
       success: true,
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching my fleet health:', error);
+    console.error('Error fetching my contracts health:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch fleet health',
+      error: 'Failed to fetch contracts health',
     } as ApiResponse<null>);
   }
 }
@@ -202,9 +202,9 @@ export async function getBudgetBurnVelocity(req: Request, res: Response): Promis
 }
 
 export default {
-  getFleetReadiness,
+  getContractsReadiness,
   getNeedShoppingAlert,
-  getMyFleetHealth,
+  getMyContractsHealth,
   getManagerPerformance,
   getDwellTimeHeatmap,
   getShopThroughput,

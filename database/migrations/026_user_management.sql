@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS permissions (
 
 -- Seed permissions
 INSERT INTO permissions (code, name, description, category) VALUES
--- Fleet Management
-('fleet.view', 'View Fleet', 'View fleet overview and car details', 'Fleet'),
-('fleet.edit', 'Edit Fleet', 'Modify fleet data and car assignments', 'Fleet'),
-('fleet.admin', 'Administer Fleet', 'Full fleet administration including bulk operations', 'Fleet'),
+-- Contracts Management
+('contracts.view', 'View Contracts', 'View contracts overview and car details', 'Contracts'),
+('contracts.edit', 'Edit Contracts', 'Modify contracts data and car assignments', 'Contracts'),
+('contracts.admin', 'Administer Contracts', 'Full contracts administration including bulk operations', 'Contracts'),
 
 -- Shop Management
 ('shops.view', 'View Shops', 'View shop list and details', 'Shops'),
@@ -98,7 +98,7 @@ ON CONFLICT (role, permission_id) DO NOTHING;
 INSERT INTO role_permissions (role, permission_id)
 SELECT 'operator', id FROM permissions
 WHERE code IN (
-    'fleet.view', 'fleet.edit',
+    'contracts.view', 'contracts.edit',
     'shops.view', 'shops.edit',
     'planning.view', 'planning.edit', 'planning.approve',
     'budget.view', 'budget.edit',
@@ -111,7 +111,7 @@ ON CONFLICT (role, permission_id) DO NOTHING;
 INSERT INTO role_permissions (role, permission_id)
 SELECT 'viewer', id FROM permissions
 WHERE code IN (
-    'fleet.view',
+    'contracts.view',
     'shops.view',
     'planning.view',
     'budget.view',
