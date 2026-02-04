@@ -1,368 +1,748 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Filter, X, ChevronDown, ChevronUp, Calendar, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-import CarDetailCard from '@/components/CarDetailCard';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
+  AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
+  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers
+} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 interface Car {
   car_number: string;
   car_mark: string;
   car_type: string;
   lessee_name: string;
-  lessee_code: string;
   commodity: string;
   current_status: string;
-  tank_qual_year: number;
+  current_region: string;
   car_age: number;
   is_jacketed: boolean;
   is_lined: boolean;
-  csr_name: string;
-  current_region: string;
-  contract_expiration: string;
-  portfolio_status: string;
+  tank_qual_year: number;
+  contract_number: string;
+  plan_status: string;
 }
 
-interface Filters {
-  search: string;
-  status: string;
-  lessee: string;
-  qualYear: string;
-  region: string;
-  jacketed: string;
-  lined: string;
+interface TypeTreeNode {
+  name: string;
+  count: number;
+  children: { name: string; count: number }[];
 }
 
-export default function CarsPage() {
-  const [cars, setCars] = useState<Car[]>([]);
+interface CarDetail {
+  car: Record<string, any>;
+  shopping_events_count: number;
+  active_shopping_event: { id: string; event_number: string; state: string; shop_code: string } | null;
+  lease_info: { lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string } | null;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('railsync_access_token');
+}
+
+async function apiFetch<T>(endpoint: string): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}${endpoint}`, { headers });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'API error');
+  return json;
+}
+
+const currentYear = new Date().getFullYear();
+
+function QualBadge({ year }: { year: number | null }) {
+  if (!year) return <span className="text-gray-400 dark:text-gray-600">-</span>;
+  if (year <= currentYear) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <AlertTriangle className="w-3 h-3" /> Overdue
+      </span>
+    );
+  }
+  if (year === currentYear + 1) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+        <Clock className="w-3 h-3" /> {year}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+      <CheckCircle className="w-3 h-3" /> {year}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string | null }) {
+  if (!status) return <span className="text-gray-400">-</span>;
+  const colors: Record<string, string> = {
+    'Complete': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    'Released': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    'Arrived': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    'Enroute': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    'To Be Routed': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    'To Be Scrapped': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    'Scrapped': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+    'Upmarketed': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
+  };
+  return (
+    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${colors[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
+      {status}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tree Panel Component
+// ---------------------------------------------------------------------------
+function TypeTree({
+  tree, selectedType, selectedCommodity, onSelectType, onSelectCommodity, onClear, collapsed, onToggleCollapse
+}: {
+  tree: TypeTreeNode[];
+  selectedType: string | null;
+  selectedCommodity: string | null;
+  onSelectType: (t: string | null) => void;
+  onSelectCommodity: (c: string | null) => void;
+  onClear: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const totalCars = tree.reduce((sum, n) => sum + n.count, 0);
+
+  const toggle = (name: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  if (collapsed) {
+    return (
+      <div className="w-10 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-3">
+        <button onClick={onToggleCollapse} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Expand tree">
+          <ChevronRight className="w-4 h-4 text-gray-500" />
+        </button>
+        <div className="mt-2 writing-vertical text-xs text-gray-400 dark:text-gray-500 [writing-mode:vertical-lr] rotate-180">
+          Car Types
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Car Types</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{totalCars.toLocaleString()} cars</p>
+        </div>
+        <button onClick={onToggleCollapse} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Collapse">
+          <ChevronLeft className="w-4 h-4 text-gray-400" />
+        </button>
+      </div>
+
+      {/* All Cars */}
+      <div className="overflow-y-auto flex-1">
+        <button
+          onClick={onClear}
+          className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
+            !selectedType ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <span>All Cars</span>
+          <span className="text-xs tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{totalCars.toLocaleString()}</span>
+        </button>
+
+        {tree.map(node => (
+          <div key={node.name}>
+            {/* Car Type Level */}
+            <button
+              onClick={() => {
+                toggle(node.name);
+                onSelectType(node.name);
+                onSelectCommodity(null);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-1 transition-colors ${
+                selectedType === node.name && !selectedCommodity
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+            >
+              {expanded.has(node.name) ? (
+                <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+              )}
+              <Train className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+              <span className="truncate flex-1">{node.name}</span>
+              <span className="text-xs tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ml-1">{node.count}</span>
+            </button>
+
+            {/* Commodity Level */}
+            {expanded.has(node.name) && node.children.map(child => (
+              <button
+                key={child.name}
+                onClick={() => {
+                  onSelectType(node.name);
+                  onSelectCommodity(child.name);
+                }}
+                className={`w-full text-left pl-10 pr-3 py-1.5 text-xs flex items-center justify-between transition-colors ${
+                  selectedType === node.name && selectedCommodity === child.name
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span className="truncate">{child.name}</span>
+                <span className="tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ml-1">{child.count}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Side Drawer Component
+// ---------------------------------------------------------------------------
+function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => void }) {
+  const [detail, setDetail] = useState<CarDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCar, setSelectedCar] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(['general', 'specifications', 'qualifications', 'lease'])
+  );
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    apiFetch<{ data: CarDetail }>(`/fleet-browse/car/${carNumber}`)
+      .then(res => setDetail(res.data))
+      .catch(() => setDetail(null))
+      .finally(() => setLoading(false));
+  }, [carNumber]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  const toggleSection = (s: string) =>
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      next.has(s) ? next.delete(s) : next.add(s);
+      return next;
+    });
+
+  const car = detail?.car;
+
+  const Section = ({ id, title, icon: Icon, children }: {
+    id: string; title: string; icon: typeof Train; children: React.ReactNode;
+  }) => (
+    <div className="border-b border-gray-200 dark:border-gray-700">
+      <button
+        onClick={() => toggleSection(id)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+          <Icon className="w-4 h-4 text-gray-400" />
+          {title}
+        </div>
+        {expandedSections.has(id) ? (
+          <ChevronDown className="w-4 h-4 text-gray-400" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        )}
+      </button>
+      {expandedSections.has(id) && (
+        <div className="px-4 pb-3">{children}</div>
+      )}
+    </div>
+  );
+
+  const Field = ({ label, value }: { label: string; value: any }) => (
+    <div className="flex justify-between py-1">
+      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right max-w-[60%] truncate">
+        {value ?? '-'}
+      </span>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40" onClick={onClose} />
+
+      {/* Drawer */}
+      <div
+        ref={drawerRef}
+        className="fixed top-0 right-0 h-full w-[480px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col animate-slide-in-right"
+      >
+        {/* Sticky Header */}
+        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
+              {car && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {car.car_type || 'Unknown Type'} &middot; {car.commodity || 'No Commodity'}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {detail?.active_shopping_event && (
+                <a
+                  href={`/shopping/${detail.active_shopping_event.id}`}
+                  className="text-xs px-2 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-md hover:bg-primary-100 dark:hover:bg-primary-900/50 flex items-center gap-1"
+                >
+                  <Wrench className="w-3 h-3" />
+                  {detail.active_shopping_event.state}
+                </a>
+              )}
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Stats Row */}
+          {car && (
+            <div className="grid grid-cols-4 gap-0 border-t border-gray-200 dark:border-gray-700">
+              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Age</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{car.car_age ?? '-'}</div>
+              </div>
+              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Tank Qual</div>
+                <div className="text-sm font-semibold"><QualBadge year={car.tank_qual_year} /></div>
+              </div>
+              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Status</div>
+                <div className="text-sm"><StatusBadge status={car.current_status} /></div>
+              </div>
+              <div className="px-3 py-2 text-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400">Events</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{detail?.shopping_events_count ?? 0}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+            </div>
+          ) : !car ? (
+            <div className="p-4 text-center text-gray-500 dark:text-gray-400">Car not found</div>
+          ) : (
+            <>
+              {/* General Info */}
+              <Section id="general" title="General Information" icon={Train}>
+                <Field label="Car Number" value={car.car_number} />
+                <Field label="Car Mark" value={car.car_mark} />
+                <Field label="Car ID" value={car.car_id} />
+                <Field label="Car Type" value={car.car_type} />
+                <Field label="Lessee" value={car.lessee_name} />
+                <Field label="Lessee Code" value={car.lessee_code} />
+                <Field label="FMS Lessee #" value={car.fms_lessee_number} />
+                <Field label="CSR" value={car.csr_name} />
+                <Field label="CSL" value={car.csl_name} />
+                <Field label="Commercial" value={car.commercial_contact} />
+                <Field label="Portfolio" value={car.portfolio_status} />
+              </Section>
+
+              {/* Specifications */}
+              <Section id="specifications" title="Specifications" icon={Layers}>
+                <Field label="Commodity" value={car.commodity} />
+                <Field label="Jacketed" value={car.is_jacketed ? 'Yes' : 'No'} />
+                <Field label="Lined" value={car.is_lined ? 'Yes' : 'No'} />
+                <Field label="Lining Type" value={car.lining_type} />
+                <Field label="Material Type" value={car.material_type} />
+                <Field label="Product Code" value={car.product_code} />
+                <Field label="Stencil Class" value={car.stencil_class} />
+                <Field label="Car Age" value={car.car_age ? `${car.car_age} years` : null} />
+                <Field label="Has Asbestos" value={car.has_asbestos ? 'Yes' : 'No'} />
+                <Field label="Nitrogen Pad Stage" value={car.nitrogen_pad_stage} />
+              </Section>
+
+              {/* Regulatory / Qualifications */}
+              <Section id="qualifications" title="Qualifications & Due Dates" icon={Shield}>
+                <div className="space-y-1">
+                  {[
+                    { label: 'Tank Qualification', value: car.tank_qual_year },
+                    { label: 'Min (No Lining)', value: car.min_no_lining_year },
+                    { label: 'Min (With Lining)', value: car.min_lining_year },
+                    { label: 'Interior Lining', value: car.interior_lining_year },
+                    { label: 'Rule 88B', value: car.rule_88b_year },
+                    { label: 'Safety Relief', value: car.safety_relief_year },
+                    { label: 'Service Equipment', value: car.service_equipment_year },
+                    { label: 'Stub Sill', value: car.stub_sill_year },
+                    { label: 'Tank Thickness', value: car.tank_thickness_year },
+                  ].map(item => (
+                    <div key={item.label} className="flex justify-between py-1 items-center">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{item.label}</span>
+                      <QualBadge year={item.value} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <Field label="Full/Partial Qual" value={car.full_partial_qual} />
+                  <Field label="Perform Tank Qual" value={car.perform_tank_qual ? 'Yes' : 'No'} />
+                  <Field label="Qual Expiration" value={car.qual_exp_date?.slice(0, 10)} />
+                </div>
+              </Section>
+
+              {/* Maintenance / Status */}
+              <Section id="maintenance" title="Maintenance & Status" icon={Wrench}>
+                <Field label="Current Status" value={car.current_status} />
+                <Field label="Adjusted Status" value={car.adjusted_status} />
+                <Field label="Plan Status" value={car.plan_status} />
+                <Field label="Scheduled Status" value={car.scheduled_status} />
+                <Field label="Reason Shopped" value={car.reason_shopped} />
+                <Field label="Assigned Shop" value={car.assigned_shop_code} />
+                <Field label="Assigned Date" value={car.assigned_date?.slice(0, 10)} />
+                <Field label="Last Repair Date" value={car.last_repair_date?.slice(0, 10)} />
+                <Field label="Last Repair Shop" value={car.last_repair_shop} />
+                {detail?.active_shopping_event && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-xs text-gray-500">Active Event</span>
+                      <a
+                        href={`/shopping/${detail.active_shopping_event.id}`}
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                      >
+                        {detail.active_shopping_event.event_number}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <Field label="State" value={detail.active_shopping_event.state} />
+                    <Field label="Shop" value={detail.active_shopping_event.shop_code} />
+                  </div>
+                )}
+              </Section>
+
+              {/* Location */}
+              <Section id="location" title="Location" icon={MapPin}>
+                <Field label="Current Region" value={car.current_region} />
+                <Field label="Past Region" value={car.past_region} />
+              </Section>
+
+              {/* Lease / Contract */}
+              <Section id="lease" title="Lease & Contract" icon={FileText}>
+                <Field label="Contract #" value={car.contract_number} />
+                <Field label="Contract Expiration" value={car.contract_expiration?.slice(0, 10)} />
+                {detail?.lease_info && (
+                  <>
+                    <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                      <Field label="Customer" value={detail.lease_info.customer_name} />
+                      <Field label="Customer Code" value={detail.lease_info.customer_code} />
+                      <Field label="Lease ID" value={detail.lease_info.lease_id} />
+                      <Field label="Lease Name" value={detail.lease_info.lease_name} />
+                      <Field label="Lease Status" value={detail.lease_info.lease_status} />
+                    </div>
+                  </>
+                )}
+              </Section>
+            </>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        {car && (
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-2 bg-gray-50 dark:bg-gray-800">
+            <a
+              href={`/shopping?search=${carNumber}`}
+              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              View History
+            </a>
+            <a
+              href={`/fleet`}
+              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              Fleet View
+            </a>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+export default function CarsPage() {
+  // Tree data
+  const [tree, setTree] = useState<TypeTreeNode[]>([]);
+  const [treeLoading, setTreeLoading] = useState(true);
+  const [treeCollapsed, setTreeCollapsed] = useState(false);
+
+  // Filters
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedCommodity, setSelectedCommodity] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
+  const [lesseeFilter, setLesseeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [sortField, setSortField] = useState<keyof Car>('car_number');
+
+  // Sort & pagination
+  const [sortField, setSortField] = useState('car_number');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize] = useState(50);
 
-  const [filters, setFilters] = useState<Filters>({
-    search: '',
-    status: '',
-    lessee: '',
-    qualYear: '',
-    region: '',
-    jacketed: '',
-    lined: '',
-  });
+  // Data
+  const [cars, setCars] = useState<Car[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [carsLoading, setCarsLoading] = useState(true);
 
-  // Fetch cars
+  // Drawer
+  const [selectedCar, setSelectedCar] = useState<string | null>(null);
+
+  // Distinct values for filter dropdowns
+  const [filterOptions, setFilterOptions] = useState<{ statuses: string[]; regions: string[]; lessees: string[] }>({ statuses: [], regions: [], lessees: [] });
+
+  // Fetch tree and filter options on mount
   useEffect(() => {
-    async function fetchCars() {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/cars-browse`);
-        if (!res.ok) throw new Error('Failed to fetch cars');
-        const json = await res.json();
-        setCars(json.data || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load cars');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCars();
+    apiFetch<{ data: TypeTreeNode[] }>('/fleet-browse/types')
+      .then(res => setTree(res.data || []))
+      .catch(() => setTree([]))
+      .finally(() => setTreeLoading(false));
+
+    apiFetch<{ data: { statuses: string[]; regions: string[]; lessees: string[] } }>('/fleet-browse/filters')
+      .then(res => setFilterOptions(res.data))
+      .catch(() => {});
   }, []);
 
-  // Get unique values for filters
-  const filterOptions = useMemo(() => {
-    const statuses = new Set<string>();
-    const lessees = new Set<string>();
-    const qualYears = new Set<number>();
-    const regions = new Set<string>();
+  // Fetch cars whenever filters/sort/page change
+  useEffect(() => {
+    setCarsLoading(true);
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(pageSize));
+    params.set('sort', sortField);
+    params.set('order', sortDir);
+    if (selectedType) params.set('car_type', selectedType);
+    if (selectedCommodity) params.set('commodity', selectedCommodity);
+    if (search) params.set('search', search);
+    if (statusFilter) params.set('status', statusFilter);
+    if (regionFilter) params.set('region', regionFilter);
+    if (lesseeFilter) params.set('lessee', lesseeFilter);
 
-    cars.forEach(car => {
-      if (car.current_status) statuses.add(car.current_status);
-      if (car.lessee_name) lessees.add(car.lessee_name);
-      if (car.tank_qual_year) qualYears.add(car.tank_qual_year);
-      if (car.current_region) regions.add(car.current_region);
-    });
+    apiFetch<{ data: Car[]; pagination: Pagination }>(`/fleet-browse/cars?${params}`)
+      .then(res => {
+        setCars(res.data || []);
+        setPagination(res.pagination || null);
+      })
+      .catch(() => { setCars([]); setPagination(null); })
+      .finally(() => setCarsLoading(false));
+  }, [page, pageSize, sortField, sortDir, selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
 
-    return {
-      statuses: Array.from(statuses).sort(),
-      lessees: Array.from(lessees).sort(),
-      qualYears: Array.from(qualYears).sort((a, b) => a - b),
-      regions: Array.from(regions).sort(),
-    };
-  }, [cars]);
+  // Reset page on filter change
+  const handleFilterChange = useCallback(() => setPage(1), []);
 
-  // Filter and sort cars
-  const filteredCars = useMemo(() => {
-    let result = cars.filter(car => {
-      if (filters.search) {
-        const search = filters.search.toLowerCase();
-        if (!car.car_number?.toLowerCase().includes(search) &&
-            !car.lessee_name?.toLowerCase().includes(search) &&
-            !car.commodity?.toLowerCase().includes(search) &&
-            !car.csr_name?.toLowerCase().includes(search)) {
-          return false;
-        }
-      }
-      if (filters.status && car.current_status !== filters.status) return false;
-      if (filters.lessee && car.lessee_name !== filters.lessee) return false;
-      if (filters.qualYear && car.tank_qual_year !== parseInt(filters.qualYear)) return false;
-      if (filters.region && car.current_region !== filters.region) return false;
-      if (filters.jacketed === 'yes' && !car.is_jacketed) return false;
-      if (filters.jacketed === 'no' && car.is_jacketed) return false;
-      if (filters.lined === 'yes' && !car.is_lined) return false;
-      if (filters.lined === 'no' && car.is_lined) return false;
-      return true;
-    });
-
-    // Sort
-    result.sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
-      if (aVal == null) return 1;
-      if (bVal == null) return -1;
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [cars, filters, sortField, sortDir]);
-
-  // Paginate
-  const paginatedCars = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredCars.slice(start, start + pageSize);
-  }, [filteredCars, page]);
-
-  const totalPages = Math.ceil(filteredCars.length / pageSize);
-
-  const handleSort = useCallback((field: keyof Car) => {
+  const handleSort = useCallback((field: string) => {
     if (sortField === field) {
       setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDir('asc');
     }
+    setPage(1);
   }, [sortField]);
 
-  const clearFilters = () => {
-    setFilters({
-      search: '',
-      status: '',
-      lessee: '',
-      qualYear: '',
-      region: '',
-      jacketed: '',
-      lined: '',
-    });
+  const handleTypeSelect = (t: string | null) => { setSelectedType(t); setPage(1); };
+  const handleCommoditySelect = (c: string | null) => { setSelectedCommodity(c); setPage(1); };
+  const handleClearTree = () => { setSelectedType(null); setSelectedCommodity(null); setPage(1); };
+
+  const activeFilterCount = [statusFilter, regionFilter, lesseeFilter, search].filter(Boolean).length
+    + (selectedType ? 1 : 0) + (selectedCommodity ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setRegionFilter('');
+    setLesseeFilter('');
+    setSelectedType(null);
+    setSelectedCommodity(null);
     setPage(1);
   };
 
-  const currentYear = new Date().getFullYear();
-
-  const getQualBadge = (year: number | null) => {
-    if (!year) return null;
-    if (year <= currentYear) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-          <AlertTriangle className="w-3 h-3" /> Overdue
-        </span>
-      );
-    }
-    if (year === currentYear + 1) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-          <Clock className="w-3 h-3" /> {year}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-        <CheckCircle className="w-3 h-3" /> {year}
-      </span>
-    );
+  // Debounced search
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setPage(1), 300);
   };
 
-  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <p className="text-red-600 dark:text-red-400">{error}</p>
-      </div>
-    );
-  }
+  const columns = [
+    { key: 'car_number', label: 'Car #', width: 'w-28' },
+    { key: 'car_type', label: 'Type', width: 'w-40' },
+    { key: 'lessee_name', label: 'Lessee', width: 'w-44' },
+    { key: 'commodity', label: 'Commodity', width: 'w-44' },
+    { key: 'current_status', label: 'Status', width: 'w-28' },
+    { key: 'current_region', label: 'Region', width: 'w-24' },
+    { key: 'tank_qual_year', label: 'Tank Qual', width: 'w-24' },
+    { key: 'car_age', label: 'Age', width: 'w-16' },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fleet Cars</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredCars.length.toLocaleString()} of {cars.length.toLocaleString()} cars
-          </p>
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Left Panel: Car Type Tree */}
+      {treeLoading ? (
+        <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center">
+          <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
         </div>
-      </div>
+      ) : (
+        <TypeTree
+          tree={tree}
+          selectedType={selectedType}
+          selectedCommodity={selectedCommodity}
+          onSelectType={handleTypeSelect}
+          onSelectCommodity={handleCommoditySelect}
+          onClear={handleClearTree}
+          collapsed={treeCollapsed}
+          onToggleCollapse={() => setTreeCollapsed(!treeCollapsed)}
+        />
+      )}
 
-      {/* Search and Filters */}
-      <div className="card">
-        <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-4">
+      {/* Main Panel: Car List */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+        {/* Header Bar */}
+        <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Fleet Cars</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {pagination ? `${pagination.total.toLocaleString()} cars` : '...'}
+                {selectedType && ` in ${selectedType}`}
+                {selectedCommodity && ` / ${selectedCommodity}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Clear all
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
             {/* Search */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={filters.search}
-                onChange={(e) => { setFilters(prev => ({ ...prev, search: e.target.value })); setPage(1); }}
-                placeholder="Search car number, lessee, commodity, CSR..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search car number..."
+                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
 
             {/* Filter Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
-                activeFilterCount > 0
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md transition-colors ${
+                showFilters || statusFilter || regionFilter
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
               }`}
             >
-              <Filter className="w-4 h-4" />
+              <Filter className="w-3.5 h-3.5" />
               Filters
-              {activeFilterCount > 0 && (
-                <span className="px-1.5 py-0.5 text-xs font-medium bg-primary-500 text-white rounded-full">
-                  {activeFilterCount}
+              {(statusFilter || regionFilter) && (
+                <span className="w-4 h-4 flex items-center justify-center text-[10px] font-bold bg-primary-500 text-white rounded-full">
+                  {[statusFilter, regionFilter].filter(Boolean).length}
                 </span>
               )}
-              {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
-
-            {activeFilterCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              >
-                <X className="w-4 h-4" />
-                Clear
-              </button>
-            )}
           </div>
 
-          {/* Filter Panel */}
+          {/* Filter Row */}
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Status</label>
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex gap-4">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
                 <select
-                  value={filters.status}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, status: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
                   {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Lessee</label>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Region</label>
                 <select
-                  value={filters.lessee}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, lessee: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
-                >
-                  <option value="">All</option>
-                  {filterOptions.lessees.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tank Qual Year</label>
-                <select
-                  value={filters.qualYear}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, qualYear: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
-                >
-                  <option value="">All</option>
-                  {filterOptions.qualYears.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Region</label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, region: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
+                  value={regionFilter}
+                  onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
+                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
                   {filterOptions.regions.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Jacketed</label>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Lessee</label>
                 <select
-                  value={filters.jacketed}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, jacketed: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
+                  value={lesseeFilter}
+                  onChange={(e) => { setLesseeFilter(e.target.value); setPage(1); }}
+                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Lined</label>
-                <select
-                  value={filters.lined}
-                  onChange={(e) => { setFilters(prev => ({ ...prev, lined: e.target.value })); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700"
-                >
-                  <option value="">All</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
+                  {filterOptions.lessees.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+            <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
               <tr>
-                {[
-                  { key: 'car_number', label: 'Car #' },
-                  { key: 'lessee_name', label: 'Lessee' },
-                  { key: 'commodity', label: 'Commodity' },
-                  { key: 'tank_qual_year', label: 'Tank Qual' },
-                  { key: 'current_status', label: 'Status' },
-                  { key: 'csr_name', label: 'CSR' },
-                  { key: 'car_age', label: 'Age' },
-                ].map(col => (
+                {columns.map(col => (
                   <th
                     key={col.key}
-                    onClick={() => handleSort(col.key as keyof Car)}
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => handleSort(col.key)}
+                    className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 select-none ${col.width}`}
                   >
                     <div className="flex items-center gap-1">
                       {col.label}
@@ -374,72 +754,123 @@ export default function CarsPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {paginatedCars.map(car => (
-                <tr
-                  key={car.car_number}
-                  onClick={() => setSelectedCar(car.car_number)}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                >
-                  <td className="px-4 py-3 text-sm font-medium text-primary-600 dark:text-primary-400">
-                    {car.car_number}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                    {car.lessee_name || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                    {car.commodity || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {getQualBadge(car.tank_qual_year)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                    {car.current_status || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                    {car.csr_name || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                    {car.car_age ? `${car.car_age} yr` : '-'}
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
+              {carsLoading ? (
+                <tr>
+                  <td colSpan={columns.length} className="py-16 text-center">
+                    <div className="inline-block animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
                   </td>
                 </tr>
-              ))}
+              ) : cars.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No cars match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                cars.map(car => (
+                  <tr
+                    key={car.car_number}
+                    onClick={() => setSelectedCar(car.car_number)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedCar === car.car_number
+                        ? 'bg-primary-50 dark:bg-primary-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 text-sm font-medium text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                      {car.car_number}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 truncate max-w-[160px]">
+                      {car.car_type || '-'}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 truncate max-w-[176px]">
+                      {car.lessee_name || '-'}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 dark:text-gray-400 truncate max-w-[176px]">
+                      {car.commodity || '-'}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm whitespace-nowrap">
+                      <StatusBadge status={car.current_status} />
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {car.current_region || '-'}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm whitespace-nowrap">
+                      <QualBadge year={car.tank_qual_year} />
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {car.car_age ? `${car.car_age}y` : '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Page {page} of {totalPages}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Page {pagination.page} of {pagination.totalPages} &middot; {pagination.total.toLocaleString()} cars
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
+                First
+              </button>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
               >
-                Previous
+                Prev
               </button>
+              {/* Page numbers */}
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const startPage = Math.max(1, Math.min(page - 2, pagination.totalPages - 4));
+                const p = startPage + i;
+                if (p > pagination.totalPages) return null;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`px-2 py-1 text-xs border rounded ${
+                      p === page
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
+                        : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                disabled={page === pagination.totalPages}
+                className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
               >
                 Next
+              </button>
+              <button
+                onClick={() => setPage(pagination.totalPages)}
+                disabled={page === pagination.totalPages}
+                className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
+                Last
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Car Detail Modal */}
+      {/* Right Side Drawer */}
       {selectedCar && (
-        <CarDetailCard
-          carNumber={selectedCar}
-          onClose={() => setSelectedCar(null)}
-        />
+        <CarDrawer carNumber={selectedCar} onClose={() => setSelectedCar(null)} />
       )}
     </div>
   );

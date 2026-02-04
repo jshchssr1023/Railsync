@@ -1,15 +1,16 @@
 # RailSync - IT Technical Assessment
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Assessment Date:** February 3, 2026
+**Last Updated:** February 3, 2026
 **Assessor:** Automated Build Verification + Manual Code Review
-**System Version:** Commit c6f9e43 (Main branch)
+**System Version:** Main branch (latest)
 
 ---
 
 ## Executive Summary
 
-RailSync is a railcar fleet management system with 90 database tables, 344 API endpoints, 42 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a new shopping event/estimate approval workflow.
+RailSync is a railcar fleet management system with 90 database tables, 348+ API endpoints, 42 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a fleet browse page with server-side pagination, a car type hierarchy tree, and a side-drawer car detail view.
 
 **Overall Verdict: NOT production-ready.** The system is a functional prototype suitable for internal demonstration and iterative development. It is not yet suitable for deployment to a production environment where data integrity, security, and uptime are non-negotiable. Specific blockers are detailed below.
 
@@ -34,7 +35,7 @@ RailSync is a railcar fleet management system with 90 database tables, 344 API e
 |--------|-------|
 | Database tables | 90 |
 | Migration files | 33 (028 numbered, some duplicate numbers) |
-| API endpoints | 344 |
+| API endpoints | 348+ |
 | Backend services | 42 |
 | Backend controllers | 26 |
 | Frontend page modules | 24 |
@@ -166,6 +167,19 @@ The shopping workflow migration (`027_shopping_workflow.sql`) demonstrates prope
 | Soft deletes | NOT IMPLEMENTED - records are hard-deleted |
 | Cascading deletes | CAUTION - some FK constraints use ON DELETE CASCADE |
 
+### Fleet Browse API (New)
+
+Four new endpoints added for the Cars page fleet browse feature:
+
+| Endpoint | Purpose | Key Features |
+|----------|---------|-------------|
+| `GET /api/fleet-browse/types` | Car type hierarchy tree | Groups by car_type + commodity with counts. Returns tree structure for navigation. |
+| `GET /api/fleet-browse/cars` | Paginated car list | Server-side pagination (max 200/page), filtering (car_type, commodity, status, region, lessee ILIKE, search ILIKE), sorting (8 allowed columns, SQL injection safe via whitelist). Parameterized queries. |
+| `GET /api/fleet-browse/car/:carNumber` | Car detail for side drawer | Returns all car columns + shopping events count + active shopping event + lease hierarchy join (rider_cars -> lease_riders -> master_leases -> customers). |
+| `GET /api/fleet-browse/filters` | Distinct filter values | Returns unique statuses, regions, and lessee names for dropdown population. |
+
+**Performance:** Server-side pagination means the frontend never loads all 1,500+ cars at once. The `/types` endpoint aggregates with `GROUP BY` (single query), and the `/cars` endpoint uses `LIMIT/OFFSET` with dynamic `WHERE` clause construction. Sort column injection is prevented via a whitelist of 8 allowed column names.
+
 ### Performance Concerns
 
 - No connection pooling configuration visible (using `pg` default pool)
@@ -250,13 +264,23 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 ### Page Coverage
 
 24 frontend page modules exist covering:
-- Dashboard, Fleet, Cars, Shops
+- Dashboard, Fleet, Cars (rebuilt with 3-panel layout), Shops
 - Bad Orders, Invoices, Assignments
-- Shopping Events (new), Scope Library (new), CCM Forms (new)
+- Shopping Events, Scope Library, CCM Forms
 - Planning, Pipeline, Reports, Analytics
 - Admin, Settings, Rules, Projects, Budget
 
-All new shopping workflow pages have been built and are serving HTTP 200.
+**Cars Page Architecture (New):** The Cars page (`/cars`) has been rebuilt with a three-panel layout:
+- **Left panel:** Car type hierarchy tree component with expand/collapse, count badges, and click-to-filter
+- **Center panel:** Server-side paginated table (50 rows/page) with sortable columns and inline status/qualification badges
+- **Right panel:** Side drawer (480px) that slides in from the right, showing full car details in collapsible sections with sticky header, quick stats, and navigation links
+
+Key frontend patterns used:
+- Server-side pagination via query parameters (no client-side filtering of large datasets)
+- Debounced search input (300ms) to reduce API calls
+- CSS animation for drawer slide-in (`animate-slide-in-right`)
+- ESC key and backdrop click to close drawer
+- Responsive pagination with page number buttons
 
 ---
 
@@ -358,7 +382,7 @@ All tests run on February 3, 2026 against live Docker containers.
 ### Low (Quality of Life)
 
 20. **No API documentation** - No Swagger/OpenAPI spec
-21. **No database seeding for development** - Seed data is limited
+21. ~~No database seeding for development~~ **RESOLVED** - `scripts/seed-demo.js` seeds 1,500 cars, 59 customers, 116 leases, 220 shopping events, budget data, demands, projects, and bad orders from the Qual Planner CSV
 22. **No frontend error boundaries** - Unhandled errors crash pages
 
 ---

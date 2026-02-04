@@ -1,8 +1,8 @@
 # RailSync - How To Guide
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Last Updated:** February 3, 2026
-**Applicable System Version:** Commit c6f9e43 (Main branch)
+**Applicable System Version:** Main branch (latest)
 
 > This document is a living guide. It should be updated as new features are added or existing features are modified.
 
@@ -134,17 +134,68 @@ The Fleet page displays your entire railcar fleet with filtering and search capa
 - Use the search bar to find a specific car by car number
 - Export fleet data (if available)
 
-### Car Details
+### Car Details (Fleet Browse)
 
 **URL:** `/cars`
 
-The Cars page provides detailed information for individual railcars including:
+The Cars page is a three-panel layout optimized for browsing a large fleet (1,500+ cars) with fast filtering and detailed inspection.
 
-- Car specifications (type, capacity, build date, etc.)
-- Current status and location
-- Assignment history
-- Shopping history (all prior shop visits with SOW links)
-- Associated invoices
+#### Layout
+
+| Panel | Description |
+|-------|-------------|
+| **Left: Car Type Tree** | Hierarchical tree navigation: Car Type > Commodity. Click a node to filter the main list. Each node shows its car count. Collapsible via chevron. |
+| **Center: Car List** | Server-side paginated table with 50 cars per page. Sortable columns. Click any row to open the detail drawer. |
+| **Right: Side Drawer** | Slides in from the right showing full car details. Closes with X, ESC key, or clicking outside. Does not block the list — you can scroll behind it. |
+
+#### Car Type Tree (Left Panel)
+
+The tree groups all cars by **Car Type** (e.g., General Service Tank, Pressure Tank) and then by **Commodity** (e.g., Ethanol, LPG, Corn Oil). Each node displays a count badge.
+
+- Click **All Cars** to remove the tree filter.
+- Click a **Car Type** to filter the list to that type.
+- Expand a Car Type and click a **Commodity** to drill down further.
+- The tree can be collapsed to a thin rail by clicking the left chevron.
+
+#### Search and Filters
+
+- **Search bar** - Searches by car number (partial match, server-side).
+- **Filters button** - Opens a filter row with dropdown selectors for:
+  - **Status** (e.g., Complete, Released, Arrived, Enroute)
+  - **Region** (if populated)
+  - **Lessee** (all 59 customers from the fleet)
+- **Clear All** - Resets all filters and tree selection.
+
+Filters are applied server-side, so results are fast even with large datasets.
+
+#### Car List (Center Panel)
+
+Columns: Car #, Type, Lessee, Commodity, Status, Region, Tank Qual, Age.
+
+- Click any **column header** to sort (ascending/descending toggle).
+- Click any **row** to open the car's side drawer.
+- The selected row is highlighted in blue.
+- **Pagination** at the bottom shows First/Prev/1/2/3.../Next/Last controls.
+
+#### Side Drawer (Right Panel)
+
+The drawer shows complete car information organized in collapsible sections:
+
+| Section | Contents |
+|---------|----------|
+| **General Information** | Car number, mark, ID, type, lessee, codes, CSR, CSL, commercial contact, portfolio |
+| **Specifications** | Commodity, jacketed/lined status, lining type, material type, car age, asbestos, nitrogen |
+| **Qualifications & Due Dates** | All qualification years with color-coded badges (green = current, amber = due next year, red = overdue) |
+| **Maintenance & Status** | Current/adjusted/plan status, reason shopped, assigned shop, last repair, active shopping event link |
+| **Location** | Current and past region |
+| **Lease & Contract** | Contract number, expiration, linked customer and lease details |
+
+The drawer header shows:
+- Car number and type
+- Quick stats row: Age, Tank Qual badge, Status badge, Shopping Events count
+- Active shopping event link (if the car is currently in a shop)
+
+Footer buttons link to the car's shopping history and fleet view.
 
 ---
 

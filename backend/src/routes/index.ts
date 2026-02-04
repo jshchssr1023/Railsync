@@ -132,6 +132,32 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
 // ============================================================================
 
 /**
+ * @route   GET /api/fleet-browse/filters
+ * @desc    Returns distinct filter values for fleet browse dropdowns
+ * @access  Public
+ */
+router.get('/fleet-browse/filters', optionalAuth, async (req, res) => {
+  try {
+    const [statuses, regions, lessees] = await Promise.all([
+      query(`SELECT DISTINCT current_status as value FROM cars WHERE is_active = TRUE AND current_status IS NOT NULL ORDER BY current_status`),
+      query(`SELECT DISTINCT current_region as value FROM cars WHERE is_active = TRUE AND current_region IS NOT NULL ORDER BY current_region`),
+      query(`SELECT DISTINCT lessee_name as value FROM cars WHERE is_active = TRUE AND lessee_name IS NOT NULL ORDER BY lessee_name`),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        statuses: statuses.map((r: any) => r.value),
+        regions: regions.map((r: any) => r.value),
+        lessees: lessees.map((r: any) => r.value),
+      }
+    });
+  } catch (err) {
+    console.error('Fleet browse filters error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
+  }
+});
+
+/**
  * @route   GET /api/fleet-browse/types
  * @desc    Returns car type hierarchy with counts for tree navigation
  * @access  Public
