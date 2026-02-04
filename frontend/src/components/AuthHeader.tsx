@@ -100,7 +100,7 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
               </button>
               {expandedSection === 'assets' && (
                 <div className="pl-6 pb-2">
-                  <a href="/fleet" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Fleet</a>
+                  <a href="/contracts" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Contracts</a>
                   <a href="/cars" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Cars</a>
                   <a href="/projects" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Projects</a>
                 </div>
@@ -231,7 +231,7 @@ export default function AuthHeader() {
                   label="Assets"
                   subtitle="The What"
                   items={[
-                    { href: '/fleet', label: 'Fleet' },
+                    { href: '/contracts', label: 'Contracts' },
                     { href: '/cars', label: 'Cars' },
                     { href: '/projects', label: 'Projects' },
                   ]}

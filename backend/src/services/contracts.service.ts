@@ -1,5 +1,5 @@
 /**
- * Fleet Service - Lease Hierarchy and Amendment Management
+ * Contracts Service - Lease Hierarchy and Amendment Management
  *
  * Handles Customer → Lease → Rider → Cars navigation and amendment tracking
  */
@@ -395,7 +395,7 @@ export async function resyncSchedules(riderId: string, userId?: string): Promise
 }
 
 // ============================================================================
-// FLEET OVERVIEW WITH AMENDMENTS
+// CONTRACTS OVERVIEW WITH AMENDMENTS
 // ============================================================================
 
 export async function getCarsWithAmendments(

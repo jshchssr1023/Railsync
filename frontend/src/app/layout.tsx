@@ -65,7 +65,7 @@ export default function RootLayout({
                 {/* Mobile Bottom Navigation */}
                 <MobileNavBar />
 
-                {/* Fleet Dashboard Floating Button */}
+                {/* Contracts Dashboard Floating Button */}
                 <DashboardWithWrapper />
               </div>
             </ToastProvider>

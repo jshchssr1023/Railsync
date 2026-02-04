@@ -27,7 +27,7 @@ const metricsWithTimeFetcher = (url: string) => fetch(url).then(res => {
 const TIER_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-interface FleetMetrics {
+interface ContractsMetrics {
   in_shop_count: number;
   planned_count: number;
   enroute_count: number;
@@ -63,7 +63,7 @@ interface FilterOptions {
   workTypes: string[];
 }
 
-export default function FleetDashboard() {
+export default function ContractsDashboard() {
   const currentYear = new Date().getFullYear();
   const [tierFilter, setTierFilter] = useState<string>('all');
 
@@ -76,8 +76,8 @@ export default function FleetDashboard() {
 
   const tierParam = tierFilter !== 'all' ? `&tier=${tierFilter}` : '';
 
-  const { data: metricsResponse, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<{ data: FleetMetrics; serverTime: string }>(
-    `${API_BASE}/fleet/metrics?_=${tierFilter}${tierParam}`,
+  const { data: metricsResponse, error: metricsError, isLoading: metricsLoading, mutate: mutateMetrics } = useSWR<{ data: ContractsMetrics; serverTime: string }>(
+    `${API_BASE}/contracts/metrics?_=${tierFilter}${tierParam}`,
     metricsWithTimeFetcher,
     { refreshInterval: 30000 }
   );
@@ -86,13 +86,13 @@ export default function FleetDashboard() {
   const serverTime = metricsResponse?.serverTime;
 
   const { data: monthlyVolumes, error: volumesError, isLoading: volumesLoading, mutate: mutateVolumes } = useSWR<MonthlyVolume[]>(
-    `${API_BASE}/fleet/monthly-volumes?year=${currentYear}${tierParam}`,
+    `${API_BASE}/contracts/monthly-volumes?year=${currentYear}${tierParam}`,
     fetcher,
     { refreshInterval: 60000 }
   );
 
   const { data: tierData, error: tierError, isLoading: tierLoading, mutate: mutateTiers } = useSWR<TierData[]>(
-    `${API_BASE}/fleet/tier-summary?_=${tierFilter}${tierParam}`,
+    `${API_BASE}/contracts/tier-summary?_=${tierFilter}${tierParam}`,
     fetcher,
     { refreshInterval: 60000 }
   );
@@ -107,8 +107,8 @@ export default function FleetDashboard() {
     const rows: string[] = [];
     const timestamp = new Date().toISOString().split('T')[0];
 
-    // Fleet Summary Section
-    rows.push('FLEET SUMMARY');
+    // Contracts Summary Section
+    rows.push('CONTRACTS SUMMARY');
     rows.push('Metric,Value');
     if (metrics) {
       rows.push(`Total Fleet,${metrics.total_fleet}`);
@@ -146,7 +146,7 @@ export default function FleetDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `fleet-dashboard-${timestamp}.csv`;
+    link.download = `contracts-dashboard-${timestamp}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

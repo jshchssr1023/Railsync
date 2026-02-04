@@ -128,15 +128,15 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
 });
 
 // ============================================================================
-// FLEET BROWSE ROUTES
+// CONTRACTS BROWSE ROUTES
 // ============================================================================
 
 /**
- * @route   GET /api/fleet-browse/filters
- * @desc    Returns distinct filter values for fleet browse dropdowns
+ * @route   GET /api/contracts-browse/filters
+ * @desc    Returns distinct filter values for contracts browse dropdowns
  * @access  Public
  */
-router.get('/fleet-browse/filters', optionalAuth, async (req, res) => {
+router.get('/contracts-browse/filters', optionalAuth, async (req, res) => {
   try {
     const [statuses, regions, lessees] = await Promise.all([
       query(`SELECT DISTINCT current_status as value FROM cars WHERE is_active = TRUE AND current_status IS NOT NULL ORDER BY current_status`),
@@ -152,17 +152,17 @@ router.get('/fleet-browse/filters', optionalAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Fleet browse filters error:', err);
+    console.error('Contracts browse filters error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
   }
 });
 
 /**
- * @route   GET /api/fleet-browse/types
+ * @route   GET /api/contracts-browse/types
  * @desc    Returns car type hierarchy with counts for tree navigation
  * @access  Public
  */
-router.get('/fleet-browse/types', optionalAuth, async (req, res) => {
+router.get('/contracts-browse/types', optionalAuth, async (req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -191,17 +191,17 @@ router.get('/fleet-browse/types', optionalAuth, async (req, res) => {
 
     res.json({ success: true, data: tree });
   } catch (err) {
-    console.error('Fleet browse types error:', err);
-    res.status(500).json({ success: false, error: 'Failed to fetch fleet types' });
+    console.error('Contracts browse types error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch car types' });
   }
 });
 
 /**
- * @route   GET /api/fleet-browse/cars
- * @desc    Paginated, filtered, sorted car list for fleet browse page
+ * @route   GET /api/contracts-browse/cars
+ * @desc    Paginated, filtered, sorted car list for contracts browse page
  * @access  Public
  */
-router.get('/fleet-browse/cars', optionalAuth, async (req, res) => {
+router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
   try {
     // Parse pagination params
     let page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
@@ -290,11 +290,11 @@ router.get('/fleet-browse/cars', optionalAuth, async (req, res) => {
 });
 
 /**
- * @route   GET /api/fleet-browse/car/:carNumber
+ * @route   GET /api/contracts-browse/car/:carNumber
  * @desc    Full car detail for side drawer including related data
  * @access  Public
  */
-router.get('/fleet-browse/car/:carNumber', optionalAuth, async (req, res) => {
+router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) => {
   try {
     const { carNumber } = req.params;
 
@@ -906,10 +906,10 @@ router.put('/dashboard/configs/:id', authenticate, planningController.updateDash
 router.delete('/dashboard/configs/:id', authenticate, planningController.deleteDashboardConfig);
 
 // ============================================================================
-// PHASE 12 - FLEET VISIBILITY ROUTES
+// PHASE 12 - CONTRACTS VISIBILITY ROUTES
 // ============================================================================
 
-router.get('/fleet/metrics', async (req, res) => {
+router.get('/contracts/metrics', async (req, res) => {
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
     let result;
@@ -939,12 +939,12 @@ router.get('/fleet/metrics', async (req, res) => {
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Fleet metrics error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch fleet metrics' });
+    console.error('Contracts metrics error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch contracts metrics' });
   }
 });
 
-router.get('/fleet/monthly-volumes', async (req, res) => {
+router.get('/contracts/monthly-volumes', async (req, res) => {
   const year = parseInt(req.query.year as string) || new Date().getFullYear();
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
@@ -981,7 +981,7 @@ router.get('/fleet/monthly-volumes', async (req, res) => {
   }
 });
 
-router.get('/fleet/tier-summary', async (req, res) => {
+router.get('/contracts/tier-summary', async (req, res) => {
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
     let result;

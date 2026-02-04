@@ -68,7 +68,7 @@ export default function GlobalCommandBar() {
           id: c.id,
           title: c.name,
           subtitle: `${c.total_cars || 0} cars`,
-          href: `/fleet?customer=${c.id}`,
+          href: `/contracts?customer=${c.id}`,
         });
       });
 

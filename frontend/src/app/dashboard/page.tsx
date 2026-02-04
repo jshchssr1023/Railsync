@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 // TYPES
 // =============================================================================
 
-interface FleetReadiness {
+interface ContractsReadiness {
   total_cars: number;
   in_pipeline: number;
   available: number;
@@ -33,7 +33,7 @@ interface NeedShoppingItem {
   created_at: string;
 }
 
-interface FleetHealthRow {
+interface ContractsHealthRow {
   status: string;
   count: number;
   total_estimated: number;
@@ -177,9 +177,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Data state
-  const [fleetReadiness, setFleetReadiness] = useState<FleetReadiness | null>(null);
+  const [contractsReadiness, setContractsReadiness] = useState<ContractsReadiness | null>(null);
   const [needShopping, setNeedShopping] = useState<NeedShoppingItem[]>([]);
-  const [myFleet, setMyFleet] = useState<FleetHealthRow[]>([]);
+  const [myContracts, setMyContracts] = useState<ContractsHealthRow[]>([]);
   const [managers, setManagers] = useState<ManagerRow[]>([]);
   const [dwellTime, setDwellTime] = useState<DwellTimeRow[]>([]);
   const [throughput, setThroughput] = useState<Throughput | null>(null);
@@ -204,9 +204,9 @@ export default function DashboardPage() {
     setError(null);
     try {
       const results = await Promise.allSettled([
-        fetchWithAuth('/dashboard/fleet-readiness'),
+        fetchWithAuth('/dashboard/contracts-readiness'),
         fetchWithAuth('/dashboard/need-shopping'),
-        fetchWithAuth('/dashboard/my-fleet'),
+        fetchWithAuth('/dashboard/my-contracts'),
         fetchWithAuth('/dashboard/manager-performance'),
         fetchWithAuth('/dashboard/dwell-time'),
         fetchWithAuth('/dashboard/throughput?days=30'),
@@ -219,9 +219,9 @@ export default function DashboardPage() {
       const getValue = (r: PromiseSettledResult<any>) =>
         r.status === 'fulfilled' ? r.value : null;
 
-      setFleetReadiness(getValue(results[0]));
+      setContractsReadiness(getValue(results[0]));
       setNeedShopping(getValue(results[1]) || []);
-      setMyFleet(getValue(results[2]) || []);
+      setMyContracts(getValue(results[2]) || []);
       setManagers(getValue(results[3]) || []);
       setDwellTime(getValue(results[4]) || []);
       setThroughput(getValue(results[5]));
@@ -279,7 +279,7 @@ export default function DashboardPage() {
             Operations Dashboard
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Fleet readiness, performance, and financial health at a glance
+            Contracts readiness, performance, and financial health at a glance
           </p>
         </div>
         <button
@@ -300,16 +300,16 @@ export default function DashboardPage() {
       )}
 
       {/* ================================================================== */}
-      {/* ROW 1: Fleet Readiness Summary Cards */}
+      {/* ROW 1: Contracts Readiness Summary Cards */}
       {/* ================================================================== */}
-      {fleetReadiness && (
+      {contractsReadiness && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Fleet */}
+          {/* Total Cars */}
           <div className="card">
             <div className="card-body p-4">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Cars</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                {formatNumber(fleetReadiness.total_cars)}
+                {formatNumber(contractsReadiness.total_cars)}
               </p>
               <p className="text-xs text-gray-400 mt-1">In tracking system</p>
             </div>
@@ -320,15 +320,15 @@ export default function DashboardPage() {
             <div className="card-body p-4">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Availability</p>
               <p className={`text-3xl font-bold mt-1 ${
-                Number(fleetReadiness.availability_pct) >= 80
+                Number(contractsReadiness.availability_pct) >= 80
                   ? 'text-green-600 dark:text-green-400'
-                  : Number(fleetReadiness.availability_pct) >= 60
+                  : Number(contractsReadiness.availability_pct) >= 60
                   ? 'text-yellow-600 dark:text-yellow-400'
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {fleetReadiness.availability_pct}%
+                {contractsReadiness.availability_pct}%
               </p>
-              <p className="text-xs text-gray-400 mt-1">{formatNumber(fleetReadiness.available)} available</p>
+              <p className="text-xs text-gray-400 mt-1">{formatNumber(contractsReadiness.available)} available</p>
             </div>
           </div>
 
@@ -337,22 +337,22 @@ export default function DashboardPage() {
             <div className="card-body p-4">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">In Pipeline</p>
               <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {formatNumber(fleetReadiness.in_pipeline)}
+                {formatNumber(contractsReadiness.in_pipeline)}
               </p>
               <p className="text-xs text-gray-400 mt-1">Across all stages</p>
             </div>
           </div>
 
           {/* Need Shopping Alert */}
-          <div className={`card ${fleetReadiness.need_shopping > 0 ? 'border-red-300 dark:border-red-700' : ''}`}>
+          <div className={`card ${contractsReadiness.need_shopping > 0 ? 'border-red-300 dark:border-red-700' : ''}`}>
             <div className="card-body p-4">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Need Shopping</p>
               <p className={`text-3xl font-bold mt-1 ${
-                fleetReadiness.need_shopping > 0
+                contractsReadiness.need_shopping > 0
                   ? 'text-red-600 dark:text-red-400'
                   : 'text-gray-400'
               }`}>
-                {formatNumber(fleetReadiness.need_shopping)}
+                {formatNumber(contractsReadiness.need_shopping)}
               </p>
               <p className="text-xs text-gray-400 mt-1">Awaiting assignment</p>
             </div>
@@ -361,32 +361,32 @@ export default function DashboardPage() {
       )}
 
       {/* ================================================================== */}
-      {/* ROW 2: Pipeline Breakdown + My Fleet Health */}
+      {/* ROW 2: Pipeline Breakdown + My Contracts Health */}
       {/* ================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline Status Breakdown */}
-        {fleetReadiness && (
+        {contractsReadiness && (
           <div className="card">
             <div className="card-header">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Pipeline Status Breakdown</h3>
             </div>
             <div className="card-body space-y-3">
               {/* Stacked bar */}
-              {fleetReadiness.total_cars > 0 && (
+              {contractsReadiness.total_cars > 0 && (
                 <div className="flex h-6 rounded-lg overflow-hidden">
                   {[
-                    { key: 'need_shopping', label: 'Need Shopping', count: fleetReadiness.need_shopping },
-                    { key: 'to_be_routed', label: 'To Be Routed', count: fleetReadiness.to_be_routed },
-                    { key: 'planned_shopping', label: 'Planned Shopping', count: fleetReadiness.planned_shopping },
-                    { key: 'enroute', label: 'Enroute', count: fleetReadiness.enroute },
-                    { key: 'arrived', label: 'Arrived', count: fleetReadiness.arrived },
-                    { key: 'complete', label: 'Complete', count: fleetReadiness.complete },
-                    { key: 'released', label: 'Released', count: fleetReadiness.released },
+                    { key: 'need_shopping', label: 'Need Shopping', count: contractsReadiness.need_shopping },
+                    { key: 'to_be_routed', label: 'To Be Routed', count: contractsReadiness.to_be_routed },
+                    { key: 'planned_shopping', label: 'Planned Shopping', count: contractsReadiness.planned_shopping },
+                    { key: 'enroute', label: 'Enroute', count: contractsReadiness.enroute },
+                    { key: 'arrived', label: 'Arrived', count: contractsReadiness.arrived },
+                    { key: 'complete', label: 'Complete', count: contractsReadiness.complete },
+                    { key: 'released', label: 'Released', count: contractsReadiness.released },
                   ].filter(s => s.count > 0).map(s => (
                     <div
                       key={s.key}
                       className={`${statusColors[s.label]} relative group`}
-                      style={{ width: `${(s.count / fleetReadiness.total_cars) * 100}%` }}
+                      style={{ width: `${(s.count / contractsReadiness.total_cars) * 100}%` }}
                       title={`${s.label}: ${s.count}`}
                     />
                   ))}
@@ -395,13 +395,13 @@ export default function DashboardPage() {
               {/* Legend rows */}
               <div className="space-y-2 pt-1">
                 {[
-                  { label: 'Need Shopping', count: fleetReadiness.need_shopping },
-                  { label: 'To Be Routed', count: fleetReadiness.to_be_routed },
-                  { label: 'Planned Shopping', count: fleetReadiness.planned_shopping },
-                  { label: 'Enroute', count: fleetReadiness.enroute },
-                  { label: 'Arrived', count: fleetReadiness.arrived },
-                  { label: 'Complete', count: fleetReadiness.complete },
-                  { label: 'Released', count: fleetReadiness.released },
+                  { label: 'Need Shopping', count: contractsReadiness.need_shopping },
+                  { label: 'To Be Routed', count: contractsReadiness.to_be_routed },
+                  { label: 'Planned Shopping', count: contractsReadiness.planned_shopping },
+                  { label: 'Enroute', count: contractsReadiness.enroute },
+                  { label: 'Arrived', count: contractsReadiness.arrived },
+                  { label: 'Complete', count: contractsReadiness.complete },
+                  { label: 'Released', count: contractsReadiness.released },
                 ].filter(s => s.count > 0).map(s => (
                   <div key={s.label} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
@@ -411,7 +411,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-gray-900 dark:text-gray-100">{s.count}</span>
                       <span className="text-xs text-gray-400 w-12 text-right">
-                        {((s.count / fleetReadiness.total_cars) * 100).toFixed(1)}%
+                        {((s.count / contractsReadiness.total_cars) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -421,18 +421,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* My Fleet Health */}
+        {/* My Contracts Health */}
         <div className="card">
           <div className="card-header">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">My Fleet Health</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">My Contracts Health</h3>
             <p className="text-xs text-gray-400 mt-0.5">Your active allocations by status</p>
           </div>
           <div className="card-body">
-            {myFleet.length === 0 ? (
+            {myContracts.length === 0 ? (
               <p className="text-sm text-gray-400 py-4 text-center">No active allocations</p>
             ) : (
               <div className="space-y-3">
-                {myFleet.map(row => (
+                {myContracts.map(row => (
                   <div key={row.status} className={`rounded-lg border p-3 ${statusColorsBg[row.status] || 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

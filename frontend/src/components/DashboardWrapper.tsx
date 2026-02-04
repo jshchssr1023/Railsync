@@ -98,7 +98,7 @@ export default function DashboardWrapper({ children }: DashboardWrapperProps) {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 dark:bg-gray-800">
                   <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
-                    Fleet Dashboard
+                    Contracts Dashboard
                   </h1>
                   <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     {/* Simpsons Mode Toggle */}

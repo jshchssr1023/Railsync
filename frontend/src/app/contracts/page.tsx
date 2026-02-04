@@ -7,12 +7,12 @@ import {
   Search, ChevronLeft, ChevronRight, Car, Wrench, CheckCircle, AlertCircle,
   Building2, FileText, ArrowLeft, Bell, AlertTriangle, RefreshCw, X
 } from 'lucide-react';
-import CustomerCard from '@/components/fleet/CustomerCard';
-import LeaseCard from '@/components/fleet/LeaseCard';
-import RiderCard from '@/components/fleet/RiderCard';
-import CarCard from '@/components/fleet/CarCard';
-import AmendmentModal from '@/components/fleet/AmendmentModal';
-import FleetHealthDashboard from '@/components/FleetHealthDashboard';
+import CustomerCard from '@/components/contracts/CustomerCard';
+import LeaseCard from '@/components/contracts/LeaseCard';
+import RiderCard from '@/components/contracts/RiderCard';
+import CarCard from '@/components/contracts/CarCard';
+import AmendmentModal from '@/components/contracts/AmendmentModal';
+import ContractsHealthDashboard from '@/components/ContractsHealthDashboard';
 import FacetedSidebar, { FilterState } from '@/components/FacetedSidebar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -114,7 +114,7 @@ const fetcher = async (url: string) => {
 // Navigation levels
 type NavigationLevel = 'customers' | 'leases' | 'riders' | 'cars';
 
-export default function FleetPage() {
+export default function ContractsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -398,7 +398,7 @@ export default function FleetPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fleet Overview</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Contracts Overview</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Navigate through customers, leases, riders, and cars
             </p>
@@ -425,10 +425,10 @@ export default function FleetPage() {
         </nav>
       </div>
 
-      {/* Fleet Health Dashboard */}
+      {/* Contracts Health Dashboard */}
       {level === 'customers' && (
         <div className="mb-6">
-          <FleetHealthDashboard />
+          <ContractsHealthDashboard />
         </div>
       )}
 

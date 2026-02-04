@@ -101,7 +101,7 @@ function UtilizationCard({ assigned, unassigned, percentage }: { assigned: numbe
   );
 }
 
-export default function FleetHealthDashboard() {
+export default function ContractsHealthDashboard() {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -122,7 +122,7 @@ export default function CarLookup({ onCarFound }: CarLookupProps) {
         </button>
         {' '}
         <a
-          href="/fleet"
+          href="/contracts"
           className="text-gray-400 hover:text-primary-600 hover:underline ml-1"
         >
           (view all 137 cars)

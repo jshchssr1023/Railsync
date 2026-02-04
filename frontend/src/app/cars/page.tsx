@@ -237,7 +237,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ data: CarDetail }>(`/fleet-browse/car/${carNumber}`)
+    apiFetch<{ data: CarDetail }>(`/contracts-browse/car/${carNumber}`)
       .then(res => setDetail(res.data))
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
@@ -484,10 +484,10 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
               View History
             </a>
             <a
-              href={`/fleet`}
+              href={`/contracts`}
               className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              Fleet View
+              Contracts View
             </a>
           </div>
         )}
@@ -533,12 +533,12 @@ export default function CarsPage() {
 
   // Fetch tree and filter options on mount
   useEffect(() => {
-    apiFetch<{ data: TypeTreeNode[] }>('/fleet-browse/types')
+    apiFetch<{ data: TypeTreeNode[] }>('/contracts-browse/types')
       .then(res => setTree(res.data || []))
       .catch(() => setTree([]))
       .finally(() => setTreeLoading(false));
 
-    apiFetch<{ data: { statuses: string[]; regions: string[]; lessees: string[] } }>('/fleet-browse/filters')
+    apiFetch<{ data: { statuses: string[]; regions: string[]; lessees: string[] } }>('/contracts-browse/filters')
       .then(res => setFilterOptions(res.data))
       .catch(() => {});
   }, []);
@@ -558,7 +558,7 @@ export default function CarsPage() {
     if (regionFilter) params.set('region', regionFilter);
     if (lesseeFilter) params.set('lessee', lesseeFilter);
 
-    apiFetch<{ data: Car[]; pagination: Pagination }>(`/fleet-browse/cars?${params}`)
+    apiFetch<{ data: Car[]; pagination: Pagination }>(`/contracts-browse/cars?${params}`)
       .then(res => {
         setCars(res.data || []);
         setPagination(res.pagination || null);
@@ -642,7 +642,7 @@ export default function CarsPage() {
         <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Fleet Cars</h1>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Cars</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {pagination ? `${pagination.total.toLocaleString()} cars` : '...'}
                 {selectedType && ` in ${selectedType}`}

@@ -1,11 +1,11 @@
 /**
- * Fleet Controller - Lease Hierarchy and Amendment Management
+ * Contracts Controller - Lease Hierarchy and Amendment Management
  *
  * API endpoints for Customer → Lease → Rider → Cars navigation
  */
 
 import { Request, Response } from 'express';
-import * as fleetService from '../services/fleet.service';
+import * as contractsService from '../services/contracts.service';
 
 // ============================================================================
 // CUSTOMER ENDPOINTS
@@ -14,7 +14,7 @@ import * as fleetService from '../services/fleet.service';
 export async function listCustomers(req: Request, res: Response) {
   try {
     const activeOnly = req.query.active !== 'false';
-    const customers = await fleetService.listCustomers(activeOnly);
+    const customers = await contractsService.listCustomers(activeOnly);
 
     res.json({
       success: true,
@@ -33,7 +33,7 @@ export async function listCustomers(req: Request, res: Response) {
 export async function getCustomer(req: Request, res: Response) {
   try {
     const { customerId } = req.params;
-    const customer = await fleetService.getCustomer(customerId);
+    const customer = await contractsService.getCustomer(customerId);
 
     if (!customer) {
       return res.status(404).json({
@@ -58,7 +58,7 @@ export async function getCustomer(req: Request, res: Response) {
 export async function getCustomerLeases(req: Request, res: Response) {
   try {
     const { customerId } = req.params;
-    const leases = await fleetService.getCustomerLeases(customerId);
+    const leases = await contractsService.getCustomerLeases(customerId);
 
     res.json({
       success: true,
@@ -81,7 +81,7 @@ export async function getCustomerLeases(req: Request, res: Response) {
 export async function getLease(req: Request, res: Response) {
   try {
     const { leaseId } = req.params;
-    const lease = await fleetService.getLease(leaseId);
+    const lease = await contractsService.getLease(leaseId);
 
     if (!lease) {
       return res.status(404).json({
@@ -106,7 +106,7 @@ export async function getLease(req: Request, res: Response) {
 export async function getLeaseRiders(req: Request, res: Response) {
   try {
     const { leaseId } = req.params;
-    const riders = await fleetService.getLeaseRiders(leaseId);
+    const riders = await contractsService.getLeaseRiders(leaseId);
 
     res.json({
       success: true,
@@ -129,7 +129,7 @@ export async function getLeaseRiders(req: Request, res: Response) {
 export async function getRider(req: Request, res: Response) {
   try {
     const { riderId } = req.params;
-    const rider = await fleetService.getRider(riderId);
+    const rider = await contractsService.getRider(riderId);
 
     if (!rider) {
       return res.status(404).json({
@@ -154,7 +154,7 @@ export async function getRider(req: Request, res: Response) {
 export async function getRiderCars(req: Request, res: Response) {
   try {
     const { riderId } = req.params;
-    const cars = await fleetService.getRiderCars(riderId);
+    const cars = await contractsService.getRiderCars(riderId);
 
     res.json({
       success: true,
@@ -173,7 +173,7 @@ export async function getRiderCars(req: Request, res: Response) {
 export async function getRiderAmendments(req: Request, res: Response) {
   try {
     const { riderId } = req.params;
-    const amendments = await fleetService.getRiderAmendments(riderId);
+    const amendments = await contractsService.getRiderAmendments(riderId);
 
     res.json({
       success: true,
@@ -194,7 +194,7 @@ export async function resyncRiderSchedules(req: Request, res: Response) {
     const { riderId } = req.params;
     const userId = (req as any).user?.id;
 
-    const count = await fleetService.resyncSchedules(riderId, userId);
+    const count = await contractsService.resyncSchedules(riderId, userId);
 
     res.json({
       success: true,
@@ -219,7 +219,7 @@ export async function resyncRiderSchedules(req: Request, res: Response) {
 export async function getAmendment(req: Request, res: Response) {
   try {
     const { amendmentId } = req.params;
-    const amendment = await fleetService.getAmendment(amendmentId);
+    const amendment = await contractsService.getAmendment(amendmentId);
 
     if (!amendment) {
       return res.status(404).json({
@@ -229,7 +229,7 @@ export async function getAmendment(req: Request, res: Response) {
     }
 
     // Get comparison data
-    const comparison = await fleetService.getAmendmentComparison(amendmentId);
+    const comparison = await contractsService.getAmendmentComparison(amendmentId);
 
     res.json({
       success: true,
@@ -250,7 +250,7 @@ export async function getAmendment(req: Request, res: Response) {
 export async function detectAmendmentConflicts(req: Request, res: Response) {
   try {
     const { amendmentId } = req.params;
-    const conflictsFound = await fleetService.detectConflicts(amendmentId);
+    const conflictsFound = await contractsService.detectConflicts(amendmentId);
 
     res.json({
       success: true,
@@ -271,7 +271,7 @@ export async function detectAmendmentConflicts(req: Request, res: Response) {
 }
 
 // ============================================================================
-// FLEET OVERVIEW WITH AMENDMENTS
+// CONTRACTS OVERVIEW WITH AMENDMENTS
 // ============================================================================
 
 export async function getCarsWithAmendments(req: Request, res: Response) {
@@ -285,7 +285,7 @@ export async function getCarsWithAmendments(req: Request, res: Response) {
       offset: req.query.offset ? parseInt(req.query.offset as string, 10) : 0,
     };
 
-    const result = await fleetService.getCarsWithAmendments(filters);
+    const result = await contractsService.getCarsWithAmendments(filters);
 
     res.json({
       success: true,
@@ -309,7 +309,7 @@ export async function getCarsWithAmendments(req: Request, res: Response) {
 export async function validateCarForShopping(req: Request, res: Response) {
   try {
     const { carNumber } = req.params;
-    const result = await fleetService.validateCarForShopping(carNumber);
+    const result = await contractsService.validateCarForShopping(carNumber);
 
     res.json({
       success: true,
