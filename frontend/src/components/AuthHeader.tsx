@@ -90,59 +90,72 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                 Dashboard
               </a>
 
-              {/* Operations */}
-              <button
-                onClick={() => toggleSection('operations')}
-                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
-              >
-                <span>Operations</span>
-                <span className="text-xs text-primary-300 dark:text-gray-400">The Now</span>
-              </button>
-              {expandedSection === 'operations' && (
-                <div className="pl-6 pb-2">
-                  <a href="/pipeline" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Pipeline</a>
-                  <a href="/pipeline?status=active" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Active</a>
-                  <a href="/bad-orders" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Bad Orders</a>
-                  <a href="/invoices" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Invoices</a>
-                </div>
-              )}
-
-              {/* Planning */}
-              <button
-                onClick={() => toggleSection('planning')}
-                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
-              >
-                <span>Planning</span>
-                <span className="text-xs text-primary-300 dark:text-gray-400">The Next</span>
-              </button>
-              {expandedSection === 'planning' && (
-                <div className="pl-6 pb-2">
-                  <a href="/planning?tab=monthly-load" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Monthly Load</a>
-                  <a href="/planning" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Quick Shop</a>
-                  <a href="/planning?tab=network-view" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Network</a>
-                  <a href="/shops" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shop Finder</a>
-                  <a href="/plans" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Master Plans</a>
-                  <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget & Forecasts</a>
-                  <a href="/budget?tab=configuration" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget Config</a>
-                </div>
-              )}
-
-              {/* Assets & Logic */}
+              {/* Assets */}
               <button
                 onClick={() => toggleSection('assets')}
                 className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
               >
-                <span>Assets & Logic</span>
-                <span className="text-xs text-primary-300 dark:text-gray-400">Infrastructure</span>
+                <span>Assets</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The What</span>
               </button>
               {expandedSection === 'assets' && (
                 <div className="pl-6 pb-2">
                   <a href="/fleet" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Fleet</a>
                   <a href="/cars" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Cars</a>
                   <a href="/projects" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Projects</a>
+                </div>
+              )}
+
+              {/* Maintenance */}
+              <button
+                onClick={() => toggleSection('maintenance')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Maintenance</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Action</span>
+              </button>
+              {expandedSection === 'maintenance' && (
+                <div className="pl-6 pb-2">
+                  <a href="/pipeline" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Pipeline</a>
+                  <a href="/pipeline?status=active" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Active</a>
+                  <a href="/bad-orders" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Bad Orders</a>
+                  <a href="/planning" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Quick Shop</a>
+                  <a href="/planning?tab=monthly-load" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Monthly Load</a>
+                  <a href="/planning?tab=network-view" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Network</a>
+                  <a href="/shops" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shop Finder</a>
+                  <a href="/plans" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Master Plans</a>
+                </div>
+              )}
+
+              {/* Finance */}
+              <button
+                onClick={() => toggleSection('finance')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Finance</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Cost</span>
+              </button>
+              {expandedSection === 'finance' && (
+                <div className="pl-6 pb-2">
+                  <a href="/invoices" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Invoices</a>
+                  <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget & Forecasts</a>
+                  <a href="/budget?tab=configuration" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget Config</a>
+                  <a href="/analytics" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Analytics</a>
+                </div>
+              )}
+
+              {/* Admin */}
+              <button
+                onClick={() => toggleSection('admin')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Admin</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Rules</span>
+              </button>
+              {expandedSection === 'admin' && (
+                <div className="pl-6 pb-2">
                   <a href="/rules" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Rules</a>
                   <a href="/reports" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Reports</a>
-                  <a href="/analytics" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Analytics</a>
                   {isAdmin && (
                     <>
                       <a href="/audit" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Audit Log</a>
@@ -197,44 +210,52 @@ export default function AuthHeader() {
                   Dashboard
                 </a>
 
-                {/* Operations - The Now */}
-                <NavDropdown
-                  label="Operations"
-                  subtitle="The Now"
-                  items={[
-                    { href: '/pipeline', label: 'Pipeline' },
-                    { href: '/pipeline?status=active', label: 'Active' },
-                    { href: '/bad-orders', label: 'Bad Orders' },
-                    { href: '/invoices', label: 'Invoices' },
-                  ]}
-                />
-
-                {/* Planning - The Next */}
-                <NavDropdown
-                  label="Planning"
-                  subtitle="The Next"
-                  items={[
-                    { href: '/planning?tab=monthly-load', label: 'Monthly Load' },
-                    { href: '/planning', label: 'Quick Shop' },
-                    { href: '/planning?tab=network-view', label: 'Network' },
-                    { href: '/shops', label: 'Shop Finder' },
-                    { href: '/plans', label: 'Master Plans' },
-                    { href: '/budget', label: 'Budget & Forecasts' },
-                    { href: '/budget?tab=configuration', label: 'Budget Config' },
-                  ]}
-                />
-
-                {/* Assets & Logic - Infrastructure */}
+                {/* Assets - The What */}
                 <NavDropdown
                   label="Assets"
-                  subtitle="Infrastructure"
+                  subtitle="The What"
                   items={[
                     { href: '/fleet', label: 'Fleet' },
                     { href: '/cars', label: 'Cars' },
                     { href: '/projects', label: 'Projects' },
+                  ]}
+                />
+
+                {/* Maintenance - The Action */}
+                <NavDropdown
+                  label="Maintenance"
+                  subtitle="The Action"
+                  items={[
+                    { href: '/pipeline', label: 'Pipeline' },
+                    { href: '/pipeline?status=active', label: 'Active' },
+                    { href: '/bad-orders', label: 'Bad Orders' },
+                    { href: '/planning', label: 'Quick Shop' },
+                    { href: '/planning?tab=monthly-load', label: 'Monthly Load' },
+                    { href: '/planning?tab=network-view', label: 'Network' },
+                    { href: '/shops', label: 'Shop Finder' },
+                    { href: '/plans', label: 'Master Plans' },
+                  ]}
+                />
+
+                {/* Finance - The Cost */}
+                <NavDropdown
+                  label="Finance"
+                  subtitle="The Cost"
+                  items={[
+                    { href: '/invoices', label: 'Invoices' },
+                    { href: '/budget', label: 'Budget & Forecasts' },
+                    { href: '/budget?tab=configuration', label: 'Budget Config' },
+                    { href: '/analytics', label: 'Analytics' },
+                  ]}
+                />
+
+                {/* Admin - The Rules */}
+                <NavDropdown
+                  label="Admin"
+                  subtitle="The Rules"
+                  items={[
                     { href: '/rules', label: 'Rules' },
                     { href: '/reports', label: 'Reports' },
-                    { href: '/analytics', label: 'Analytics' },
                     ...(user?.role === 'admin' ? [
                       { href: '/audit', label: 'Audit Log' },
                       { href: '/admin', label: 'Admin' },
