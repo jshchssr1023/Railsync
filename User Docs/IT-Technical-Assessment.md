@@ -1,8 +1,8 @@
 # RailSync - IT Technical Assessment
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Assessment Date:** February 3, 2026
-**Last Updated:** February 3, 2026
+**Last Updated:** February 4, 2026
 **Assessor:** Automated Build Verification + Manual Code Review
 **System Version:** Main branch (latest)
 
@@ -249,7 +249,8 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 - Tailwind CSS with custom design system (dark mode support)
 - `fetchApi<T>()` wrapper for all API calls
 - No state management library (useState/useEffect patterns)
-- **Vertical sidebar navigation** (new) — replaces top banner navigation. Fixed-position left sidebar with icon-only collapsed state (56px) and expanded state (224px). 8 primary categories with nested subcategories. Mobile responsive with hamburger menu overlay. Built with lucide-react icons and CSS transitions.
+- **Vertical sidebar navigation** — replaces top banner navigation. Fixed-position left sidebar with icon-only collapsed state (56px) and expanded state (224px). 8 primary categories with nested subcategories. Mobile responsive with hamburger menu overlay. Built with lucide-react icons and CSS transitions. Legacy AuthHeader.tsx and MobileNavBar.tsx components have been deleted.
+- **Cars page** — Three-panel layout (TypeTree | Car List | Side Drawer). Server-side pagination. URL query parameter support for deep-linking with pre-applied filters. Suspense boundary for Next.js App Router compatibility. TypeTree hidden on mobile for usability.
 
 ### Concerns
 

@@ -1,7 +1,7 @@
 # RailSync - How To Guide
 
-**Document Version:** 1.1
-**Last Updated:** February 3, 2026
+**Document Version:** 1.2
+**Last Updated:** February 4, 2026
 **Applicable System Version:** Main branch (latest)
 
 > This document is a living guide. It should be updated as new features are added or existing features are modified.
@@ -167,6 +167,11 @@ The tree groups all cars by **Car Type** (e.g., General Service Tank, Pressure T
 - Click a **Car Type** to filter the list to that type.
 - Expand a Car Type and click a **Commodity** to drill down further.
 - The tree can be collapsed to a thin rail by clicking the left chevron.
+- On mobile devices (< md breakpoint), the tree panel is hidden to maximize screen space for the car list. Use the status, region, and lessee filter dropdowns instead.
+
+#### URL Parameter Filters
+
+The Cars page supports direct linking with pre-applied filters via URL query parameters. Sidebar links like `/cars?status=Arrived` will open the Cars page with that filter pre-selected. Supported URL parameters: `status`, `region`, `lessee`, `type`, `commodity`, `search`.
 
 #### Search and Filters
 
