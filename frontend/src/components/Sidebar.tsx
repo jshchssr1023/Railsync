@@ -423,7 +423,7 @@ export default function Sidebar() {
       {mobileOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 md:hidden animate-slide-in-right" style={{ animationName: 'slide-in-left' }}>
+          <aside className="fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 md:hidden animate-slide-in-left">
             {renderNavContent(true)}
           </aside>
         </>

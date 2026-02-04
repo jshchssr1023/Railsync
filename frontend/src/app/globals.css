@@ -155,6 +155,10 @@ body {
   to { transform: translateX(0); }
 }
 
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out forwards;
+}
+
 /* Safe area handling for mobile devices */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
