@@ -127,6 +127,204 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// FLEET BROWSE ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/fleet-browse/types
+ * @desc    Returns car type hierarchy with counts for tree navigation
+ * @access  Public
+ */
+router.get('/fleet-browse/types', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COALESCE(car_type, 'Unclassified') as car_type,
+        COALESCE(commodity, 'Unassigned') as commodity,
+        COUNT(*)::int as count
+      FROM cars
+      WHERE is_active = TRUE
+      GROUP BY car_type, commodity
+      ORDER BY car_type, commodity
+    `);
+
+    // Shape into tree structure grouped by car_type
+    const typeMap = new Map<string, { name: string; count: number; children: { name: string; count: number }[] }>();
+
+    for (const row of result) {
+      if (!typeMap.has(row.car_type)) {
+        typeMap.set(row.car_type, { name: row.car_type, count: 0, children: [] });
+      }
+      const node = typeMap.get(row.car_type)!;
+      node.count += row.count;
+      node.children.push({ name: row.commodity, count: row.count });
+    }
+
+    const tree = Array.from(typeMap.values());
+
+    res.json({ success: true, data: tree });
+  } catch (err) {
+    console.error('Fleet browse types error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch fleet types' });
+  }
+});
+
+/**
+ * @route   GET /api/fleet-browse/cars
+ * @desc    Paginated, filtered, sorted car list for fleet browse page
+ * @access  Public
+ */
+router.get('/fleet-browse/cars', optionalAuth, async (req, res) => {
+  try {
+    // Parse pagination params
+    let page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    let limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string, 10) || 50));
+    const offset = (page - 1) * limit;
+
+    // Parse filter params
+    const carType = req.query.car_type as string | undefined;
+    const commodity = req.query.commodity as string | undefined;
+    const status = req.query.status as string | undefined;
+    const region = req.query.region as string | undefined;
+    const lessee = req.query.lessee as string | undefined;
+    const search = req.query.search as string | undefined;
+
+    // Parse sort params with whitelist
+    const allowedSortColumns = [
+      'car_number', 'car_type', 'lessee_name', 'commodity',
+      'current_status', 'current_region', 'car_age', 'tank_qual_year'
+    ];
+    const sort = allowedSortColumns.includes(req.query.sort as string)
+      ? (req.query.sort as string)
+      : 'car_number';
+    const order = (req.query.order as string)?.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+    // Build WHERE clause dynamically with parameterized queries
+    const conditions: string[] = ['is_active = TRUE'];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (carType) {
+      conditions.push(`car_type = $${paramIndex++}`);
+      params.push(carType);
+    }
+    if (commodity) {
+      conditions.push(`commodity = $${paramIndex++}`);
+      params.push(commodity);
+    }
+    if (status) {
+      conditions.push(`current_status = $${paramIndex++}`);
+      params.push(status);
+    }
+    if (region) {
+      conditions.push(`current_region = $${paramIndex++}`);
+      params.push(region);
+    }
+    if (lessee) {
+      conditions.push(`lessee_name ILIKE $${paramIndex++}`);
+      params.push(`%${lessee}%`);
+    }
+    if (search) {
+      conditions.push(`car_number ILIKE $${paramIndex++}`);
+      params.push(`%${search}%`);
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(*)::int as total FROM cars WHERE ${whereClause}`,
+      params
+    );
+    const total = countResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Get paginated rows
+    const dataResult = await query(
+      `SELECT car_number, car_mark, car_type, lessee_name, commodity,
+              current_status, current_region, car_age, is_jacketed, is_lined,
+              tank_qual_year, contract_number, plan_status
+       FROM cars
+       WHERE ${whereClause}
+       ORDER BY ${sort} ${order}
+       LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: dataResult,
+      pagination: { page, limit, total, totalPages }
+    });
+  } catch (err) {
+    console.error('Fleet browse cars error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch fleet cars' });
+  }
+});
+
+/**
+ * @route   GET /api/fleet-browse/car/:carNumber
+ * @desc    Full car detail for side drawer including related data
+ * @access  Public
+ */
+router.get('/fleet-browse/car/:carNumber', optionalAuth, async (req, res) => {
+  try {
+    const { carNumber } = req.params;
+
+    // Get full car record
+    const carResult = await query(
+      `SELECT * FROM cars WHERE car_number = $1`,
+      [carNumber]
+    );
+
+    if (carResult.length === 0) {
+      return res.status(404).json({ success: false, error: 'Car not found' });
+    }
+
+    // Get shopping events count
+    const countResult = await query(
+      `SELECT COUNT(*)::int as count FROM shopping_events WHERE car_number = $1`,
+      [carNumber]
+    );
+
+    // Get active shopping event
+    const activeEventResult = await query(
+      `SELECT id, event_number, state, shop_code
+       FROM shopping_events
+       WHERE car_number = $1 AND state != 'RELEASED' AND state != 'CANCELLED'
+       LIMIT 1`,
+      [carNumber]
+    );
+
+    // Get lease info through rider_cars -> lease_riders -> master_leases -> customers
+    const leaseResult = await query(
+      `SELECT ml.lease_id, ml.lease_name, ml.status as lease_status,
+              c.customer_name, c.customer_code
+       FROM rider_cars rc
+       JOIN lease_riders lr ON rc.rider_id = lr.id
+       JOIN master_leases ml ON lr.master_lease_id = ml.id
+       JOIN customers c ON ml.customer_id = c.id
+       WHERE rc.car_number = $1 AND rc.is_active = true
+       LIMIT 1`,
+      [carNumber]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        car: carResult[0],
+        shopping_events_count: countResult[0]?.count || 0,
+        active_shopping_event: activeEventResult[0] || null,
+        lease_info: leaseResult[0] || null
+      }
+    });
+  } catch (err) {
+    console.error('Fleet browse car detail error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch car detail' });
+  }
+});
+
 /**
  * @route   GET /api/cars/:carNumber/details
  * @desc    Get comprehensive car details for car card view

@@ -1,0 +1,16 @@
+# Development overrides - use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Exposes ports directly for local development (bypasses nginx).
+# DO NOT use this in production.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    ports:
+      - "3001:3001"
+
+  frontend:
+    ports:
+      - "3000:3000"

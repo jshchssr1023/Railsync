@@ -2,11 +2,15 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestId } from './middleware/auth';
 
 const app: Application = express();
+
+// Trust proxy (required behind nginx reverse proxy for correct IP detection)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -23,6 +27,35 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
   })
 );
+
+// Rate limiting - auth endpoints (strict: 10 attempts per 15 minutes)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many attempts',
+    message: 'Too many authentication attempts. Please try again in 15 minutes.',
+  },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+// Rate limiting - general API (100 requests per minute per IP)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Rate limit exceeded',
+    message: 'Too many requests. Please slow down.',
+  },
+});
+app.use('/api', apiLimiter);
 
 // Request logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));

@@ -11,7 +11,14 @@ declare module 'express-serve-static-core' {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'railsync-secret-change-in-production';
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set.');
+  console.error('Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+  console.error('Set it in your .env file or environment before starting the server.');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_TOKEN_EXPIRES_DAYS = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10);
 

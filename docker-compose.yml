@@ -4,11 +4,13 @@ services:
     image: postgres:14-alpine
     container_name: railsync-db
     environment:
-      POSTGRES_USER: railsync
-      POSTGRES_PASSWORD: railsync_password
-      POSTGRES_DB: railsync
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Database is NOT exposed to host network. Access only via Docker network.
+    # For local dev DB access, uncomment the next two lines:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Base schema + seed data
@@ -49,7 +51,7 @@ services:
       - ./database/migrations/027_shopping_workflow.sql:/docker-entrypoint-initdb.d/34-shopping-workflow.sql
       - ./database/migrations/028_ccm_form_structure.sql:/docker-entrypoint-initdb.d/35-ccm-form-structure.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,13 +62,22 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: railsync-api
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: postgresql://railsync:railsync_password@postgres:5432/railsync
-      FRONTEND_URL: http://localhost:3000
-    ports:
-      - "3001:3001"
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      REFRESH_TOKEN_EXPIRES_DAYS: ${REFRESH_TOKEN_EXPIRES_DAYS:-7}
+    # API is only accessible via nginx reverse proxy in production.
+    # For local dev without nginx, uncomment:
+    # ports:
+    #   - "3001:3001"
+    expose:
+      - "3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,10 +90,29 @@ services:
       dockerfile: Dockerfile
     container_name: railsync-ui
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
-    ports:
-      - "3000:3000"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+    # Frontend is only accessible via nginx reverse proxy in production.
+    # For local dev without nginx, uncomment:
+    # ports:
+    #   - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy with TLS termination
+  nginx:
+    image: nginx:alpine
+    container_name: railsync-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
       - backend
     restart: unless-stopped
 
