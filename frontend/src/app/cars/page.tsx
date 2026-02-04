@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
@@ -499,20 +500,34 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
 // ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
-export default function CarsPage() {
+export default function CarsPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <CarsPage />
+    </Suspense>
+  );
+}
+
+function CarsPage() {
+  const searchParams = useSearchParams();
+
   // Tree data
   const [tree, setTree] = useState<TypeTreeNode[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
-  // Filters
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedCommodity, setSelectedCommodity] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [regionFilter, setRegionFilter] = useState('');
-  const [lesseeFilter, setLesseeFilter] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  // Initialize filters from URL query params
+  const [selectedType, setSelectedType] = useState<string | null>(searchParams.get('type'));
+  const [selectedCommodity, setSelectedCommodity] = useState<string | null>(searchParams.get('commodity'));
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [regionFilter, setRegionFilter] = useState(searchParams.get('region') || '');
+  const [lesseeFilter, setLesseeFilter] = useState(searchParams.get('lessee') || '');
+  const [showFilters, setShowFilters] = useState(!!(searchParams.get('status') || searchParams.get('region') || searchParams.get('lessee')));
 
   // Sort & pagination
   const [sortField, setSortField] = useState('car_number');
@@ -618,23 +633,25 @@ export default function CarsPage() {
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
-      {/* Left Panel: Car Type Tree */}
-      {treeLoading ? (
-        <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center">
-          <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-        </div>
-      ) : (
-        <TypeTree
-          tree={tree}
-          selectedType={selectedType}
-          selectedCommodity={selectedCommodity}
-          onSelectType={handleTypeSelect}
-          onSelectCommodity={handleCommoditySelect}
-          onClear={handleClearTree}
-          collapsed={treeCollapsed}
-          onToggleCollapse={() => setTreeCollapsed(!treeCollapsed)}
-        />
-      )}
+      {/* Left Panel: Car Type Tree (hidden on mobile) */}
+      <div className="hidden md:block">
+        {treeLoading ? (
+          <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center h-full">
+            <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <TypeTree
+            tree={tree}
+            selectedType={selectedType}
+            selectedCommodity={selectedCommodity}
+            onSelectType={handleTypeSelect}
+            onSelectCommodity={handleCommoditySelect}
+            onClear={handleClearTree}
+            collapsed={treeCollapsed}
+            onToggleCollapse={() => setTreeCollapsed(!treeCollapsed)}
+          />
+        )}
+      </div>
 
       {/* Main Panel: Car List */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
