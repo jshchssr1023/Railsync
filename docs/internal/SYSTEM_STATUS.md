@@ -53,7 +53,7 @@ The Railsync system has been fully implemented and verified. All Phase 1, 2, and
 ### Phase 2: Core Functionality
 - [x] **Quick Shop** - Car evaluation and shop assignment
 - [x] **Pipeline View** - Backlog/Pipeline/Active/Healthy tracking
-- [x] **Fleet Dashboard** - Metrics and monthly volumes
+- [x] **Contracts Dashboard** - Metrics and monthly volumes
 - [x] **Budget Tracking** - Running repairs and service events
 - [x] **Bad Order Management** - Report, resolve, expedite workflow
 - [x] **Shop Evaluation Engine** - Eligibility rules and cost calculation
@@ -76,7 +76,7 @@ The Railsync system has been fully implemented and verified. All Phase 1, 2, and
 | Dashboard | `/` | Working |
 | Pipeline | `/pipeline` | Working |
 | Planning (Quick Shop) | `/planning` | Working |
-| Fleet | `/fleet` | Working |
+| Contracts | `/contracts` | Working |
 | Budget | `/budget` | Working |
 | Bad Orders | `/bad-orders` | Working |
 | Admin | `/admin` | Working |
@@ -138,7 +138,7 @@ The following files detail data requirements for IT integration:
 │  Features:            API Modules:        SSOT Tables:      │
 │  - Quick Shop         - /api/cars         - car_assignments │
 │  - Pipeline           - /api/shops        - service_plans   │
-│  - Fleet              - /api/assignments  - bad_order_reports│
+│  - Contracts          - /api/assignments  - bad_order_reports│
 │  - Budget             - /api/pipeline                       │
 │  - Bad Orders         - /api/budget                         │
 │  - Service Plans      - /api/service-plans                  │
@@ -156,7 +156,7 @@ The `car_assignments` table is the authoritative source for all car-to-shop assi
 - **Service Plan Approval** creates assignments automatically
 - **Bad Order Resolution** creates/updates assignments
 - **Pipeline View** reads from assignments
-- **Fleet Dashboard** aggregates assignment data
+- **Contracts Dashboard** aggregates assignment data
 
 All other assignment-related data defers to this table.
 

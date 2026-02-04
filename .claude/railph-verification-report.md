@@ -191,13 +191,13 @@ User → CarLookup → GET /api/cars/:carNumber
 
 ---
 
-## Phase 12: Fleet Visibility Dashboard - Verification
+## Phase 12: Contracts Visibility Dashboard - Verification
 
 ### Schema Extensions
 | Item | Status | Evidence |
 |------|--------|----------|
 | current_status column | ✅ | Added to allocations table |
-| v_fleet_summary view | ✅ | Returns in_shop, planned, enroute counts |
+| v_fleet_summary view (legacy name) | ✅ | Returns in_shop, planned, enroute counts |
 | v_monthly_volumes view | ✅ | Returns monthly breakdown with costs |
 | v_tier_summary view | ✅ | Returns tier distribution |
 | tier column on shops | ✅ | Added with default based on preferred_network |
@@ -205,15 +205,15 @@ User → CarLookup → GET /api/cars/:carNumber
 ### Backend Endpoints
 | Endpoint | Status | Response |
 |----------|--------|----------|
-| GET /api/fleet/metrics | ✅ | Fleet summary with counts |
-| GET /api/fleet/monthly-volumes | ✅ | Monthly breakdown |
-| GET /api/fleet/tier-summary | ✅ | Tier distribution |
+| GET /api/contracts/metrics | ✅ | Fleet summary with counts |
+| GET /api/contracts/monthly-volumes | ✅ | Monthly breakdown |
+| GET /api/contracts/tier-summary | ✅ | Tier distribution |
 
 ### Frontend Components
 | Component | Status | Features |
 |-----------|--------|----------|
 | DashboardWrapper | ✅ | Floating button, modal overlay, framer-motion |
-| FleetDashboard | ✅ | Metric cards, bar chart, pie chart, SWR |
+| ContractsDashboard | ✅ | Metric cards, bar chart, pie chart, SWR |
 | Global integration | ✅ | Available on all pages via floating icon |
 
 ---
@@ -234,9 +234,9 @@ User → CarLookup → GET /api/cars/:carNumber
 | GET /api/health | ✅ 200 |
 | GET /api/cars/:carNumber | ✅ 200 |
 | POST /api/shops/evaluate | ✅ 200 |
-| GET /api/fleet/metrics | ✅ 200 |
-| GET /api/fleet/monthly-volumes | ✅ 200 |
-| GET /api/fleet/tier-summary | ✅ 200 |
+| GET /api/contracts/metrics | ✅ 200 |
+| GET /api/contracts/monthly-volumes | ✅ 200 |
+| GET /api/contracts/tier-summary | ✅ 200 |
 | GET /api/shops/:code/monthly-capacity | ✅ 200 |
 | Frontend (localhost:3000) | ✅ 307 (redirect) |
 
@@ -300,9 +300,9 @@ All 119 backend tests passing.
 | GET /api/health | ✅ 200 |
 | GET /api/cars/:carNumber | ✅ 200 |
 | POST /api/shops/evaluate | ✅ 200 |
-| GET /api/fleet/metrics | ✅ 200 |
-| GET /api/fleet/monthly-volumes | ✅ 200 |
-| GET /api/fleet/tier-summary | ✅ 200 |
+| GET /api/contracts/metrics | ✅ 200 |
+| GET /api/contracts/monthly-volumes | ✅ 200 |
+| GET /api/contracts/tier-summary | ✅ 200 |
 | GET /api/shops/:code/monthly-capacity | ✅ 200 |
 | GET /api/pipeline/buckets | ✅ (new) |
 | POST /api/pipeline/recalculate | ✅ (new) |

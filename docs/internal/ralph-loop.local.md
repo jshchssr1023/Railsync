@@ -16,8 +16,8 @@ last_updated: "2026-02-02T13:55:00Z"
 |----|------|-------|
 | #10 | Fix DECIMAL→Number conversion | budget.service.ts, planning.service.ts |
 | #13 | Create shop data templates | docs/shop_data_templates/*.csv |
-| #16 | Make filters functional (tier) | FleetDashboard tierParam added |
-| #18 | CSV export button | FleetDashboard handleExportCSV |
+| #16 | Make filters functional (tier) | ContractsDashboard tierParam added |
+| #18 | CSV export button | ContractsDashboard handleExportCSV |
 | #19 | Pipeline pagination + search | pipeline/page.tsx |
 | #20 | Dynamic filter options endpoint | routes/index.ts /filters/options |
 | #21 | Server timestamp in metrics | routes/index.ts serverTime |
@@ -50,9 +50,9 @@ last_updated: "2026-02-02T13:55:00Z"
 ### ✅ SESSION COMMITS
 | #27 | Quick Shop conflict detection | Warning banner when car has existing assignment |
 | #28 | Service options UI | /assignments/[id] detail page with add/toggle options |
-| #29 | Fleet View assignment status | Already implemented in FleetDashboard metrics |
+| #29 | Contracts View assignment status | Already implemented in ContractsDashboard metrics |
 | #30 | Planning team notifications | Alerts for bad orders + expedited assignments |
-| #31 | Bad order from Fleet View | Report Issue button in Pipeline + prefill form |
+| #31 | Bad order from Contracts View | Report Issue button in Pipeline + prefill form |
 | #33 | Service plan tables + service | Migration, service, controller, API routes |
 
 ### ✅ JUST COMPLETED

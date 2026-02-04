@@ -62,7 +62,7 @@
       "Bash(__NEW_LINE_201bd309a30d8851__ echo \"=== Testing ACFX600002 \\(Carbon, Rubber lined\\) ===\")",
       "Bash(__NEW_LINE_7960d818799a2bfa__ echo \"=== Testing ACFX600003 \\(Aluminum\\) ===\")",
       "Bash(__NEW_LINE_be122605d7a94101__ echo \"=== Testing ACFX600004 \\(Asbestos\\) ===\")",
-      "Bash(start http://localhost:3000/fleet)",
+      "Bash(start http://localhost:3000/contracts)",
       "Bash(python:*)",
       "Bash(docker-compose ps:*)",
       "Bash(npx next build)",
@@ -93,7 +93,20 @@
       "Bash(docker volume:*)",
       "Bash(\"C:\\\\Users\\\\jshch\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\ralph-loop\\\\27d2b86d72da/scripts/setup-ralph-loop.sh\" \"Implement RailSync Shopping Workflow DoD - 11 sections covering lifecycle enforcement, versioned estimates, approval gates, auditability, closed-loop feedback, BRC controls, invalid path protection, test coverage, e2e proof, deviation docs, and validation. Fix DB migrations, validate APIs, build frontend UI.\")",
       "Bash(node:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(start http://localhost:3003/shopping)",
+      "Bash(start:*)",
+      "Bash(docker inspect:*)",
+      "Bash(npm ls:*)",
+      "Bash(docker port:*)",
+      "Bash(git status:*)",
+      "Bash(for dir in dashboard shopping pipeline contracts cars operations standards admin plans projects bad-orders shops planning invoices budget analytics reports rules audit settings scope-library ccm)",
+      "Bash(do if [ -f \"C:\\\\Users\\\\jshch\\\\Web-Architecture-Design\\\\Railsync\\\\frontend\\\\src\\\\app$dir\\\\page.tsx\" ])",
+      "Bash(then echo \"✓ /$dir\")",
+      "Bash(else echo \"✗ /$dir\")",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(^d \")"
     ]
   }
 }

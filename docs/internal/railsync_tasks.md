@@ -14,9 +14,9 @@
 | **Analytics & BI Dashboard** | Capacity forecasting, cost analytics, operations KPIs, demand forecasting | `analytics.service.ts`, `/analytics` page | - |
 | **Shop Details Drawer** | Slide-out drawer with shop info, backlog, capabilities | `ShopInfoDrawer.tsx`, `/shops` page | - |
 | **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | `235b26e` |
-| Fleet Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
-| Fleet Hierarchy API | REST endpoints for hierarchy navigation | `fleet.controller.ts`, `fleet.service.ts` | `b1d369e` |
-| Fleet Hierarchy UI | Drill-down navigation with breadcrumbs | `fleet/page.tsx`, `fleet/*` components | `b1d369e` |
+| Contracts Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
+| Contracts Hierarchy API | REST endpoints for hierarchy navigation | `contracts.controller.ts`, `contracts.service.ts` | `b1d369e` |
+| Contracts Hierarchy UI | Drill-down navigation with breadcrumbs | `contracts/page.tsx`, `contracts/*` components | `b1d369e` |
 | Budget Input Screen | Running Repairs + Service Events editing | `budget/page.tsx` | `735e1c2` |
 | S&OP Planning Schema | Monthly snapshots, maintenance forecast v2 | `009_sop_planning.sql` | `77360ed` |
 | Amendment Tracking | Visual badges, conflict detection | `v_amendment_summary` view | `b1d369e` |
@@ -34,7 +34,7 @@
 | Shopping Classification | 18 types, 59 reasons, cost allocation | `014-016_shopping_*.sql` | `3de7195` |
 | Quick Shop Shopping Types | Replaced service options with shopping types, customer billing checkbox | `ServiceOptionsSelector.tsx` | - |
 | Timeline/Gantt Toggle | Visual timeline with table toggle | `AllocationTimeline.tsx` | `a6fa237` |
-| Fleet Health Dashboard | Stoplight cards for health metrics | `FleetHealthDashboard.tsx` | `5aaaee3` |
+| Contracts Health Dashboard | Stoplight cards for health metrics | `ContractsHealthDashboard.tsx` | `5aaaee3` |
 | Global Command Bar | Cmd+K unified search | `GlobalCommandBar.tsx` | `5aaaee3` |
 | Faceted Sidebar | Collapsible filter panels | `FacetedSidebar.tsx` | `503fb4b` |
 | Estimate Lines Table | Cost allocation with overrides | `EstimateLinesTable.tsx` | `5aaaee3` |
@@ -66,13 +66,13 @@
 
 ---
 
-## Fleet Overview UI Redesign Checklist
+## Contracts Overview UI Redesign Checklist
 
-From `# Fleet Overview UI Redesign & Shop.md`:
+From `# Contracts Overview UI Redesign & Shop.md`:
 
 | Section | Feature | Status |
 |---------|---------|--------|
-| §2.1 | Top-Level Analytics (Snapshot) | ✅ FleetHealthDashboard |
+| §2.1 | Top-Level Analytics (Snapshot) | ✅ ContractsHealthDashboard |
 | §3 | Navigation Hierarchy | ✅ Customer → Lease → Rider → Cars |
 | §4 | Faceted Sidebar Filters | ✅ FacetedSidebar integrated |
 | §5 | Global Command Bar | ✅ Cmd+K search |
@@ -209,11 +209,11 @@ v_user_groups_summary       - Groups with member and permission counts
 
 ## Demo Ready
 
-All features from Phase 16 and Fleet Overview UI Redesign are complete.
+All features from Phase 16 and Contracts Overview UI Redesign are complete.
 
 **Access Points:**
 - http://localhost:3000/planning - Quick Shop, Monthly Load, Network View
-- http://localhost:3000/fleet - Fleet hierarchy with health dashboard
+- http://localhost:3000/contracts - Contracts hierarchy with health dashboard
 - http://localhost:3000/shops - Shop finder with filters
 - http://localhost:3000/budget - Maintenance budget input
 - http://localhost:3000/plans - Master plan versioning

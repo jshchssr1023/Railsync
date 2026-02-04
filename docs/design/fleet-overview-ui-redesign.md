@@ -1,4 +1,4 @@
-# Fleet Overview UI Redesign & Shopping Classification  
+# Contracts Overview UI Redesign & Shopping Classification  
 **Audience:** Railsync / Fleet Ops Development Team  
 **Goal:** Scale UI and data model from ~137 cars to **100,000+ assets** while preserving performance, usability, and governance.
 
@@ -14,7 +14,7 @@ To scale meaningfully, we must move **away from a flat table** toward a **hierar
 
 ---
 
-## 2. Fleet Overview – Structural Redesign
+## 2. Contracts Overview – Structural Redesign
 
 ### 2.1 Top-Level Global Analytics (“Snapshot”)
 

@@ -68,8 +68,8 @@ Rebuilt all containers with `--no-cache` after housekeeping fixes:
 | /api/shops/designation-summary | GET | PASS | 200 | 962 repair, 1 storage |
 | /api/shops/nearby | GET | PASS | 200 | Geo-filtered results |
 | /api/pipeline/buckets | GET | PASS | 200 | backlog:2, pipeline:53, active:53, healthy:12, complete:7 |
-| /api/fleet/metrics | GET | PASS | 200 | in_shop:22, planned:2, total:127 |
-| /api/fleet/monthly-volumes | GET | PASS | 200 | 6 months of data |
+| /api/contracts/metrics | GET | PASS | 200 | in_shop:22, planned:2, total:127 |
+| /api/contracts/monthly-volumes | GET | PASS | 200 | 6 months of data |
 | /api/customers | GET | PASS | 200 | 9 customers |
 | /api/budget/summary | GET | PASS | 200 | FY2026 $34.7M budget |
 | /api/budget/running-repairs | GET | PASS | 200 | 12 monthly records |
@@ -103,7 +103,7 @@ Rebuilt all containers with `--no-cache` after housekeeping fixes:
 | Dashboard | / | PASS | 307 (redirect) |
 | Pipeline | /pipeline | PASS | 200 |
 | Planning (Quick Shop) | /planning | PASS | 200 |
-| Fleet | /fleet | PASS | 200 |
+| Contracts | /contracts | PASS | 200 |
 | Budget | /budget | PASS | 200 |
 | Bad Orders | /bad-orders | PASS | 200 |
 | Admin | /admin | PASS | 200 |
@@ -200,7 +200,7 @@ Rebuilt all containers with `--no-cache` after housekeeping fixes:
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:3001/api |
 | Quick Shop | http://localhost:3000/planning |
-| Fleet | http://localhost:3000/fleet |
+| Contracts | http://localhost:3000/contracts |
 | Pipeline | http://localhost:3000/pipeline |
 | Invoices | http://localhost:3000/invoices |
 | Budget | http://localhost:3000/budget |

@@ -1,6 +1,6 @@
 API Endpoint,HTTP Method,Description,Input Data Required,Output Data,Used By Feature,Integration Notes
 /api/cars/:carNumber,GET,Get car details,Car number,Car attributes + qualification dates + commodity,Quick Shop evaluation,Requires car master feed
-/api/cars-master,GET,List all cars,Filters (status/type),Paginated car list,Fleet management,Requires car master feed
+/api/cars-master,GET,List all cars,Filters (status/type),Paginated car list,Contracts management,Requires car master feed
 /api/cars/import,POST,Bulk import cars,CSV data (car attributes),Import results,Admin data load,One-time or periodic batch load
 
 /api/shops,GET,List all shops,None,All active shops,Shop selection,Requires shop network feed
@@ -19,8 +19,8 @@ API Endpoint,HTTP Method,Description,Input Data Required,Output Data,Used By Fea
 /api/bad-orders/:id/resolve,POST,Resolve bad order,Action (expedite/new/review),Updated assignment,Bad order workflow,Creates/updates SSOT assignments
 
 /api/pipeline/buckets,GET,Get pipeline summary,None,Backlog/Pipeline/Active/Healthy counts + cars,Pipeline dashboard,Aggregates allocation data
-/api/fleet/metrics,GET,Get fleet metrics,Optional tier filter,In-shop/planned/enroute counts + costs,Fleet dashboard,Aggregates allocation data
-/api/fleet/monthly-volumes,GET,Get monthly volumes,Year + optional tier,Monthly car counts and costs,Fleet dashboard,Historical analysis
+/api/contracts/metrics,GET,Get fleet metrics,Optional tier filter,In-shop/planned/enroute counts + costs,Contracts dashboard,Aggregates allocation data
+/api/contracts/monthly-volumes,GET,Get monthly volumes,Year + optional tier,Monthly car counts and costs,Contracts dashboard,Historical analysis
 
 /api/budget/running-repairs,GET,Get RR budget,Fiscal year,Monthly budget vs actual,Budget tracking,Requires finance feed
 /api/budget/service-events,GET,Get SE budgets,Fiscal year,Event budgets by type,Budget tracking,Requires finance feed
