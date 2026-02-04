@@ -17,6 +17,13 @@ import invoiceController from '../controllers/invoice.controller';
 import analyticsController from '../controllers/analytics.controller';
 import userManagementController from '../controllers/userManagement.controller';
 import dashboardController from '../controllers/dashboard.controller';
+import * as jobCodeController from '../controllers/job-code.controller';
+import * as ccmController from '../controllers/ccm.controller';
+import * as scopeLibraryController from '../controllers/scope-library.controller';
+import * as sowController from '../controllers/scope-of-work.controller';
+import * as shoppingEventController from '../controllers/shopping-event.controller';
+import * as shoppingPacketController from '../controllers/shopping-packet.controller';
+import * as estimateController from '../controllers/estimate-workflow.controller';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -36,6 +43,12 @@ const invoiceUpload = multer({
     }
   },
 });
+// Configure multer for packet document uploads
+const packetDocUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+});
+
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
 
@@ -3000,6 +3013,121 @@ router.get('/analytics/operations/throughput', authenticate, analyticsController
 router.get('/analytics/demand/forecast', authenticate, analyticsController.getDemandForecast);
 router.get('/analytics/demand/by-region', authenticate, analyticsController.getDemandByRegion);
 router.get('/analytics/demand/by-customer', authenticate, analyticsController.getDemandByCustomer);
+
+// ============================================================================
+// JOB CODES
+// ============================================================================
+
+router.get('/job-codes', optionalAuth, jobCodeController.listJobCodes);
+router.get('/job-codes/:id', optionalAuth, jobCodeController.getJobCode);
+router.post('/job-codes', authenticate, authorize('admin', 'operator'), jobCodeController.createJobCode);
+router.put('/job-codes/:id', authenticate, authorize('admin', 'operator'), jobCodeController.updateJobCode);
+
+// ============================================================================
+// CUSTOMER CARE MANUALS (CCM)
+// ============================================================================
+
+router.get('/ccm', optionalAuth, ccmController.listCCMsByLessee);
+router.get('/ccm/:id', optionalAuth, ccmController.getCCMWithSections);
+router.get('/ccm/:id/sections-for-sow', optionalAuth, ccmController.getSectionsForSOW);
+router.post('/ccm/:id/sections', authenticate, authorize('admin', 'operator'), ccmController.addSection);
+router.put('/ccm/sections/:sectionId', authenticate, authorize('admin', 'operator'), ccmController.updateSection);
+router.delete('/ccm/sections/:sectionId', authenticate, authorize('admin', 'operator'), ccmController.deleteSection);
+
+// ============================================================================
+// CCM FORMS (Structured AITX Customer Care Manual Form)
+// ============================================================================
+
+router.get('/ccm-forms', optionalAuth, ccmController.listCCMForms);
+router.get('/ccm-forms/:id', optionalAuth, ccmController.getCCMForm);
+router.get('/ccm-forms/:id/sow-sections', optionalAuth, ccmController.getCCMFormSOWSections);
+router.post('/ccm-forms', authenticate, authorize('admin', 'operator'), ccmController.createCCMForm);
+router.put('/ccm-forms/:id', authenticate, authorize('admin', 'operator'), ccmController.updateCCMForm);
+// Sealing sections (per-commodity, repeatable)
+router.post('/ccm-forms/:id/sealing', authenticate, authorize('admin', 'operator'), ccmController.addSealingSection);
+router.put('/ccm-forms/:id/sealing/:sealingId', authenticate, authorize('admin', 'operator'), ccmController.updateSealingSection);
+router.delete('/ccm-forms/:id/sealing/:sealingId', authenticate, authorize('admin', 'operator'), ccmController.removeSealingSection);
+// Lining sections (per-commodity, repeatable)
+router.post('/ccm-forms/:id/lining', authenticate, authorize('admin', 'operator'), ccmController.addLiningSection);
+router.put('/ccm-forms/:id/lining/:liningId', authenticate, authorize('admin', 'operator'), ccmController.updateLiningSection);
+router.delete('/ccm-forms/:id/lining/:liningId', authenticate, authorize('admin', 'operator'), ccmController.removeLiningSection);
+// Attachments
+router.post('/ccm-forms/:id/attachments', authenticate, authorize('admin', 'operator'), packetDocUpload.single('file'), ccmController.addCCMFormAttachment);
+router.delete('/ccm-forms/:id/attachments/:attachmentId', authenticate, authorize('admin', 'operator'), ccmController.removeCCMFormAttachment);
+
+// ============================================================================
+// SCOPE LIBRARY
+// ============================================================================
+
+router.get('/scope-library', optionalAuth, scopeLibraryController.listScopeTemplatesHandler);
+router.get('/scope-library/suggest', optionalAuth, scopeLibraryController.suggestScopesHandler);
+router.get('/scope-library/:id', optionalAuth, scopeLibraryController.getScopeTemplateHandler);
+router.post('/scope-library', authenticate, authorize('admin', 'operator'), scopeLibraryController.createScopeTemplateHandler);
+router.put('/scope-library/:id', authenticate, authorize('admin', 'operator'), scopeLibraryController.updateScopeTemplateHandler);
+router.post('/scope-library/:id/items', authenticate, authorize('admin', 'operator'), scopeLibraryController.addTemplateItemHandler);
+router.put('/scope-library/:id/items/:itemId', authenticate, authorize('admin', 'operator'), scopeLibraryController.updateTemplateItemHandler);
+router.delete('/scope-library/:id/items/:itemId', authenticate, authorize('admin', 'operator'), scopeLibraryController.removeTemplateItemHandler);
+router.post('/scope-library/:id/items/:itemId/codes', authenticate, authorize('admin', 'operator'), scopeLibraryController.addItemJobCodeHandler);
+router.delete('/scope-library/:id/items/:itemId/codes/:codeId', authenticate, authorize('admin', 'operator'), scopeLibraryController.removeItemJobCodeHandler);
+
+// ============================================================================
+// SCOPE OF WORK
+// ============================================================================
+
+router.post('/scope-of-work', authenticate, authorize('admin', 'operator'), sowController.createSOWHandler);
+router.get('/scope-of-work/:id', optionalAuth, sowController.getSOWHandler);
+router.post('/scope-of-work/:id/items', authenticate, authorize('admin', 'operator'), sowController.addSOWItemHandler);
+router.put('/scope-of-work/:id/items/:itemId', authenticate, authorize('admin', 'operator'), sowController.updateSOWItemHandler);
+router.delete('/scope-of-work/:id/items/:itemId', authenticate, authorize('admin', 'operator'), sowController.removeSOWItemHandler);
+router.post('/scope-of-work/:id/items/:itemId/codes', authenticate, authorize('admin', 'operator'), sowController.addItemJobCodeHandler);
+router.delete('/scope-of-work/:id/items/:itemId/codes/:codeId', authenticate, authorize('admin', 'operator'), sowController.removeItemJobCodeHandler);
+router.post('/scope-of-work/:id/populate-library', authenticate, authorize('admin', 'operator'), sowController.populateFromLibraryHandler);
+router.post('/scope-of-work/:id/populate-ccm', authenticate, authorize('admin', 'operator'), sowController.populateFromCCMHandler);
+router.post('/scope-of-work/:id/finalize', authenticate, authorize('admin', 'operator'), sowController.finalizeSOWHandler);
+router.post('/scope-of-work/:id/save-as-template', authenticate, authorize('admin', 'operator'), sowController.saveAsTemplateHandler);
+
+// ============================================================================
+// SHOPPING EVENTS
+// ============================================================================
+
+router.get('/shopping-events', optionalAuth, shoppingEventController.listShoppingEvents);
+router.post('/shopping-events', authenticate, authorize('admin', 'operator'), shoppingEventController.createShoppingEvent);
+router.post('/shopping-events/batch', authenticate, authorize('admin', 'operator'), shoppingEventController.createBatchShoppingEvents);
+router.get('/shopping-events/:id', optionalAuth, shoppingEventController.getShoppingEvent);
+router.put('/shopping-events/:id/state', authenticate, authorize('admin', 'operator'), shoppingEventController.transitionState);
+router.get('/shopping-events/:id/state-history', optionalAuth, shoppingEventController.getStateHistory);
+
+// Shopping event estimates
+router.post('/shopping-events/:id/estimates', authenticate, authorize('admin', 'operator'), estimateController.submitEstimate);
+router.get('/shopping-events/:id/estimates', optionalAuth, estimateController.listEstimateVersions);
+
+// Car shopping history
+router.get('/cars/:carNumber/shopping-history', optionalAuth, shoppingEventController.getCarShoppingHistory);
+
+// ============================================================================
+// ESTIMATES & APPROVAL
+// ============================================================================
+
+router.get('/estimates/:id', optionalAuth, estimateController.getEstimate);
+router.post('/estimates/:id/decisions', authenticate, authorize('admin', 'operator'), estimateController.recordLineDecisions);
+router.get('/estimates/:id/decisions', optionalAuth, estimateController.getEstimateDecisions);
+router.put('/estimates/:id/status', authenticate, authorize('admin', 'operator'), estimateController.updateEstimateStatus);
+router.post('/estimates/:id/approval-packet', authenticate, authorize('admin', 'operator'), estimateController.generateApprovalPacket);
+
+router.get('/approval-packets/:id', optionalAuth, estimateController.getApprovalPacket);
+router.post('/approval-packets/:id/release', authenticate, authorize('admin', 'operator'), estimateController.releaseApprovalPacket);
+
+// ============================================================================
+// SHOPPING PACKETS
+// ============================================================================
+
+router.get('/packets', optionalAuth, shoppingPacketController.listPackets);
+router.post('/packets', authenticate, authorize('admin', 'operator'), shoppingPacketController.createPacket);
+router.get('/packets/:id', optionalAuth, shoppingPacketController.getPacket);
+router.post('/packets/:id/documents', authenticate, authorize('admin', 'operator'), packetDocUpload.single('file'), shoppingPacketController.addDocument);
+router.post('/packets/:id/documents/mfiles', authenticate, authorize('admin', 'operator'), shoppingPacketController.linkMFilesDocument);
+router.put('/packets/:id/send', authenticate, authorize('admin', 'operator'), shoppingPacketController.sendPacket);
+router.put('/packets/:id/acknowledge', authenticate, shoppingPacketController.acknowledgePacket);
 
 // ============================================================================
 // HEALTH CHECK

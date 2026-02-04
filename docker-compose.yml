@@ -11,21 +11,43 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Base schema + seed data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      # Core migrations (in dependency order)
       - ./database/migrations/001_auth_and_audit.sql:/docker-entrypoint-initdb.d/03-auth-audit.sql
       - ./database/migrations/002_phase9_planning.sql:/docker-entrypoint-initdb.d/04-phase9-planning.sql
       - ./database/migrations/003_add_capacity_planning.sql:/docker-entrypoint-initdb.d/05-capacity-planning.sql
       - ./database/migrations/004_add_alerts.sql:/docker-entrypoint-initdb.d/06-alerts.sql
       - ./database/migrations/005_fleet_visibility.sql:/docker-entrypoint-initdb.d/07-fleet-visibility.sql
-      - ./database/migrations/009_sop_planning.sql:/docker-entrypoint-initdb.d/08-sop-planning.sql
-      - ./database/migrations/010_fleet_hierarchy.sql:/docker-entrypoint-initdb.d/09-fleet-hierarchy.sql
-      - ./database/migrations/011_amendment_tracking.sql:/docker-entrypoint-initdb.d/10-amendment-tracking.sql
-      - ./database/migrations/013_shop_geo_filtering.sql:/docker-entrypoint-initdb.d/11-shop-geo-filtering.sql
-      - ./database/migrations/014_shopping_classification.sql:/docker-entrypoint-initdb.d/12-shopping-classification.sql
-      - ./database/migrations/015_shopping_classification_additions.sql:/docker-entrypoint-initdb.d/13-shopping-classification-additions.sql
-      - ./database/migrations/016_shopping_type_cost_allocation.sql:/docker-entrypoint-initdb.d/14-shopping-type-cost-allocation.sql
-      - ./database/migrations/017_car_detail_fields.sql:/docker-entrypoint-initdb.d/15-car-detail-fields.sql
+      - ./database/migrations/006_phase13_automation.sql:/docker-entrypoint-initdb.d/08-phase13-automation.sql
+      - ./database/migrations/007_ssot_car_assignments.sql:/docker-entrypoint-initdb.d/09-ssot-car-assignments.sql
+      - ./database/migrations/008_service_plans.sql:/docker-entrypoint-initdb.d/10-service-plans.sql
+      - ./database/migrations/009_sop_planning.sql:/docker-entrypoint-initdb.d/11-sop-planning.sql
+      - ./database/migrations/010_lease_hierarchy.sql:/docker-entrypoint-initdb.d/12-lease-hierarchy.sql
+      - ./database/migrations/011_amendment_tracking.sql:/docker-entrypoint-initdb.d/13-amendment-tracking.sql
+      - ./database/migrations/010_fleet_hierarchy.sql:/docker-entrypoint-initdb.d/14-fleet-hierarchy.sql
+      - ./database/migrations/012_allocation_versioning.sql:/docker-entrypoint-initdb.d/15-allocation-versioning.sql
+      - ./database/migrations/013_shop_geo_filtering.sql:/docker-entrypoint-initdb.d/16-shop-geo-filtering.sql
+      - ./database/migrations/014_shopping_classification.sql:/docker-entrypoint-initdb.d/17-shopping-classification.sql
+      - ./database/migrations/015_shopping_classification_additions.sql:/docker-entrypoint-initdb.d/18-shopping-classification-additions.sql
+      - ./database/migrations/016_shopping_type_cost_allocation.sql:/docker-entrypoint-initdb.d/19-shopping-type-cost-allocation.sql
+      - ./database/migrations/016_master_plan_versioning.sql:/docker-entrypoint-initdb.d/20-master-plan-versioning.sql
+      - ./database/migrations/017_car_detail_fields.sql:/docker-entrypoint-initdb.d/21-car-detail-fields.sql
+      - ./database/migrations/017_email_notifications.sql:/docker-entrypoint-initdb.d/22-email-notifications.sql
+      - ./database/migrations/018_shopping_reason_cost_allocation.sql:/docker-entrypoint-initdb.d/23-shopping-reason-cost.sql
+      - ./database/migrations/018_shop_designations.sql:/docker-entrypoint-initdb.d/24-shop-designations.sql
+      - ./database/migrations/019_budget_line_items.sql:/docker-entrypoint-initdb.d/25-budget-line-items.sql
+      - ./database/migrations/020_qualification_reports.sql:/docker-entrypoint-initdb.d/26-qualification-reports.sql
+      - ./database/migrations/021_capacity_reservations.sql:/docker-entrypoint-initdb.d/27-capacity-reservations.sql
+      - ./database/migrations/022_ccm_documents.sql:/docker-entrypoint-initdb.d/28-ccm-documents.sql
+      - ./database/migrations/023_shopping_packets.sql:/docker-entrypoint-initdb.d/29-shopping-packets.sql
+      - ./database/migrations/024_projects.sql:/docker-entrypoint-initdb.d/30-projects.sql
+      - ./database/migrations/024_invoices.sql:/docker-entrypoint-initdb.d/31-invoices.sql
+      - ./database/migrations/025_invoice_seed_data.sql:/docker-entrypoint-initdb.d/32-invoice-seed-data.sql
+      - ./database/migrations/026_user_management.sql:/docker-entrypoint-initdb.d/33-user-management.sql
+      - ./database/migrations/027_shopping_workflow.sql:/docker-entrypoint-initdb.d/34-shopping-workflow.sql
+      - ./database/migrations/028_ccm_form_structure.sql:/docker-entrypoint-initdb.d/35-ccm-form-structure.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U railsync -d railsync"]
       interval: 10s

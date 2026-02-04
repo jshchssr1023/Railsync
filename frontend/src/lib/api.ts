@@ -22,6 +22,18 @@ import {
   DashboardWidget,
   DashboardConfig,
   DashboardLayout,
+  // Shopping workflow types
+  ShoppingEvent,
+  ShoppingBatch,
+  StateHistoryEntry,
+  JobCode,
+  ScopeLibraryTemplate,
+  ScopeOfWork,
+  SOWItem,
+  EstimateSubmission,
+  EstimateLineDecision,
+  CCMForm,
+  CCMFormSOWSection,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -693,6 +705,354 @@ export async function getCapabilityTypes(): Promise<CapabilityType[]> {
   return response.data || [];
 }
 
+// ============================================================================
+// SHOPPING WORKFLOW API
+// ============================================================================
+
+export async function listShoppingEvents(filters?: {
+  state?: string;
+  shop_code?: string;
+  car_number?: string;
+  batch_id?: string;
+  shopping_type_code?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ events: ShoppingEvent[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.state) params.append('state', filters.state);
+  if (filters?.shop_code) params.append('shop_code', filters.shop_code);
+  if (filters?.car_number) params.append('car_number', filters.car_number);
+  if (filters?.batch_id) params.append('batch_id', filters.batch_id);
+  if (filters?.shopping_type_code) params.append('shopping_type_code', filters.shopping_type_code);
+  if (filters?.limit) params.append('limit', String(filters.limit));
+  if (filters?.offset) params.append('offset', String(filters.offset));
+
+  const response = await fetchApi<{ events: ShoppingEvent[]; total: number }>(
+    `/shopping-events?${params.toString()}`
+  );
+  return response.data || (response as any) || { events: [], total: 0 };
+}
+
+export async function getShoppingEvent(id: string): Promise<ShoppingEvent> {
+  const response = await fetchApi<ShoppingEvent>(
+    `/shopping-events/${encodeURIComponent(id)}`
+  );
+  if (!response.data) {
+    // Backend may return directly without wrapping
+    return response as unknown as ShoppingEvent;
+  }
+  return response.data;
+}
+
+export async function createShoppingEvent(input: {
+  car_number: string;
+  shop_code: string;
+  shopping_type_code?: string;
+  shopping_reason_code?: string;
+  scope_of_work_id?: string;
+}): Promise<ShoppingEvent> {
+  const response = await fetchApi<ShoppingEvent>('/shopping-events', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  if (!response.data) return response as unknown as ShoppingEvent;
+  return response.data;
+}
+
+export async function createBatchShoppingEvents(input: {
+  shop_code: string;
+  shopping_type_code?: string;
+  shopping_reason_code?: string;
+  car_numbers: string[];
+  notes?: string;
+}): Promise<{ batch: ShoppingBatch; events: ShoppingEvent[] }> {
+  const response = await fetchApi<{ batch: ShoppingBatch; events: ShoppingEvent[] }>(
+    '/shopping-events/batch',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  if (!response.data) return response as unknown as { batch: ShoppingBatch; events: ShoppingEvent[] };
+  return response.data;
+}
+
+export async function transitionShoppingEventState(
+  id: string,
+  toState: string,
+  notes?: string
+): Promise<ShoppingEvent> {
+  const response = await fetchApi<ShoppingEvent>(
+    `/shopping-events/${encodeURIComponent(id)}/state`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ to_state: toState, notes }),
+    }
+  );
+  if (!response.data) return response as unknown as ShoppingEvent;
+  return response.data;
+}
+
+export async function getShoppingEventStateHistory(
+  id: string
+): Promise<StateHistoryEntry[]> {
+  const response = await fetchApi<StateHistoryEntry[]>(
+    `/shopping-events/${encodeURIComponent(id)}/state-history`
+  );
+  return response.data || (response as unknown as StateHistoryEntry[]) || [];
+}
+
+export async function getCarShoppingHistory(
+  carNumber: string
+): Promise<ShoppingEvent[]> {
+  const response = await fetchApi<ShoppingEvent[]>(
+    `/cars/${encodeURIComponent(carNumber)}/shopping-history`
+  );
+  return response.data || (response as unknown as ShoppingEvent[]) || [];
+}
+
+// Scope Library
+export async function listScopeTemplates(filters?: {
+  car_type?: string;
+  shopping_type?: string;
+  shopping_reason?: string;
+  search?: string;
+}): Promise<ScopeLibraryTemplate[]> {
+  const params = new URLSearchParams();
+  if (filters?.car_type) params.append('car_type', filters.car_type);
+  if (filters?.shopping_type) params.append('shopping_type', filters.shopping_type);
+  if (filters?.shopping_reason) params.append('shopping_reason', filters.shopping_reason);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await fetchApi<ScopeLibraryTemplate[]>(
+    `/scope-library?${params.toString()}`
+  );
+  return response.data || (response as unknown as ScopeLibraryTemplate[]) || [];
+}
+
+export async function getScopeTemplate(id: string): Promise<ScopeLibraryTemplate> {
+  const response = await fetchApi<ScopeLibraryTemplate>(
+    `/scope-library/${encodeURIComponent(id)}`
+  );
+  if (!response.data) return response as unknown as ScopeLibraryTemplate;
+  return response.data;
+}
+
+export async function suggestScopeTemplates(
+  carType?: string,
+  shoppingType?: string,
+  shoppingReason?: string
+): Promise<ScopeLibraryTemplate[]> {
+  const params = new URLSearchParams();
+  if (carType) params.append('car_type', carType);
+  if (shoppingType) params.append('shopping_type', shoppingType);
+  if (shoppingReason) params.append('shopping_reason', shoppingReason);
+
+  const response = await fetchApi<ScopeLibraryTemplate[]>(
+    `/scope-library/suggest?${params.toString()}`
+  );
+  return response.data || (response as unknown as ScopeLibraryTemplate[]) || [];
+}
+
+// Scope of Work
+export async function createSOW(input: {
+  scope_library_id?: string;
+}): Promise<ScopeOfWork> {
+  const response = await fetchApi<ScopeOfWork>('/scope-of-work', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  if (!response.data) return response as unknown as ScopeOfWork;
+  return response.data;
+}
+
+export async function getSOW(id: string): Promise<ScopeOfWork> {
+  const response = await fetchApi<ScopeOfWork>(
+    `/scope-of-work/${encodeURIComponent(id)}`
+  );
+  if (!response.data) return response as unknown as ScopeOfWork;
+  return response.data;
+}
+
+export async function addSOWItem(
+  sowId: string,
+  item: { line_number: number; instruction_text: string; source?: string }
+): Promise<SOWItem> {
+  const response = await fetchApi<SOWItem>(
+    `/scope-of-work/${encodeURIComponent(sowId)}/items`,
+    {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }
+  );
+  if (!response.data) return response as unknown as SOWItem;
+  return response.data;
+}
+
+export async function finalizeSOW(id: string): Promise<ScopeOfWork> {
+  const response = await fetchApi<ScopeOfWork>(
+    `/scope-of-work/${encodeURIComponent(id)}/finalize`,
+    { method: 'POST' }
+  );
+  if (!response.data) return response as unknown as ScopeOfWork;
+  return response.data;
+}
+
+export async function populateSOWFromLibrary(
+  sowId: string,
+  templateId: string
+): Promise<{ inserted_count: number }> {
+  const response = await fetchApi<{ inserted_count: number }>(
+    `/scope-of-work/${encodeURIComponent(sowId)}/populate-library`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ template_id: templateId }),
+    }
+  );
+  if (!response.data) return response as unknown as { inserted_count: number };
+  return response.data;
+}
+
+// Job Codes
+export async function listJobCodes(filters?: {
+  code_type?: string;
+  category?: string;
+  search?: string;
+}): Promise<JobCode[]> {
+  const params = new URLSearchParams();
+  if (filters?.code_type) params.append('code_type', filters.code_type);
+  if (filters?.category) params.append('category', filters.category);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await fetchApi<JobCode[]>(
+    `/job-codes?${params.toString()}`
+  );
+  return response.data || (response as unknown as JobCode[]) || [];
+}
+
+// Estimates
+export async function listEstimateVersions(
+  shoppingEventId: string
+): Promise<EstimateSubmission[]> {
+  const response = await fetchApi<EstimateSubmission[]>(
+    `/shopping-events/${encodeURIComponent(shoppingEventId)}/estimates`
+  );
+  return response.data || (response as unknown as EstimateSubmission[]) || [];
+}
+
+export async function submitEstimate(
+  shoppingEventId: string,
+  input: {
+    submitted_by?: string;
+    total_labor_hours?: number;
+    total_material_cost?: number;
+    total_cost?: number;
+    notes?: string;
+    lines?: {
+      line_number: number;
+      aar_code?: string;
+      job_code?: string;
+      description?: string;
+      labor_hours?: number;
+      material_cost?: number;
+      total_cost?: number;
+      sow_item_id?: string;
+    }[];
+  }
+): Promise<EstimateSubmission> {
+  const response = await fetchApi<EstimateSubmission>(
+    `/shopping-events/${encodeURIComponent(shoppingEventId)}/estimates`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  if (!response.data) return response as unknown as EstimateSubmission;
+  return response.data;
+}
+
+export async function getEstimate(id: string): Promise<EstimateSubmission> {
+  const response = await fetchApi<EstimateSubmission>(
+    `/estimates/${encodeURIComponent(id)}`
+  );
+  if (!response.data) return response as unknown as EstimateSubmission;
+  return response.data;
+}
+
+// Estimate Decisions
+export async function getEstimateDecisions(
+  estimateId: string
+): Promise<(EstimateLineDecision & { line_number: number })[]> {
+  const response = await fetchApi<(EstimateLineDecision & { line_number: number })[]>(
+    `/estimates/${encodeURIComponent(estimateId)}/decisions`
+  );
+  return response.data || (response as unknown as (EstimateLineDecision & { line_number: number })[]) || [];
+}
+
+export async function recordLineDecisions(
+  estimateId: string,
+  decisions: {
+    estimate_line_id: string;
+    decision_source: 'ai' | 'human';
+    decision: 'approve' | 'review' | 'reject';
+    confidence_score?: number;
+    responsibility?: 'lessor' | 'customer' | 'unknown';
+    basis_type?: string;
+    basis_reference?: string;
+    decision_notes?: string;
+  }[]
+): Promise<(EstimateLineDecision & { is_override?: boolean })[]> {
+  const response = await fetchApi<(EstimateLineDecision & { is_override?: boolean })[]>(
+    `/estimates/${encodeURIComponent(estimateId)}/decisions`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ decisions }),
+    }
+  );
+  return response.data || (response as unknown as (EstimateLineDecision & { is_override?: boolean })[]) || [];
+}
+
+// Approval Packets
+export async function generateApprovalPacket(
+  estimateId: string,
+  input: {
+    overall_decision: 'approved' | 'changes_required' | 'rejected';
+    line_decisions: { line_id: string; decision: 'approve' | 'review' | 'reject' }[];
+    notes?: string;
+  }
+): Promise<{ id: string; overall_decision: string; estimate_submission_id: string }> {
+  const response = await fetchApi<{ id: string; overall_decision: string; estimate_submission_id: string }>(
+    `/estimates/${encodeURIComponent(estimateId)}/approval-packet`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  if (!response.data) return response as unknown as { id: string; overall_decision: string; estimate_submission_id: string };
+  return response.data;
+}
+
+// CCM Forms
+export async function listCCMForms(customerCode?: string): Promise<CCMForm[]> {
+  const params = new URLSearchParams();
+  if (customerCode) params.append('customer_code', customerCode);
+  const response = await fetchApi<CCMForm[]>(`/ccm-forms?${params.toString()}`);
+  return response.data || (response as unknown as CCMForm[]) || [];
+}
+
+export async function getCCMForm(id: string): Promise<CCMForm> {
+  const response = await fetchApi<CCMForm>(`/ccm-forms/${encodeURIComponent(id)}`);
+  if (!response.data) return response as unknown as CCMForm;
+  return response.data;
+}
+
+export async function getCCMFormSOWSections(id: string): Promise<CCMFormSOWSection[]> {
+  const response = await fetchApi<CCMFormSOWSection[]>(
+    `/ccm-forms/${encodeURIComponent(id)}/sow-sections`
+  );
+  return response.data || (response as unknown as CCMFormSOWSection[]) || [];
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -741,6 +1101,32 @@ const api = {
   findNearbyShops,
   getShopRegions,
   getCapabilityTypes,
+  // Shopping Workflow
+  listShoppingEvents,
+  getShoppingEvent,
+  createShoppingEvent,
+  createBatchShoppingEvents,
+  transitionShoppingEventState,
+  getShoppingEventStateHistory,
+  getCarShoppingHistory,
+  listScopeTemplates,
+  getScopeTemplate,
+  suggestScopeTemplates,
+  createSOW,
+  getSOW,
+  addSOWItem,
+  finalizeSOW,
+  populateSOWFromLibrary,
+  listJobCodes,
+  listEstimateVersions,
+  submitEstimate,
+  getEstimate,
+  getEstimateDecisions,
+  recordLineDecisions,
+  generateApprovalPacket,
+  listCCMForms,
+  getCCMForm,
+  getCCMFormSOWSections,
 };
 
 export default api;

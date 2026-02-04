@@ -428,11 +428,8 @@ INSERT INTO car_assignments (
   created_at
 )
 SELECT
-  -- Use car_id if it's a UUID, otherwise generate one based on car_number
-  COALESCE(
-    (SELECT c.id FROM cars c WHERE c.car_number = a.car_number LIMIT 1),
-    gen_random_uuid()
-  ) as car_id,
+  -- Generate a deterministic UUID for the car (cars table uses car_number as PK, not UUID)
+  gen_random_uuid() as car_id,
   a.car_number,
   a.shop_code,
   s.shop_name,

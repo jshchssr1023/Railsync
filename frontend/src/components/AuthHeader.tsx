@@ -118,6 +118,7 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                 <div className="pl-6 pb-2">
                   <a href="/pipeline" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Pipeline</a>
                   <a href="/pipeline?status=active" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Active</a>
+                  <a href="/shopping" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Shopping Events</a>
                   <a href="/bad-orders" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Bad Orders</a>
                   <a href="/planning" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Quick Shop</a>
                   <a href="/planning?tab=monthly-load" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Monthly Load</a>
@@ -141,6 +142,21 @@ function MobileMenu({ isAdmin }: { isAdmin?: boolean }) {
                   <a href="/budget" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget & Forecasts</a>
                   <a href="/budget?tab=configuration" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Budget Config</a>
                   <a href="/analytics" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Analytics</a>
+                </div>
+              )}
+
+              {/* Standards */}
+              <button
+                onClick={() => toggleSection('standards')}
+                className="flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md"
+              >
+                <span>Standards</span>
+                <span className="text-xs text-primary-300 dark:text-gray-400">The Knowledge</span>
+              </button>
+              {expandedSection === 'standards' && (
+                <div className="pl-6 pb-2">
+                  <a href="/scope-library" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">SOW Library</a>
+                  <a href="/ccm" className="block px-4 py-2 text-sm hover:bg-primary-700 dark:hover:bg-gray-700 rounded-md">Care Manuals</a>
                 </div>
               )}
 
@@ -228,6 +244,7 @@ export default function AuthHeader() {
                   items={[
                     { href: '/pipeline', label: 'Pipeline' },
                     { href: '/pipeline?status=active', label: 'Active' },
+                    { href: '/shopping', label: 'Shopping Events' },
                     { href: '/bad-orders', label: 'Bad Orders' },
                     { href: '/planning', label: 'Quick Shop' },
                     { href: '/planning?tab=monthly-load', label: 'Monthly Load' },
@@ -246,6 +263,16 @@ export default function AuthHeader() {
                     { href: '/budget', label: 'Budget & Forecasts' },
                     { href: '/budget?tab=configuration', label: 'Budget Config' },
                     { href: '/analytics', label: 'Analytics' },
+                  ]}
+                />
+
+                {/* Standards - The Knowledge */}
+                <NavDropdown
+                  label="Standards"
+                  subtitle="The Knowledge"
+                  items={[
+                    { href: '/scope-library', label: 'SOW Library' },
+                    { href: '/ccm', label: 'Care Manuals' },
                   ]}
                 />
 

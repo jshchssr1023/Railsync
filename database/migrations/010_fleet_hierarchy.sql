@@ -3,6 +3,29 @@
 -- Adapts to existing schema
 
 -- ============================================================================
+-- LEASE CAR ASSIGNMENTS TABLE (cars assigned to lease riders)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS lease_car_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rider_id UUID NOT NULL REFERENCES lease_riders(id),
+  car_number VARCHAR(20) NOT NULL REFERENCES cars(car_number),
+  assigned_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  removed_date DATE,
+  status VARCHAR(20) DEFAULT 'OnLease'
+    CHECK (status IN ('OnLease','Returned','Transferred','Terminated')),
+  car_rate DECIMAL(10,2),
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(rider_id, car_number, assigned_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lca_rider ON lease_car_assignments(rider_id);
+CREATE INDEX IF NOT EXISTS idx_lca_car ON lease_car_assignments(car_number);
+CREATE INDEX IF NOT EXISTS idx_lca_status ON lease_car_assignments(status);
+
+-- ============================================================================
 -- ADD MISSING COLUMNS TO CUSTOMERS TABLE
 -- ============================================================================
 
@@ -19,6 +42,7 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Activ
 -- ============================================================================
 
 -- Customer summary with fleet counts
+DROP VIEW IF EXISTS v_customer_summary CASCADE;
 CREATE OR REPLACE VIEW v_customer_summary AS
 SELECT
     c.id,
@@ -37,6 +61,7 @@ LEFT JOIN lease_car_assignments lca ON lca.rider_id = lr.id
 GROUP BY c.id, c.customer_code, c.customer_name, c.status, c.is_active, c.city, c.state;
 
 -- Lease summary with car counts
+DROP VIEW IF EXISTS v_lease_summary CASCADE;
 CREATE OR REPLACE VIEW v_lease_summary AS
 SELECT
     ml.id,
@@ -60,6 +85,7 @@ GROUP BY ml.id, ml.lease_id, ml.lease_name, ml.customer_id, c.customer_name,
          ml.start_date, ml.end_date, ml.base_rate_per_car, ml.status;
 
 -- Rider summary with car counts
+DROP VIEW IF EXISTS v_rider_summary CASCADE;
 CREATE OR REPLACE VIEW v_rider_summary AS
 SELECT
     lr.id,
@@ -99,7 +125,6 @@ SELECT
     la.cars_added,
     la.cars_removed,
     la.new_rate,
-    la.status,
     la.approved_by,
     la.approved_at,
     ml.lease_id AS lease_number,
@@ -120,7 +145,7 @@ SELECT
     lca.car_number,
     lca.rider_id,
     lca.assigned_date,
-    lca.released_date,
+    lca.removed_date,
     lca.car_rate,
     lca.status,
     lr.rider_id AS rider_number,
@@ -130,9 +155,9 @@ SELECT
     c.customer_code,
     c.customer_name,
     COALESCE(lca.car_rate, lr.rate_per_car, ml.base_rate_per_car) AS effective_rate,
-    cars.car_type,
-    cars.capacity,
-    cars.mfg_year
+    cars.product_code AS car_type,
+    cars.material_type,
+    cars.stencil_class
 FROM lease_car_assignments lca
 JOIN lease_riders lr ON lr.id = lca.rider_id
 JOIN master_leases ml ON ml.id = lr.master_lease_id
@@ -212,7 +237,7 @@ WHERE lr.rider_id LIKE '%-R001'
 ON CONFLICT (rider_id, car_number, assigned_date) DO NOTHING;
 
 -- Demo Amendments
-INSERT INTO lease_amendments (amendment_id, master_lease_id, rider_id, amendment_type, effective_date, change_summary, cars_added, status)
+INSERT INTO lease_amendments (amendment_id, master_lease_id, rider_id, amendment_type, effective_date, change_summary, cars_added)
 SELECT
     lr.rider_id || '-AMD001',
     ml.id,
@@ -220,8 +245,7 @@ SELECT
     'AddCars',
     '2024-03-01',
     'Added 10 additional tank cars to initial schedule',
-    10,
-    'Applied'
+    10
 FROM lease_riders lr
 JOIN master_leases ml ON ml.id = lr.master_lease_id
 WHERE lr.rider_id LIKE 'DUPONT%-R001'

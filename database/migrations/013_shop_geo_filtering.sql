@@ -72,6 +72,7 @@ ON CONFLICT (capability_type) DO UPDATE SET
 -- VIEW: SHOPS WITH CAPABILITIES SUMMARY
 -- ============================================================================
 
+DROP VIEW IF EXISTS v_shop_capabilities_summary CASCADE;
 CREATE OR REPLACE VIEW v_shop_capabilities_summary AS
 SELECT
     s.shop_code,

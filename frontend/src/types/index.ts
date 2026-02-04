@@ -427,3 +427,208 @@ export interface DashboardConfig {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================================
+// SHOPPING WORKFLOW TYPES
+// ============================================================================
+
+export type ShoppingEventState =
+  | 'REQUESTED'
+  | 'ASSIGNED_TO_SHOP'
+  | 'INBOUND'
+  | 'INSPECTION'
+  | 'ESTIMATE_SUBMITTED'
+  | 'ESTIMATE_UNDER_REVIEW'
+  | 'ESTIMATE_APPROVED'
+  | 'CHANGES_REQUIRED'
+  | 'WORK_AUTHORIZED'
+  | 'IN_REPAIR'
+  | 'QA_COMPLETE'
+  | 'FINAL_ESTIMATE_SUBMITTED'
+  | 'FINAL_ESTIMATE_APPROVED'
+  | 'READY_FOR_RELEASE'
+  | 'RELEASED'
+  | 'CANCELLED';
+
+export interface ShoppingEvent {
+  id: string;
+  event_number: string;
+  car_id: string | null;
+  car_number: string;
+  shop_code: string;
+  batch_id: string | null;
+  car_assignment_id: string | null;
+  state: ShoppingEventState;
+  shopping_type_code: string | null;
+  shopping_reason_code: string | null;
+  scope_of_work_id: string | null;
+  cancelled_at: string | null;
+  cancelled_by_id: string | null;
+  cancellation_reason: string | null;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+  version: number;
+  shop_name?: string;
+  batch_number?: string;
+}
+
+export interface ShoppingBatch {
+  id: string;
+  batch_number: string;
+  shop_code: string;
+  shopping_type_code: string | null;
+  shopping_reason_code: string | null;
+  scope_of_work_id: string | null;
+  notes: string | null;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StateHistoryEntry {
+  id: string;
+  shopping_event_id: string;
+  from_state: string | null;
+  to_state: string;
+  changed_by_id: string | null;
+  changed_by_email?: string;
+  changed_at: string;
+  notes: string | null;
+}
+
+export interface JobCode {
+  id: string;
+  code: string;
+  code_type: 'aar' | 'internal';
+  description: string;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScopeLibraryTemplate {
+  id: string;
+  name: string;
+  car_type: string | null;
+  shopping_type: string | null;
+  shopping_reason: string | null;
+  description: string | null;
+  is_active: boolean;
+  usage_count: number;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: ScopeLibraryItem[];
+}
+
+export interface ScopeLibraryItem {
+  id: string;
+  scope_library_id: string;
+  line_number: number;
+  instruction_text: string;
+  source: string;
+  ccm_section_id: string | null;
+  created_at: string;
+  updated_at: string;
+  job_codes?: JobCodeRef[];
+}
+
+export interface JobCodeRef {
+  id: string;
+  code: string;
+  code_type: string;
+  description: string;
+  is_expected: boolean;
+  notes: string | null;
+}
+
+export interface ScopeOfWork {
+  id: string;
+  scope_library_id: string | null;
+  status: 'draft' | 'finalized' | 'sent';
+  finalized_at: string | null;
+  finalized_by_id: string | null;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+  items?: SOWItem[];
+}
+
+export interface SOWItem {
+  id: string;
+  scope_of_work_id: string;
+  line_number: number;
+  instruction_text: string;
+  source: string;
+  ccm_section_id: string | null;
+  scope_library_item_id: string | null;
+  created_at: string;
+  updated_at: string;
+  job_codes?: JobCodeRef[];
+}
+
+export interface EstimateSubmission {
+  id: string;
+  shopping_event_id: string;
+  version_number: number;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  status: 'submitted' | 'under_review' | 'approved' | 'changes_required' | 'rejected';
+  total_labor_hours: number | null;
+  total_material_cost: number | null;
+  total_cost: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  lines?: EstimateLine[];
+}
+
+export interface EstimateLine {
+  id: string;
+  estimate_submission_id: string;
+  line_number: number;
+  aar_code: string | null;
+  job_code: string | null;
+  description: string | null;
+  labor_hours: number | null;
+  material_cost: number | null;
+  total_cost: number | null;
+  sow_item_id: string | null;
+  created_at: string;
+}
+
+export interface EstimateLineDecision {
+  id: string;
+  estimate_line_id: string;
+  decision_source: 'ai' | 'human';
+  decision: 'approve' | 'review' | 'reject';
+  confidence_score: number | null;
+  responsibility: 'lessor' | 'customer' | 'unknown';
+  basis_type: string | null;
+  basis_reference: string | null;
+  decision_notes: string | null;
+  decided_by_id: string | null;
+  decided_at: string;
+}
+
+export interface CCMForm {
+  id: string;
+  company_name: string;
+  customer_code: string | null;
+  form_date: string | null;
+  revision_date: string | null;
+  created_at: string;
+  updated_at: string;
+  sealing_count?: number;
+  lining_count?: number;
+  attachment_count?: number;
+}
+
+export interface CCMFormSOWSection {
+  category: string;
+  label: string;
+  content: string;
+  ccm_form_id: string;
+}

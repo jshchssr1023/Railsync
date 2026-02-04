@@ -45,12 +45,15 @@ SELECT
     COUNT(*) AS total_cars,
     COALESCE(SUM(CAST(a.estimated_cost AS DECIMAL)), 0) AS planned_cost,
     COALESCE(SUM(CAST(a.actual_cost AS DECIMAL)), 0) AS actual_cost,
-    rb.total_budget AS budget_amount,
+    rb.monthly_budget AS budget_amount,
     rb.actual_spend AS budget_spent
 FROM allocations a
 LEFT JOIN running_repairs_budget rb ON a.target_month = rb.month
-GROUP BY a.target_month, rb.total_budget, rb.actual_spend
+GROUP BY a.target_month, rb.monthly_budget, rb.actual_spend
 ORDER BY a.target_month;
+
+-- Ensure tier column exists on shops (may also be added in later migration)
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS tier INTEGER DEFAULT 1;
 
 -- Tier summary view (by shop tier)
 CREATE OR REPLACE VIEW v_tier_summary AS
@@ -66,9 +69,9 @@ GROUP BY s.tier
 ORDER BY s.tier;
 
 -- Add sample data for current month
-INSERT INTO running_repairs_budget (month, active_cars, budget_per_car, actual_spend)
+INSERT INTO running_repairs_budget (fiscal_year, month, cars_on_lease, allocation_per_car, monthly_budget, actual_spend)
 VALUES
-    ('2026-01', 1200, 450.00, 485000.00),
-    ('2026-02', 1250, 450.00, 125000.00),
-    ('2026-03', 1300, 450.00, 0.00)
-ON CONFLICT (month) DO NOTHING;
+    (2026, '2026-01', 1200, 450.00, 540000.00, 485000.00),
+    (2026, '2026-02', 1250, 450.00, 562500.00, 125000.00),
+    (2026, '2026-03', 1300, 450.00, 585000.00, 0.00)
+ON CONFLICT (fiscal_year, month) DO NOTHING;

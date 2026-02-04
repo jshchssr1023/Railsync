@@ -25,6 +25,7 @@ UPDATE shopping_reasons SET overrides_to_customer = TRUE
 WHERE code = 'PROJ_CUSTOMER';
 
 -- Update view to include reason cost allocation
+DROP VIEW IF EXISTS v_shopping_reasons CASCADE;
 CREATE OR REPLACE VIEW v_shopping_reasons AS
 SELECT
   r.id,
