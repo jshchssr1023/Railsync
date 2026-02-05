@@ -3,7 +3,7 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-03 by Claude Opus 4.5
+> **Last Updated:** 2026-02-05 by Claude Opus 4.6
 
 ### Completed ✅
 
@@ -14,7 +14,8 @@
 | **Analytics & BI Dashboard** | Capacity forecasting, cost analytics, operations KPIs, demand forecasting | `analytics.service.ts`, `/analytics` page | - |
 | **Shop Details Drawer** | Slide-out drawer with shop info, backlog, capabilities | `ShopInfoDrawer.tsx`, `/shops` page | - |
 | **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | `235b26e` |
-| **Invoice Processing Workflow** | InvoiceCase state machine, validation engine, attachments, audit events | `031_invoice_processing_workflow.sql`, `invoice-case.service.ts`, `invoice-validation.service.ts` | - |
+| **Invoice Processing Workflow** | InvoiceCase state machine, validation engine, attachments, audit events | `031_invoice_processing_workflow.sql`, `invoice-case.service.ts`, `invoice-validation.service.ts` | `84d1369` |
+| **Invoice Case Queue UI** | Full case creation modal (SHOP/MRU), edit mode, auto-validation, type-specific info cards, validation context display, server-side attachment validation, audit trail filtering with expandable context | `invoice-cases/page.tsx`, `invoice-cases/[id]/page.tsx` | - |
 | Contracts Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Contracts Hierarchy API | REST endpoints for hierarchy navigation | `contracts.controller.ts`, `contracts.service.ts` | `b1d369e` |
 | Contracts Hierarchy UI | Drill-down navigation with breadcrumbs | `contracts/page.tsx`, `contracts/*` components | `b1d369e` |
@@ -220,7 +221,8 @@ All features from Phase 16 and Contracts Overview UI Redesign are complete.
 - http://localhost:3000/plans - Master plan versioning
 - http://localhost:3000/reports - KPI dashboard and reports
 - http://localhost:3000/audit - Audit log viewer (admin)
-- http://localhost:3000/invoices - Invoice management (Phase 17)
+- http://localhost:3000/invoices - Invoice management (legacy BRC matching)
+- http://localhost:3000/invoice-cases - Invoice Case Queue (state machine workflow)
 - http://localhost:3000/analytics - Analytics & BI dashboard
 - http://localhost:3000/admin/users - User management (admin)
 - http://localhost:3000/settings - Notification preferences

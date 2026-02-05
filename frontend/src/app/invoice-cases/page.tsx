@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
   Loader2, Search, X, FileText, ChevronRight, Plus,
-  AlertOctagon, Inbox, UserCheck, BarChart3,
+  AlertOctagon, Inbox, UserCheck, AlertTriangle,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -47,10 +47,26 @@ interface StateBucket {
   total_amount: number;
 }
 
+interface CreateCaseForm {
+  invoice_type: 'SHOP' | 'MRU';
+  vendor_name: string;
+  shop_code: string;
+  invoice_number: string;
+  invoice_date: string;
+  total_amount: string;
+  currency: string;
+  lessee: string;
+  car_marks: string;
+  fms_shopping_id: string;
+  fms_workflow_id: string;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+const SPECIAL_LESSEES = ['EXXON', 'IMPOIL', 'MARATHON'];
 
 const WORKFLOW_STATES = [
   'RECEIVED', 'ASSIGNED', 'WAITING_ON_SHOPPING', 'WAITING_ON_CUSTOMER_APPROVAL',
@@ -101,15 +117,17 @@ const STATE_LABELS: Record<string, string> = {
   BLOCKED:                        'Blocked',
 };
 
+const EMPTY_FORM: CreateCaseForm = {
+  invoice_type: 'SHOP', vendor_name: '', shop_code: '', invoice_number: '',
+  invoice_date: '', total_amount: '', currency: 'USD', lessee: '',
+  car_marks: '', fms_shopping_id: '', fms_workflow_id: '',
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function timeAgo(dateStr: string) {
@@ -150,6 +168,8 @@ function InvoiceCasesContent() {
   const [cases, setCases] = useState<InvoiceCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateCaseForm>({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     workflow_state: searchParams.get('state') || '',
@@ -227,21 +247,43 @@ function InvoiceCasesContent() {
 
   // ---------- Actions ----------
 
+  const openCreateModal = () => {
+    setCreateForm({ ...EMPTY_FORM });
+    setShowCreateModal(true);
+  };
+
   const handleCreateCase = async () => {
     setCreating(true);
     try {
+      const body: Record<string, unknown> = {
+        invoice_type: createForm.invoice_type,
+      };
+      if (createForm.vendor_name) body.vendor_name = createForm.vendor_name;
+      if (createForm.shop_code) body.shop_code = createForm.shop_code;
+      if (createForm.invoice_number) body.invoice_number = createForm.invoice_number;
+      if (createForm.invoice_date) body.invoice_date = createForm.invoice_date;
+      if (createForm.total_amount) body.total_amount = parseFloat(createForm.total_amount);
+      if (createForm.currency !== 'USD') body.currency = createForm.currency;
+      if (createForm.lessee) body.lessee = createForm.lessee;
+      if (createForm.car_marks) {
+        body.car_marks = createForm.car_marks.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (createForm.fms_shopping_id) body.fms_shopping_id = createForm.fms_shopping_id;
+      if (createForm.fms_workflow_id) body.fms_workflow_id = createForm.fms_workflow_id;
+
       const res = await fetch(`${API_URL}/invoice-cases`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify({ invoice_type: 'SHOP' }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
 
       if (data.success && data.data?.id) {
         toast.success(`Case ${data.data.case_number} created`);
+        setShowCreateModal(false);
         router.push(`/invoice-cases/${data.data.id}`);
       } else {
         toast.error(data.error || 'Failed to create case');
@@ -271,6 +313,7 @@ function InvoiceCasesContent() {
     .reduce((sum, s) => sum + s.total_amount, 0);
 
   const hasFilters = searchTerm || filters.workflow_state || filters.invoice_type || filters.from_date || filters.to_date || filters.my_cases;
+  const isSpecialLessee = createForm.lessee && SPECIAL_LESSEES.includes(createForm.lessee.toUpperCase());
 
   // ---------- Render ----------
 
@@ -281,6 +324,9 @@ function InvoiceCasesContent() {
       </div>
     );
   }
+
+  const inputClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -297,21 +343,11 @@ function InvoiceCasesContent() {
           </div>
 
           <button
-            onClick={handleCreateCase}
-            disabled={creating}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
-            {creating ? (
-              <>
-                <Loader2 className="animate-spin h-4 w-4" aria-hidden="true" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                New Case
-              </>
-            )}
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            New Case
           </button>
         </div>
 
@@ -573,6 +609,167 @@ function InvoiceCasesContent() {
           )}
         </div>
       </div>
+
+      {/* ================================================================ */}
+      {/* CREATE CASE MODAL                                                 */}
+      {/* ================================================================ */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50" onClick={() => !creating && setShowCreateModal(false)} />
+
+          {/* Modal */}
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Create Invoice Case</h2>
+              <button
+                onClick={() => !creating && setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              {/* Invoice Type */}
+              <div>
+                <label className={labelClass}>Invoice Type *</label>
+                <div className="flex gap-4">
+                  {(['SHOP', 'MRU'] as const).map(type => (
+                    <label key={type} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="invoice_type"
+                        value={type}
+                        checked={createForm.invoice_type === type}
+                        onChange={() => setCreateForm(f => ({ ...f, invoice_type: type }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                        type === 'SHOP'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400'
+                      }`}>
+                        {type}
+                      </span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {type === 'SHOP' ? 'Shop Invoice' : 'Mobile Repair Unit'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Row 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Vendor Name</label>
+                  <input type="text" value={createForm.vendor_name} onChange={e => setCreateForm(f => ({ ...f, vendor_name: e.target.value }))} className={inputClass} placeholder="e.g. ABC Railcar Services" />
+                </div>
+                <div>
+                  <label className={labelClass}>Shop Code</label>
+                  <input type="text" value={createForm.shop_code} onChange={e => setCreateForm(f => ({ ...f, shop_code: e.target.value }))} className={inputClass} placeholder="e.g. SHOP-001" />
+                </div>
+              </div>
+
+              {/* Row 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Invoice Number</label>
+                  <input type="text" value={createForm.invoice_number} onChange={e => setCreateForm(f => ({ ...f, invoice_number: e.target.value }))} className={inputClass} placeholder="e.g. INV-2025-001" />
+                </div>
+                <div>
+                  <label className={labelClass}>Invoice Date</label>
+                  <input type="date" value={createForm.invoice_date} onChange={e => setCreateForm(f => ({ ...f, invoice_date: e.target.value }))} className={inputClass} />
+                </div>
+              </div>
+
+              {/* Row 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Total Amount</label>
+                  <input type="number" step="0.01" value={createForm.total_amount} onChange={e => setCreateForm(f => ({ ...f, total_amount: e.target.value }))} className={inputClass} placeholder="0.00" />
+                  {createForm.invoice_type === 'MRU' && createForm.total_amount && parseFloat(createForm.total_amount) > 1500 && (
+                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> &gt; $1,500 &mdash; Maintenance review will be required
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>Currency</label>
+                  <select value={createForm.currency} onChange={e => setCreateForm(f => ({ ...f, currency: e.target.value }))} className={inputClass}>
+                    <option value="USD">USD</option>
+                    <option value="CAD">CAD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Lessee */}
+              <div>
+                <label className={labelClass}>Lessee</label>
+                <input type="text" value={createForm.lessee} onChange={e => setCreateForm(f => ({ ...f, lessee: e.target.value }))} className={inputClass} placeholder="e.g. GATX" />
+                {isSpecialLessee && (
+                  <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                    Special lessee detected. Maintenance approval will be required before this case can advance past import.
+                  </div>
+                )}
+              </div>
+
+              {/* Car Marks */}
+              <div>
+                <label className={labelClass}>Car Marks (comma-separated)</label>
+                <input type="text" value={createForm.car_marks} onChange={e => setCreateForm(f => ({ ...f, car_marks: e.target.value }))} className={inputClass} placeholder="e.g. GATX 12345, UTLX 67890" />
+              </div>
+
+              {/* FMS IDs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>FMS Shopping ID</label>
+                  <input type="text" value={createForm.fms_shopping_id} onChange={e => setCreateForm(f => ({ ...f, fms_shopping_id: e.target.value }))} className={inputClass} placeholder="Optional" />
+                  {createForm.invoice_type === 'MRU' && createForm.fms_shopping_id && (
+                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> MRU with FMS Shopping will be treated as SHOP
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>FMS Workflow ID</label>
+                  <input type="text" value={createForm.fms_workflow_id} onChange={e => setCreateForm(f => ({ ...f, fms_workflow_id: e.target.value }))} className={inputClass} placeholder="Optional" />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                disabled={creating}
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateCase}
+                disabled={creating}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {creating ? (
+                  <>
+                    <Loader2 className="animate-spin h-4 w-4" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Create Case
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
