@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { FetchError } from '@/components/ErrorBoundary';
+import { useToast } from '@/components/Toast';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -57,6 +58,7 @@ const PRIORITY_LABELS: Record<number, string> = {
 export default function AssignmentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const toast = useToast();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export default function AssignmentDetailPage() {
       setShowAddOption(false);
       fetchAssignment();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to add option');
+      toast.error(err instanceof Error ? err.message : 'Failed to add option');
     }
   };
 
@@ -114,7 +116,7 @@ export default function AssignmentDetailPage() {
       });
       fetchAssignment();
     } catch (err) {
-      alert('Failed to update option');
+      toast.error('Failed to update option');
     }
   };
 

@@ -188,6 +188,15 @@ export default function DashboardPage() {
   const [costExceptions, setCostExceptions] = useState<CostException[]>([]);
   const [expiryForecast, setExpiryForecast] = useState<ExpiryItem[]>([]);
   const [budgetBurn, setBudgetBurn] = useState<BudgetBurn | null>(null);
+  const [projectPlanning, setProjectPlanning] = useState<{
+    active_projects: number;
+    total_cars: number;
+    planned_cars: number;
+    locked_cars: number;
+    completed_cars: number;
+    unplanned_cars: number;
+    total_estimated_cost: number;
+  } | null>(null);
 
   const getToken = () => localStorage.getItem('railsync_access_token');
 
@@ -215,6 +224,7 @@ export default function DashboardPage() {
         fetchWithAuth('/dashboard/high-cost-exceptions?threshold=10'),
         fetchWithAuth('/dashboard/expiry-forecast'),
         fetchWithAuth(`/dashboard/budget-burn?fiscal_year=${new Date().getFullYear()}`),
+        fetchWithAuth('/dashboard/project-planning'),
       ]);
 
       const getValue = (r: PromiseSettledResult<any>) =>
@@ -230,6 +240,7 @@ export default function DashboardPage() {
       setCostExceptions(getValue(results[7]) || []);
       setExpiryForecast(getValue(results[8]) || []);
       setBudgetBurn(getValue(results[9]));
+      setProjectPlanning(getValue(results[10]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -355,6 +366,99 @@ export default function DashboardPage() {
               </p>
               <p className="text-xs text-gray-400 mt-1">Awaiting assignment</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================== */}
+      {/* ROW 1b: Project Planning Summary */}
+      {/* ================================================================== */}
+      {projectPlanning && Number(projectPlanning.active_projects) > 0 && (
+        <div className="card">
+          <div className="card-header flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Project Planning</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {projectPlanning.active_projects} active project{Number(projectPlanning.active_projects) !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <a
+              href="/projects"
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+            >
+              View Projects
+            </a>
+          </div>
+          <div className="card-body">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {formatNumber(Number(projectPlanning.total_cars))}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Total Cars</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                <p className="text-2xl font-bold text-gray-400">
+                  {formatNumber(Number(projectPlanning.unplanned_cars))}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Unplanned</p>
+              </div>
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {formatNumber(Number(projectPlanning.planned_cars))}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Planned</p>
+              </div>
+              <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                  {formatNumber(Number(projectPlanning.locked_cars))}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Locked</p>
+              </div>
+              <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatNumber(Number(projectPlanning.completed_cars))}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Complete</p>
+              </div>
+            </div>
+            {/* Progress bar */}
+            {Number(projectPlanning.total_cars) > 0 && (
+              <div className="mt-4">
+                <div className="flex h-3 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  {Number(projectPlanning.completed_cars) > 0 && (
+                    <div
+                      className="bg-green-500"
+                      style={{ width: `${(Number(projectPlanning.completed_cars) / Number(projectPlanning.total_cars)) * 100}%` }}
+                      title={`Complete: ${projectPlanning.completed_cars}`}
+                    />
+                  )}
+                  {Number(projectPlanning.locked_cars) > 0 && (
+                    <div
+                      className="bg-indigo-500"
+                      style={{ width: `${(Number(projectPlanning.locked_cars) / Number(projectPlanning.total_cars)) * 100}%` }}
+                      title={`Locked: ${projectPlanning.locked_cars}`}
+                    />
+                  )}
+                  {Number(projectPlanning.planned_cars) > 0 && (
+                    <div
+                      className="bg-blue-400"
+                      style={{ width: `${(Number(projectPlanning.planned_cars) / Number(projectPlanning.total_cars)) * 100}%` }}
+                      title={`Planned: ${projectPlanning.planned_cars}`}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-400">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 inline-block rounded-sm" /> Complete</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-indigo-500 inline-block rounded-sm" /> Locked</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-400 inline-block rounded-sm" /> Planned</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-gray-200 dark:bg-gray-600 inline-block rounded-sm" /> Unplanned</span>
+                  {Number(projectPlanning.total_estimated_cost) > 0 && (
+                    <span className="ml-auto">Est. Cost: {formatCurrency(Number(projectPlanning.total_estimated_cost))}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

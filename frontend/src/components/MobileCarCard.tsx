@@ -57,7 +57,11 @@ export default function MobileCarCard({
   return (
     <div
       onClick={onClick}
-      className={`mobile-card ${onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700/50' : ''}`}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `View details for car ${carNumber}` : undefined}
+      className={`mobile-card ${onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900' : ''}`}
     >
       {/* Header Row */}
       <div className="flex items-start justify-between mb-3">

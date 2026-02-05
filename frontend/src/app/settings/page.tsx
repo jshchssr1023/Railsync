@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
 
 interface NotificationPreferences {
   user_id: string;
@@ -9,6 +10,8 @@ interface NotificationPreferences {
   email_capacity_warnings: boolean;
   email_allocation_updates: boolean;
   email_daily_digest: boolean;
+  email_project_lock_changes: boolean;
+  email_project_bundling_alerts: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -66,6 +69,8 @@ export default function SettingsPage() {
           email_capacity_warnings: preferences.email_capacity_warnings,
           email_allocation_updates: preferences.email_allocation_updates,
           email_daily_digest: preferences.email_daily_digest,
+          email_project_lock_changes: preferences.email_project_lock_changes,
+          email_project_bundling_alerts: preferences.email_project_bundling_alerts,
         }),
       });
 
@@ -209,6 +214,44 @@ export default function SettingsPage() {
                 </div>
               </label>
 
+              {/* Project Lock Changes */}
+              <label className="flex items-start gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <input
+                  type="checkbox"
+                  checked={preferences.email_project_lock_changes}
+                  onChange={() => handleToggle('email_project_lock_changes')}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔒</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Project Lock Changes</span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Get notified when a project plan is relocked (shop or month changed after commitment)
+                  </p>
+                </div>
+              </label>
+
+              {/* Project Bundling Alerts */}
+              <label className="flex items-start gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <input
+                  type="checkbox"
+                  checked={preferences.email_project_bundling_alerts}
+                  onChange={() => handleToggle('email_project_bundling_alerts')}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🔗</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Project Bundling Alerts</span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Get notified when a project car arrives at a shop with an opportunity to bundle work
+                  </p>
+                </div>
+              </label>
+
               {/* Save Button */}
               <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                 {message && (
@@ -238,6 +281,7 @@ export default function SettingsPage() {
 }
 
 function EmailQueueStatus() {
+  const toast = useToast();
   const [status, setStatus] = useState<{ pending: number; sent_today: number; failed_today: number } | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -266,7 +310,7 @@ function EmailQueueStatus() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Processed ${data.data.sent} emails, ${data.data.failed} failed`);
+        toast.success(`Processed ${data.data.sent} emails, ${data.data.failed} failed`);
         fetchStatus();
       }
     } catch (err) {

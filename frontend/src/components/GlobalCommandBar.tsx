@@ -174,14 +174,14 @@ export default function GlobalCommandBar() {
                   className="flex-1 px-4 py-4 text-gray-900 dark:text-gray-100 bg-transparent outline-none placeholder-gray-400 dark:placeholder-gray-500"
                 />
                 {query && (
-                  <button onClick={() => setQuery('')} className="p-2 mr-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+                  <button onClick={() => setQuery('')} className="p-2 mr-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" aria-label="Clear search">
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
                 )}
               </div>
 
               {/* Results */}
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto" aria-busy={loading}>
                 {loading ? (
                   <div className="px-4 py-8 text-center text-gray-500">Searching...</div>
                 ) : results.length > 0 ? (

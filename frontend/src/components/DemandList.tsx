@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Demand, DemandStatus, DemandPriority, EventType } from '@/types';
 import { listDemands, createDemand, updateDemand, deleteDemand } from '@/lib/api';
+import ConfirmDialog from './ConfirmDialog';
 import DemandImportModal from './DemandImportModal';
 
 interface DemandListProps {
@@ -35,6 +36,7 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterMonth, setFilterMonth] = useState<string>('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const currentYear = fiscalYear || new Date().getFullYear();
 
@@ -60,7 +62,6 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
   }, [fetchDemands]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this demand?')) return;
     try {
       await deleteDemand(id);
       fetchDemands();
@@ -207,7 +208,7 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(demand.id);
+                            setDeleteConfirmId(demand.id);
                           }}
                           className="p-1 text-gray-500 hover:text-danger-600"
                           title="Delete"
@@ -223,6 +224,22 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
           </div>
         )}
       </div>
+
+      {/* Delete Demand Confirmation */}
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        title="Delete Demand"
+        description="Are you sure you want to delete this demand? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteConfirmId) {
+            handleDelete(deleteConfirmId);
+          }
+          setDeleteConfirmId(null);
+        }}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
 
       {/* Form Modal */}
       {showForm && (

@@ -7,6 +7,7 @@ import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -75,6 +76,7 @@ function BudgetContent() {
   const [seSegmentFilter, setSeSegmentFilter] = useState('All');
   const [newSE, setNewSE] = useState({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const authHeaders = () => {
     const token = getAccessToken();
@@ -228,7 +230,6 @@ function BudgetContent() {
 
   // Delete service event budget
   const handleDeleteServiceEvent = async (id: string) => {
-    if (!confirm('Delete this service event budget?')) return;
     setSaveError(null);
     try {
       const res = await fetch(`${API_URL}/budget/service-events/${id}`, {
@@ -490,7 +491,7 @@ function BudgetContent() {
                       onEdit={() => setEditingSE(se.id)}
                       onCancel={() => setEditingSE(null)}
                       onSave={(data) => handleUpdateServiceEvent(se.id, data)}
-                      onDelete={() => handleDeleteServiceEvent(se.id)}
+                      onDelete={() => setDeleteConfirmId(se.id)}
                       formatCurrency={formatCurrency}
                     />
                   ))}
@@ -539,6 +540,22 @@ function BudgetContent() {
           )}
         </div>
       )}
+
+      {/* Delete Service Event Confirmation */}
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        title="Delete Service Event Budget"
+        description="Are you sure you want to delete this service event budget? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteConfirmId) {
+            handleDeleteServiceEvent(deleteConfirmId);
+          }
+          setDeleteConfirmId(null);
+        }}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
 
       {/* Add Service Event Modal */}
       {showAddModal && (

@@ -46,8 +46,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Something went wrong
           </h3>
           <p className="text-sm text-red-600 dark:text-red-300 mb-4 text-center max-w-md">
-            {this.state.error?.message || 'An unexpected error occurred'}
+            Something went wrong. Please try again or refresh the page.
           </p>
+          {process.env.NODE_ENV === 'development' && this.state.error?.message && (
+            <details className="text-xs text-red-500 dark:text-red-400 mb-4 max-w-md w-full">
+              <summary className="cursor-pointer">Error details (dev only)</summary>
+              <pre className="mt-1 p-2 bg-red-100 dark:bg-red-900/30 rounded text-left overflow-auto max-h-32">
+                {this.state.error.message}
+              </pre>
+            </details>
+          )}
           <button
             onClick={this.handleRetry}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center gap-2"

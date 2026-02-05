@@ -50,7 +50,11 @@ export default function MobileShopCard({
   return (
     <div
       onClick={onClick}
-      className={`mobile-card ${onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700/50' : ''}`}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `View details for shop ${shopName}` : undefined}
+      className={`mobile-card ${onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900' : ''}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
@@ -84,7 +88,7 @@ export default function MobileShopCard({
       </div>
 
       {/* Details */}
-      <div className="grid grid-cols-3 gap-2 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
         {region && (
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Region</div>

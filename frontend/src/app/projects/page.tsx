@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import ProjectPlanView from '@/components/ProjectPlanView';
 import LockConfirmationModal from '@/components/LockConfirmationModal';
 import RelockDialog from '@/components/RelockDialog';
@@ -89,7 +91,20 @@ const DEADLINE_COLORS: Record<string, string> = {
 };
 
 export default function ProjectsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+      </div>
+    }>
+      <ProjectsContent />
+    </Suspense>
+  );
+}
+
+function ProjectsContent() {
   const { getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,6 +130,7 @@ export default function ProjectsPage() {
   const [cancelTarget, setCancelTarget] = useState<ProjectAssignment | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   // Communications tab state
   const [communications, setCommunications] = useState<ProjectCommunication[]>([]);
@@ -197,6 +213,21 @@ export default function ProjectsPage() {
     };
     load();
   }, [fetchProjects, fetchSummary]);
+
+  // Handle URL params (from "Plan to Project" link on Planning page)
+  useEffect(() => {
+    const projectParam = searchParams.get('project');
+    const tabParam = searchParams.get('tab');
+    if (projectParam && projects.length > 0 && !selectedProject) {
+      const match = projects.find(p => p.id === projectParam);
+      if (match) {
+        fetchProjectDetails(match.id);
+        if (tabParam === 'plan' || tabParam === 'communications' || tabParam === 'history') {
+          setActiveTab(tabParam as DetailTab);
+        }
+      }
+    }
+  }, [searchParams, projects, selectedProject]);
 
   const getTypeColor = (type: string) => {
     return PROJECT_TYPES.find(t => t.value === type)?.color || PROJECT_TYPES[5].color;
@@ -312,7 +343,6 @@ export default function ProjectsPage() {
 
   const handleCompleteProject = async () => {
     if (!selectedProject) return;
-    if (!confirm('Complete this project? All pending cars will be marked as completed.')) return;
     try {
       const res = await fetch(`${API_URL}/projects/${selectedProject.id}/complete`, {
         method: 'POST',
@@ -864,7 +894,7 @@ export default function ProjectsPage() {
                         + Add Cars
                       </button>
                       <button
-                        onClick={handleCompleteProject}
+                        onClick={() => setShowCompleteConfirm(true)}
                         className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                       >
                         Complete Project
@@ -994,6 +1024,20 @@ export default function ProjectsPage() {
             </div>
           </div>
         )}
+
+        {/* Complete Project Confirmation */}
+        <ConfirmDialog
+          open={showCompleteConfirm}
+          title="Complete Project"
+          description="All pending cars will be marked as completed. This action cannot be undone."
+          confirmLabel="Complete Project"
+          variant="warning"
+          onConfirm={() => {
+            setShowCompleteConfirm(false);
+            handleCompleteProject();
+          }}
+          onCancel={() => setShowCompleteConfirm(false)}
+        />
 
         {/* Create Project Modal */}
         {showCreateModal && (

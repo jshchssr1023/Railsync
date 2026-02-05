@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, FileText, ChevronRight } from 'lucide-react';
 import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents } from '@/lib/api';
 import { ShoppingEvent, ShoppingEventState } from '@/types';
+import { useToast } from '@/components/Toast';
 
 // ---------------------------------------------------------------------------
 // State color mapping
@@ -79,6 +80,7 @@ export default function ShoppingPage() {
 function ShoppingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   // --- Data state ---
   const [events, setEvents] = useState<ShoppingEvent[]>([]);
@@ -195,7 +197,7 @@ function ShoppingContent() {
       setShowCreateForm(false);
       fetchEvents();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create shopping event');
+      toast.error(err instanceof Error ? err.message : 'Failed to create shopping event');
     } finally {
       setCreating(false);
     }
@@ -214,7 +216,7 @@ function ShoppingContent() {
         .filter(c => c.length > 0);
 
       if (carNumbers.length === 0) {
-        alert('Please enter at least one car number');
+        toast.warning('Please enter at least one car number');
         setBatchCreating(false);
         return;
       }
@@ -235,7 +237,7 @@ function ShoppingContent() {
       setShowBatchForm(false);
       fetchEvents();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create batch shopping events');
+      toast.error(err instanceof Error ? err.message : 'Failed to create batch shopping events');
     } finally {
       setBatchCreating(false);
     }

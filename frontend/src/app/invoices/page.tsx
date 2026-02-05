@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
 import { Loader2, Upload, Search, X, FileText, ChevronRight } from 'lucide-react';
 
 // Debounce hook for search
@@ -82,6 +83,7 @@ function InvoicesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,11 +194,11 @@ function InvoicesContent() {
         fetchQueueStats();
         router.push(`/invoices/${data.invoice.id}`);
       } else {
-        alert(data.error || 'Upload failed');
+        toast.error(data.error || 'Upload failed');
       }
     } catch (err) {
       console.error('Upload failed:', err);
-      alert('Failed to upload invoice');
+      toast.error('Failed to upload invoice');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

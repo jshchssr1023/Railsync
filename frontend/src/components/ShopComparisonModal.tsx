@@ -22,8 +22,8 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
   const getValueClass = (values: number[], current: number, lowerIsBetter: boolean) => {
     const best = lowerIsBetter ? Math.min(...values) : Math.max(...values);
     const worst = lowerIsBetter ? Math.max(...values) : Math.min(...values);
-    if (current === best) return 'text-green-600 font-semibold';
-    if (current === worst && values.length > 2) return 'text-red-600';
+    if (current === best) return 'text-green-600 dark:text-green-400 font-semibold';
+    if (current === worst && values.length > 2) return 'text-red-600 dark:text-red-400';
     return '';
   };
 
@@ -38,13 +38,14 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
 
       {/* Modal */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+        <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden" role="dialog" aria-modal="true" aria-label="Shop Comparison">
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Shop Comparison</h2>
+          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Shop Comparison</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              aria-label="Close shop comparison"
             >
               <X className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -52,13 +53,13 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
 
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6">
-            <div className={`grid gap-6 ${shops.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+            <div className={`grid gap-6 grid-cols-1 ${shops.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
               {shops.map((shop) => (
-                <div key={shop.shop.shop_code} className="border rounded-lg overflow-hidden">
+                <div key={shop.shop.shop_code} className="border dark:border-gray-700 rounded-lg overflow-hidden">
                   {/* Shop Header */}
-                  <div className={`p-4 ${shop.is_eligible ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <h3 className="font-bold text-lg">{shop.shop.shop_name}</h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className={`p-4 ${shop.is_eligible ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">{shop.shop.shop_name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <span>{shop.shop.shop_code}</span>
                       <span>|</span>
                       <span>{shop.shop.primary_railroad}</span>
@@ -70,71 +71,71 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
                     </div>
                     <div className="mt-2">
                       {shop.is_eligible ? (
-                        <span className="text-green-700 text-sm font-medium">Eligible</span>
+                        <span className="text-green-700 dark:text-green-400 text-sm font-medium">Eligible</span>
                       ) : (
-                        <span className="text-red-700 text-sm font-medium">Not Eligible</span>
+                        <span className="text-red-700 dark:text-red-400 text-sm font-medium">Not Eligible</span>
                       )}
                     </div>
                   </div>
 
                   {/* Cost Section */}
-                  <div className="p-4 border-b">
-                    <h4 className="font-semibold text-gray-700 mb-3">Cost Breakdown</h4>
+                  <div className="p-4 border-b dark:border-gray-700">
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Cost Breakdown</h4>
                     <div className={`text-2xl font-bold mb-3 ${getValueClass(costValues, shop.cost_breakdown.total_cost, true)}`}>
                       {formatCurrency(shop.cost_breakdown.total_cost)}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Labor</span>
+                        <span className="text-gray-500 dark:text-gray-400">Labor</span>
                         <span>{formatCurrency(shop.cost_breakdown.labor_cost)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Material</span>
+                        <span className="text-gray-500 dark:text-gray-400">Material</span>
                         <span>{formatCurrency(shop.cost_breakdown.material_cost)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Abatement</span>
+                        <span className="text-gray-500 dark:text-gray-400">Abatement</span>
                         <span>{formatCurrency(shop.cost_breakdown.abatement_cost)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Freight</span>
+                        <span className="text-gray-500 dark:text-gray-400">Freight</span>
                         <span>{formatCurrency(shop.cost_breakdown.freight_cost)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Capacity Section */}
-                  <div className="p-4 border-b">
-                    <h4 className="font-semibold text-gray-700 mb-3">Capacity</h4>
+                  <div className="p-4 border-b dark:border-gray-700">
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Capacity</h4>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
                         <div className={`text-xl font-bold ${getValueClass(backlogValues, shop.backlog.hours_backlog, true)}`}>
                           {Number(shop.backlog.hours_backlog || 0).toFixed(0)}
                         </div>
-                        <div className="text-xs text-gray-500">Hours Backlog</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Hours Backlog</div>
                       </div>
-                      <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
                         <div className="text-xl font-bold">{shop.backlog.cars_backlog}</div>
-                        <div className="text-xs text-gray-500">Cars Backlog</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Cars Backlog</div>
                       </div>
-                      <div className="text-center p-2 bg-blue-50 rounded">
+                      <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                         <div className={`text-xl font-bold ${getValueClass(enRouteValues, shop.backlog.cars_en_route_0_6, true)}`}>
                           {shop.backlog.cars_en_route_0_6}
                         </div>
-                        <div className="text-xs text-gray-500">En Route 0-6</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">En Route 0-6</div>
                       </div>
-                      <div className="text-center p-2 bg-blue-50 rounded">
+                      <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                         <div className="text-xl font-bold">{shop.backlog.cars_en_route_7_14}</div>
-                        <div className="text-xs text-gray-500">En Route 7-14</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">En Route 7-14</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 mt-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Weekly In</span>
+                        <span className="text-gray-500 dark:text-gray-400">Weekly In</span>
                         <span className="font-medium text-blue-600">{shop.backlog.weekly_inbound}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Weekly Out</span>
+                        <span className="text-gray-500 dark:text-gray-400">Weekly Out</span>
                         <span className="font-medium text-green-600">{shop.backlog.weekly_outbound}</span>
                       </div>
                     </div>
@@ -142,13 +143,13 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
 
                   {/* Hours by Type */}
                   {shop.hours_by_type && (
-                    <div className="p-4 border-b">
-                      <h4 className="font-semibold text-gray-700 mb-3">Est. Hours by Type</h4>
+                    <div className="p-4 border-b dark:border-gray-700">
+                      <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Est. Hours by Type</h4>
                       <div className="space-y-1 text-sm">
                         {Object.entries(shop.hours_by_type).map(([type, hours]) => (
                           hours > 0 && (
                             <div key={type} className="flex justify-between">
-                              <span className="text-gray-500 capitalize">{type}</span>
+                              <span className="text-gray-500 dark:text-gray-400 capitalize">{type}</span>
                               <span>{hours}h</span>
                             </div>
                           )
@@ -159,7 +160,7 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
 
                   {/* Rules Summary */}
                   <div className="p-4">
-                    <h4 className="font-semibold text-gray-700 mb-3">Rules Summary</h4>
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Rules Summary</h4>
                     {shop.rules ? (
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -192,7 +193,7 @@ export default function ShopComparisonModal({ shops, onClose }: ShopComparisonMo
             </div>
 
             {/* Legend */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="flex items-center justify-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 bg-green-500 rounded-full"></span>

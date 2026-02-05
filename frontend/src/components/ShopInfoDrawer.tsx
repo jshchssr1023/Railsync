@@ -127,6 +127,9 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
 
       {/* Drawer */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Shop details for ${shop.shop_name}`}
         className={`fixed right-0 top-0 h-full w-full max-w-lg bg-white dark:bg-gray-900 shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
@@ -149,6 +152,7 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            aria-label="Close shop info"
           >
             <X className="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
           </button>
@@ -157,13 +161,13 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
         {/* Content */}
         <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-4 space-y-6">
           {loading && (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-12" role="status" aria-label="Loading shop details">
               <Loader2 className="animate-spin h-8 w-8 text-primary-600" aria-hidden="true" />
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+            <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}

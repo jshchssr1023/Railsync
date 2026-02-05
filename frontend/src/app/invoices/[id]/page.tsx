@@ -3,6 +3,8 @@
 import { useState, useEffect, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   AlertTriangle,
   CheckCircle,
@@ -213,6 +215,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showRematchConfirm, setShowRematchConfirm] = useState(false);
+  const [showDeleteAttachmentConfirm, setShowDeleteAttachmentConfirm] = useState(false);
+  const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
+  const toast = useToast();
 
   const getToken = () => getAccessToken() || localStorage.getItem('railsync_access_token');
 
@@ -318,8 +325,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   // ==============================================================================
 
   const handleApprove = async () => {
-    if (!confirm('Are you sure you want to approve this invoice?')) return;
+    setShowApproveConfirm(true);
+  };
 
+  const executeApprove = async () => {
+    setShowApproveConfirm(false);
     setApproving(true);
     try {
       const res = await fetch(`${API_URL}/invoices/${id}/approve`, {
@@ -334,13 +344,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
       if (data.id) {
         fetchComparison();
-        alert('Invoice approved successfully');
+        toast.success('Invoice approved successfully');
       } else {
-        alert(data.error || 'Failed to approve invoice');
+        toast.error(data.error || 'Failed to approve invoice');
       }
     } catch (err) {
       console.error('Approval failed:', err);
-      alert('Failed to approve invoice');
+      toast.error('Failed to approve invoice');
     } finally {
       setApproving(false);
     }
@@ -348,7 +358,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      alert('Please provide a rejection reason');
+      toast.error('Please provide a rejection reason');
       return;
     }
 
@@ -368,21 +378,24 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         setShowRejectModal(false);
         setRejectReason('');
         fetchComparison();
-        alert('Invoice rejected');
+        toast.success('Invoice rejected');
       } else {
-        alert(data.error || 'Failed to reject invoice');
+        toast.error(data.error || 'Failed to reject invoice');
       }
     } catch (err) {
       console.error('Rejection failed:', err);
-      alert('Failed to reject invoice');
+      toast.error('Failed to reject invoice');
     } finally {
       setRejecting(false);
     }
   };
 
   const handleRematch = async () => {
-    if (!confirm('Re-run matching against BRC data?')) return;
+    setShowRematchConfirm(true);
+  };
 
+  const executeRematch = async () => {
+    setShowRematchConfirm(false);
     setRematching(true);
     try {
       const res = await fetch(`${API_URL}/invoices/${id}/rematch`, {
@@ -396,13 +409,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
       if (data.invoice) {
         fetchComparison();
-        alert('Matching complete');
+        toast.success('Matching complete');
       } else {
-        alert(data.error || 'Matching failed');
+        toast.error(data.error || 'Matching failed');
       }
     } catch (err) {
       console.error('Rematch failed:', err);
-      alert('Failed to rematch');
+      toast.error('Failed to rematch');
     } finally {
       setRematching(false);
     }
@@ -429,11 +442,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         setValidation(null);
       } else {
         setValidation(data.validation);
-        alert(data.error || 'Transition blocked');
+        toast.error(data.error || 'Transition blocked');
       }
     } catch (err) {
       console.error('Transition failed:', err);
-      alert('Failed to transition state');
+      toast.error('Failed to transition state');
     } finally {
       setTransitioning(false);
     }
@@ -458,22 +471,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       if (data.success) {
         fetchAttachments();
       } else {
-        alert(data.error || 'Upload failed');
+        toast.error(data.error || 'Upload failed');
       }
     } catch (err) {
       console.error('Upload failed:', err);
-      alert('Failed to upload file');
+      toast.error('Failed to upload file');
     } finally {
       setUploadingFile(false);
       event.target.value = '';
     }
   };
 
-  const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!invoiceCase || !confirm('Delete this attachment?')) return;
+  const handleDeleteAttachment = (attachmentId: string) => {
+    if (!invoiceCase) return;
+    setPendingDeleteAttachmentId(attachmentId);
+    setShowDeleteAttachmentConfirm(true);
+  };
+
+  const executeDeleteAttachment = async () => {
+    setShowDeleteAttachmentConfirm(false);
+    if (!invoiceCase || !pendingDeleteAttachmentId) return;
 
     try {
-      const res = await fetch(`${API_URL}/invoice-cases/${invoiceCase.id}/attachments/${attachmentId}`, {
+      const res = await fetch(`${API_URL}/invoice-cases/${invoiceCase.id}/attachments/${pendingDeleteAttachmentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${getToken()}` },
       });
@@ -484,6 +504,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       }
     } catch (err) {
       console.error('Delete failed:', err);
+    } finally {
+      setPendingDeleteAttachmentId(null);
     }
   };
 
@@ -927,6 +949,44 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       )}
+
+      {/* Approve Confirm Dialog */}
+      <ConfirmDialog
+        open={showApproveConfirm}
+        onConfirm={executeApprove}
+        onCancel={() => setShowApproveConfirm(false)}
+        title="Approve Invoice"
+        description="Are you sure you want to approve this invoice?"
+        confirmLabel="Approve"
+        variant="default"
+        loading={approving}
+      />
+
+      {/* Rematch Confirm Dialog */}
+      <ConfirmDialog
+        open={showRematchConfirm}
+        onConfirm={executeRematch}
+        onCancel={() => setShowRematchConfirm(false)}
+        title="Re-run Matching"
+        description="Re-run matching against BRC data?"
+        confirmLabel="Re-Match"
+        variant="warning"
+        loading={rematching}
+      />
+
+      {/* Delete Attachment Confirm Dialog */}
+      <ConfirmDialog
+        open={showDeleteAttachmentConfirm}
+        onConfirm={executeDeleteAttachment}
+        onCancel={() => {
+          setShowDeleteAttachmentConfirm(false);
+          setPendingDeleteAttachmentId(null);
+        }}
+        title="Delete Attachment"
+        description="Delete this attachment? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+      />
 
       {/* Reject Modal */}
       {showRejectModal && (

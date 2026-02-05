@@ -76,7 +76,7 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onCancel} aria-hidden="true" />
 
@@ -103,7 +103,7 @@ export default function ConfirmDialog({
                   {title}
                 </h3>
                 {description && (
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <p id="confirm-dialog-description" className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     {description}
                   </p>
                 )}

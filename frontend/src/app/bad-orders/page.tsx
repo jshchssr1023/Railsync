@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { listBadOrders, createBadOrder, resolveBadOrder, BadOrderReport } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
+import { useToast } from '@/components/Toast';
 
 const SEVERITY_COLORS = {
   critical: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
@@ -29,6 +30,7 @@ export default function BadOrdersPage() {
 
 function BadOrdersContent() {
   const searchParams = useSearchParams();
+  const toast = useToast();
   const [reports, setReports] = useState<BadOrderReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ function BadOrdersContent() {
       setShowForm(false);
       fetchReports();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create report');
+      toast.error(err instanceof Error ? err.message : 'Failed to create report');
     }
   };
 
@@ -88,7 +90,7 @@ function BadOrdersContent() {
       await resolveBadOrder(id, action);
       fetchReports();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to resolve');
+      toast.error(err instanceof Error ? err.message : 'Failed to resolve');
     }
   };
 

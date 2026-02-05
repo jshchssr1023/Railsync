@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ShopMonthlyCapacity } from '@/types';
 import { getCapacity, initializeCapacity, getCapacityCars, CapacityCar } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/components/Toast';
 import { useCapacityEvents, CapacityChangeEvent, ConnectionStatus } from '@/hooks/useCapacityEvents';
 
 interface CapacityGridProps {
@@ -25,11 +27,13 @@ export default function CapacityGrid({
   startMonth,
   months = 12
 }: CapacityGridProps) {
+  const toast = useToast();
   const [capacityData, setCapacityData] = useState<ShopMonthlyCapacity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
   const [networkFilter, setNetworkFilter] = useState<string>('');
+  const [showInitConfirm, setShowInitConfirm] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false,
     shopCode: '',
@@ -148,11 +152,10 @@ export default function CapacityGrid({
   }, [fetchCapacity]);
 
   const handleInitialize = async () => {
-    if (!confirm('Initialize capacity for all shops for the next 18 months?')) return;
     setInitializing(true);
     try {
       const result = await initializeCapacity(20);
-      alert(`Initialized ${result.count} capacity records`);
+      toast.success(`Initialized ${result.count} capacity records`);
       fetchCapacity();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize capacity');
@@ -304,7 +307,7 @@ export default function CapacityGrid({
             <option value="Primary">Primary</option>
           </select>
           <button
-            onClick={handleInitialize}
+            onClick={() => setShowInitConfirm(true)}
             disabled={initializing}
             className="btn btn-secondary text-sm py-1.5"
           >
@@ -312,6 +315,20 @@ export default function CapacityGrid({
           </button>
         </div>
       </div>
+
+      {/* Initialize Capacity Confirmation */}
+      <ConfirmDialog
+        open={showInitConfirm}
+        title="Initialize Capacity"
+        description="Initialize capacity for all shops for the next 18 months? This will create capacity records where they do not already exist."
+        confirmLabel="Initialize"
+        variant="warning"
+        onConfirm={() => {
+          setShowInitConfirm(false);
+          handleInitialize();
+        }}
+        onCancel={() => setShowInitConfirm(false)}
+      />
 
       {/* Error with Retry */}
       {error && (

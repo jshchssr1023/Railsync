@@ -6,7 +6,7 @@
 // Skeleton for dashboard-style pages with stat cards and tables
 export function DashboardSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
+    <div className="animate-pulse space-y-6" role="status" aria-label="Loading dashboard">
       <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map(i => (
@@ -25,7 +25,7 @@ export function DashboardSkeleton() {
 // Skeleton for list/table pages
 export function ListSkeleton() {
   return (
-    <div className="animate-pulse space-y-4">
+    <div className="animate-pulse space-y-4" role="status" aria-label="Loading list">
       <div className="flex justify-between items-center">
         <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48" />
         <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32" />
@@ -52,7 +52,7 @@ export function ListSkeleton() {
 // Skeleton for detail pages
 export function DetailSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
+    <div className="animate-pulse space-y-6" role="status" aria-label="Loading details">
       <div className="flex items-center gap-3">
         <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16" />
         <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48" />
@@ -74,7 +74,7 @@ export function DetailSkeleton() {
 // Skeleton for form/settings pages
 export function FormSkeleton() {
   return (
-    <div className="animate-pulse space-y-6 max-w-2xl">
+    <div className="animate-pulse space-y-6 max-w-2xl" role="status" aria-label="Loading form">
       <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48" />
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
         {[1, 2, 3, 4].map(i => (

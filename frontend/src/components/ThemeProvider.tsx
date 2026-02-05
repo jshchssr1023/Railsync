@@ -31,9 +31,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   useEffect(() => {
     // Load saved theme
-    const saved = localStorage.getItem('railsync_theme') as Theme;
-    if (saved) {
-      setThemeState(saved);
+    try {
+      const saved = localStorage.getItem('railsync_theme') as Theme;
+      if (saved) {
+        setThemeState(saved);
+      }
+    } catch {
+      // localStorage may be unavailable (e.g. private browsing, SSR)
     }
   }, []);
 
@@ -64,7 +68,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('railsync_theme', newTheme);
+    try {
+      localStorage.setItem('railsync_theme', newTheme);
+    } catch {
+      // localStorage may be unavailable (e.g. private browsing, SSR)
+    }
   };
 
   return (
@@ -82,6 +90,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       className="p-2 rounded-md hover:bg-primary-600 dark:hover:bg-gray-700 transition-colors"
       title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+      aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
     >
       {resolvedTheme === 'dark' ? (
         <Sun className="w-5 h-5" />

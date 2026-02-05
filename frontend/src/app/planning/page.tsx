@@ -55,6 +55,7 @@ function PlanningContent() {
   const [conflict, setConflict] = useState<AssignmentConflict | null>(null);
   const [showCarDetail, setShowCarDetail] = useState<string | null>(null);
   const [projectAlert, setProjectAlert] = useState<{
+    project_id: string;
     project_number: string;
     project_name: string;
     scope_of_work: string;
@@ -100,6 +101,7 @@ function PlanningContent() {
           );
           if (active) {
             setProjectAlert({
+              project_id: active.project_id || active.id,
               project_number: active.project_number,
               project_name: active.project_name,
               scope_of_work: active.scope_of_work || '',
@@ -386,7 +388,7 @@ function PlanningContent() {
                           </p>
                           <div className="flex gap-2 mt-2">
                             <a
-                              href="/projects"
+                              href={`/projects?project=${projectAlert.project_id}&tab=plan&car=${car?.car_number || ''}`}
                               className="inline-block px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
                             >
                               Plan to Project

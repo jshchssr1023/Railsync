@@ -185,9 +185,15 @@ export default function Sidebar() {
     if (!expanded) setExpanded(true);
   };
 
+  const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => {
-    await logout();
-    setShowUserMenu(false);
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+      setShowUserMenu(false);
+    }
   };
 
   const isAdmin = user?.role === 'admin';
@@ -349,7 +355,7 @@ export default function Sidebar() {
               aria-expanded={showUserMenu}
             >
               <div className="w-8 h-8 rounded-full bg-primary-500 dark:bg-primary-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                {user?.first_name?.[0]}{user?.last_name?.[0]}
+                {user?.first_name?.[0] || user?.last_name?.[0] || 'U'}{user?.last_name?.[0] || ''}
               </div>
               {(expanded || isMobile) && (
                 <div className="flex-1 text-left min-w-0">
@@ -383,11 +389,12 @@ export default function Sidebar() {
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    disabled={loggingOut}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50"
                     role="menuitem"
                   >
                     <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-                    Sign out
+                    {loggingOut ? 'Signing out...' : 'Sign out'}
                   </button>
                 </div>
               </>
@@ -427,7 +434,7 @@ export default function Sidebar() {
         <button
           onClick={() => setMobileOpen(true)}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-          aria-label="Open navigation menu"
+          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={mobileOpen}
         >
           <Menu className="w-6 h-6 text-gray-600 dark:text-gray-400" />
@@ -473,11 +480,13 @@ export default function Sidebar() {
                 </button>
               </div>
               <LoginForm onSuccess={() => setShowLoginModal(false)} />
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-500 dark:text-gray-400">
-                Demo accounts:<br />
-                admin@railsync.com / admin123<br />
-                operator@railsync.com / operator123
-              </div>
+              <details className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-500 dark:text-gray-400">
+                <summary className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">Show demo credentials</summary>
+                <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs font-mono">
+                  admin@railsync.com / admin123<br />
+                  operator@railsync.com / operator123
+                </div>
+              </details>
             </div>
           </div>
         </div>
