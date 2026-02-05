@@ -9,6 +9,7 @@ import {
   CCMScopeLevel,
 } from '@/types';
 import { InheritableTextField, InheritableBooleanField } from './FieldInheritanceToggle';
+import { User, CheckCircle2, Inbox } from 'lucide-react';
 
 interface CCMInstructionEditorProps {
   instruction: CCMInstruction | null;
@@ -97,9 +98,7 @@ export default function CCMInstructionEditor({
       {/* Primary Contact */}
       <div className="space-y-4">
         <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+          <User className="w-5 h-5 text-gray-500" aria-hidden="true" />
           Primary Contact
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -136,9 +135,7 @@ export default function CCMInstructionEditor({
       {/* Estimate Approval Contact */}
       <div className="space-y-4">
         <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <CheckCircle2 className="w-5 h-5 text-gray-500" aria-hidden="true" />
           Estimate Approval Contact
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -175,9 +172,7 @@ export default function CCMInstructionEditor({
       {/* Dispo Contact */}
       <div className="space-y-4">
         <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" />
-          </svg>
+          <Inbox className="w-5 h-5 text-gray-500" aria-hidden="true" />
           Disposition Contact
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

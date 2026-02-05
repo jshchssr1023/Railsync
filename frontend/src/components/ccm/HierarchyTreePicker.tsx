@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { CCMHierarchyNode, CCMScopeLevel, CCMInstructionScope } from '@/types';
+import { ChevronRight, Check } from 'lucide-react';
 
 interface HierarchyTreePickerProps {
   nodes: CCMHierarchyNode[];
@@ -147,14 +148,10 @@ export default function HierarchyTreePicker({
               !hasChildren ? 'invisible' : ''
             }`}
           >
-            <svg
+            <ChevronRight
               className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+              aria-hidden="true"
+            />
           </button>
 
           {/* Node Content */}
@@ -194,13 +191,7 @@ export default function HierarchyTreePicker({
 
           {/* Selection Indicator */}
           {isSelected && (
-            <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <Check className="w-5 h-5 text-primary-600" aria-hidden="true" />
           )}
         </div>
 

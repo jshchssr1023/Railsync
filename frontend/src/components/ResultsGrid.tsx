@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ArrowUpDown, ChevronUp, ChevronDown, RefreshCw, Download, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { EvaluationResult } from '@/types';
 import ShopDetailDrawer from './ShopDetailDrawer';
 import ShopComparisonModal from './ShopComparisonModal';
@@ -228,19 +229,13 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return (
-        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-        </svg>
+        <ArrowUpDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
       );
     }
     return sortDirection === 'asc' ? (
-      <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-      </svg>
+      <ChevronUp className="w-4 h-4 text-primary-600" aria-hidden="true" />
     ) : (
-      <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
+      <ChevronDown className="w-4 h-4 text-primary-600" aria-hidden="true" />
     );
   };
 
@@ -279,9 +274,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
               onClick={onRefresh}
               className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
               Refresh
             </button>
           )}
@@ -289,9 +282,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
             onClick={exportToCSV}
             className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <Download className="w-4 h-4" aria-hidden="true" />
             Export CSV
           </button>
           <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -387,9 +378,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
                   {compareShops.has(result.shop.shop_code) ? (
                     <span className="text-primary-600 font-bold text-xs">C</span>
                   ) : (
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <ChevronRight className="w-4 h-4 text-gray-400" aria-hidden="true" />
                   )}
                 </td>
                 <td>
@@ -423,15 +412,11 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
                 <td className="bg-purple-50/50 dark:bg-purple-900/20 text-center">
                   {isAtRisk(result) ? (
                     <span className="text-red-500" title="At Risk: High utilization or backlog">
-                      <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
+                      <AlertTriangle className="w-5 h-5 inline" aria-hidden="true" />
                     </span>
                   ) : (
                     <span className="text-green-500" title="Capacity OK">
-                      <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
+                      <CheckCircle className="w-5 h-5 inline" aria-hidden="true" />
                     </span>
                   )}
                 </td>

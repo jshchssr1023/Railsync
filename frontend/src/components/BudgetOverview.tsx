@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { BudgetSummary, RunningRepairsBudget, ServiceEventBudget } from '@/types';
 import { getBudgetSummary, getRunningRepairsBudget, getServiceEventBudgets } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
@@ -72,13 +73,11 @@ export default function BudgetOverview({ fiscalYear }: BudgetOverviewProps) {
       <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
         favorable ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400'
       }`}>
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-          {favorable ? (
-            <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          ) : (
-            <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          )}
-        </svg>
+        {favorable ? (
+          <ArrowUp className="w-3 h-3" aria-hidden="true" />
+        ) : (
+          <ArrowDown className="w-3 h-3" aria-hidden="true" />
+        )}
         {pct.toFixed(1)}%
       </span>
     );

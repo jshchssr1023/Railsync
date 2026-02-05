@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { listDashboardWidgets } from '@/lib/api';
 import { DashboardWidget, WidgetPlacement } from '@/types';
 import WidgetCard from './WidgetCard';
@@ -196,9 +197,7 @@ export default function ConfigurableDashboard() {
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Add Widget</h3>
               <button onClick={() => setShowPicker(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
             <div className="p-4 overflow-y-auto max-h-96">

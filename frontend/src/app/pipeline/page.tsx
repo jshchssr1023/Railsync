@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -151,9 +151,7 @@ export default function PipelinePage() {
           onClick={() => mutate()}
           className="btn btn-secondary flex items-center gap-2"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          <RefreshCw className="w-4 h-4" aria-hidden="true" />
           Refresh
         </button>
       </div>
@@ -207,7 +205,7 @@ export default function PipelinePage() {
             <div className="flex items-center gap-3">
               {/* Search Input */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <input
                   type="text"
                   placeholder="Search cars..."
@@ -344,7 +342,7 @@ export default function PipelinePage() {
                     disabled={currentPage === 1}
                     className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   </button>
                   <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[100px] text-center">
                     Page {currentPage} of {totalPages}
@@ -354,7 +352,7 @@ export default function PipelinePage() {
                     disabled={currentPage === totalPages}
                     className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>

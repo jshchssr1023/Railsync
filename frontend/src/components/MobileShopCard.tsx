@@ -1,5 +1,7 @@
 'use client';
 
+import { ChevronRight } from 'lucide-react';
+
 interface MobileShopCardProps {
   shopCode: string;
   shopName: string;
@@ -109,9 +111,7 @@ export default function MobileShopCard({
       {onClick && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end text-sm text-primary-600 dark:text-primary-400">
           <span>View Details</span>
-          <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
         </div>
       )}
     </div>

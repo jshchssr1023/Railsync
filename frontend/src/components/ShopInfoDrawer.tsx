@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { X, Loader2, MapPin } from 'lucide-react';
 import { ShopWithDistance } from '@/lib/api';
 
 interface ShopBacklogData {
@@ -149,9 +150,7 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
           </button>
         </div>
 
@@ -159,10 +158,7 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
         <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-4 space-y-6">
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <svg className="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Loader2 className="animate-spin h-8 w-8 text-primary-600" aria-hidden="true" />
             </div>
           )}
 
@@ -198,10 +194,7 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
               {shop.distance_miles !== null && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                     <span className="text-blue-800 dark:text-blue-300 font-medium">
                       {parseFloat(shop.distance_miles.toString()).toFixed(1)} miles away
                     </span>

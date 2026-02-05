@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { BadgeCheck, Clock } from 'lucide-react';
 import { Car, EvaluationOverrides } from '@/types';
 
 interface EvaluationWizardProps {
@@ -101,9 +102,7 @@ export default function EvaluationWizard({ onComplete, onSkip }: EvaluationWizar
   const renderIntro = () => (
     <div className="text-center">
       <div className="w-20 h-20 mx-auto mb-6 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
-        <svg className="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-        </svg>
+        <BadgeCheck className="w-10 h-10 text-primary-600" aria-hidden="true" />
       </div>
       <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
         Welcome to RailSync Shop Finder
@@ -113,9 +112,7 @@ export default function EvaluationWizard({ onComplete, onSkip }: EvaluationWizar
         through entering your car information in just a few steps.
       </p>
       <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <Clock className="w-4 h-4" aria-hidden="true" />
         Takes less than 1 minute
       </div>
     </div>

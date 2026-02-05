@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { listScopeTemplates, getScopeTemplate } from '@/lib/api';
+import { FileText, RefreshCw, Loader2, X, Check } from 'lucide-react';
 import { ScopeLibraryTemplate } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -228,19 +229,7 @@ function ScopeLibraryContent() {
       {/* ----------------------------------------------------------------- */}
       {!loading && !error && templates.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <svg
-            className="w-12 h-12 mx-auto mb-4 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
+          <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" aria-hidden="true" />
           <p>No scope templates found</p>
           <p className="text-sm mt-1">Adjust your filters or check back later</p>
         </div>
@@ -307,19 +296,7 @@ function ScopeLibraryContent() {
                 {/* Usage count and last used */}
                 <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-700">
                   <span className="flex items-center gap-1">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
+                    <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                     Used {template.usage_count} time{template.usage_count !== 1 ? 's' : ''}
                   </span>
                   {template.last_used_at && (
@@ -336,26 +313,7 @@ function ScopeLibraryContent() {
                   {/* Loading spinner for detail */}
                   {expandedLoading && (
                     <div className="flex items-center justify-center py-8">
-                      <svg
-                        className="animate-spin h-6 w-6 text-primary-600"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
+                      <Loader2 className="animate-spin h-6 w-6 text-primary-600" aria-hidden="true" />
                     </div>
                   )}
 
@@ -382,23 +340,14 @@ function ScopeLibraryContent() {
                           }}
                           className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                          <X className="w-5 h-5" aria-hidden="true" />
                         </button>
                       </div>
 
                       {/* Metadata row */}
                       <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                         <span className="flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            />
-                          </svg>
+                          <RefreshCw className="w-4 h-4" aria-hidden="true" />
                           Used {expandedTemplate.usage_count} time{expandedTemplate.usage_count !== 1 ? 's' : ''}
                         </span>
                         {expandedTemplate.last_used_at && (
@@ -471,17 +420,7 @@ function ScopeLibraryContent() {
                                           >
                                             {jc.code}
                                             {jc.is_expected && (
-                                              <svg
-                                                className="w-3 h-3 ml-0.5"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                              >
-                                                <path
-                                                  fillRule="evenodd"
-                                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                  clipRule="evenodd"
-                                                />
-                                              </svg>
+                                              <Check className="w-3 h-3 ml-0.5" aria-hidden="true" />
                                             )}
                                           </span>
                                         ))}

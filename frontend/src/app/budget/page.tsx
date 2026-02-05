@@ -7,6 +7,7 @@ import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -64,6 +65,7 @@ export default function BudgetPage() {
 
 function BudgetContent() {
   const searchParams = useSearchParams();
+  const { getAccessToken } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
   const [editingRR, setEditingRR] = useState<string | null>(null);
@@ -72,6 +74,14 @@ function BudgetContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [seSegmentFilter, setSeSegmentFilter] = useState('All');
   const [newSE, setNewSE] = useState({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const authHeaders = () => {
+    const token = getAccessToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -114,46 +124,57 @@ function BudgetContent() {
 
   // Update running repairs allocation
   const handleUpdateRRAllocation = async () => {
+    setSaveError(null);
     try {
       const res = await fetch(`${API_URL}/budget/running-repairs/calculate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ fiscal_year: fiscalYear, allocation_per_car: rrAllocation }),
       });
       if (res.ok) {
         mutateRR();
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setSaveError(errData?.error || `Failed to recalculate (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to update allocation:', err);
+      setSaveError('Network error — could not save allocation');
     }
   };
 
   // Update individual RR month
   const handleUpdateRRMonth = async (month: string, data: Partial<RunningRepairsBudget>) => {
+    setSaveError(null);
     try {
       const res = await fetch(`${API_URL}/budget/running-repairs/${month}?fiscal_year=${fiscalYear}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(data),
       });
       if (res.ok) {
         mutateRR();
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
         setEditingRR(null);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setSaveError(errData?.error || `Failed to save month (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to update month:', err);
+      setSaveError('Network error — could not save month');
     }
   };
 
   // Add service event budget
   const handleAddServiceEvent = async () => {
+    setSaveError(null);
     try {
       const { fleet_segment, notes, ...rest } = newSE;
       const res = await fetch(`${API_URL}/budget/service-events`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           fiscal_year: fiscalYear,
           ...rest,
@@ -166,9 +187,13 @@ function BudgetContent() {
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
         setShowAddModal(false);
         setNewSE({ event_type: 'Qualification', budgeted_car_count: 0, avg_cost_per_car: 0, fleet_segment: '', notes: '' });
+      } else {
+        const errData = await res.json().catch(() => null);
+        setSaveError(errData?.error || `Failed to add service event (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to add service event:', err);
+      setSaveError('Network error — could not add service event');
     }
   };
 
@@ -180,33 +205,46 @@ function BudgetContent() {
 
   // Update service event budget
   const handleUpdateServiceEvent = async (id: string, data: Partial<ServiceEventBudget>) => {
+    setSaveError(null);
     try {
       const res = await fetch(`${API_URL}/budget/service-events/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(data),
       });
       if (res.ok) {
         mutateSE();
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
         setEditingSE(null);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setSaveError(errData?.error || `Failed to update service event (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to update service event:', err);
+      setSaveError('Network error — could not update service event');
     }
   };
 
   // Delete service event budget
   const handleDeleteServiceEvent = async (id: string) => {
     if (!confirm('Delete this service event budget?')) return;
+    setSaveError(null);
     try {
-      const res = await fetch(`${API_URL}/budget/service-events/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/budget/service-events/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
       if (res.ok) {
         mutateSE();
         mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setSaveError(errData?.error || `Failed to delete (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to delete:', err);
+      setSaveError('Network error — could not delete service event');
     }
   };
 
@@ -245,6 +283,16 @@ function BudgetContent() {
           </select>
         </div>
       </div>
+
+      {/* Error Banner */}
+      {saveError && (
+        <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+          <p className="text-sm text-red-700 dark:text-red-400">{saveError}</p>
+          <button onClick={() => setSaveError(null)} className="text-red-500 hover:text-red-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards (above tabs) */}
       {summary && (

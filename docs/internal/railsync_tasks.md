@@ -14,6 +14,7 @@
 | **Analytics & BI Dashboard** | Capacity forecasting, cost analytics, operations KPIs, demand forecasting | `analytics.service.ts`, `/analytics` page | - |
 | **Shop Details Drawer** | Slide-out drawer with shop info, backlog, capabilities | `ShopInfoDrawer.tsx`, `/shops` page | - |
 | **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | `235b26e` |
+| **Invoice Processing Workflow** | InvoiceCase state machine, validation engine, attachments, audit events | `031_invoice_processing_workflow.sql`, `invoice-case.service.ts`, `invoice-validation.service.ts` | - |
 | Contracts Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Contracts Hierarchy API | REST endpoints for hierarchy navigation | `contracts.controller.ts`, `contracts.service.ts` | `b1d369e` |
 | Contracts Hierarchy UI | Drill-down navigation with breadcrumbs | `contracts/page.tsx`, `contracts/*` components | `b1d369e` |

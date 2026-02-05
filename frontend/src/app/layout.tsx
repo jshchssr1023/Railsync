@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Roboto } from 'next/font/google';
 import dynamic from 'next/dynamic';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
+import { SidebarProvider } from '@/context/SidebarContext';
 import { ToastProvider } from '@/components/Toast';
-import Sidebar from '@/components/Sidebar';
+import AppShell from '@/components/AppShell';
 
 // Dynamic import to avoid SSR hydration issues with framer-motion
 const DashboardWithWrapper = dynamic(
@@ -13,7 +14,7 @@ const DashboardWithWrapper = dynamic(
   { ssr: false }
 );
 
-const inter = Inter({ subsets: ['latin'] });
+const roboto = Roboto({ subsets: ['latin'], weight: ['300', '400', '500', '700'] });
 
 export const metadata: Metadata = {
   title: 'Railsync - Shop Loading Tool',
@@ -40,37 +41,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
+      <body className={`${roboto.className} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>
-              <div className="min-h-screen flex">
-                {/* Sidebar Navigation */}
-                <Sidebar />
-
-                {/* Main Content Area */}
-                <div className="flex-1 flex flex-col md:ml-14 min-h-screen">
-                  {/* Mobile top spacer */}
-                  <div className="h-14 md:hidden flex-shrink-0" />
-
-                  <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-                    {children}
-                  </main>
-
-                  {/* Footer - hidden on mobile */}
-                  <footer className="hidden md:block bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-                      <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-                        Railsync Shop Loading Tool v2.1.0
-                      </p>
-                    </div>
-                  </footer>
-                </div>
-
-                {/* Contracts Dashboard Floating Button */}
-                <DashboardWithWrapper />
-              </div>
-            </ToastProvider>
+            <SidebarProvider>
+              <ToastProvider>
+                <AppShell dashboardWrapper={<DashboardWithWrapper />}>
+                  {children}
+                </AppShell>
+              </ToastProvider>
+            </SidebarProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

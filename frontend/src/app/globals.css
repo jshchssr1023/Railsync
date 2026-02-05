@@ -52,8 +52,23 @@ body {
            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all;
   }
 
+  .input-error {
+    @apply w-full px-4 py-2 border border-red-500 dark:border-red-400 rounded-lg
+           bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+           focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all;
+  }
+
+  .field-error {
+    @apply text-sm text-red-600 dark:text-red-400 mt-1;
+  }
+
   .label {
     @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+  }
+
+  .label-required::after {
+    content: ' *';
+    @apply text-red-500;
   }
 
   .card {

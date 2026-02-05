@@ -14,6 +14,7 @@ import {
   generateApprovalPacket,
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, EstimateLineDecision } from '@/types';
+import { Info, AlertTriangle, ChevronDown } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 
 // ---------------------------------------------------------------------------
@@ -368,9 +369,7 @@ export default function ShoppingEventDetailPage() {
       {/* ----------------------------------------------------------------- */}
       {transitionError && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
-          <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <Info className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
             <p className="text-sm text-red-700 dark:text-red-400">{transitionError}</p>
           </div>
@@ -382,9 +381,7 @@ export default function ShoppingEventDetailPage() {
 
       {gateWarning && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-400 dark:border-amber-600 rounded-lg p-4 flex items-start gap-3">
-          <svg className="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86l-8.4 14.58A1 1 0 002.77 20h18.46a1 1 0 00.88-1.56l-8.4-14.58a1 1 0 00-1.76 0z" />
-          </svg>
+          <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
             <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Gate Blocked</p>
             <p className="text-sm text-amber-700 dark:text-amber-400">{gateWarning}</p>
@@ -517,16 +514,12 @@ export default function ShoppingEventDetailPage() {
                         {formatDate(est.submitted_at)}
                       </span>
                     )}
-                    <svg
+                    <ChevronDown
                       className={`w-4 h-4 text-gray-400 transition-transform ${
                         expandedEstimate === est.id ? 'rotate-180' : ''
                       }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                      aria-hidden="true"
+                    />
                   </div>
                 </button>
 

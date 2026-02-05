@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
 import { EligibilityRule, ApiResponse } from '@/types';
 import { useAuthFetch, useAuth } from '@/context/AuthContext';
 
@@ -217,9 +218,7 @@ export default function AdminRulesEditor() {
     return (
       <div className="p-8 text-center">
         <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
-          <svg className="w-12 h-12 mx-auto text-yellow-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+          <AlertTriangle className="w-12 h-12 mx-auto text-yellow-500 mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-200">Access Restricted</h3>
           <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
             Only administrators can access the rules editor.
@@ -502,9 +501,7 @@ export default function AdminRulesEditor() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
             <div className="text-center">
-              <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+              <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-50" aria-hidden="true" />
               <p>Select a rule to view or edit</p>
               <p className="text-sm mt-1">or click &quot;+ New Rule&quot; to create one</p>
             </div>

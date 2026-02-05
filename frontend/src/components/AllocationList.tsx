@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, ArrowLeftRight } from 'lucide-react';
 import { Allocation, AllocationStatus } from '@/types';
 import { listAllocations } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
@@ -191,18 +192,14 @@ export default function AllocationList({
             onClick={() => handleBatchAction('shop')}
             className="btn btn-primary text-sm py-1.5 px-3"
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="w-4 h-4 mr-1" aria-hidden="true" />
             Shop Selected
           </button>
           <button
             onClick={() => handleBatchAction('reassign')}
             className="btn btn-secondary text-sm py-1.5 px-3"
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+            <ArrowLeftRight className="w-4 h-4 mr-1" aria-hidden="true" />
             Reassign
           </button>
           <button
@@ -311,9 +308,7 @@ export default function AllocationList({
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 rounded hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
                             title="Shop this car now"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
+                            <Search className="w-3.5 h-3.5" aria-hidden="true" />
                             Shop Now
                           </button>
                         )}

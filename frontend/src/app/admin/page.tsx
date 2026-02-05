@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
 import BRCHistoryList from '@/components/BRCHistoryList';
+import { Lock, AlertTriangle, Building2, ClipboardList, Bell, Search, FileText, Database } from 'lucide-react';
 
 type AdminTab = 'rules' | 'users' | 'audit' | 'import';
 
@@ -24,9 +25,7 @@ export default function AdminPage() {
     return (
       <div className="text-center py-12">
         <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 max-w-md mx-auto">
-          <svg className="w-12 h-12 mx-auto text-yellow-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-          </svg>
+          <Lock className="w-12 h-12 mx-auto text-yellow-500 mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-yellow-800 dark:text-yellow-200">Authentication Required</h3>
           <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
             Please sign in to access the admin dashboard.
@@ -40,9 +39,7 @@ export default function AdminPage() {
     return (
       <div className="text-center py-12">
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-6 max-w-md mx-auto">
-          <svg className="w-12 h-12 mx-auto text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+          <AlertTriangle className="w-12 h-12 mx-auto text-red-500 mb-4" aria-hidden="true" />
           <h3 className="text-lg font-medium text-red-800 dark:text-red-200">Access Denied</h3>
           <p className="mt-2 text-sm text-red-700 dark:text-red-300">
             You do not have permission to access the admin dashboard.
@@ -73,9 +70,7 @@ export default function AdminPage() {
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+              <Building2 className="w-6 h-6 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-gray-100">Shop Designations</h3>
@@ -89,9 +84,7 @@ export default function AdminPage() {
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+              <ClipboardList className="w-6 h-6 text-purple-600 dark:text-purple-400" aria-hidden="true" />
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-gray-100">Audit Log</h3>
@@ -105,9 +98,7 @@ export default function AdminPage() {
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
+              <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-gray-100">Email Queue</h3>
@@ -239,9 +230,7 @@ function UserManagement() {
         <div className="flex-1 min-w-[200px] max-w-sm">
           <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</label>
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
             <input
               type="text"
               value={searchTerm}
@@ -425,9 +414,7 @@ function AuditLogs() {
         <div className="flex-1 min-w-[200px] max-w-sm">
           <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search User</label>
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
             <input
               type="text"
               value={searchTerm}
@@ -558,9 +545,7 @@ function DataImport() {
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
-                <svg className="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="w-6 h-6 text-primary-600 dark:text-primary-400" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">BRC Import</h4>
@@ -581,9 +566,7 @@ function DataImport() {
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                </svg>
+                <Database className="w-6 h-6 text-gray-500" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">Car Fleet Import</h4>
@@ -601,9 +584,7 @@ function DataImport() {
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
+                <ClipboardList className="w-6 h-6 text-gray-500" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">Demand Import</h4>

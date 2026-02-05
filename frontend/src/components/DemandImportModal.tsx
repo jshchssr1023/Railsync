@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { X, CloudUpload } from 'lucide-react';
 import { createDemand } from '@/lib/api';
 import { EventType, DemandPriority } from '@/types';
 
@@ -114,9 +115,7 @@ export default function DemandImportModal({ onClose, onSuccess }: DemandImportMo
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Import Demands from CSV</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -142,9 +141,7 @@ export default function DemandImportModal({ onClose, onSuccess }: DemandImportMo
                   htmlFor="csv-upload"
                   className="cursor-pointer flex flex-col items-center"
                 >
-                  <svg className="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
+                  <CloudUpload className="w-10 h-10 text-gray-400 mb-2" aria-hidden="true" />
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     {file ? file.name : 'Click to select CSV file'}
                   </span>

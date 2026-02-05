@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Loader2, Upload, Search, X, FileText, ChevronRight } from 'lucide-react';
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -263,17 +264,12 @@ function InvoicesContent() {
             >
               {uploading ? (
                 <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Loader2 className="animate-spin h-4 w-4" aria-hidden="true" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
+                  <Upload className="w-4 h-4" aria-hidden="true" />
                   Upload Invoice
                 </>
               )}
@@ -316,22 +312,16 @@ function InvoicesContent() {
                 placeholder="Search invoices, vendors, shops..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              <svg
+              <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+                aria-hidden="true"
+              />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -405,17 +395,12 @@ function InvoicesContent() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <svg className="animate-spin h-8 w-8 mx-auto mb-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4" aria-hidden="true" />
               Loading invoices...
             </div>
           ) : invoices.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" strokeWidth={1.5} aria-hidden="true" />
               No invoices found. Upload one to get started.
             </div>
           ) : (
@@ -489,9 +474,7 @@ function InvoicesContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
+                        <ChevronRight className="w-5 h-5 text-gray-400" aria-hidden="true" />
                       </td>
                     </tr>
                   ))}

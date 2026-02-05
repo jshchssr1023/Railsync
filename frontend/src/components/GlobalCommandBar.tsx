@@ -150,12 +150,13 @@ export default function GlobalCommandBar() {
 
       {/* Modal */}
       {open && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Search">
           <div className="min-h-screen px-4 pt-20 text-center">
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/50 transition-opacity"
               onClick={() => setOpen(false)}
+              aria-hidden="true"
             />
 
             {/* Dialog */}

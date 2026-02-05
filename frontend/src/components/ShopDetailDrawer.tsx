@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { X, Check } from 'lucide-react';
 import { EvaluationResult, RuleEvaluation } from '@/types';
 import ShopEventModal from './ShopEventModal';
 
@@ -142,14 +143,7 @@ export default function ShopDetailDrawer({
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -164,16 +158,12 @@ export default function ShopDetailDrawer({
             <div className="flex items-center gap-2">
               {shop.is_eligible ? (
                 <>
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check className="w-5 h-5 text-green-600" aria-hidden="true" />
                   <span className="font-medium text-green-800">Eligible for Service</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-5 h-5 text-red-600" aria-hidden="true" />
                   <span className="font-medium text-red-800">Not Eligible</span>
                 </>
               )}
@@ -297,17 +287,13 @@ export default function ShopDetailDrawer({
                           <div className="flex items-center gap-2">
                             {rule.result === 1 && (
                               <span className="text-green-600 font-medium flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Check className="w-4 h-4" aria-hidden="true" />
                                 Pass
                               </span>
                             )}
                             {rule.result === 0 && (
                               <span className="text-red-600 font-medium flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <X className="w-4 h-4" aria-hidden="true" />
                                 Fail
                               </span>
                             )}
