@@ -653,6 +653,7 @@ export async function getCommunications(projectId: string): Promise<ProjectCommu
  */
 export async function detectProjectForCar(carNumber: string): Promise<{
   project_id: string;
+  project_car_id: string;
   project_number: string;
   project_name: string;
   scope_of_work: string;
@@ -662,7 +663,8 @@ export async function detectProjectForCar(carNumber: string): Promise<{
   plan_state?: string;
 } | null> {
   const sql = `
-    SELECT pc.project_id, p.project_number, p.project_name, p.scope_of_work,
+    SELECT pc.project_id, pc.id AS project_car_id,
+           p.project_number, p.project_name, p.scope_of_work,
            pa.id AS assignment_id, pa.shop_code, pa.target_month, pa.plan_state
     FROM project_cars pc
     JOIN projects p ON p.id = pc.project_id

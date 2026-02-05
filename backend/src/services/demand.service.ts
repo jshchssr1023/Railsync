@@ -92,6 +92,7 @@ export async function createDemand(
     required_region?: string;
     max_cost_per_car?: number;
     excluded_shops?: string[];
+    project_id?: string;
   },
   userId?: string
 ): Promise<Demand> {
@@ -100,8 +101,8 @@ export async function createDemand(
       name, description, fiscal_year, target_month, car_count, event_type,
       car_type, default_lessee_code, default_material_type, default_lining_type,
       default_commodity, priority, required_network, required_region,
-      max_cost_per_car, excluded_shops, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      max_cost_per_car, excluded_shops, created_by, project_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     RETURNING *
   `;
 
@@ -123,6 +124,7 @@ export async function createDemand(
     data.max_cost_per_car,
     data.excluded_shops,
     userId,
+    data.project_id || null,
   ]);
 
   return rows[0];

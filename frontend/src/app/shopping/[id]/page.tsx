@@ -13,6 +13,7 @@ import {
   recordLineDecisions,
   generateApprovalPacket,
   getShoppingEventProjectFlags,
+  bundleProjectWork,
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, EstimateLineDecision } from '@/types';
 import { Info, AlertTriangle, ChevronDown, Zap } from 'lucide-react';
@@ -128,6 +129,7 @@ export default function ShoppingEventDetailPage() {
   // Project flag detection
   const [projectFlag, setProjectFlag] = useState<{
     project_id: string;
+    project_car_id: string;
     project_number: string;
     project_name: string;
     scope_of_work: string;
@@ -136,6 +138,8 @@ export default function ShoppingEventDetailPage() {
     target_month?: string;
     plan_state?: string;
   } | null>(null);
+  const [bundling, setBundling] = useState(false);
+  const [bundleSuccess, setBundleSuccess] = useState(false);
 
   // Estimate decisions & approval
   const [decisionsMap, setDecisionsMap] = useState<Record<string, (EstimateLineDecision & { line_number: number })[]>>({});
@@ -828,9 +832,45 @@ export default function ShoppingEventDetailPage() {
                 </p>
               )}
               <div className="flex gap-2 mt-3">
+                {!bundleSuccess ? (
+                  <button
+                    onClick={async () => {
+                      if (!event || !projectFlag) return;
+                      const confirmed = window.confirm(
+                        `Bundle project work for ${projectFlag.project_number} onto this shopping event at ${event.shop_code}?`
+                      );
+                      if (!confirmed) return;
+                      setBundling(true);
+                      try {
+                        const currentMonth = new Date().toISOString().slice(0, 7);
+                        await bundleProjectWork(id, {
+                          project_id: projectFlag.project_id,
+                          project_car_id: projectFlag.project_car_id,
+                          car_number: event.car_number,
+                          shop_code: event.shop_code,
+                          target_month: currentMonth,
+                        });
+                        setBundleSuccess(true);
+                      } catch (err) {
+                        console.error('Bundle failed:', err);
+                        setError(err instanceof Error ? err.message : 'Failed to bundle project work');
+                      } finally {
+                        setBundling(false);
+                      }
+                    }}
+                    disabled={bundling}
+                    className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {bundling ? 'Bundling...' : 'Bundle Project Work'}
+                  </button>
+                ) : (
+                  <span className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 rounded font-medium">
+                    Bundled successfully
+                  </span>
+                )}
                 <Link
-                  href="/projects"
-                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                  href={`/projects?project=${projectFlag.project_id}&tab=plan`}
+                  className="px-3 py-1.5 text-sm border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                 >
                   View Project
                 </Link>

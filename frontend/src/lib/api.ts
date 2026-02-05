@@ -1279,6 +1279,7 @@ export async function getCarEffectiveCCM(carNumber: string): Promise<EffectiveCC
 // Project Planning - Shopping Event Integration
 export async function getShoppingEventProjectFlags(id: string): Promise<{
   project_id: string;
+  project_car_id: string;
   project_number: string;
   project_name: string;
   scope_of_work: string;
@@ -1289,6 +1290,7 @@ export async function getShoppingEventProjectFlags(id: string): Promise<{
 } | null> {
   const response = await fetchApi<{
     project_id: string;
+    project_car_id: string;
     project_number: string;
     project_name: string;
     scope_of_work: string;

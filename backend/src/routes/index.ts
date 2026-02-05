@@ -28,6 +28,7 @@ import * as estimateController from '../controllers/estimate-workflow.controller
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
+import * as demandService from '../services/demand.service';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -3393,6 +3394,44 @@ router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'opera
     res.json({ success: true, data: result });
   } catch (err) {
     console.error('Cancel plan error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/create-demand
+ * @desc    Create a demand linked to this project (Path 2: demand-linked planning)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const projectId = req.params.id;
+
+    // Verify project exists and is active
+    const project = await query('SELECT id, project_number, project_name, lessee_code FROM projects WHERE id = $1', [projectId]);
+    if (!project.length) {
+      res.status(404).json({ success: false, error: 'Project not found' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    const demand = await demandService.createDemand(
+      { ...req.body, project_id: projectId },
+      userId
+    );
+
+    // Write audit event
+    await projectAuditService.writeAuditEvent({
+      project_id: projectId,
+      actor_id: userId,
+      actor_email: (req as any).user?.email,
+      action: 'demand_created',
+      notes: `Demand "${demand.name}" created for allocation engine (${demand.car_count} cars, ${demand.target_month})`,
+    });
+
+    res.status(201).json({ success: true, data: demand });
+  } catch (err) {
+    console.error('Create project demand error:', err);
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });

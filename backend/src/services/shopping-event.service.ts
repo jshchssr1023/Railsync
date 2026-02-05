@@ -38,6 +38,9 @@ interface ShoppingEvent {
   created_at: Date;
   updated_at: Date;
   version: number;
+  project_flag_checked?: boolean;
+  flagged_project_id?: string | null;
+  bundled_project_assignment_id?: string | null;
 }
 
 interface CreateShoppingEventInput {

@@ -9,12 +9,39 @@ import {
   getCarShoppingHistory as getCarShoppingHistoryService,
   ShoppingEventState,
 } from '../services/shopping-event.service';
+import { detectProjectForCar } from '../services/project-planning.service';
+import { query } from '../config/database';
 
 // POST /api/shopping-events
 export async function createShoppingEvent(req: Request, res: Response): Promise<void> {
   try {
     const userId = (req as any).user?.id;
     const event = await createShoppingEventService(req.body, userId);
+
+    // Auto-detect project car and flag the shopping event
+    if (event.car_number) {
+      try {
+        const detection = await detectProjectForCar(event.car_number);
+        if (detection) {
+          await query(
+            `UPDATE shopping_events
+             SET project_flag_checked = TRUE, flagged_project_id = $2
+             WHERE id = $1`,
+            [event.id, detection.project_id]
+          );
+          event.flagged_project_id = detection.project_id;
+          event.project_flag_checked = true;
+        } else {
+          await query(
+            `UPDATE shopping_events SET project_flag_checked = TRUE WHERE id = $1`,
+            [event.id]
+          );
+        }
+      } catch (flagErr) {
+        console.error('Non-critical: project flag detection failed:', flagErr);
+      }
+    }
+
     res.status(201).json(event);
   } catch (error: any) {
     console.error('Error creating shopping event:', error);
