@@ -4127,6 +4127,31 @@ router.get('/dashboard/high-cost-exceptions', authenticate, dashboardController.
 router.get('/dashboard/expiry-forecast', optionalAuth, dashboardController.getExpiryForecast);
 router.get('/dashboard/budget-burn', authenticate, dashboardController.getBudgetBurnVelocity);
 
+/**
+ * @route   GET /api/dashboard/project-planning
+ * @desc    Get project planning summary for dashboard
+ * @access  Protected
+ */
+router.get('/dashboard/project-planning', authenticate, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status IN ('active', 'in_progress')) AS active_projects,
+        COALESCE(SUM(total_cars) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS total_cars,
+        COALESCE(SUM(active_planned) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS planned_cars,
+        COALESCE(SUM(active_locked) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS locked_cars,
+        COALESCE(SUM(completed_cars) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS completed_cars,
+        COALESCE(SUM(unplanned_cars) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS unplanned_cars,
+        COALESCE(SUM(total_estimated_cost) FILTER (WHERE status IN ('active', 'in_progress')), 0) AS total_estimated_cost
+      FROM v_project_plan_summary
+    `, []);
+    res.json({ success: true, data: result[0] || null });
+  } catch (err) {
+    console.error('Dashboard project planning error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch project planning summary' });
+  }
+});
+
 // ============================================================================
 // INVOICE CASE WORKFLOW ROUTES (per Railsync_Invoice_Processing_Complete_Spec.md)
 // ============================================================================
