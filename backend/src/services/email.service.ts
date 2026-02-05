@@ -25,6 +25,8 @@ export interface NotificationPreferences {
   email_capacity_warnings: boolean;
   email_allocation_updates: boolean;
   email_daily_digest: boolean;
+  email_project_lock_changes: boolean;
+  email_project_bundling_alerts: boolean;
 }
 
 export interface QueuedEmail {
@@ -113,6 +115,62 @@ const templates = {
       </div>
     `,
     text: `Allocation Update\n\nCar: ${data.car_number}\nShop: ${data.shop_code}\nStatus: ${data.old_status} → ${data.new_status}\nChanged by: ${data.changed_by}`,
+  }),
+
+  projectPlanRelock: (data: { project_number: string; project_name: string; car_number: string; old_shop: string; new_shop: string; old_month: string; new_month: string; reason: string; relocked_by: string }): EmailTemplate => ({
+    subject: `Project Plan Changed: ${data.project_number} - ${data.car_number}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #7c3aed; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0;">Project Plan Relock</h1>
+        </div>
+        <div style="padding: 20px; background: #f9fafb;">
+          <p><strong>Project:</strong> ${data.project_number} - ${data.project_name}</p>
+          <p><strong>Car:</strong> ${data.car_number}</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Previous Shop</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;">${data.old_shop} (${data.old_month})</td></tr>
+            <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>New Shop</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;">${data.new_shop} (${data.new_month})</td></tr>
+          </table>
+          <p><strong>Reason:</strong> ${data.reason}</p>
+          <p><strong>Changed by:</strong> ${data.relocked_by}</p>
+          <p style="margin-top: 20px;">
+            <a href="${process.env.APP_URL || 'http://localhost:3000'}/projects"
+               style="background: #7c3aed; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+              View Project
+            </a>
+          </p>
+        </div>
+      </div>
+    `,
+    text: `Project Plan Relock\n\nProject: ${data.project_number} - ${data.project_name}\nCar: ${data.car_number}\nPrevious: ${data.old_shop} (${data.old_month})\nNew: ${data.new_shop} (${data.new_month})\nReason: ${data.reason}\nChanged by: ${data.relocked_by}`,
+  }),
+
+  projectBundlingAlert: (data: { project_number: string; project_name: string; car_number: string; shop_code: string; scope_of_work: string }): EmailTemplate => ({
+    subject: `Bundling Opportunity: ${data.car_number} at ${data.shop_code} - Project ${data.project_number}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #059669; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0;">Project Bundling Opportunity</h1>
+        </div>
+        <div style="padding: 20px; background: #f9fafb;">
+          <p><strong>Car:</strong> ${data.car_number}</p>
+          <p><strong>Current Shop:</strong> ${data.shop_code}</p>
+          <p><strong>Project:</strong> ${data.project_number} - ${data.project_name}</p>
+          <p><strong>Scope:</strong> ${data.scope_of_work}</p>
+          <p style="margin-top: 10px; padding: 10px; background: #ecfdf5; border-radius: 5px;">
+            This car has arrived at a shop and belongs to an active project.
+            Consider bundling project work during this visit.
+          </p>
+          <p style="margin-top: 20px;">
+            <a href="${process.env.APP_URL || 'http://localhost:3000'}/projects"
+               style="background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+              View Project
+            </a>
+          </p>
+        </div>
+      </div>
+    `,
+    text: `Project Bundling Opportunity\n\nCar: ${data.car_number}\nShop: ${data.shop_code}\nProject: ${data.project_number} - ${data.project_name}\nScope: ${data.scope_of_work}`,
   }),
 
   dailyDigest: (data: { user_name: string; date: string; stats: { bad_orders: number; completed: number; capacity_warnings: number } }): EmailTemplate => ({
@@ -253,6 +311,28 @@ export async function notifyAllocationChange(data: { car_number: string; shop_co
   console.log(`[Email] Queued allocation update for ${users.length} users`);
 }
 
+export async function notifyProjectRelock(data: { project_number: string; project_name: string; car_number: string; old_shop: string; new_shop: string; old_month: string; new_month: string; reason: string; relocked_by: string }): Promise<void> {
+  const users = await getSubscribedUsers('email_project_lock_changes');
+  const template = templates.projectPlanRelock(data);
+
+  for (const user of users) {
+    await queueEmail(user.email, user.first_name, template);
+  }
+
+  console.log(`[Email] Queued project relock notification for ${users.length} users`);
+}
+
+export async function notifyProjectBundling(data: { project_number: string; project_name: string; car_number: string; shop_code: string; scope_of_work: string }): Promise<void> {
+  const users = await getSubscribedUsers('email_project_bundling_alerts');
+  const template = templates.projectBundlingAlert(data);
+
+  for (const user of users) {
+    await queueEmail(user.email, user.first_name, template);
+  }
+
+  console.log(`[Email] Queued project bundling alert for ${users.length} users`);
+}
+
 // Process email queue (call this from a cron job or worker)
 export async function processEmailQueue(batchSize: number = 10): Promise<{ sent: number; failed: number }> {
   if (!EMAIL_CONFIG.enabled) {
@@ -318,6 +398,8 @@ export default {
   notifyBadOrder,
   notifyCapacityWarning,
   notifyAllocationChange,
+  notifyProjectRelock,
+  notifyProjectBundling,
   processEmailQueue,
   getEmailQueueStatus,
 };

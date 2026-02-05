@@ -12,9 +12,10 @@ import {
   getEstimateDecisions,
   recordLineDecisions,
   generateApprovalPacket,
+  getShoppingEventProjectFlags,
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, EstimateLineDecision } from '@/types';
-import { Info, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Info, AlertTriangle, ChevronDown, Zap } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 
 // ---------------------------------------------------------------------------
@@ -124,6 +125,18 @@ export default function ShoppingEventDetailPage() {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
+  // Project flag detection
+  const [projectFlag, setProjectFlag] = useState<{
+    project_id: string;
+    project_number: string;
+    project_name: string;
+    scope_of_work: string;
+    assignment_id?: string;
+    shop_code?: string;
+    target_month?: string;
+    plan_state?: string;
+  } | null>(null);
+
   // Estimate decisions & approval
   const [decisionsMap, setDecisionsMap] = useState<Record<string, (EstimateLineDecision & { line_number: number })[]>>({});
   const [showApprovalForm, setShowApprovalForm] = useState<string | null>(null);
@@ -159,6 +172,14 @@ export default function ShoppingEventDetailPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Fetch project flags for the shopping event
+  useEffect(() => {
+    if (!id) return;
+    getShoppingEventProjectFlags(id)
+      .then(flag => setProjectFlag(flag))
+      .catch(() => { /* non-critical */ });
+  }, [id]);
 
   // -----------------------------------------------------------------------
   // Load decisions for an estimate when expanded
@@ -786,6 +807,38 @@ export default function ShoppingEventDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Project Flag Banner                                              */}
+      {/* ----------------------------------------------------------------- */}
+      {projectFlag && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-emerald-800 dark:text-emerald-200">
+                This car belongs to active project {projectFlag.project_number}
+              </p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-0.5">
+                {projectFlag.project_name} &mdash; {projectFlag.scope_of_work}
+              </p>
+              {projectFlag.shop_code && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                  Planned: {projectFlag.shop_code} ({projectFlag.target_month}) &bull; {projectFlag.plan_state}
+                </p>
+              )}
+              <div className="flex gap-2 mt-3">
+                <Link
+                  href="/projects"
+                  className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                >
+                  View Project
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* Event Details card                                                */}

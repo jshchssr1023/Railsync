@@ -3,6 +3,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import ProjectPlanView from '@/components/ProjectPlanView';
+import LockConfirmationModal from '@/components/LockConfirmationModal';
+import RelockDialog from '@/components/RelockDialog';
+import CommunicationLog from '@/components/CommunicationLog';
+import PlanHistoryTimeline from '@/components/PlanHistoryTimeline';
+import type {
+  ProjectAssignment,
+  ProjectPlanSummary,
+  ProjectCommunication,
+  ProjectPlanAuditEvent,
+  CommunicationType,
+  CommunicationMethod,
+} from '@/types';
 
 interface Project {
   id: string;
@@ -84,6 +97,44 @@ export default function ProjectsPage() {
   const [projectCars, setProjectCars] = useState<ProjectCar[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddCarsModal, setShowAddCarsModal] = useState(false);
+
+  // Detail panel tab
+  type DetailTab = 'cars' | 'plan' | 'communications' | 'history';
+  const [activeTab, setActiveTab] = useState<DetailTab>('cars');
+
+  // Plan tab state
+  const [planSummary, setPlanSummary] = useState<ProjectPlanSummary | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockTargetIds, setLockTargetIds] = useState<string[]>([]);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [relockDialogOpen, setRelockDialogOpen] = useState(false);
+  const [relockTarget, setRelockTarget] = useState<ProjectAssignment | null>(null);
+  const [relockLoading, setRelockLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ProjectAssignment | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Communications tab state
+  const [communications, setCommunications] = useState<ProjectCommunication[]>([]);
+  const [commsLoading, setCommsLoading] = useState(false);
+
+  // History tab state
+  const [auditEvents, setAuditEvents] = useState<ProjectPlanAuditEvent[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyCarFilter, setHistoryCarFilter] = useState('');
+
+  // Plan Cars modal state
+  const [showPlanCarsModal, setShowPlanCarsModal] = useState(false);
+  const [planCarsForm, setPlanCarsForm] = useState<{ car_ids: string[]; shop_code: string; target_month: string; estimated_cost: string }>({
+    car_ids: [],
+    shop_code: '',
+    target_month: '',
+    estimated_cost: '',
+  });
+  const [shops, setShops] = useState<{ shop_code: string; shop_name: string }[]>([]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -296,6 +347,226 @@ export default function ProjectsPage() {
       console.error('Failed to BRC review:', err);
     }
   };
+
+  // Plan data fetching
+  const fetchPlanSummary = useCallback(async (projectId: string) => {
+    setPlanLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${projectId}/plan`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data.success) setPlanSummary(data.data);
+    } catch (err) {
+      console.error('Failed to fetch plan:', err);
+    } finally {
+      setPlanLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const fetchCommunications = useCallback(async (projectId: string) => {
+    setCommsLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${projectId}/communications`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data.success) setCommunications(data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch communications:', err);
+    } finally {
+      setCommsLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const fetchAuditHistory = useCallback(async (projectId: string, carNumber?: string) => {
+    setHistoryLoading(true);
+    try {
+      const token = getAccessToken();
+      const params = new URLSearchParams();
+      if (carNumber) params.append('car_number', carNumber);
+      const res = await fetch(`${API_URL}/projects/${projectId}/plan-history?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAuditEvents(data.data.events || []);
+        setAuditTotal(data.data.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const fetchShops = useCallback(async () => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/shops?active=true`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data.success) setShops(data.data || []);
+    } catch {
+      // Non-critical
+    }
+  }, [getAccessToken]);
+
+  // Load tab data when tab changes
+  useEffect(() => {
+    if (!selectedProject) return;
+    if (activeTab === 'plan') fetchPlanSummary(selectedProject.id);
+    else if (activeTab === 'communications') fetchCommunications(selectedProject.id);
+    else if (activeTab === 'history') fetchAuditHistory(selectedProject.id, historyCarFilter || undefined);
+  }, [activeTab, selectedProject, fetchPlanSummary, fetchCommunications, fetchAuditHistory, historyCarFilter]);
+
+  // Plan Cars handler
+  const handlePlanCars = async () => {
+    if (!selectedProject) return;
+    const unplannedCars = projectCars.filter(c => c.status === 'pending');
+    const carsToUse = planCarsForm.car_ids.length > 0
+      ? unplannedCars.filter(c => planCarsForm.car_ids.includes(c.id))
+      : unplannedCars;
+
+    if (carsToUse.length === 0 || !planCarsForm.shop_code || !planCarsForm.target_month) return;
+
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/plan-cars`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          cars: carsToUse.map(c => ({
+            project_car_id: c.id,
+            car_number: c.car_number,
+            shop_code: planCarsForm.shop_code,
+            target_month: planCarsForm.target_month,
+            estimated_cost: planCarsForm.estimated_cost ? parseFloat(planCarsForm.estimated_cost) : undefined,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowPlanCarsModal(false);
+        setPlanCarsForm({ car_ids: [], shop_code: '', target_month: '', estimated_cost: '' });
+        fetchPlanSummary(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to plan cars:', err);
+    }
+  };
+
+  // Lock handler
+  const handleLockSelected = (ids: string[]) => {
+    setLockTargetIds(ids);
+    setLockModalOpen(true);
+  };
+
+  const handleLockConfirm = async (confirmedIds: string[]) => {
+    if (!selectedProject) return;
+    setLockLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/lock-cars`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ assignment_ids: confirmedIds }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLockModalOpen(false);
+        setLockTargetIds([]);
+        fetchPlanSummary(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to lock:', err);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  // Relock handler
+  const handleRelockConfirm = async (data: { new_shop_code: string; new_target_month: string; new_target_date?: string; new_estimated_cost?: number; reason: string }) => {
+    if (!selectedProject || !relockTarget) return;
+    setRelockLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/relock-car`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ project_assignment_id: relockTarget.id, ...data }),
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        setRelockDialogOpen(false);
+        setRelockTarget(null);
+        fetchPlanSummary(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to relock:', err);
+    } finally {
+      setRelockLoading(false);
+    }
+  };
+
+  // Cancel handler
+  const handleCancelConfirm = async () => {
+    if (!selectedProject || !cancelTarget || !cancelReason.trim()) return;
+    setCancelLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/cancel-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ project_assignment_id: cancelTarget.id, reason: cancelReason }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCancelDialogOpen(false);
+        setCancelTarget(null);
+        setCancelReason('');
+        fetchPlanSummary(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to cancel:', err);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  // Communication handler
+  const handleLogCommunication = async (data: {
+    communication_type: CommunicationType;
+    communicated_to?: string;
+    communication_method?: CommunicationMethod;
+    subject?: string;
+    notes?: string;
+  }) => {
+    if (!selectedProject) return;
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/communications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        fetchCommunications(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to log communication:', err);
+    }
+  };
+
+  // Lock modal assignments (filtered from plan)
+  const lockModalAssignments = useMemo(() => {
+    if (!planSummary) return [];
+    return planSummary.assignments.filter(a => lockTargetIds.includes(a.id) && a.plan_state === 'Planned');
+  }, [planSummary, lockTargetIds]);
 
   if (loading) {
     return (
@@ -602,66 +873,123 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                {/* Cars List */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Cars ({projectCars.length})
-                  </h3>
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Car #</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">BRC</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {projectCars.map(car => (
-                          <tr key={car.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {car.car_number}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
-                              {car.car_type}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[car.status] || ''}`}>
-                                {car.status}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              {car.brc_reviewed ? (
-                                <span className="text-green-600 dark:text-green-400 text-xs">Reviewed</span>
-                              ) : (
-                                <span className="text-gray-400 text-xs">Pending</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              {!car.brc_reviewed && car.status !== 'completed' && (
-                                <button
-                                  onClick={() => handleBrcReview(car.car_number)}
-                                  className="text-xs text-primary-600 hover:underline"
-                                >
-                                  BRC Review
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        {projectCars.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                              No cars in this project
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                {/* Tabs */}
+                <div className="border-b border-gray-200 dark:border-gray-700">
+                  <nav className="-mb-px flex gap-4">
+                    {([
+                      { key: 'cars' as DetailTab, label: `Cars (${projectCars.length})` },
+                      { key: 'plan' as DetailTab, label: 'Plan' },
+                      { key: 'communications' as DetailTab, label: 'Communications' },
+                      { key: 'history' as DetailTab, label: 'History' },
+                    ]).map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`py-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                          activeTab === tab.key
+                            ? 'border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </nav>
                 </div>
+
+                {/* Tab Content: Cars */}
+                {activeTab === 'cars' && (
+                  <div>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Car #</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">BRC</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {projectCars.map(car => (
+                            <tr key={car.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {car.car_number}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
+                                {car.car_type}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[car.status] || ''}`}>
+                                  {car.status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                {car.brc_reviewed ? (
+                                  <span className="text-green-600 dark:text-green-400 text-xs">Reviewed</span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">Pending</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                {!car.brc_reviewed && car.status !== 'completed' && (
+                                  <button
+                                    onClick={() => handleBrcReview(car.car_number)}
+                                    className="text-xs text-primary-600 hover:underline"
+                                  >
+                                    BRC Review
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {projectCars.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                                No cars in this project
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab Content: Plan */}
+                {activeTab === 'plan' && (
+                  <ProjectPlanView
+                    plan={planSummary}
+                    loading={planLoading}
+                    onLockSelected={handleLockSelected}
+                    onRelock={(a) => { setRelockTarget(a); setRelockDialogOpen(true); }}
+                    onCancel={(a) => { setCancelTarget(a); setCancelDialogOpen(true); }}
+                    onPlanCars={() => { fetchShops(); setShowPlanCarsModal(true); }}
+                    isActive={['active', 'in_progress'].includes(selectedProject.status)}
+                  />
+                )}
+
+                {/* Tab Content: Communications */}
+                {activeTab === 'communications' && (
+                  <CommunicationLog
+                    communications={communications}
+                    loading={commsLoading}
+                    onLog={handleLogCommunication}
+                    isActive={['active', 'in_progress'].includes(selectedProject.status)}
+                  />
+                )}
+
+                {/* Tab Content: History */}
+                {activeTab === 'history' && (
+                  <PlanHistoryTimeline
+                    events={auditEvents}
+                    total={auditTotal}
+                    loading={historyLoading}
+                    carFilter={historyCarFilter}
+                    onCarFilterChange={setHistoryCarFilter}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -794,6 +1122,171 @@ export default function ProjectsPage() {
                   className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
                 >
                   Add Cars
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Lock Confirmation Modal */}
+        <LockConfirmationModal
+          open={lockModalOpen}
+          onConfirm={handleLockConfirm}
+          onCancel={() => { setLockModalOpen(false); setLockTargetIds([]); }}
+          assignments={lockModalAssignments}
+          loading={lockLoading}
+        />
+
+        {/* Relock Dialog */}
+        <RelockDialog
+          open={relockDialogOpen}
+          onConfirm={handleRelockConfirm}
+          onCancel={() => { setRelockDialogOpen(false); setRelockTarget(null); }}
+          assignment={relockTarget}
+          loading={relockLoading}
+          getAccessToken={getAccessToken}
+        />
+
+        {/* Cancel Plan Dialog */}
+        {cancelDialogOpen && cancelTarget && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="fixed inset-0 bg-black/50" onClick={() => { setCancelDialogOpen(false); setCancelTarget(null); setCancelReason(''); }} />
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cancel Plan</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Cancel plan for {cancelTarget.car_number}?
+                  {cancelTarget.plan_state === 'Locked' && ' This will also cancel the SSOT assignment.'}
+                </p>
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">Car</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.car_number}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Shop</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.shop_name || cancelTarget.shop_code}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Month</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.target_month}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">State</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.plan_state}</span></div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason *</label>
+                  <textarea
+                    value={cancelReason}
+                    onChange={e => setCancelReason(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+                    placeholder="Why is this plan being cancelled?"
+                  />
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => { setCancelDialogOpen(false); setCancelTarget(null); setCancelReason(''); }}
+                    disabled={cancelLoading}
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  >
+                    Keep Plan
+                  </button>
+                  <button
+                    onClick={handleCancelConfirm}
+                    disabled={cancelLoading || !cancelReason.trim()}
+                    className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                  >
+                    {cancelLoading ? 'Cancelling...' : 'Cancel Plan'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Plan Cars Modal */}
+        {showPlanCarsModal && selectedProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowPlanCarsModal(false)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 space-y-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Plan Cars to Shop</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Select unplanned cars and assign them to a shop/month.
+              </p>
+
+              {/* Car selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Cars (select from unplanned)
+                </label>
+                <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-2 space-y-1">
+                  {projectCars.filter(c => c.status === 'pending').map(car => (
+                    <label key={car.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={planCarsForm.car_ids.includes(car.id)}
+                        onChange={e => {
+                          const ids = e.target.checked
+                            ? [...planCarsForm.car_ids, car.id]
+                            : planCarsForm.car_ids.filter(id => id !== car.id);
+                          setPlanCarsForm({ ...planCarsForm, car_ids: ids });
+                        }}
+                        className="rounded"
+                      />
+                      <span className="font-mono text-gray-900 dark:text-gray-100">{car.car_number}</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{car.car_type}</span>
+                    </label>
+                  ))}
+                  {projectCars.filter(c => c.status === 'pending').length === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No unplanned cars available</p>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {planCarsForm.car_ids.length > 0
+                    ? `${planCarsForm.car_ids.length} selected`
+                    : 'All unplanned cars will be planned'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Shop *</label>
+                <select
+                  value={planCarsForm.shop_code}
+                  onChange={e => setPlanCarsForm({ ...planCarsForm, shop_code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+                >
+                  <option value="">Select shop...</option>
+                  {shops.map(s => (
+                    <option key={s.shop_code} value={s.shop_code}>{s.shop_code} - {s.shop_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Month *</label>
+                  <input
+                    type="month"
+                    value={planCarsForm.target_month}
+                    onChange={e => setPlanCarsForm({ ...planCarsForm, target_month: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Est. Cost/Car</label>
+                  <input
+                    type="number"
+                    value={planCarsForm.estimated_cost}
+                    onChange={e => setPlanCarsForm({ ...planCarsForm, estimated_cost: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowPlanCarsModal(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePlanCars}
+                  disabled={!planCarsForm.shop_code || !planCarsForm.target_month}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  Plan Cars
                 </button>
               </div>
             </div>

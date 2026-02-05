@@ -691,3 +691,100 @@ export interface WidgetPlacement {
   h: number;
   settings?: Record<string, unknown>;
 }
+
+// ============================================================================
+// PROJECT PLANNING TYPES
+// ============================================================================
+
+export type ProjectAssignmentState = 'Planned' | 'Locked' | 'Superseded' | 'Cancelled';
+export type CommunicationType = 'plan_shared' | 'lock_notification' | 'relock_notification' | 'status_update' | 'completion_notice' | 'other';
+export type CommunicationMethod = 'email' | 'phone' | 'meeting' | 'portal' | 'other';
+
+export interface ProjectAssignment {
+  id: string;
+  project_id: string;
+  project_car_id: string;
+  car_number: string;
+  car_assignment_id?: string;
+  shop_code: string;
+  shop_name?: string;
+  target_month: string;
+  target_date?: string;
+  estimated_cost?: number;
+  plan_state: ProjectAssignmentState;
+  locked_at?: Date;
+  locked_by?: string;
+  lock_version: number;
+  superseded_by_id?: string;
+  superseded_at?: Date;
+  supersede_reason?: string;
+  is_opportunistic: boolean;
+  opportunistic_source?: string;
+  original_shopping_event_id?: string;
+  created_at: Date;
+  created_by?: string;
+  updated_at: Date;
+  version: number;
+  // View fields
+  project_number?: string;
+  project_name?: string;
+  project_type?: string;
+  project_status?: string;
+  car_status?: string;
+  assignment_status?: string;
+  locked_by_name?: string;
+  created_by_name?: string;
+}
+
+export interface ProjectPlanAuditEvent {
+  id: string;
+  project_id: string;
+  project_assignment_id?: string;
+  car_number?: string;
+  event_timestamp: Date;
+  actor_id?: string;
+  actor_email?: string;
+  actor_name?: string;
+  action: string;
+  before_state?: string;
+  after_state?: string;
+  plan_snapshot?: Record<string, unknown>;
+  reason?: string;
+  notes?: string;
+  ip_address?: string;
+  user_agent?: string;
+}
+
+export interface ProjectCommunication {
+  id: string;
+  project_id: string;
+  communication_type: CommunicationType;
+  plan_version_snapshot: Record<string, unknown>;
+  communicated_at: Date;
+  communicated_by: string;
+  communicated_to?: string;
+  communication_method?: CommunicationMethod;
+  subject?: string;
+  notes?: string;
+  email_queue_id?: string;
+  created_at: Date;
+  // View fields
+  communicated_by_name?: string;
+}
+
+export interface ProjectPlanSummary {
+  project_id: string;
+  project_number: string;
+  project_name: string;
+  total_cars: number;
+  unplanned_cars: number;
+  planned_cars: number;
+  locked_cars: number;
+  completed_cars: number;
+  total_estimated_cost: number;
+  plan_version: number;
+  last_plan_locked_at?: Date;
+  last_communicated_at?: Date;
+  assignments: ProjectAssignment[];
+  assignments_by_shop: Record<string, ProjectAssignment[]>;
+}

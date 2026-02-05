@@ -11,7 +11,8 @@ export type AlertType =
   | 'bad_order_reported'
   | 'bad_order_critical'
   | 'assignment_expedited'
-  | 'assignment_conflict';
+  | 'assignment_conflict'
+  | 'project_car_at_shop';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 

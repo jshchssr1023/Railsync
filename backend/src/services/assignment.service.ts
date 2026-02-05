@@ -7,13 +7,14 @@
 
 import { query } from '../config/database';
 import { createAlert } from './alerts.service';
+import { detectProjectForCar } from './project-planning.service';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export type AssignmentStatus = 'Planned' | 'Scheduled' | 'Enroute' | 'Arrived' | 'InShop' | 'Complete' | 'Cancelled';
-export type AssignmentSource = 'demand_plan' | 'service_plan' | 'scenario_export' | 'bad_order' | 'quick_shop' | 'import' | 'master_plan' | 'migration' | 'brc_import';
+export type AssignmentSource = 'demand_plan' | 'service_plan' | 'scenario_export' | 'bad_order' | 'quick_shop' | 'import' | 'master_plan' | 'migration' | 'brc_import' | 'project_plan';
 export type Priority = 1 | 2 | 3 | 4;
 
 export interface CarAssignment {
@@ -454,7 +455,37 @@ export async function updateStatus(
     throw new Error(`Assignment ${id} not found`);
   }
 
-  return normalizeAssignment(rows[0]);
+  const updated = normalizeAssignment(rows[0]);
+
+  // Project detection: when car arrives or enters shop, check for active project work
+  if (status === 'Arrived' || status === 'InShop') {
+    try {
+      const projectInfo = await detectProjectForCar(updated.car_number);
+      if (projectInfo && projectInfo.assignment_id) {
+        // Car belongs to active project - create alert for MC/EC
+        await createAlert({
+          alert_type: 'project_car_at_shop',
+          severity: 'info',
+          title: `Project car ${updated.car_number} is ${status} at ${updated.shop_code}`,
+          message: `This car belongs to project ${projectInfo.project_number} (${projectInfo.project_name}). Planned shop: ${projectInfo.shop_code || 'N/A'}.`,
+          entity_type: 'car_assignments',
+          entity_id: updated.id,
+          target_role: 'planner',
+          metadata: {
+            car_number: updated.car_number,
+            current_shop: updated.shop_code,
+            project_id: projectInfo.project_id,
+            project_number: projectInfo.project_number,
+            planned_shop: projectInfo.shop_code,
+          },
+        });
+      }
+    } catch {
+      // Non-critical: don't fail the status update if project detection errors
+    }
+  }
+
+  return updated;
 }
 
 // ============================================================================

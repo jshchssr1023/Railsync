@@ -54,6 +54,11 @@ function PlanningContent() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [conflict, setConflict] = useState<AssignmentConflict | null>(null);
   const [showCarDetail, setShowCarDetail] = useState<string | null>(null);
+  const [projectAlert, setProjectAlert] = useState<{
+    project_number: string;
+    project_name: string;
+    scope_of_work: string;
+  } | null>(null);
 
   // Handle URL parameters for tab selection and car pre-fill
   useEffect(() => {
@@ -80,6 +85,29 @@ function PlanningContent() {
     setCar(foundCar);
     setResults([]);
     setError(null);
+    setProjectAlert(null);
+
+    // Check if car belongs to an active project
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    fetch(`${API_URL}/cars/${foundCar.car_number}/project-history`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('railsync_access_token') || ''}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) {
+          const active = data.data.find((p: { status: string }) =>
+            p.status === 'active' || p.status === 'in_progress'
+          );
+          if (active) {
+            setProjectAlert({
+              project_number: active.project_number,
+              project_name: active.project_name,
+              scope_of_work: active.scope_of_work || '',
+            });
+          }
+        }
+      })
+      .catch(() => { /* non-critical */ });
   };
 
   // Navigate to Quick Shop with a specific car
@@ -341,6 +369,35 @@ function PlanningContent() {
                           <p className="text-yellow-600 dark:text-yellow-400 mt-1 text-xs">
                             Creating a new assignment may cause a conflict. Consider updating the existing assignment instead.
                           </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {projectAlert && (
+                    <div className="mx-4 mb-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Zap className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                        <div className="text-sm flex-1">
+                          <p className="font-medium text-indigo-800 dark:text-indigo-200">
+                            This car belongs to project {projectAlert.project_number}
+                          </p>
+                          <p className="text-indigo-700 dark:text-indigo-300 mt-0.5">
+                            {projectAlert.project_name}{projectAlert.scope_of_work ? ` — ${projectAlert.scope_of_work}` : ''}
+                          </p>
+                          <div className="flex gap-2 mt-2">
+                            <a
+                              href="/projects"
+                              className="inline-block px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                            >
+                              Plan to Project
+                            </a>
+                            <button
+                              onClick={() => setProjectAlert(null)}
+                              className="px-2 py-1 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded"
+                            >
+                              Continue Individual
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

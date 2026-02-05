@@ -1276,6 +1276,44 @@ export async function getCarEffectiveCCM(carNumber: string): Promise<EffectiveCC
   return response.data || null;
 }
 
+// Project Planning - Shopping Event Integration
+export async function getShoppingEventProjectFlags(id: string): Promise<{
+  project_id: string;
+  project_number: string;
+  project_name: string;
+  scope_of_work: string;
+  assignment_id?: string;
+  shop_code?: string;
+  target_month?: string;
+  plan_state?: string;
+} | null> {
+  const response = await fetchApi<{
+    project_id: string;
+    project_number: string;
+    project_name: string;
+    scope_of_work: string;
+    assignment_id?: string;
+    shop_code?: string;
+    target_month?: string;
+    plan_state?: string;
+  }>(`/shopping-events/${encodeURIComponent(id)}/project-flags`);
+  return response.data || null;
+}
+
+export async function bundleProjectWork(shoppingEventId: string, input: {
+  project_id: string;
+  project_car_id: string;
+  car_number: string;
+  shop_code: string;
+  target_month: string;
+}): Promise<unknown> {
+  const response = await fetchApi(`/shopping-events/${encodeURIComponent(shoppingEventId)}/bundle-project-work`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return response.data;
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -1366,6 +1404,9 @@ const api = {
   updateCCMInstructionLining,
   removeCCMInstructionLining,
   getCarEffectiveCCM,
+  // Project Planning Integration
+  getShoppingEventProjectFlags,
+  bundleProjectWork,
 };
 
 export default api;

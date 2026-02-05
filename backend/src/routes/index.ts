@@ -26,6 +26,8 @@ import * as shoppingEventController from '../controllers/shopping-event.controll
 import * as shoppingPacketController from '../controllers/shopping-packet.controller';
 import * as estimateController from '../controllers/estimate-workflow.controller';
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
+import * as projectPlanningService from '../services/project-planning.service';
+import * as projectAuditService from '../services/project-audit.service';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -3262,6 +3264,295 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
   } catch (err) {
     console.error('Car project history error:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch car project history' });
+  }
+});
+
+// ============================================================================
+// PROJECT PLANNING ROUTES
+// ============================================================================
+
+/**
+ * @route   POST /api/projects/:id/plan-cars
+ * @desc    Create planned assignments for project cars
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { cars } = req.body;
+
+    if (!cars || !Array.isArray(cars) || cars.length === 0) {
+      res.status(400).json({ success: false, error: 'cars array is required' });
+      return;
+    }
+
+    const result = await projectPlanningService.planCars({
+      project_id: req.params.id,
+      cars,
+      created_by_id: userId,
+      created_by_email: userEmail,
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    console.error('Plan cars error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/lock-cars
+ * @desc    Lock selected planned assignments (creates SSOT records)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { assignment_ids } = req.body;
+
+    if (!assignment_ids || !Array.isArray(assignment_ids) || assignment_ids.length === 0) {
+      res.status(400).json({ success: false, error: 'assignment_ids array is required' });
+      return;
+    }
+
+    const result = await projectPlanningService.lockCars({
+      project_id: req.params.id,
+      assignment_ids,
+      locked_by_id: userId,
+      locked_by_email: userEmail,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Lock cars error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/relock-car
+ * @desc    Relock a car (supersede + create new locked assignment)
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { project_assignment_id, new_shop_code, new_target_month, new_target_date, new_estimated_cost, reason } = req.body;
+
+    if (!project_assignment_id || !new_shop_code || !new_target_month || !reason) {
+      res.status(400).json({ success: false, error: 'project_assignment_id, new_shop_code, new_target_month, and reason are required' });
+      return;
+    }
+
+    const result = await projectPlanningService.relockCar({
+      project_id: req.params.id,
+      project_assignment_id,
+      new_shop_code,
+      new_target_month,
+      new_target_date,
+      new_estimated_cost,
+      reason,
+      relocked_by_id: userId,
+      relocked_by_email: userEmail,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Relock car error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/cancel-plan
+ * @desc    Cancel a car's plan
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { project_assignment_id, reason } = req.body;
+
+    if (!project_assignment_id || !reason) {
+      res.status(400).json({ success: false, error: 'project_assignment_id and reason are required' });
+      return;
+    }
+
+    const result = await projectPlanningService.cancelPlan({
+      project_id: req.params.id,
+      project_assignment_id,
+      reason,
+      cancelled_by_id: userId,
+      cancelled_by_email: userEmail,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Cancel plan error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id/plan
+ * @desc    Get grouped plan summary for a project
+ * @access  Protected
+ */
+router.get('/projects/:id/plan', authenticate, async (req, res) => {
+  try {
+    const result = await projectPlanningService.getPlanSummary(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Get plan error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id/plan-history
+ * @desc    Get audit events for a project
+ * @access  Protected
+ */
+router.get('/projects/:id/plan-history', authenticate, async (req, res) => {
+  try {
+    const { car_number, limit, offset } = req.query;
+    const result = await projectAuditService.getProjectAuditEvents(
+      req.params.id,
+      car_number as string | undefined,
+      limit ? parseInt(limit as string, 10) : 100,
+      offset ? parseInt(offset as string, 10) : 0
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Plan history error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id/plan-history/:carNumber
+ * @desc    Get audit events for a specific car in a project
+ * @access  Protected
+ */
+router.get('/projects/:id/plan-history/:carNumber', authenticate, async (req, res) => {
+  try {
+    const result = await projectAuditService.getProjectAuditEvents(
+      req.params.id,
+      req.params.carNumber
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Car plan history error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/projects/:id/communications
+ * @desc    Log a customer communication
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:id/communications', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { communication_type, communicated_to, communication_method, subject, notes } = req.body;
+
+    if (!communication_type) {
+      res.status(400).json({ success: false, error: 'communication_type is required' });
+      return;
+    }
+
+    const result = await projectPlanningService.logCommunication({
+      project_id: req.params.id,
+      communication_type,
+      communicated_to,
+      communication_method,
+      subject,
+      notes,
+      communicated_by_id: userId,
+      communicated_by_email: userEmail,
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    console.error('Log communication error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id/communications
+ * @desc    List communications for a project
+ * @access  Protected
+ */
+router.get('/projects/:id/communications', authenticate, async (req, res) => {
+  try {
+    const result = await projectPlanningService.getCommunications(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Get communications error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-events/:id/bundle-project-work
+ * @desc    Bundle project work onto a shopping event
+ * @access  Protected - Operator+
+ */
+router.post('/shopping-events/:id/bundle-project-work', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { project_id, project_car_id, car_number, shop_code, target_month } = req.body;
+
+    if (!project_id || !project_car_id || !car_number || !shop_code || !target_month) {
+      res.status(400).json({ success: false, error: 'project_id, project_car_id, car_number, shop_code, target_month required' });
+      return;
+    }
+
+    const result = await projectPlanningService.bundleProjectWork({
+      shopping_event_id: req.params.id,
+      project_id,
+      project_car_id,
+      car_number,
+      shop_code,
+      target_month,
+      bundled_by_id: userId,
+      bundled_by_email: userEmail,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Bundle project work error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-events/:id/project-flags
+ * @desc    Check if a shopping event's car belongs to an active project
+ * @access  Protected
+ */
+router.get('/shopping-events/:id/project-flags', authenticate, async (req, res) => {
+  try {
+    // Get the shopping event to find the car number
+    const event = await query('SELECT car_number FROM shopping_events WHERE id = $1', [req.params.id]);
+    if (event.length === 0) {
+      res.status(404).json({ success: false, error: 'Shopping event not found' });
+      return;
+    }
+
+    const detection = await projectPlanningService.detectProjectForCar(event[0].car_number);
+    res.json({ success: true, data: detection });
+  } catch (err) {
+    console.error('Project flags error:', err);
+    res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
 
