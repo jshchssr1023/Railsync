@@ -1,7 +1,7 @@
 # RailSync - How To Guide
 
-**Document Version:** 1.2
-**Last Updated:** February 4, 2026
+**Document Version:** 1.3
+**Last Updated:** February 5, 2026
 **Applicable System Version:** Main branch (latest)
 
 > This document is a living guide. It should be updated as new features are added or existing features are modified.
@@ -217,21 +217,76 @@ Footer buttons link to the car's shopping history and contracts view.
 
 ## 6. Shop Management
 
-### Shop Finder
+### Shop Network Overview
 
 **URL:** `/shops`
 
-The Shop Finder helps locate repair shops based on:
+The Shops page displays your entire shop network organized by geographic area, with quick access to shop details and capabilities.
 
-- Geographic location (if geo filtering is enabled)
-- Shop capabilities and designations
-- Current capacity and utilization
-- AAR certifications
+#### Layout
 
-**Actions:**
-- Search shops by name or code
-- Filter by capability or geographic region
-- View shop details including capacity information
+| Panel | Description |
+|-------|-------------|
+| **Main Content: Grouped Cards** | Shops organized by area/region (e.g., Midwest, Gulf Coast, Northeast). Each shop displayed as a card with key information. |
+| **Right: Side Drawer** | Slides in from the right showing full shop details. Closes with X, ESC key, or clicking outside. |
+
+#### Area Groups
+
+Shops are automatically grouped by their geographic area. Each group shows:
+
+- **Area name** with total shop count badge
+- **Collapsible section** - Click the header to expand/collapse
+- **Shop cards** within each area
+
+#### Shop Cards
+
+Each shop card displays:
+
+| Field | Description |
+|-------|-------------|
+| **Shop Name** | Full name of the shop |
+| **Shop Code** | Unique identifier (e.g., GATX-CHI, UP-HOU) |
+| **Type Badge** | Color-coded type indicator: Repair (blue), Storage (amber), Scrap (gray), Preferred (purple star) |
+| **Location** | City, State |
+| **Capacity** | Current/Total capacity (e.g., 45/100 cars) |
+
+**Type Indicators:**
+- 🔧 **Repair** (blue) - Full-service repair facility
+- 📦 **Storage** (amber) - Storage yard
+- ♻️ **Scrap** (gray) - Scrap/dismantling facility
+- ⭐ **Preferred** (purple) - Preferred network shop (higher priority)
+
+#### Search and Filter
+
+- **Search bar** - Search by shop name, code, or city (partial match)
+- **Area filter** - Dropdown to show only shops in a specific area
+- **Type filter** - Filter by shop type (Repair, Storage, Scrap, All)
+- **Clear All** - Reset all filters
+
+#### Shop Detail Drawer
+
+Click any shop card to open the detail drawer showing:
+
+| Section | Contents |
+|---------|----------|
+| **Header** | Shop name, code, type badge, and close button |
+| **Location** | Full address with city, state, zip |
+| **Contact** | Phone, email, primary contact name |
+| **Capacity** | Current utilization bar, total spots, available spots |
+| **Capabilities** | List of certifications and service capabilities |
+| **Recent Activity** | Last 5 cars processed at this shop |
+| **Quick Actions** | Links to assign a car, view shop history |
+
+#### Finding a Shop for a Car
+
+1. Navigate to `/shops`
+2. Use the search bar or area filter to narrow down options
+3. Look for shops with:
+   - Available capacity (green utilization bar)
+   - Required capabilities for the work needed
+   - Preferred network status (if applicable)
+4. Click a shop card to view full details
+5. Use the **Assign Car** button in the drawer to create an assignment
 
 ---
 
@@ -461,54 +516,97 @@ Templates that match all three criteria appear first, sorted by usage frequency.
 
 **URL:** `/ccm`
 
-Customer Care Manuals document the specific requirements and preferences of each lessee (customer) for how their railcars should be maintained. The CCM form structure mirrors the AITX Customer Care Manual Form V5.
+Customer Care Manuals document the specific requirements and preferences of each lessee (customer) for how their railcars should be maintained. The CCM system supports **hierarchy-level instructions** with inheritance, allowing you to define requirements at the Customer, Master Lease, Lease Rider, or Amendment level.
 
-### Viewing CCM Forms
+### CCM Hierarchy Structure
 
-- The CCM page lists all care manual forms.
-- Click on a form to expand and view its details.
-- Forms are organized by sections: Company Info, Contacts, Sealing, Cleaning, Lining, Disposition, Special Fittings.
+CCM instructions can be attached at four hierarchy levels:
 
-### Creating a CCM Form
+| Level | Description | Example |
+|-------|-------------|---------|
+| **Customer** | Global defaults for all cars under a customer | DuPont's company-wide food-grade cleaning requirement |
+| **Master Lease** | Lease-specific requirements | ML-2024-001 requires nitrogen padding at 3 PSI |
+| **Rider** | Schedule-specific requirements | Schedule A cars require epoxy lining |
+| **Amendment** | Amendment-specific overrides | Amendment adds kosher wash requirement for new cars |
 
-1. Click **New CCM Form**.
-2. Fill in the required fields:
-   - **Company Name** - The lessee's company name
-   - **Lessee Code** - Short code identifying the lessee (required)
-   - **Lessee Name** - Full lessee name
-3. Set optional fields:
-   - Food grade requirements (yes/no)
-   - Nitrogen application requirements (yes/no, PSI if yes)
-   - Mineral wipe, kosher wash/wipe requirements
-4. Click **Create**.
+**Inheritance:** Child levels automatically inherit settings from parent levels. You only need to define overrides at lower levels. For example, if Customer has `food_grade = true`, all leases, riders, and amendments under that customer inherit that setting unless explicitly overridden.
+
+### Browse Tab
+
+The **Browse** tab shows all CCM instructions currently defined in the system:
+
+- Each instruction shows its **scope level** (Customer, Lease, Rider, Amendment) as a colored badge
+- Click an instruction card to expand and view its details
+- Use the search bar to filter by customer, lease, or rider name
+- Click the **Edit** icon to modify an instruction
+
+### Create/Edit Tab
+
+The **Create/Edit** tab allows you to define or modify CCM instructions:
+
+1. **Select a Scope**: Use the hierarchy tree picker on the left to choose where to define instructions
+   - Green dots indicate nodes that already have CCM instructions
+   - Expand nodes using the chevron to navigate the hierarchy
+   - Click a node to select it
+2. **Edit Fields**: The editor on the right shows all CCM fields organized by tabs:
+   - **Contacts** - Primary, Estimate Approval, and Dispo contacts
+   - **Cleaning** - Food grade, mineral wipe, kosher requirements
+   - **Sealing** - Per-commodity gasket/sealing requirements
+   - **Lining** - Per-commodity lining requirements
+   - **Dispo** - Nitrogen, decals, documentation requirements
+   - **Notes** - Special fittings and additional notes
+3. **Inheritance Indicators**: Each field shows whether it's:
+   - **Inherited** (gray badge showing source level) - Click "Override" to set a local value
+   - **Set at this level** (blue badge) - Click "Reset to inherit" to remove the override
+4. **Save**: Click **Save Changes** to persist your edits
+
+### Creating a New CCM Instruction
+
+1. Navigate to the **Create/Edit** tab
+2. Select a scope from the hierarchy tree
+3. If no CCM exists at that scope, you'll see "Create New CCM Instructions"
+4. Fill in the fields you want to define at this level (leave others empty to inherit)
+5. Click **Create CCM**
 
 ### Managing Sealing Sections
 
-Each CCM form can have multiple sealing sections (one per commodity):
+Each CCM can have multiple sealing sections (one per commodity):
 
-1. Expand the CCM form.
-2. Navigate to the **Sealing** section.
-3. Click **Add Sealing Record**.
+1. Expand the CCM in Browse tab or select in Edit tab
+2. Navigate to the **Sealing** tab
+3. Click **Add Sealing Record**
 4. Enter:
    - **Commodity** - What product the car carries (e.g., "Ethanol")
    - **Gasket Sealing Material** - Required gasket material (e.g., "Teflon")
    - **Preferred Gasket Vendor** - Primary vendor
    - **Alternate Gasket Vendor** - Backup vendor
    - **VSP Ride Tight** - Whether VSP ride-tight sealing is required
-5. Click **Save**.
+   - **Inherit from parent** - Check to inherit this commodity's settings from parent
+5. Click **Save**
 
 ### Managing Lining Sections
 
-Similar to sealing, lining sections are per commodity:
+Similar to sealing, lining sections are per commodity and support inheritance:
 
-1. Navigate to the **Lining** section.
-2. Click **Add Lining Record**.
+1. Navigate to the **Lining** tab
+2. Click **Add Lining Record**
 3. Enter:
    - **Commodity**
    - **Lining Required** (yes/no)
    - **Lining Type** (e.g., "Epoxy", "Phenolic")
    - **Lining Inspection Interval** (e.g., "12mo", "6mo")
-4. Click **Save**.
+   - **Inherit from parent** - Check to inherit from parent level
+4. Click **Save**
+
+### Viewing Effective CCM for a Car
+
+To see the merged/effective CCM for a specific car (with all inheritance resolved):
+
+1. Navigate to the car's detail page
+2. The "Effective CCM" section shows:
+   - Final merged values for all fields
+   - **Inheritance chain** showing where each field comes from (e.g., "food_grade: Customer > DuPont")
+   - Per-commodity sealing and lining settings
 
 ### Using CCM Data in SOWs
 

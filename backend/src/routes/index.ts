@@ -19,11 +19,13 @@ import userManagementController from '../controllers/userManagement.controller';
 import dashboardController from '../controllers/dashboard.controller';
 import * as jobCodeController from '../controllers/job-code.controller';
 import * as ccmController from '../controllers/ccm.controller';
+import * as ccmInstructionsService from '../services/ccm-instructions.service';
 import * as scopeLibraryController from '../controllers/scope-library.controller';
 import * as sowController from '../controllers/scope-of-work.controller';
 import * as shoppingEventController from '../controllers/shopping-event.controller';
 import * as shoppingPacketController from '../controllers/shopping-packet.controller';
 import * as estimateController from '../controllers/estimate-workflow.controller';
+import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -1388,6 +1390,188 @@ router.post('/bad-orders/:id/resolve', authenticate, badOrderController.resolveB
 // ============================================================================
 // SHOP DESIGNATIONS & STORAGE COMMODITIES
 // ============================================================================
+
+/**
+ * @route   GET /api/shops/browse/hierarchy
+ * @desc    Get shops grouped by designation → network → shop with metrics
+ * @access  Public
+ */
+router.get('/shops/browse/hierarchy', optionalAuth, async (req, res) => {
+  try {
+    // Get all active shops with their data
+    const shops = await query(`
+      SELECT s.shop_code, s.shop_name, s.primary_railroad, s.region, s.tier,
+             s.is_preferred_network, s.shop_designation, s.capacity, s.labor_rate,
+             COALESCE(s.material_markup, 15.00) as material_markup,
+             s.latitude, s.longitude, s.city, s.state,
+             b.cars_backlog, b.hours_backlog, b.cars_en_route_0_6, b.cars_en_route_7_14, b.cars_en_route_15_plus
+      FROM shops s
+      LEFT JOIN LATERAL (
+        SELECT cars_backlog, hours_backlog, cars_en_route_0_6, cars_en_route_7_14, cars_en_route_15_plus
+        FROM shop_backlog WHERE shop_code = s.shop_code ORDER BY date DESC LIMIT 1
+      ) b ON true
+      WHERE s.is_active = true
+      ORDER BY s.shop_designation, s.tier, s.primary_railroad, s.shop_name
+    `);
+
+    // Group into designation → network → shops
+    const groups: Record<string, any> = {};
+    for (const shop of shops) {
+      const designation = shop.shop_designation || 'repair';
+      const network = shop.primary_railroad || 'Other';
+
+      if (!groups[designation]) {
+        groups[designation] = { designation, networks: {}, metrics: {
+          total_shops: 0, total_capacity: 0, cars_in_shop: 0, cars_enroute: 0,
+          preferred_count: 0, non_preferred_count: 0,
+          avg_labor_rate: 0, avg_material_markup: 0,
+          labor_rate_sum: 0, markup_sum: 0
+        }};
+      }
+
+      const g = groups[designation];
+      g.metrics.total_shops++;
+      g.metrics.total_capacity += parseInt(shop.capacity) || 0;
+      g.metrics.cars_in_shop += parseInt(shop.cars_backlog) || 0;
+      g.metrics.cars_enroute += (parseInt(shop.cars_en_route_0_6) || 0) + (parseInt(shop.cars_en_route_7_14) || 0) + (parseInt(shop.cars_en_route_15_plus) || 0);
+      if (shop.is_preferred_network) g.metrics.preferred_count++; else g.metrics.non_preferred_count++;
+      g.metrics.labor_rate_sum += parseFloat(shop.labor_rate) || 0;
+      g.metrics.markup_sum += parseFloat(shop.material_markup) || 0;
+
+      if (!g.networks[network]) {
+        g.networks[network] = { network, tier: shop.tier, shops: [] };
+      }
+
+      // Compute load indicator
+      const carsInShop = parseInt(shop.cars_backlog) || 0;
+      const cap = parseInt(shop.capacity) || 1;
+      const loadPct = Math.round((carsInShop / cap) * 100);
+      const loadStatus = loadPct >= 90 ? 'red' : loadPct >= 70 ? 'yellow' : 'green';
+
+      g.networks[network].shops.push({
+        shop_code: shop.shop_code,
+        shop_name: shop.shop_name,
+        region: shop.region,
+        tier: shop.tier,
+        capacity: parseInt(shop.capacity) || 0,
+        cars_in_shop: carsInShop,
+        cars_enroute: (parseInt(shop.cars_en_route_0_6) || 0) + (parseInt(shop.cars_en_route_7_14) || 0) + (parseInt(shop.cars_en_route_15_plus) || 0),
+        labor_rate: parseFloat(shop.labor_rate) || 0,
+        material_markup: parseFloat(shop.material_markup) || 0,
+        is_preferred_network: shop.is_preferred_network,
+        load_pct: loadPct,
+        load_status: loadStatus,
+        latitude: shop.latitude ? parseFloat(shop.latitude) : null,
+        longitude: shop.longitude ? parseFloat(shop.longitude) : null,
+      });
+    }
+
+    // Finalize metrics and convert networks to arrays
+    const result = Object.values(groups).map((g: any) => {
+      if (g.metrics.total_shops > 0) {
+        g.metrics.avg_labor_rate = Math.round((g.metrics.labor_rate_sum / g.metrics.total_shops) * 100) / 100;
+        g.metrics.avg_material_markup = Math.round((g.metrics.markup_sum / g.metrics.total_shops) * 100) / 100;
+      }
+      delete g.metrics.labor_rate_sum;
+      delete g.metrics.markup_sum;
+      g.networks = Object.values(g.networks).sort((a: any, b: any) => a.tier - b.tier || a.network.localeCompare(b.network));
+      return g;
+    });
+
+    // Sort: repair first, then storage, then scrap
+    const order = { repair: 0, storage: 1, scrap: 2 };
+    result.sort((a: any, b: any) => (order[a.designation as keyof typeof order] ?? 9) - (order[b.designation as keyof typeof order] ?? 9));
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Shop hierarchy error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get shop hierarchy' });
+  }
+});
+
+/**
+ * @route   GET /api/shops/browse/detail/:shopCode
+ * @desc    Get detailed shop info for the side drawer
+ * @access  Public
+ */
+router.get('/shops/browse/detail/:shopCode', optionalAuth, async (req, res) => {
+  try {
+    const { shopCode } = req.params;
+
+    // Shop base info
+    const shopResult = await query(`
+      SELECT s.*, COALESCE(s.material_markup, 15.00) as material_markup
+      FROM shops s WHERE s.shop_code = $1
+    `, [shopCode]);
+
+    if (shopResult.length === 0) {
+      return res.status(404).json({ success: false, error: 'Shop not found' });
+    }
+
+    const shop = shopResult[0];
+
+    // Backlog
+    const backlogResult = await query(`
+      SELECT * FROM shop_backlog WHERE shop_code = $1 ORDER BY date DESC LIMIT 1
+    `, [shopCode]);
+
+    // Capacity by work type
+    const capacityResult = await query(`
+      SELECT work_type, weekly_hours_capacity, current_utilization_pct, available_hours
+      FROM shop_work_capacity WHERE shop_code = $1 ORDER BY work_type
+    `, [shopCode]);
+
+    // Capabilities
+    const capResult = await query(`
+      SELECT capability_type, capability_value
+      FROM shop_capabilities WHERE shop_code = $1 ORDER BY capability_type, capability_value
+    `, [shopCode]);
+
+    const capabilities: Record<string, string[]> = {};
+    for (const c of capResult) {
+      if (!capabilities[c.capability_type]) capabilities[c.capability_type] = [];
+      capabilities[c.capability_type].push(c.capability_value);
+    }
+
+    // Active shopping events at this shop
+    const eventsResult = await query(`
+      SELECT COUNT(*)::int as active_events,
+             COUNT(*) FILTER (WHERE state IN ('IN_REPAIR','INSPECTION','QA_COMPLETE'))::int as in_progress
+      FROM shopping_events
+      WHERE shop_code = $1 AND state NOT IN ('RELEASED','CANCELLED')
+    `, [shopCode]);
+
+    res.json({
+      success: true,
+      data: {
+        shop: {
+          shop_code: shop.shop_code,
+          shop_name: shop.shop_name,
+          primary_railroad: shop.primary_railroad,
+          region: shop.region,
+          city: shop.city,
+          state: shop.state,
+          tier: shop.tier,
+          shop_designation: shop.shop_designation || 'repair',
+          capacity: parseInt(shop.capacity) || 0,
+          labor_rate: parseFloat(shop.labor_rate) || 0,
+          material_markup: parseFloat(shop.material_markup) || 0,
+          is_preferred_network: shop.is_preferred_network,
+          latitude: shop.latitude ? parseFloat(shop.latitude) : null,
+          longitude: shop.longitude ? parseFloat(shop.longitude) : null,
+        },
+        backlog: backlogResult[0] || null,
+        capacity: capacityResult,
+        capabilities,
+        active_events: eventsResult[0]?.active_events || 0,
+        in_progress: eventsResult[0]?.in_progress || 0,
+      }
+    });
+  } catch (err) {
+    console.error('Shop detail error:', err);
+    res.status(500).json({ success: false, error: 'Failed to get shop detail' });
+  }
+});
 
 /**
  * @route   GET /api/shops/by-designation/:designation
@@ -3280,6 +3464,286 @@ router.post('/ccm-forms/:id/attachments', authenticate, authorize('admin', 'oper
 router.delete('/ccm-forms/:id/attachments/:attachmentId', authenticate, authorize('admin', 'operator'), ccmController.removeCCMFormAttachment);
 
 // ============================================================================
+// CCM INSTRUCTIONS (Hierarchy-Level CCM with Inheritance)
+// ============================================================================
+
+/**
+ * @route   GET /api/ccm-instructions/hierarchy-tree
+ * @desc    Get hierarchy tree for CCM scope selection
+ * @access  Public (with optional auth)
+ */
+router.get('/ccm-instructions/hierarchy-tree', optionalAuth, async (req, res) => {
+  try {
+    const customerId = req.query.customer_id as string | undefined;
+    const tree = await ccmInstructionsService.getHierarchyTree(customerId);
+    res.json({ success: true, data: tree });
+  } catch (error) {
+    console.error('Error fetching hierarchy tree:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch hierarchy tree' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-instructions
+ * @desc    List CCM instructions with optional scope filters
+ * @access  Public (with optional auth)
+ */
+router.get('/ccm-instructions', optionalAuth, async (req, res) => {
+  try {
+    const filters: {
+      scope_type?: ccmInstructionsService.ScopeLevel;
+      scope_id?: string;
+      customer_id?: string;
+    } = {};
+
+    if (req.query.scope_type && req.query.scope_id) {
+      filters.scope_type = req.query.scope_type as ccmInstructionsService.ScopeLevel;
+      filters.scope_id = req.query.scope_id as string;
+    }
+    if (req.query.customer_id) {
+      filters.customer_id = req.query.customer_id as string;
+    }
+
+    const instructions = await ccmInstructionsService.listCCMInstructions(filters);
+    res.json({ success: true, data: instructions });
+  } catch (error) {
+    console.error('Error listing CCM instructions:', error);
+    res.status(500).json({ success: false, error: 'Failed to list CCM instructions' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-instructions/:id
+ * @desc    Get a single CCM instruction by ID
+ * @access  Public (with optional auth)
+ */
+router.get('/ccm-instructions/:id', optionalAuth, async (req, res) => {
+  try {
+    const instruction = await ccmInstructionsService.getCCMInstructionById(req.params.id);
+    if (!instruction) {
+      return res.status(404).json({ success: false, error: 'CCM instruction not found' });
+    }
+    res.json({ success: true, data: instruction });
+  } catch (error) {
+    console.error('Error fetching CCM instruction:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
+  }
+});
+
+/**
+ * @route   POST /api/ccm-instructions
+ * @desc    Create a new CCM instruction at a specific scope
+ * @access  Admin/Operator
+ */
+router.post('/ccm-instructions', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { scope_type, scope_id, ...data } = req.body;
+
+    if (!scope_type || !scope_id) {
+      return res.status(400).json({ success: false, error: 'scope_type and scope_id are required' });
+    }
+
+    const validScopes = ['customer', 'master_lease', 'rider', 'amendment'];
+    if (!validScopes.includes(scope_type)) {
+      return res.status(400).json({ success: false, error: 'Invalid scope_type' });
+    }
+
+    const userId = (req as any).user?.id;
+    const instruction = await ccmInstructionsService.createCCMInstruction(
+      { type: scope_type, id: scope_id },
+      data,
+      userId
+    );
+
+    res.status(201).json({ success: true, data: instruction });
+  } catch (error) {
+    console.error('Error creating CCM instruction:', error);
+    res.status(500).json({ success: false, error: 'Failed to create CCM instruction' });
+  }
+});
+
+/**
+ * @route   PUT /api/ccm-instructions/:id
+ * @desc    Update an existing CCM instruction
+ * @access  Admin/Operator
+ */
+router.put('/ccm-instructions/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const instruction = await ccmInstructionsService.updateCCMInstruction(req.params.id, req.body);
+    if (!instruction) {
+      return res.status(404).json({ success: false, error: 'CCM instruction not found' });
+    }
+    res.json({ success: true, data: instruction });
+  } catch (error) {
+    console.error('Error updating CCM instruction:', error);
+    res.status(500).json({ success: false, error: 'Failed to update CCM instruction' });
+  }
+});
+
+/**
+ * @route   DELETE /api/ccm-instructions/:id
+ * @desc    Delete (soft) a CCM instruction
+ * @access  Admin/Operator
+ */
+router.delete('/ccm-instructions/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const deleted = await ccmInstructionsService.deleteCCMInstruction(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'CCM instruction not found' });
+    }
+    res.json({ success: true, message: 'CCM instruction deleted' });
+  } catch (error) {
+    console.error('Error deleting CCM instruction:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete CCM instruction' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-instructions/by-scope/:scopeType/:scopeId
+ * @desc    Get CCM instruction by scope (customer, lease, rider, amendment)
+ * @access  Public (with optional auth)
+ */
+router.get('/ccm-instructions/by-scope/:scopeType/:scopeId', optionalAuth, async (req, res) => {
+  try {
+    const { scopeType, scopeId } = req.params;
+    const validScopes = ['customer', 'master_lease', 'rider', 'amendment'];
+    if (!validScopes.includes(scopeType)) {
+      return res.status(400).json({ success: false, error: 'Invalid scope type' });
+    }
+
+    const instruction = await ccmInstructionsService.getCCMInstructionByScope({
+      type: scopeType as ccmInstructionsService.ScopeLevel,
+      id: scopeId
+    });
+
+    res.json({ success: true, data: instruction });
+  } catch (error) {
+    console.error('Error fetching CCM instruction by scope:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-instructions/parent/:scopeType/:scopeId
+ * @desc    Get parent CCM for inheritance preview
+ * @access  Public (with optional auth)
+ */
+router.get('/ccm-instructions/parent/:scopeType/:scopeId', optionalAuth, async (req, res) => {
+  try {
+    const { scopeType, scopeId } = req.params;
+    const validScopes = ['master_lease', 'rider', 'amendment'];
+    if (!validScopes.includes(scopeType)) {
+      return res.status(400).json({ success: false, error: 'Invalid scope type (customer has no parent)' });
+    }
+
+    const parentCCM = await ccmInstructionsService.getParentCCM({
+      type: scopeType as ccmInstructionsService.ScopeLevel,
+      id: scopeId
+    });
+
+    res.json({ success: true, data: parentCCM });
+  } catch (error) {
+    console.error('Error fetching parent CCM:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch parent CCM' });
+  }
+});
+
+// CCM Instruction Sealing Sections
+router.post('/ccm-instructions/:id/sealing', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const sealing = await ccmInstructionsService.addSealingSection(req.params.id, req.body);
+    res.status(201).json({ success: true, data: sealing });
+  } catch (error) {
+    console.error('Error adding sealing section:', error);
+    res.status(500).json({ success: false, error: 'Failed to add sealing section' });
+  }
+});
+
+router.put('/ccm-instructions/:id/sealing/:sealingId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const sealing = await ccmInstructionsService.updateSealingSection(req.params.sealingId, req.body);
+    if (!sealing) {
+      return res.status(404).json({ success: false, error: 'Sealing section not found' });
+    }
+    res.json({ success: true, data: sealing });
+  } catch (error) {
+    console.error('Error updating sealing section:', error);
+    res.status(500).json({ success: false, error: 'Failed to update sealing section' });
+  }
+});
+
+router.delete('/ccm-instructions/:id/sealing/:sealingId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const deleted = await ccmInstructionsService.removeSealingSection(req.params.sealingId);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Sealing section not found' });
+    }
+    res.json({ success: true, message: 'Sealing section removed' });
+  } catch (error) {
+    console.error('Error removing sealing section:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove sealing section' });
+  }
+});
+
+// CCM Instruction Lining Sections
+router.post('/ccm-instructions/:id/lining', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const lining = await ccmInstructionsService.addLiningSection(req.params.id, req.body);
+    res.status(201).json({ success: true, data: lining });
+  } catch (error) {
+    console.error('Error adding lining section:', error);
+    res.status(500).json({ success: false, error: 'Failed to add lining section' });
+  }
+});
+
+router.put('/ccm-instructions/:id/lining/:liningId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const lining = await ccmInstructionsService.updateLiningSection(req.params.liningId, req.body);
+    if (!lining) {
+      return res.status(404).json({ success: false, error: 'Lining section not found' });
+    }
+    res.json({ success: true, data: lining });
+  } catch (error) {
+    console.error('Error updating lining section:', error);
+    res.status(500).json({ success: false, error: 'Failed to update lining section' });
+  }
+});
+
+router.delete('/ccm-instructions/:id/lining/:liningId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const deleted = await ccmInstructionsService.removeLiningSection(req.params.liningId);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Lining section not found' });
+    }
+    res.json({ success: true, message: 'Lining section removed' });
+  } catch (error) {
+    console.error('Error removing lining section:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove lining section' });
+  }
+});
+
+/**
+ * @route   GET /api/cars/:carNumber/effective-ccm
+ * @desc    Get effective CCM for a car with inheritance chain
+ * @access  Public (with optional auth)
+ */
+router.get('/cars/:carNumber/effective-ccm', optionalAuth, async (req, res) => {
+  try {
+    const effectiveCCM = await ccmInstructionsService.resolveEffectiveCCM(req.params.carNumber);
+    if (!effectiveCCM) {
+      return res.status(404).json({
+        success: false,
+        error: 'Car not found or not linked to any lease hierarchy'
+      });
+    }
+    res.json({ success: true, data: effectiveCCM });
+  } catch (error) {
+    console.error('Error resolving effective CCM:', error);
+    res.status(500).json({ success: false, error: 'Failed to resolve effective CCM' });
+  }
+});
+
+// ============================================================================
 // SCOPE LIBRARY
 // ============================================================================
 
@@ -3371,6 +3835,40 @@ router.get('/dashboard/upcoming-releases', optionalAuth, dashboardController.get
 router.get('/dashboard/high-cost-exceptions', authenticate, dashboardController.getHighCostExceptions);
 router.get('/dashboard/expiry-forecast', optionalAuth, dashboardController.getExpiryForecast);
 router.get('/dashboard/budget-burn', authenticate, dashboardController.getBudgetBurnVelocity);
+
+// ============================================================================
+// INVOICE CASE WORKFLOW ROUTES (per Railsync_Invoice_Processing_Complete_Spec.md)
+// ============================================================================
+
+// Invoice Case CRUD
+router.get('/invoice-cases/by-state', optionalAuth, invoiceCaseController.getCasesByState);
+router.get('/invoice-cases', optionalAuth, invoiceCaseController.listInvoiceCases);
+router.post('/invoice-cases', authenticate, authorize('admin', 'operator'), invoiceCaseController.createInvoiceCase);
+router.get('/invoice-cases/:id', optionalAuth, invoiceCaseController.getInvoiceCase);
+router.get('/invoice-cases/:id/summary', optionalAuth, invoiceCaseController.getInvoiceCaseSummary);
+router.put('/invoice-cases/:id', authenticate, authorize('admin', 'operator'), invoiceCaseController.updateInvoiceCase);
+
+// State Transitions
+router.post('/invoice-cases/:id/validate', authenticate, invoiceCaseController.validateStateTransition);
+router.post('/invoice-cases/:id/transition', authenticate, authorize('admin', 'operator'), invoiceCaseController.transitionState);
+
+// Assignment
+router.put('/invoice-cases/:id/assign', authenticate, authorize('admin'), invoiceCaseController.assignCase);
+router.delete('/invoice-cases/:id/assign', authenticate, authorize('admin'), invoiceCaseController.unassignCase);
+
+// Special Lessee Approval
+router.post('/invoice-cases/:id/special-lessee-approval', authenticate, authorize('admin'), invoiceCaseController.confirmSpecialLesseeApproval);
+
+// Attachments
+router.get('/invoice-cases/:id/attachments', optionalAuth, invoiceCaseController.listAttachments);
+router.get('/invoice-cases/:id/attachments/validate', optionalAuth, invoiceCaseController.validateAttachments);
+router.post('/invoice-cases/:id/attachments', authenticate, authorize('admin', 'operator'), invoiceUpload.single('file'), invoiceCaseController.uploadAttachment);
+router.get('/invoice-cases/:caseId/attachments/:attachmentId/download', authenticate, invoiceCaseController.downloadAttachment);
+router.delete('/invoice-cases/:caseId/attachments/:attachmentId', authenticate, authorize('admin'), invoiceCaseController.deleteAttachment);
+router.post('/invoice-cases/:caseId/attachments/:attachmentId/verify', authenticate, authorize('admin', 'operator'), invoiceCaseController.verifyAttachment);
+
+// Audit Events
+router.get('/invoice-cases/:id/audit-events', authenticate, invoiceCaseController.getAuditEvents);
 
 /**
  * @route   GET /api/health

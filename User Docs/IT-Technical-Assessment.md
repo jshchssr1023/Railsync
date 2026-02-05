@@ -1,8 +1,8 @@
 # RailSync - IT Technical Assessment
 
-**Document Version:** 1.2
+**Document Version:** 1.3
 **Assessment Date:** February 3, 2026
-**Last Updated:** February 4, 2026
+**Last Updated:** February 5, 2026
 **Assessor:** Automated Build Verification + Manual Code Review
 **System Version:** Main branch (latest)
 
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-RailSync is a railcar fleet management system with 90 database tables, 348+ API endpoints, 42 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a contracts browse page with server-side pagination, a car type hierarchy tree, and a side-drawer car detail view.
+RailSync is a railcar fleet management system with 93 database tables, 360+ API endpoints, 43 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a contracts browse page with server-side pagination, a car type hierarchy tree, a side-drawer car detail view, and CCM (Customer Care Manual) hierarchy-level instructions with cascade inheritance.
 
 **Overall Verdict: NOT production-ready.** The system is a functional prototype suitable for internal demonstration and iterative development. It is not yet suitable for deployment to a production environment where data integrity, security, and uptime are non-negotiable. Specific blockers are detailed below.
 
@@ -33,10 +33,10 @@ RailSync is a railcar fleet management system with 90 database tables, 348+ API 
 
 | Metric | Count |
 |--------|-------|
-| Database tables | 90 |
-| Migration files | 33 (028 numbered, some duplicate numbers) |
-| API endpoints | 348+ |
-| Backend services | 42 |
+| Database tables | 93 |
+| Migration files | 34 (030 numbered, some duplicate numbers) |
+| API endpoints | 360+ |
+| Backend services | 43 |
 | Backend controllers | 26 |
 | Frontend page modules | 24 |
 | Backend dependencies | 15 production, 21 dev |
@@ -180,6 +180,46 @@ Four new endpoints added for the Cars page contracts browse feature:
 
 **Performance:** Server-side pagination means the frontend never loads all 1,500+ cars at once. The `/types` endpoint aggregates with `GROUP BY` (single query), and the `/cars` endpoint uses `LIMIT/OFFSET` with dynamic `WHERE` clause construction. Sort column injection is prevented via a whitelist of 8 allowed column names.
 
+### CCM Hierarchy-Level Instructions (New)
+
+Three new tables added for hierarchy-level CCM instructions with cascade inheritance:
+
+| Table | Purpose | Key Features |
+|-------|---------|-------------|
+| `ccm_instructions` | Main CCM data at any hierarchy level | Polymorphic scope (exactly one of customer_id, master_lease_id, rider_id, amendment_id set). All CCM fields nullable (NULL = inherit from parent). Versioning with `version`, `is_current`, `supersedes_id`. Constraint enforces one current instruction per scope entity. |
+| `ccm_instruction_sealing` | Per-commodity sealing instructions | FK to `ccm_instructions`. Per-commodity sealing rules with `inherit_from_parent` flag. |
+| `ccm_instruction_lining` | Per-commodity lining instructions | FK to `ccm_instructions`. Per-commodity lining rules with `inherit_from_parent` flag. |
+
+**Inheritance Model:**
+- Four hierarchy levels: Customer → Master Lease → Rider → Amendment
+- NULL values in child levels inherit from parent
+- Non-null values override parent settings
+- Per-commodity sections can explicitly inherit or override
+
+**New API Endpoints (12 total):**
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/ccm-instructions/hierarchy-tree` | Nested tree of customers→leases→riders→amendments with `hasCCM` flags |
+| `GET /api/ccm-instructions` | List instructions with optional scope filter |
+| `GET /api/ccm-instructions/:id` | Get single instruction by ID |
+| `POST /api/ccm-instructions` | Create new instruction at any scope level |
+| `PUT /api/ccm-instructions/:id` | Update instruction |
+| `DELETE /api/ccm-instructions/:id` | Delete instruction |
+| `GET /api/ccm-instructions/by-scope/:type/:id` | Get instruction by scope (customer/lease/rider/amendment) |
+| `GET /api/ccm-instructions/parent/:type/:id` | Get parent's effective CCM for inheritance display |
+| `GET /api/cars/:carNumber/effective-ccm` | Resolved CCM with inheritance chain showing field sources |
+| `POST/PUT/DELETE /api/ccm-instructions/:id/sealing` | CRUD for sealing sections |
+| `POST/PUT/DELETE /api/ccm-instructions/:id/lining` | CRUD for lining sections |
+
+**SQL Function:** `get_effective_ccm_for_car(car_number)` - Database-level function that walks the hierarchy path (rider_cars → lease_riders → master_leases → customers) and merges CCM fields from top to bottom, returning effective values with source tracking.
+
+**Data Integrity:**
+- CHECK constraint ensures exactly one scope ID is set per instruction
+- Unique constraint on `(scope_level, customer_id, master_lease_id, rider_id, amendment_id) WHERE is_current = true`
+- Cascade delete on sealing/lining sections when parent instruction deleted
+- Migration includes data migration from legacy `ccm_forms` table
+
 ### Performance Concerns
 
 - No connection pooling configuration visible (using `pg` default pool)
@@ -251,6 +291,7 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 - No state management library (useState/useEffect patterns)
 - **Vertical sidebar navigation** — replaces top banner navigation. Fixed-position left sidebar with icon-only collapsed state (56px) and expanded state (224px). 8 primary categories with nested subcategories. Mobile responsive with hamburger menu overlay. Built with lucide-react icons and CSS transitions. Legacy AuthHeader.tsx and MobileNavBar.tsx components have been deleted.
 - **Cars page** — Three-panel layout (TypeTree | Car List | Side Drawer). Server-side pagination. URL query parameter support for deep-linking with pre-applied filters. Suspense boundary for Next.js App Router compatibility. TypeTree hidden on mobile for usability.
+- **CCM page** — Tabbed interface with Browse and Create/Edit sub-tabs. Browse tab shows list of existing CCM instructions with expandable detail cards. Create/Edit tab has two-panel layout: left panel with hierarchy tree picker (Customer → Lease → Rider → Amendment), right panel with full CCM editor showing inheritance indicators. Each field displays whether it's inherited or locally defined, with Override/Reset buttons. Sealing and lining sections support per-commodity inheritance.
 
 ### Concerns
 
@@ -266,9 +307,9 @@ The `test-save-functions.sh` bash script is the primary verification tool. It te
 ### Page Coverage
 
 24 frontend page modules exist covering:
-- Dashboard, Contracts, Cars (rebuilt with 3-panel layout), Shops
+- Dashboard, Contracts, Cars (rebuilt with 3-panel layout), Shops (rebuilt with grouped cards)
 - Bad Orders, Invoices, Assignments
-- Shopping Events, Scope Library, CCM Forms
+- Shopping Events, Scope Library, CCM (rebuilt with hierarchy tabs)
 - Planning, Pipeline, Reports, Analytics
 - Admin, Settings, Rules, Projects, Budget
 
@@ -283,6 +324,31 @@ Key frontend patterns used:
 - CSS animation for drawer slide-in (`animate-slide-in-right`)
 - ESC key and backdrop click to close drawer
 - Responsive pagination with page number buttons
+
+**CCM Page Architecture (New):** The CCM page (`/ccm`) has been rebuilt with a tabbed interface:
+- **Browse tab:** List of existing CCM instructions as expandable cards. Each card shows scope level badge, scope name, and key CCM fields. Expand to see full details and inheritance chain.
+- **Create/Edit tab:** Two-panel layout:
+  - **Left panel:** Hierarchy tree picker showing Customer → Master Lease → Rider → Amendment. Nodes with existing CCM show green indicator. Click to select scope for editing.
+  - **Right panel:** Full CCM editor with inheritance indicators. Each field shows source badge (inherited from parent level or set locally). Override/Reset buttons to toggle inheritance. Tabbed sections for Contacts, Cleaning, Sealing, Lining, Dispo, Notes.
+
+Key frontend patterns used:
+- Hierarchy tree with expand/collapse and search filtering
+- Field-level inheritance tracking with source badges
+- Per-commodity section editors for sealing/lining
+- Inheritance chain visualization as breadcrumb
+- Color-coded scope level badges (blue=Customer, purple=Lease, orange=Rider, green=Amendment)
+
+**Shops Page Architecture (New):** The Shops page (`/shops`) has been rebuilt with a grouped card layout:
+- **Main content:** Shop cards grouped by geographic area (Midwest, Gulf Coast, etc.) with collapsible sections
+- **Shop cards:** Display shop name, code, type badge (Repair/Storage/Scrap/Preferred), location, and capacity
+- **Side drawer:** 480px drawer showing full shop details including contact info, capabilities, and recent activity
+- **Search/filter:** Search by name/code/city, filter by area and shop type
+
+Key frontend patterns used:
+- Grouped card layout with collapsible area sections
+- Type badges with color coding (blue=Repair, amber=Storage, gray=Scrap, purple=Preferred)
+- Side drawer with ESC key and backdrop click to close
+- Capacity utilization indicators with progress bars
 
 ---
 
@@ -431,4 +497,4 @@ However, the system has critical security gaps (hardcoded JWT secret, exposed da
 
 ---
 
-*This assessment was generated from automated testing (63 endpoint tests) and manual code review of 344 API endpoints, 42 services, 33 migration files, and 24 frontend modules.*
+*This assessment was generated from automated testing (63 endpoint tests) and manual code review of 360+ API endpoints, 43 services, 34 migration files, and 24 frontend modules.*

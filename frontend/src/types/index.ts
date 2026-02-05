@@ -632,3 +632,145 @@ export interface CCMFormSOWSection {
   content: string;
   ccm_form_id: string;
 }
+
+// ============================================================================
+// CCM Instructions (Hierarchy-Level with Inheritance)
+// ============================================================================
+
+export type CCMScopeLevel = 'customer' | 'master_lease' | 'rider' | 'amendment';
+
+export interface CCMInstructionScope {
+  type: CCMScopeLevel;
+  id: string;
+}
+
+export interface CCMInstructionFields {
+  // Cleaning Requirements
+  food_grade?: boolean | null;
+  mineral_wipe?: boolean | null;
+  kosher_wash?: boolean | null;
+  kosher_wipe?: boolean | null;
+  shop_oil_material?: boolean | null;
+  oil_provider_contact?: string | null;
+  rinse_water_test_procedure?: string | null;
+
+  // Primary Contact
+  primary_contact_name?: string | null;
+  primary_contact_email?: string | null;
+  primary_contact_phone?: string | null;
+
+  // Estimate Approval Contact
+  estimate_approval_contact_name?: string | null;
+  estimate_approval_contact_email?: string | null;
+  estimate_approval_contact_phone?: string | null;
+
+  // Dispo Contact
+  dispo_contact_name?: string | null;
+  dispo_contact_email?: string | null;
+  dispo_contact_phone?: string | null;
+
+  // Outbound Dispo
+  decal_requirements?: string | null;
+  nitrogen_applied?: boolean | null;
+  nitrogen_psi?: string | null;
+  outbound_dispo_contact_email?: string | null;
+  outbound_dispo_contact_phone?: string | null;
+  documentation_required_prior_to_release?: string | null;
+
+  // Special Fittings & Notes
+  special_fittings_vendor_requirements?: string | null;
+  additional_notes?: string | null;
+}
+
+export interface CCMInstructionSealing {
+  id?: string;
+  ccm_instruction_id?: string;
+  commodity: string;
+  gasket_sealing_material?: string | null;
+  alternate_material?: string | null;
+  preferred_gasket_vendor?: string | null;
+  alternate_vendor?: string | null;
+  vsp_ride_tight?: boolean | null;
+  sealing_requirements?: string | null;
+  inherit_from_parent?: boolean;
+  sort_order?: number;
+}
+
+export interface CCMInstructionLining {
+  id?: string;
+  ccm_instruction_id?: string;
+  commodity: string;
+  lining_required?: boolean | null;
+  lining_inspection_interval?: string | null;
+  lining_type?: string | null;
+  lining_plan_on_file?: boolean | null;
+  lining_requirements?: string | null;
+  inherit_from_parent?: boolean;
+  sort_order?: number;
+}
+
+export interface CCMInstruction extends CCMInstructionFields {
+  id: string;
+  scope_level: CCMScopeLevel;
+  scope_name?: string;
+  customer_id?: string | null;
+  master_lease_id?: string | null;
+  rider_id?: string | null;
+  amendment_id?: string | null;
+  version: number;
+  is_current: boolean;
+  created_by_id?: string;
+  created_at: string;
+  updated_at: string;
+  // Related data
+  sealing_sections?: CCMInstructionSealing[];
+  lining_sections?: CCMInstructionLining[];
+  // View fields (from v_ccm_instructions)
+  customer_name?: string;
+  customer_code?: string;
+  lease_code?: string;
+  lease_name?: string;
+  rider_code?: string;
+  rider_name?: string;
+  amendment_code?: string;
+  amendment_summary?: string;
+  sealing_count?: number;
+  lining_count?: number;
+  created_by_email?: string;
+  created_by_name?: string;
+}
+
+export interface CCMHierarchyNode {
+  id: string;
+  type: CCMScopeLevel;
+  name: string;
+  code?: string;
+  hasCCM: boolean;
+  isActive: boolean;
+  children?: CCMHierarchyNode[];
+}
+
+export interface CCMInheritanceChainItem {
+  level: CCMScopeLevel;
+  id: string | null;
+  name: string | null;
+  fields_defined: string[];
+}
+
+export interface EffectiveCCM {
+  effective: CCMInstructionFields;
+  field_sources: Record<string, CCMScopeLevel | null>;
+  inheritance_chain: CCMInheritanceChainItem[];
+  sealing_by_commodity: Record<string, { data: CCMInstructionSealing; source: CCMScopeLevel }>;
+  lining_by_commodity: Record<string, { data: CCMInstructionLining; source: CCMScopeLevel }>;
+  hierarchy: {
+    customer_id: string | null;
+    customer_name: string | null;
+    master_lease_id: string | null;
+    lease_name: string | null;
+    rider_id: string | null;
+    rider_name: string | null;
+    amendment_id: string | null;
+    amendment_name: string | null;
+  };
+}

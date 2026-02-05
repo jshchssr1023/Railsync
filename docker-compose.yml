@@ -50,6 +50,8 @@ services:
       - ./database/migrations/026_user_management.sql:/docker-entrypoint-initdb.d/33-user-management.sql
       - ./database/migrations/027_shopping_workflow.sql:/docker-entrypoint-initdb.d/34-shopping-workflow.sql
       - ./database/migrations/028_ccm_form_structure.sql:/docker-entrypoint-initdb.d/35-ccm-form-structure.sql
+      - ./database/migrations/029_shop_tiers_storage_scrap.sql:/docker-entrypoint-initdb.d/36-shop-tiers-storage-scrap.sql
+      - ./database/migrations/030_ccm_hierarchy_instructions.sql:/docker-entrypoint-initdb.d/37-ccm-hierarchy-instructions.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

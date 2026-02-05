@@ -34,6 +34,15 @@ import {
   EstimateLineDecision,
   CCMForm,
   CCMFormSOWSection,
+  // CCM Instructions (Hierarchy)
+  CCMScopeLevel,
+  CCMInstructionScope,
+  CCMInstructionFields,
+  CCMInstruction,
+  CCMInstructionSealing,
+  CCMInstructionLining,
+  CCMHierarchyNode,
+  EffectiveCCM,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -1053,6 +1062,220 @@ export async function getCCMFormSOWSections(id: string): Promise<CCMFormSOWSecti
   return response.data || (response as unknown as CCMFormSOWSection[]) || [];
 }
 
+// ============================================================================
+// CCM Instructions (Hierarchy-Level with Inheritance)
+// ============================================================================
+
+/**
+ * Get hierarchy tree for CCM scope selection
+ */
+export async function getCCMHierarchyTree(customerId?: string): Promise<CCMHierarchyNode[]> {
+  const params = new URLSearchParams();
+  if (customerId) params.append('customer_id', customerId);
+  const response = await fetchApi<CCMHierarchyNode[]>(`/ccm-instructions/hierarchy-tree?${params.toString()}`);
+  return response.data || [];
+}
+
+/**
+ * List CCM instructions with optional filters
+ */
+export async function listCCMInstructions(filters?: {
+  scope_type?: CCMScopeLevel;
+  scope_id?: string;
+  customer_id?: string;
+}): Promise<CCMInstruction[]> {
+  const params = new URLSearchParams();
+  if (filters?.scope_type) params.append('scope_type', filters.scope_type);
+  if (filters?.scope_id) params.append('scope_id', filters.scope_id);
+  if (filters?.customer_id) params.append('customer_id', filters.customer_id);
+  const response = await fetchApi<CCMInstruction[]>(`/ccm-instructions?${params.toString()}`);
+  return response.data || [];
+}
+
+/**
+ * Get a single CCM instruction by ID
+ */
+export async function getCCMInstruction(id: string): Promise<CCMInstruction | null> {
+  const response = await fetchApi<CCMInstruction>(`/ccm-instructions/${encodeURIComponent(id)}`);
+  return response.data || null;
+}
+
+/**
+ * Get CCM instruction by scope (customer, lease, rider, amendment)
+ */
+export async function getCCMInstructionByScope(
+  scopeType: CCMScopeLevel,
+  scopeId: string
+): Promise<CCMInstruction | null> {
+  const response = await fetchApi<CCMInstruction>(
+    `/ccm-instructions/by-scope/${scopeType}/${encodeURIComponent(scopeId)}`
+  );
+  return response.data || null;
+}
+
+/**
+ * Get parent CCM for inheritance preview
+ */
+export async function getParentCCM(
+  scopeType: CCMScopeLevel,
+  scopeId: string
+): Promise<CCMInstructionFields | null> {
+  const response = await fetchApi<CCMInstructionFields>(
+    `/ccm-instructions/parent/${scopeType}/${encodeURIComponent(scopeId)}`
+  );
+  return response.data || null;
+}
+
+/**
+ * Create a new CCM instruction at a specific scope
+ */
+export async function createCCMInstruction(
+  scope: CCMInstructionScope,
+  data: Partial<CCMInstructionFields>
+): Promise<CCMInstruction> {
+  const response = await fetchApi<CCMInstruction>('/ccm-instructions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope_type: scope.type, scope_id: scope.id, ...data }),
+  });
+  if (!response.data) throw new Error(response.error || 'Failed to create CCM instruction');
+  return response.data;
+}
+
+/**
+ * Update an existing CCM instruction
+ */
+export async function updateCCMInstruction(
+  id: string,
+  data: Partial<CCMInstructionFields>
+): Promise<CCMInstruction> {
+  const response = await fetchApi<CCMInstruction>(`/ccm-instructions/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error(response.error || 'Failed to update CCM instruction');
+  return response.data;
+}
+
+/**
+ * Delete a CCM instruction (soft delete)
+ */
+export async function deleteCCMInstruction(id: string): Promise<void> {
+  const response = await fetchApi(`/ccm-instructions/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.success) throw new Error(response.error || 'Failed to delete CCM instruction');
+}
+
+/**
+ * Add a sealing section to a CCM instruction
+ */
+export async function addCCMInstructionSealing(
+  instructionId: string,
+  data: Omit<CCMInstructionSealing, 'id' | 'ccm_instruction_id'>
+): Promise<CCMInstructionSealing> {
+  const response = await fetchApi<CCMInstructionSealing>(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/sealing`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.data) throw new Error(response.error || 'Failed to add sealing section');
+  return response.data;
+}
+
+/**
+ * Update a sealing section
+ */
+export async function updateCCMInstructionSealing(
+  instructionId: string,
+  sealingId: string,
+  data: Partial<CCMInstructionSealing>
+): Promise<CCMInstructionSealing> {
+  const response = await fetchApi<CCMInstructionSealing>(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/sealing/${encodeURIComponent(sealingId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.data) throw new Error(response.error || 'Failed to update sealing section');
+  return response.data;
+}
+
+/**
+ * Remove a sealing section
+ */
+export async function removeCCMInstructionSealing(instructionId: string, sealingId: string): Promise<void> {
+  const response = await fetchApi(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/sealing/${encodeURIComponent(sealingId)}`,
+    { method: 'DELETE' }
+  );
+  if (!response.success) throw new Error(response.error || 'Failed to remove sealing section');
+}
+
+/**
+ * Add a lining section to a CCM instruction
+ */
+export async function addCCMInstructionLining(
+  instructionId: string,
+  data: Omit<CCMInstructionLining, 'id' | 'ccm_instruction_id'>
+): Promise<CCMInstructionLining> {
+  const response = await fetchApi<CCMInstructionLining>(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/lining`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.data) throw new Error(response.error || 'Failed to add lining section');
+  return response.data;
+}
+
+/**
+ * Update a lining section
+ */
+export async function updateCCMInstructionLining(
+  instructionId: string,
+  liningId: string,
+  data: Partial<CCMInstructionLining>
+): Promise<CCMInstructionLining> {
+  const response = await fetchApi<CCMInstructionLining>(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/lining/${encodeURIComponent(liningId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.data) throw new Error(response.error || 'Failed to update lining section');
+  return response.data;
+}
+
+/**
+ * Remove a lining section
+ */
+export async function removeCCMInstructionLining(instructionId: string, liningId: string): Promise<void> {
+  const response = await fetchApi(
+    `/ccm-instructions/${encodeURIComponent(instructionId)}/lining/${encodeURIComponent(liningId)}`,
+    { method: 'DELETE' }
+  );
+  if (!response.success) throw new Error(response.error || 'Failed to remove lining section');
+}
+
+/**
+ * Get effective CCM for a car with inheritance chain
+ */
+export async function getCarEffectiveCCM(carNumber: string): Promise<EffectiveCCM | null> {
+  const response = await fetchApi<EffectiveCCM>(`/cars/${encodeURIComponent(carNumber)}/effective-ccm`);
+  return response.data || null;
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -1127,6 +1350,22 @@ const api = {
   listCCMForms,
   getCCMForm,
   getCCMFormSOWSections,
+  // CCM Instructions (Hierarchy)
+  getCCMHierarchyTree,
+  listCCMInstructions,
+  getCCMInstruction,
+  getCCMInstructionByScope,
+  getParentCCM,
+  createCCMInstruction,
+  updateCCMInstruction,
+  deleteCCMInstruction,
+  addCCMInstructionSealing,
+  updateCCMInstructionSealing,
+  removeCCMInstructionSealing,
+  addCCMInstructionLining,
+  updateCCMInstructionLining,
+  removeCCMInstructionLining,
+  getCarEffectiveCCM,
 };
 
 export default api;
