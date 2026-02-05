@@ -15,7 +15,8 @@
 | **Shop Details Drawer** | Slide-out drawer with shop info, backlog, capabilities | `ShopInfoDrawer.tsx`, `/shops` page | - |
 | **Invoice Management Module** | Invoice ingestion, BRC comparison, auto-approval workflow | `024_invoices.sql`, `invoice.*.ts` | `235b26e` |
 | **Invoice Processing Workflow** | InvoiceCase state machine, validation engine, attachments, audit events | `031_invoice_processing_workflow.sql`, `invoice-case.service.ts`, `invoice-validation.service.ts` | `84d1369` |
-| **Invoice Case Queue UI** | Full case creation modal (SHOP/MRU), edit mode, auto-validation, type-specific info cards, validation context display, server-side attachment validation, audit trail filtering with expandable context | `invoice-cases/page.tsx`, `invoice-cases/[id]/page.tsx` | - |
+| **Invoice Case Queue UI** | Full case creation modal (SHOP/MRU), edit mode, auto-validation, type-specific info cards, validation context display, server-side attachment validation, audit trail filtering with expandable context | `invoice-cases/page.tsx`, `invoice-cases/[id]/page.tsx` | `6416c12` |
+| **UI/UX Polish** | Security (sanitized errors, hidden creds), dark mode retrofit (ShopDetailDrawer, ShopComparisonModal), accessibility (ARIA dialogs, keyboard nav, screen reader labels), native dialog replacement (alert/confirm -> Toast/ConfirmDialog in 10 files), mobile responsiveness (responsive grids, touch targets) | 24 files across components and pages | `efe9602` |
 | Contracts Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Contracts Hierarchy API | REST endpoints for hierarchy navigation | `contracts.controller.ts`, `contracts.service.ts` | `b1d369e` |
 | Contracts Hierarchy UI | Drill-down navigation with breadcrumbs | `contracts/page.tsx`, `contracts/*` components | `b1d369e` |
