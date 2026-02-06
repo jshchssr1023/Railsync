@@ -3901,6 +3901,58 @@ router.get('/ccm-instructions', optionalAuth, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/ccm-instructions/by-scope/:scopeType/:scopeId
+ * @desc    Get CCM instruction by scope (customer, lease, rider, amendment)
+ * @access  Public (with optional auth)
+ * NOTE: Must be defined BEFORE the generic :id route to avoid wildcard capture
+ */
+router.get('/ccm-instructions/by-scope/:scopeType/:scopeId', optionalAuth, async (req, res) => {
+  try {
+    const { scopeType, scopeId } = req.params;
+    const validScopes = ['customer', 'master_lease', 'rider', 'amendment'];
+    if (!validScopes.includes(scopeType)) {
+      return res.status(400).json({ success: false, error: 'Invalid scope type' });
+    }
+
+    const instruction = await ccmInstructionsService.getCCMInstructionByScope({
+      type: scopeType as ccmInstructionsService.ScopeLevel,
+      id: scopeId
+    });
+
+    res.json({ success: true, data: instruction });
+  } catch (error) {
+    console.error('Error fetching CCM instruction by scope:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
+  }
+});
+
+/**
+ * @route   GET /api/ccm-instructions/parent/:scopeType/:scopeId
+ * @desc    Get parent CCM for inheritance preview
+ * @access  Public (with optional auth)
+ * NOTE: Must be defined BEFORE the generic :id route to avoid wildcard capture
+ */
+router.get('/ccm-instructions/parent/:scopeType/:scopeId', optionalAuth, async (req, res) => {
+  try {
+    const { scopeType, scopeId } = req.params;
+    const validScopes = ['master_lease', 'rider', 'amendment'];
+    if (!validScopes.includes(scopeType)) {
+      return res.status(400).json({ success: false, error: 'Invalid scope type (customer has no parent)' });
+    }
+
+    const parentCCM = await ccmInstructionsService.getParentCCM({
+      type: scopeType as ccmInstructionsService.ScopeLevel,
+      id: scopeId
+    });
+
+    res.json({ success: true, data: parentCCM });
+  } catch (error) {
+    console.error('Error fetching parent CCM:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch parent CCM' });
+  }
+});
+
+/**
  * @route   GET /api/ccm-instructions/:id
  * @desc    Get a single CCM instruction by ID
  * @access  Public (with optional auth)
@@ -3983,56 +4035,6 @@ router.delete('/ccm-instructions/:id', authenticate, authorize('admin', 'operato
   } catch (error) {
     console.error('Error deleting CCM instruction:', error);
     res.status(500).json({ success: false, error: 'Failed to delete CCM instruction' });
-  }
-});
-
-/**
- * @route   GET /api/ccm-instructions/by-scope/:scopeType/:scopeId
- * @desc    Get CCM instruction by scope (customer, lease, rider, amendment)
- * @access  Public (with optional auth)
- */
-router.get('/ccm-instructions/by-scope/:scopeType/:scopeId', optionalAuth, async (req, res) => {
-  try {
-    const { scopeType, scopeId } = req.params;
-    const validScopes = ['customer', 'master_lease', 'rider', 'amendment'];
-    if (!validScopes.includes(scopeType)) {
-      return res.status(400).json({ success: false, error: 'Invalid scope type' });
-    }
-
-    const instruction = await ccmInstructionsService.getCCMInstructionByScope({
-      type: scopeType as ccmInstructionsService.ScopeLevel,
-      id: scopeId
-    });
-
-    res.json({ success: true, data: instruction });
-  } catch (error) {
-    console.error('Error fetching CCM instruction by scope:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
-  }
-});
-
-/**
- * @route   GET /api/ccm-instructions/parent/:scopeType/:scopeId
- * @desc    Get parent CCM for inheritance preview
- * @access  Public (with optional auth)
- */
-router.get('/ccm-instructions/parent/:scopeType/:scopeId', optionalAuth, async (req, res) => {
-  try {
-    const { scopeType, scopeId } = req.params;
-    const validScopes = ['master_lease', 'rider', 'amendment'];
-    if (!validScopes.includes(scopeType)) {
-      return res.status(400).json({ success: false, error: 'Invalid scope type (customer has no parent)' });
-    }
-
-    const parentCCM = await ccmInstructionsService.getParentCCM({
-      type: scopeType as ccmInstructionsService.ScopeLevel,
-      id: scopeId
-    });
-
-    res.json({ success: true, data: parentCCM });
-  } catch (error) {
-    console.error('Error fetching parent CCM:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch parent CCM' });
   }
 });
 

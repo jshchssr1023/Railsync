@@ -473,7 +473,7 @@ SELECT
     -- Assigned admin
     ic.assigned_admin_id,
     u.email AS assigned_admin_email,
-    u.display_name AS assigned_admin_name,
+    COALESCE(u.first_name || ' ' || u.last_name, u.email) AS assigned_admin_name,
     -- Special lessee status
     ic.special_lessee_approval_confirmed,
     sl.lessee_name AS special_lessee_name,
@@ -542,6 +542,14 @@ CREATE TRIGGER update_invoice_case_timestamp
 -- ==============================================================================
 -- SECTION 14: Grants
 -- ==============================================================================
+
+-- Create railsync_app role if it doesn't exist (needed for GRANT statements below)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'railsync_app') THEN
+        CREATE ROLE railsync_app WITH LOGIN;
+    END IF;
+END $$;
 
 -- Grant permissions (adjust as needed for your roles)
 GRANT SELECT, INSERT, UPDATE ON invoice_cases TO railsync_app;
