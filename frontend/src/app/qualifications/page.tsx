@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Shield, AlertTriangle, Clock, CheckCircle, AlertCircle,
-  RefreshCw, ChevronDown, Filter, Bell, XCircle
+  RefreshCw, ChevronDown, ChevronLeft, ChevronRight, Filter, Bell, XCircle
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   getQualificationStats,
   getQualificationsDueByMonth,
@@ -25,6 +26,8 @@ import type {
   DueByMonth,
 } from '@/types';
 import { DashboardSkeleton } from '@/components/PageSkeleton';
+
+const PAGE_SIZE = 50;
 
 // ============================================================================
 // Status badge helper
@@ -66,6 +69,48 @@ function KpiCard({ label, value, icon, color }: { label: string; value: number; 
 }
 
 // ============================================================================
+// Pagination Controls
+// ============================================================================
+function Pagination({ total, page, pageSize, onPageChange }: {
+  total: number; page: number; pageSize: number; onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = Math.min(page * pageSize + 1, total);
+  const end = Math.min((page + 1) * pageSize, total);
+
+  if (total <= pageSize) return null;
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+      <span className="text-sm text-gray-500 dark:text-gray-400">
+        {start}–{end} of {total.toLocaleString()}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 0}
+          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm text-gray-600 dark:text-gray-400 px-2">
+          Page {page + 1} of {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages - 1}
+          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Next page"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Due By Month Chart (simple bar chart using divs)
 // ============================================================================
 function DueByMonthChart({ data }: { data: DueByMonth[] }) {
@@ -93,6 +138,28 @@ function DueByMonthChart({ data }: { data: DueByMonth[] }) {
 }
 
 // ============================================================================
+// Error Banner
+// ============================================================================
+function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <p className="text-sm text-red-700 dark:text-red-400">{message}</p>
+      </div>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="text-sm text-red-600 dark:text-red-400 hover:underline font-medium"
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Page Content
 // ============================================================================
 function QualificationsContent() {
@@ -108,6 +175,13 @@ function QualificationsContent() {
   const [alertTotal, setAlertTotal] = useState(0);
   const [qualTypes, setQualTypes] = useState<QualificationType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qualLoading, setQualLoading] = useState(false);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+
+  // Error state
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [qualError, setQualError] = useState<string | null>(null);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -115,11 +189,24 @@ function QualificationsContent() {
   const [regionFilter, setRegionFilter] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'list' | 'alerts'>('overview');
 
+  // Pagination state
+  const [qualPage, setQualPage] = useState(0);
+  const [alertPage, setAlertPage] = useState(0);
+
   // Actions
   const [recalculating, setRecalculating] = useState(false);
   const [generatingAlerts, setGeneratingAlerts] = useState(false);
 
+  // Confirmation dialogs
+  const [confirmRecalc, setConfirmRecalc] = useState(false);
+  const [confirmGenAlerts, setConfirmGenAlerts] = useState(false);
+
+  // Abort controller for race condition prevention
+  const qualAbortRef = useRef<AbortController | null>(null);
+  const regionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchData = useCallback(async () => {
+    setOverviewError(null);
     try {
       const [statsData, dueData, typesData] = await Promise.all([
         getQualificationStats(),
@@ -129,51 +216,104 @@ function QualificationsContent() {
       setStats(statsData);
       setDueByMonth(dueData);
       setQualTypes(typesData);
-    } catch (err) {
-      console.error('Failed to fetch qualification data:', err);
+    } catch {
+      setOverviewError('Failed to load qualification overview data');
     }
   }, []);
 
-  const fetchQualifications = useCallback(async () => {
+  const fetchQualifications = useCallback(async (page = 0) => {
+    // Cancel any in-flight request
+    if (qualAbortRef.current) qualAbortRef.current.abort();
+    const controller = new AbortController();
+    qualAbortRef.current = controller;
+
+    setQualError(null);
+    setQualLoading(true);
     try {
-      const filters: Record<string, string> = {};
+      const filters: Record<string, string | number> = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
       if (statusFilter) filters.status = statusFilter;
       if (typeFilter) filters.type_code = typeFilter;
       if (regionFilter) filters.current_region = regionFilter;
-      const result = await listQualifications({ ...filters, limit: 50 });
-      setQualifications(result.qualifications);
-      setQualTotal(result.total);
+      const result = await listQualifications(filters as Parameters<typeof listQualifications>[0]);
+      // Only set state if this request wasn't aborted
+      if (!controller.signal.aborted) {
+        setQualifications(result.qualifications);
+        setQualTotal(result.total);
+      }
     } catch (err) {
-      console.error('Failed to fetch qualifications:', err);
+      if (!controller.signal.aborted) {
+        setQualError('Failed to load qualifications');
+      }
+    } finally {
+      if (!controller.signal.aborted) setQualLoading(false);
     }
   }, [statusFilter, typeFilter, regionFilter]);
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAlerts = useCallback(async (page = 0) => {
+    setAlertsError(null);
+    setAlertsLoading(true);
     try {
-      const result = await listQualificationAlerts({ is_acknowledged: false, limit: 50 });
+      const result = await listQualificationAlerts({
+        is_acknowledged: false,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
       setAlerts(result.alerts);
       setAlertTotal(result.total);
-    } catch (err) {
-      console.error('Failed to fetch alerts:', err);
+    } catch {
+      setAlertsError('Failed to load alerts');
+    } finally {
+      setAlertsLoading(false);
     }
   }, []);
 
+  // Initial load
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchData(), fetchQualifications(), fetchAlerts()]).finally(() => setLoading(false));
+    Promise.all([fetchData(), fetchQualifications(0), fetchAlerts(0)]).finally(() => setLoading(false));
   }, [fetchData, fetchQualifications, fetchAlerts]);
 
+  // Re-fetch qualifications when filters or page change
   useEffect(() => {
-    fetchQualifications();
-  }, [statusFilter, typeFilter, regionFilter, fetchQualifications]);
+    fetchQualifications(qualPage);
+  }, [statusFilter, typeFilter, qualPage, fetchQualifications]);
+
+  // Debounce the region filter to prevent rapid API calls
+  useEffect(() => {
+    if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
+    regionDebounceRef.current = setTimeout(() => {
+      setQualPage(0);
+      fetchQualifications(0);
+    }, 300);
+    return () => {
+      if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionFilter]);
+
+  // Re-fetch alerts when page changes
+  useEffect(() => {
+    if (alertPage > 0) fetchAlerts(alertPage);
+  }, [alertPage, fetchAlerts]);
+
+  // Reset page to 0 when filters change
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    setQualPage(0);
+  };
+  const handleTypeFilterChange = (val: string) => {
+    setTypeFilter(val);
+    setQualPage(0);
+  };
 
   const handleRecalculate = async () => {
+    setConfirmRecalc(false);
     setRecalculating(true);
     try {
       const result = await recalculateQualificationStatuses();
       toast.success(`Recalculated statuses: ${result.updated} updated`);
       await fetchData();
-      await fetchQualifications();
+      await fetchQualifications(qualPage);
     } catch {
       toast.error('Failed to recalculate statuses');
     } finally {
@@ -182,11 +322,12 @@ function QualificationsContent() {
   };
 
   const handleGenerateAlerts = async () => {
+    setConfirmGenAlerts(false);
     setGeneratingAlerts(true);
     try {
       const result = await generateQualificationAlerts();
       toast.success(`Generated ${result.created} new alerts`);
-      await fetchAlerts();
+      await fetchAlerts(alertPage);
       await fetchData();
     } catch {
       toast.error('Failed to generate alerts');
@@ -196,13 +337,24 @@ function QualificationsContent() {
   };
 
   const handleAcknowledgeAlert = async (alertId: string) => {
+    // Store the alert for rollback
+    const alertToRemove = alerts.find(a => a.id === alertId);
+    if (!alertToRemove) return;
+
+    // Optimistically remove
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
+    setAlertTotal(prev => prev - 1);
+
     try {
       await acknowledgeQualificationAlert(alertId);
-      setAlerts(prev => prev.filter(a => a.id !== alertId));
-      setAlertTotal(prev => prev - 1);
       toast.success('Alert acknowledged');
     } catch {
-      toast.error('Failed to acknowledge alert');
+      // Rollback on failure
+      setAlerts(prev => [...prev, alertToRemove].sort((a, b) =>
+        (a.days_until_due ?? 0) - (b.days_until_due ?? 0)
+      ));
+      setAlertTotal(prev => prev + 1);
+      toast.error('Failed to acknowledge alert — restored');
     }
   };
 
@@ -210,6 +362,36 @@ function QualificationsContent() {
 
   return (
     <div className="space-y-6">
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        open={confirmRecalc}
+        onConfirm={handleRecalculate}
+        onCancel={() => setConfirmRecalc(false)}
+        title="Recalculate All Qualification Statuses"
+        description="This will recalculate statuses for every qualification record across the entire fleet. Existing manual status overrides will be replaced by computed values."
+        variant="warning"
+        loading={recalculating}
+        confirmLabel="Recalculate Fleet"
+        summaryItems={stats ? [
+          { label: 'Total qualification records', value: String(stats.overdue_count + stats.due_count + stats.due_soon_count + stats.current_count + stats.exempt_count + stats.unknown_count) },
+          { label: 'Currently overdue', value: String(stats.overdue_count) },
+        ] : undefined}
+      />
+      <ConfirmDialog
+        open={confirmGenAlerts}
+        onConfirm={handleGenerateAlerts}
+        onCancel={() => setConfirmGenAlerts(false)}
+        title="Generate Qualification Alerts"
+        description="This will scan all qualifications and create new alert records for any cars approaching or past their due dates (90, 60, 30-day warnings and overdue). Existing alerts within the last 7 days will not be duplicated."
+        variant="warning"
+        loading={generatingAlerts}
+        confirmLabel="Generate Alerts"
+        summaryItems={stats ? [
+          { label: 'Current open alerts', value: String(stats.unacked_alerts) },
+          { label: 'Cars at risk (overdue + due)', value: String(stats.overdue_cars + stats.due_cars) },
+        ] : undefined}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -218,7 +400,7 @@ function QualificationsContent() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleRecalculate}
+            onClick={() => setConfirmRecalc(true)}
             disabled={recalculating}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
           >
@@ -226,7 +408,7 @@ function QualificationsContent() {
             Recalculate
           </button>
           <button
-            onClick={handleGenerateAlerts}
+            onClick={() => setConfirmGenAlerts(true)}
             disabled={generatingAlerts}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
           >
@@ -235,6 +417,9 @@ function QualificationsContent() {
           </button>
         </div>
       </div>
+
+      {/* Overview Error */}
+      {overviewError && <ErrorBanner message={overviewError} onRetry={fetchData} />}
 
       {/* KPI Cards */}
       {stats && (
@@ -354,7 +539,7 @@ function QualificationsContent() {
                       <td className="py-2 font-medium text-gray-900 dark:text-gray-100">{qt.name}</td>
                       <td className="py-2 text-gray-600 dark:text-gray-400">{qt.regulatory_body}</td>
                       <td className="py-2 text-gray-600 dark:text-gray-400">{qt.default_interval_months} months</td>
-                      <td className="py-2 text-gray-500 dark:text-gray-400 max-w-md truncate">{qt.description}</td>
+                      <td className="py-2 text-gray-500 dark:text-gray-400 max-w-md" title={qt.description || undefined}>{qt.description}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -375,7 +560,7 @@ function QualificationsContent() {
             </div>
             <select
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
+              onChange={e => handleStatusFilterChange(e.target.value)}
               className="text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-1.5"
             >
               <option value="">All Statuses</option>
@@ -388,7 +573,7 @@ function QualificationsContent() {
             </select>
             <select
               value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
+              onChange={e => handleTypeFilterChange(e.target.value)}
               className="text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-1.5"
             >
               <option value="">All Types</option>
@@ -403,10 +588,29 @@ function QualificationsContent() {
               onChange={e => setRegionFilter(e.target.value)}
               className="text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-1.5 w-32"
             />
+            {(statusFilter || typeFilter || regionFilter) && (
+              <button
+                onClick={() => { setStatusFilter(''); setTypeFilter(''); setRegionFilter(''); setQualPage(0); }}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
+
+          {/* Error */}
+          {qualError && <ErrorBanner message={qualError} onRetry={() => fetchQualifications(qualPage)} />}
 
           {/* Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {qualLoading && (
+              <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800">
+                <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Loading...
+                </p>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -422,10 +626,12 @@ function QualificationsContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {qualifications.length === 0 ? (
+                  {qualifications.length === 0 && !qualLoading ? (
                     <tr>
                       <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        No qualifications found
+                        {statusFilter || typeFilter || regionFilter
+                          ? 'No qualifications match the current filters'
+                          : 'No qualifications found'}
                       </td>
                     </tr>
                   ) : (
@@ -439,10 +645,10 @@ function QualificationsContent() {
                         </td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.type_name}</td>
                         <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.next_due_date || '—'}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.last_completed_date || '—'}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.lessee_name || '—'}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.current_region || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.next_due_date || '\u2014'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.last_completed_date || '\u2014'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.lessee_name || '\u2014'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{q.current_region || '\u2014'}</td>
                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{q.regulatory_body}</td>
                       </tr>
                     ))
@@ -450,11 +656,7 @@ function QualificationsContent() {
                 </tbody>
               </table>
             </div>
-            {qualTotal > 50 && (
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-                Showing 50 of {qualTotal.toLocaleString()} qualifications
-              </div>
-            )}
+            <Pagination total={qualTotal} page={qualPage} pageSize={PAGE_SIZE} onPageChange={setQualPage} />
           </div>
         </div>
       )}
@@ -462,13 +664,24 @@ function QualificationsContent() {
       {/* Alerts Tab */}
       {activeTab === 'alerts' && (
         <div className="space-y-4">
-          {alerts.length === 0 ? (
+          {/* Error */}
+          {alertsError && <ErrorBanner message={alertsError} onRetry={() => fetchAlerts(alertPage)} />}
+
+          {alerts.length === 0 && !alertsLoading ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
               <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400">No unacknowledged alerts</p>
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {alertsLoading && (
+                <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Loading...
+                  </p>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -509,10 +722,10 @@ function QualificationsContent() {
                             (alert.days_until_due || 0) < 30 ? 'text-orange-600 dark:text-orange-400' :
                             'text-yellow-600 dark:text-yellow-400'
                           }`}>
-                            {alert.days_until_due !== null ? (alert.days_until_due < 0 ? `${Math.abs(alert.days_until_due)}d overdue` : `${alert.days_until_due}d`) : '—'}
+                            {alert.days_until_due !== null ? (alert.days_until_due < 0 ? `${Math.abs(alert.days_until_due)}d overdue` : `${alert.days_until_due}d`) : '\u2014'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{alert.lessee_name || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{alert.lessee_name || '\u2014'}</td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => handleAcknowledgeAlert(alert.id)}
@@ -526,6 +739,7 @@ function QualificationsContent() {
                   </tbody>
                 </table>
               </div>
+              <Pagination total={alertTotal} page={alertPage} pageSize={PAGE_SIZE} onPageChange={setAlertPage} />
             </div>
           )}
         </div>

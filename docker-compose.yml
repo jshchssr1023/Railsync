@@ -74,7 +74,9 @@ services:
       - ./database/migrations/050_qualifications_engine.sql:/docker-entrypoint-initdb.d/57-qualifications-engine.sql
       - ./database/migrations/051_billing_engine.sql:/docker-entrypoint-initdb.d/58-billing-engine.sql
       - ./database/migrations/052_component_registry.sql:/docker-entrypoint-initdb.d/59-component-registry.sql
-      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/60-seed-test-data.sql
+      - ./database/migrations/053_release_transfer_management.sql:/docker-entrypoint-initdb.d/60-release-transfer.sql
+      - ./database/migrations/054_performance_indexes.sql:/docker-entrypoint-initdb.d/61-performance-indexes.sql
+      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/62-seed-test-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

@@ -29,6 +29,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'bad-orders': 'Bad Orders',
   qualifications: 'Qualifications',
   billing: 'Billing',
+  'components-registry': 'Components',
   new: 'New Shopping Request',
 };
 

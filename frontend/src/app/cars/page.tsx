@@ -297,6 +297,8 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  const car = detail?.car;
+
   const toggleSection = (s: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
@@ -320,8 +322,6 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
         .finally(() => setQualRecordsLoading(false));
     }
   };
-
-  const car = detail?.car;
 
   const Section = ({ id, title, icon: Icon, children }: {
     id: string; title: string; icon: typeof Train; children: React.ReactNode;

@@ -81,6 +81,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'All Cars', href: '/cars', icon: <Train className="w-4 h-4" /> },
       { label: 'Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Components', href: '/components-registry', icon: <Settings className="w-4 h-4" /> },
       { label: 'In Shop', href: '/cars?status=Arrived', icon: <Wrench className="w-4 h-4" /> },
       { label: 'Enroute', href: '/cars?status=Enroute', icon: <Truck className="w-4 h-4" /> },
       { label: 'Overdue', href: '/cars?status=Overdue', icon: <AlertCircle className="w-4 h-4" /> },

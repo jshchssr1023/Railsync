@@ -4348,6 +4348,7 @@ router.put('/shopping-requests/:id/approve', authenticate, authorize('admin', 'o
 router.put('/shopping-requests/:id/reject', authenticate, authorize('admin', 'operator'), shoppingRequestController.reject);
 router.put('/shopping-requests/:id/cancel', authenticate, shoppingRequestController.cancel);
 router.post('/shopping-requests/:id/revert', authenticate, authorize('admin', 'operator'), shoppingRequestController.revert);
+router.post('/shopping-requests/:id/duplicate', authenticate, authorize('admin', 'operator'), shoppingRequestController.duplicate);
 router.post('/shopping-requests/:id/attachments', authenticate, shoppingRequestUpload.single('file'), shoppingRequestController.uploadAttachment);
 router.get('/shopping-requests/:id/attachments', authenticate, shoppingRequestController.listAttachments);
 router.delete('/shopping-requests/:id/attachments/:attachmentId', authenticate, shoppingRequestController.deleteAttachment);
@@ -4473,6 +4474,35 @@ router.get('/commodities/:code/cleaning', authenticate, commodityController.getC
 router.post('/commodities', authenticate, authorize('admin'), commodityController.createCommodity);
 router.put('/commodities/:id', authenticate, authorize('admin'), commodityController.updateCommodity);
 router.get('/cars/:carNumber/cleaning-requirements', authenticate, commodityController.getCarCleaningRequirements);
+
+// ============================================================================
+// CAR RELEASES (Release Management)
+// ============================================================================
+import * as releaseController from '../controllers/release.controller';
+
+router.get('/releases', authenticate, releaseController.listReleases);
+router.get('/releases/active', authenticate, releaseController.getActiveReleases);
+router.get('/releases/:id', authenticate, releaseController.getRelease);
+router.post('/releases', authenticate, authorize('admin', 'operator'), releaseController.initiateRelease);
+router.post('/releases/:id/approve', authenticate, authorize('admin'), releaseController.approveRelease);
+router.post('/releases/:id/execute', authenticate, authorize('admin', 'operator'), releaseController.executeRelease);
+router.post('/releases/:id/complete', authenticate, authorize('admin', 'operator'), releaseController.completeRelease);
+router.post('/releases/:id/cancel', authenticate, authorize('admin', 'operator'), releaseController.cancelRelease);
+
+// ============================================================================
+// CAR TRANSFERS (Contract Transfers)
+// ============================================================================
+import * as transferController from '../controllers/transfer.controller';
+
+router.get('/transfers', authenticate, transferController.listTransfers);
+router.get('/transfers/overview', authenticate, transferController.getTransferOverview);
+router.get('/transfers/:id', authenticate, transferController.getTransfer);
+router.post('/transfers/validate', authenticate, transferController.validatePrerequisites);
+router.post('/transfers', authenticate, authorize('admin', 'operator'), transferController.initiateTransfer);
+router.post('/transfers/:id/confirm', authenticate, authorize('admin', 'operator'), transferController.confirmTransfer);
+router.post('/transfers/:id/complete', authenticate, authorize('admin', 'operator'), transferController.completeTransfer);
+router.post('/transfers/:id/cancel', authenticate, authorize('admin', 'operator'), transferController.cancelTransfer);
+router.get('/riders/:riderId/transfers', authenticate, transferController.getRiderTransfers);
 
 // ============================================================================
 

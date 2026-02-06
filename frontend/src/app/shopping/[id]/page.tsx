@@ -8,19 +8,16 @@ import {
   transitionShoppingEventState,
   getShoppingEventStateHistory,
   listEstimateVersions,
-  getEstimate,
-  getEstimateDecisions,
-  recordLineDecisions,
-  generateApprovalPacket,
   getShoppingEventProjectFlags,
   bundleProjectWork,
   revertShoppingEvent,
 } from '@/lib/api';
-import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, EstimateLineDecision } from '@/types';
+import { ShoppingEvent, StateHistoryEntry, EstimateSubmission } from '@/types';
 import { Info, AlertTriangle, ChevronDown, Zap } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
+import EstimateReviewPanel from '@/components/EstimateReviewPanel';
 
 // ---------------------------------------------------------------------------
 // State badge color mapping
@@ -47,13 +44,7 @@ const STATE_COLORS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // Estimate status badge colors
 // ---------------------------------------------------------------------------
-const ESTIMATE_STATUS_COLORS: Record<string, string> = {
-  submitted: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  under_review: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  changes_required: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-};
+// Estimate status colors moved to EstimateReviewPanel component
 
 // ---------------------------------------------------------------------------
 // Valid state transitions with labels, targets, and button colors
@@ -119,7 +110,7 @@ export default function ShoppingEventDetailPage() {
   const [event, setEvent] = useState<ShoppingEvent | null>(null);
   const [history, setHistory] = useState<StateHistoryEntry[]>([]);
   const [estimates, setEstimates] = useState<EstimateSubmission[]>([]);
-  const [expandedEstimate, setExpandedEstimate] = useState<string | null>(null);
+  // expandedEstimate state moved to EstimateReviewPanel
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState<string | null>(null);
@@ -143,15 +134,7 @@ export default function ShoppingEventDetailPage() {
   const [bundling, setBundling] = useState(false);
   const [bundleSuccess, setBundleSuccess] = useState(false);
 
-  // Estimate decisions & approval
-  const [decisionsMap, setDecisionsMap] = useState<Record<string, (EstimateLineDecision & { line_number: number })[]>>({});
-  const [showApprovalForm, setShowApprovalForm] = useState<string | null>(null);
-  const [approvalDecision, setApprovalDecision] = useState<'approved' | 'changes_required' | 'rejected'>('approved');
-  const [approvalNotes, setApprovalNotes] = useState('');
-  const [lineApprovals, setLineApprovals] = useState<Record<string, 'approve' | 'review' | 'reject'>>({});
-  const [submittingApproval, setSubmittingApproval] = useState(false);
-  const [approvalError, setApprovalError] = useState<string | null>(null);
-  const [showEstimateConfirm, setShowEstimateConfirm] = useState<string | null>(null);
+  // Estimate decisions moved to EstimateReviewPanel component
 
   // -----------------------------------------------------------------------
   // Transition confirmation dialog
@@ -193,92 +176,7 @@ export default function ShoppingEventDetailPage() {
       .catch(() => { /* non-critical */ });
   }, [id]);
 
-  // -----------------------------------------------------------------------
-  // Load decisions for an estimate when expanded
-  // -----------------------------------------------------------------------
-  const fetchDecisions = useCallback(async (estimateId: string) => {
-    if (decisionsMap[estimateId]) return;
-    try {
-      const decisions = await getEstimateDecisions(estimateId);
-      setDecisionsMap((prev) => ({ ...prev, [estimateId]: decisions }));
-    } catch {
-      // Silently fail — decisions are supplementary
-    }
-  }, [decisionsMap]);
-
-  // -----------------------------------------------------------------------
-  // Load full estimate with lines when expanding
-  // -----------------------------------------------------------------------
-  const handleExpandEstimate = useCallback(async (estId: string) => {
-    if (expandedEstimate === estId) {
-      setExpandedEstimate(null);
-      return;
-    }
-    setExpandedEstimate(estId);
-    // Load full estimate with lines if not already loaded
-    const existing = estimates.find((e) => e.id === estId);
-    if (existing && (!existing.lines || existing.lines.length === 0)) {
-      try {
-        const full = await getEstimate(estId);
-        setEstimates((prev) =>
-          prev.map((e) => (e.id === estId ? { ...e, lines: full.lines } : e))
-        );
-      } catch {
-        // Fall through — lines might just be empty
-      }
-    }
-    fetchDecisions(estId);
-  }, [expandedEstimate, estimates, fetchDecisions]);
-
-  // -----------------------------------------------------------------------
-  // Approval packet submission (gated by ConfirmDialog)
-  // -----------------------------------------------------------------------
-  const requestSubmitApproval = (estimateId: string) => {
-    setShowEstimateConfirm(estimateId);
-  };
-
-  const executeSubmitApproval = async (estimateId: string) => {
-    setShowEstimateConfirm(null);
-    setSubmittingApproval(true);
-    setApprovalError(null);
-    try {
-      const est = estimates.find((e) => e.id === estimateId);
-      const lineDecs = (est?.lines || []).map((line) => ({
-        line_id: line.id,
-        decision: lineApprovals[line.id] || 'approve' as const,
-      }));
-      await generateApprovalPacket(estimateId, {
-        overall_decision: approvalDecision,
-        line_decisions: lineDecs,
-        notes: approvalNotes || undefined,
-      });
-      setShowApprovalForm(null);
-      setApprovalDecision('approved');
-      setApprovalNotes('');
-      setLineApprovals({});
-      await fetchAll();
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : 'Failed to submit approval');
-    } finally {
-      setSubmittingApproval(false);
-    }
-  };
-
-  // -----------------------------------------------------------------------
-  // Open approval form (pre-populate line defaults)
-  // -----------------------------------------------------------------------
-  const openApprovalForm = (estimateId: string) => {
-    const est = estimates.find((e) => e.id === estimateId);
-    const defaults: Record<string, 'approve' | 'review' | 'reject'> = {};
-    (est?.lines || []).forEach((line) => {
-      defaults[line.id] = 'approve';
-    });
-    setLineApprovals(defaults);
-    setApprovalDecision('approved');
-    setApprovalNotes('');
-    setApprovalError(null);
-    setShowApprovalForm(estimateId);
-  };
+  // Estimate approval moved to EstimateReviewPanel component
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) return;
@@ -550,251 +448,18 @@ export default function ShoppingEventDetailPage() {
       )}
 
       {/* ----------------------------------------------------------------- */}
-      {/* Estimate Submissions                                              */}
+      {/* Estimate Review Panel (BRC Viewer)                                */}
       {/* ----------------------------------------------------------------- */}
       <div className="card p-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Estimate Submissions
+          Estimate Review
         </h2>
-
-        {estimates.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No estimates have been submitted yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {estimates.map((est) => (
-              <div key={est.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                {/* Clickable summary row */}
-                <button
-                  onClick={() => handleExpandEstimate(est.id)}
-                  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      v{est.version_number}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        ESTIMATE_STATUS_COLORS[est.status] || 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {est.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatCurrency(est.total_cost)}
-                    </span>
-                    {est.submitted_at && (
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {formatDate(est.submitted_at)}
-                      </span>
-                    )}
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-400 transition-transform ${
-                        expandedEstimate === est.id ? 'rotate-180' : ''
-                      }`}
-                      aria-hidden="true"
-                    />
-                  </div>
-                </button>
-
-                {/* Expanded lines with decisions */}
-                {expandedEstimate === est.id && est.lines && est.lines.length > 0 && (
-                  <div className="border-t border-gray-200 dark:border-gray-700">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">AAR</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Labor</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Material</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Decision</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resp.</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {est.lines.map((line) => {
-                            const lineDecisions = (decisionsMap[est.id] || []).filter(
-                              (d) => d.estimate_line_id === line.id
-                            );
-                            const latestDecision = lineDecisions[0];
-                            const hasOverride = lineDecisions.some(
-                              (d) => d.decision_notes?.includes('[OVERRIDE]')
-                            );
-
-                            return (
-                              <tr key={line.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{line.line_number}</td>
-                                <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{line.aar_code || '--'}</td>
-                                <td className="px-3 py-2 text-gray-700 dark:text-gray-300 max-w-xs truncate">{line.description || '--'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">
-                                  {line.labor_hours != null ? Number(line.labor_hours).toFixed(1) : '--'}
-                                </td>
-                                <td className="px-3 py-2 text-right font-mono text-gray-700 dark:text-gray-300">
-                                  {formatCurrency(line.material_cost)}
-                                </td>
-                                <td className="px-3 py-2 text-right font-mono font-medium text-gray-900 dark:text-gray-100">
-                                  {formatCurrency(line.total_cost)}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  {latestDecision ? (
-                                    <span className="inline-flex items-center gap-1">
-                                      <span
-                                        className={`px-1.5 py-0.5 text-xs rounded font-medium ${
-                                          latestDecision.decision === 'approve'
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                            : latestDecision.decision === 'reject'
-                                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                        }`}
-                                      >
-                                        {latestDecision.decision}
-                                      </span>
-                                      <span className="text-[10px] text-gray-400">
-                                        {latestDecision.decision_source === 'ai' ? 'AI' : 'HU'}
-                                      </span>
-                                      {hasOverride && (
-                                        <span
-                                          className="text-[10px] px-1 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded font-bold"
-                                          title="Human override of AI decision"
-                                        >
-                                          OVR
-                                        </span>
-                                      )}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">--</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  {latestDecision?.responsibility && latestDecision.responsibility !== 'unknown' ? (
-                                    <span
-                                      className={`px-1.5 py-0.5 text-xs rounded font-medium ${
-                                        latestDecision.responsibility === 'lessor'
-                                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                                      }`}
-                                    >
-                                      {latestDecision.responsibility}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">--</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Approval action */}
-                    {est.status === 'submitted' && (
-                      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        {showApprovalForm === est.id ? (
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              Review Estimate v{est.version_number}
-                            </h4>
-
-                            {/* Per-line decisions */}
-                            <div className="space-y-2">
-                              {est.lines?.map((line) => (
-                                <div key={line.id} className="flex items-center gap-3 text-sm">
-                                  <span className="w-6 text-gray-500">#{line.line_number}</span>
-                                  <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
-                                    {line.description || line.aar_code || 'Line'}
-                                  </span>
-                                  <select
-                                    value={lineApprovals[line.id] || 'approve'}
-                                    onChange={(e) =>
-                                      setLineApprovals((prev) => ({
-                                        ...prev,
-                                        [line.id]: e.target.value as 'approve' | 'review' | 'reject',
-                                      }))
-                                    }
-                                    className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                  >
-                                    <option value="approve">Approve</option>
-                                    <option value="review">Changes Required</option>
-                                    <option value="reject">Reject</option>
-                                  </select>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Overall decision */}
-                            <div className="flex items-center gap-3">
-                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Overall:
-                              </label>
-                              <select
-                                value={approvalDecision}
-                                onChange={(e) =>
-                                  setApprovalDecision(e.target.value as 'approved' | 'changes_required' | 'rejected')
-                                }
-                                className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                              >
-                                <option value="approved">Approved</option>
-                                <option value="changes_required">Changes Required</option>
-                                <option value="rejected">Rejected</option>
-                              </select>
-                            </div>
-
-                            {/* Notes */}
-                            <textarea
-                              value={approvalNotes}
-                              onChange={(e) => setApprovalNotes(e.target.value)}
-                              placeholder="Review notes (optional)..."
-                              rows={2}
-                              className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            />
-
-                            {approvalError && (
-                              <p className="text-sm text-red-600 dark:text-red-400">{approvalError}</p>
-                            )}
-
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => requestSubmitApproval(est.id)}
-                                disabled={submittingApproval}
-                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
-                              >
-                                {submittingApproval ? 'Submitting...' : 'Submit Decision'}
-                              </button>
-                              <button
-                                onClick={() => setShowApprovalForm(null)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => openApprovalForm(est.id)}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded"
-                          >
-                            Review &amp; Approve
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {expandedEstimate === est.id && (!est.lines || est.lines.length === 0) && (
-                  <div className="border-t border-gray-200 dark:border-gray-700 p-3">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No line items on this estimate.</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <EstimateReviewPanel
+          shoppingEventId={id}
+          estimates={estimates}
+          onEstimatesChange={setEstimates}
+          onApprovalComplete={fetchAll}
+        />
       </div>
 
       {/* ----------------------------------------------------------------- */}
@@ -986,31 +651,6 @@ export default function ShoppingEventDetailPage() {
 
       {/* Transition confirmation dialog */}
       <ConfirmDialog {...confirmDialogProps} />
-
-      {/* Estimate decision confirmation dialog */}
-      <ConfirmDialog
-        open={!!showEstimateConfirm}
-        onConfirm={() => showEstimateConfirm && executeSubmitApproval(showEstimateConfirm)}
-        onCancel={() => setShowEstimateConfirm(null)}
-        title="Submit Estimate Decision"
-        description={`This will record an overall decision of "${approvalDecision.replace(/_/g, ' ')}" for this estimate.`}
-        confirmLabel="Submit Decision"
-        variant="warning"
-        loading={submittingApproval}
-        summaryItems={(() => {
-          const approveCount = Object.values(lineApprovals).filter((d) => d === 'approve').length;
-          const reviewCount = Object.values(lineApprovals).filter((d) => d === 'review').length;
-          const rejectCount = Object.values(lineApprovals).filter((d) => d === 'reject').length;
-          const totalLines = Object.keys(lineApprovals).length;
-          return [
-            { label: 'Total Lines', value: String(totalLines) },
-            { label: 'Approved', value: String(approveCount) },
-            { label: 'Changes Required', value: String(reviewCount) },
-            { label: 'Rejected', value: String(rejectCount) },
-            { label: 'Overall Decision', value: approvalDecision.replace(/_/g, ' ') },
-          ];
-        })()}
-      />
     </div>
   );
 }

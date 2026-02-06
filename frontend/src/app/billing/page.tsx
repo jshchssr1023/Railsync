@@ -20,6 +20,8 @@ import {
   RefreshCw,
   ArrowRight,
   TrendingUp,
+  Send,
+  Ban,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -40,6 +42,8 @@ import {
   getMileageSummary,
   verifyMileageRecord as apiVerifyMileage,
   createMileageFile,
+  queueInvoiceDelivery,
+  getDeliveryHistory,
 } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 
@@ -162,6 +166,7 @@ const INVOICE_STATUS_COLORS: Record<string, string> = {
   sent: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
   paid: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
   overdue: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  void: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
 const INVOICE_STATUS_LABELS: Record<string, string> = {
@@ -171,6 +176,7 @@ const INVOICE_STATUS_LABELS: Record<string, string> = {
   sent: 'Sent',
   paid: 'Paid',
   overdue: 'Overdue',
+  void: 'Void',
 };
 
 const CHARGEBACK_STATUS_COLORS: Record<string, string> = {
@@ -323,6 +329,9 @@ export default function BillingPage() {
   const [invoicePeriodFilter, setInvoicePeriodFilter] = useState('');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [approvingInvoiceId, setApprovingInvoiceId] = useState<string | null>(null);
+  const [voidingInvoiceId, setVoidingInvoiceId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
   // Chargebacks data
   const [chargebacks, setChargebacks] = useState<Chargeback[]>([]);
@@ -514,6 +523,35 @@ export default function BillingPage() {
       setError('Failed to approve invoice.');
     } finally {
       setApprovingInvoiceId(null);
+    }
+  };
+
+  const handleVoidInvoice = async (invoiceId: string) => {
+    if (!voidReason.trim()) { setError('Reason is required to void an invoice.'); return; }
+    try {
+      await voidOutboundInvoice(invoiceId, voidReason);
+      setInvoices((prev) =>
+        prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'void' } : inv))
+      );
+      setVoidingInvoiceId(null);
+      setVoidReason('');
+      toast.success('Invoice voided');
+    } catch (err) {
+      console.error('Failed to void invoice:', err);
+      setError('Failed to void invoice.');
+    }
+  };
+
+  const handleSendInvoice = async (invoiceId: string) => {
+    setSendingInvoiceId(invoiceId);
+    try {
+      await queueInvoiceDelivery(invoiceId);
+      toast.success('Invoice queued for delivery');
+    } catch (err) {
+      console.error('Failed to queue invoice delivery:', err);
+      setError('Failed to queue invoice for delivery.');
+    } finally {
+      setSendingInvoiceId(null);
     }
   };
 
@@ -891,6 +929,8 @@ export default function BillingPage() {
                     <option value="approved">Approved</option>
                     <option value="sent">Sent</option>
                     <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="void">Void</option>
                   </select>
                 </div>
                 <div className="flex-1 min-w-[200px]">
@@ -1008,24 +1048,88 @@ export default function BillingPage() {
                                 )}
                               </button>
                               {(invoice.status === 'pending_review' || invoice.status === 'draft') && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleApproveInvoice(invoice.id);
+                                    }}
+                                    disabled={approvingInvoiceId === invoice.id}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                    title="Approve"
+                                  >
+                                    {approvingInvoiceId === invoice.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="w-3 h-3" />
+                                    )}
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setVoidingInvoiceId(voidingInvoiceId === invoice.id ? null : invoice.id);
+                                      setVoidReason('');
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                    title="Void"
+                                  >
+                                    <Ban className="w-3 h-3" />
+                                    Void
+                                  </button>
+                                </>
+                              )}
+                              {invoice.status === 'approved' && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleApproveInvoice(invoice.id);
+                                    handleSendInvoice(invoice.id);
                                   }}
-                                  disabled={approvingInvoiceId === invoice.id}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                                  title="Approve"
+                                  disabled={sendingInvoiceId === invoice.id}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                                  title="Send"
                                 >
-                                  {approvingInvoiceId === invoice.id ? (
+                                  {sendingInvoiceId === invoice.id ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
                                   ) : (
-                                    <CheckCircle className="w-3 h-3" />
+                                    <Send className="w-3 h-3" />
                                   )}
-                                  Approve
+                                  Send
                                 </button>
                               )}
                             </div>
+                            {/* Inline void reason input */}
+                            {voidingInvoiceId === invoice.id && (
+                              <div
+                                className="mt-2 flex items-center gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="text"
+                                  value={voidReason}
+                                  onChange={(e) => setVoidReason(e.target.value)}
+                                  placeholder="Void reason..."
+                                  className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleVoidInvoice(invoice.id);
+                                    if (e.key === 'Escape') { setVoidingInvoiceId(null); setVoidReason(''); }
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleVoidInvoice(invoice.id)}
+                                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => { setVoidingInvoiceId(null); setVoidReason(''); }}
+                                  className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                         {/* Expanded detail row */}
@@ -1052,6 +1156,26 @@ export default function BillingPage() {
                                   </p>
                                 </div>
                               </div>
+                              {/* Quick actions in detail */}
+                              {invoice.status === 'sent' && (
+                                <div className="mb-4 flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleSendInvoice(invoice.id)}
+                                    disabled={sendingInvoiceId === invoice.id}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                  >
+                                    {sendingInvoiceId === invoice.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Send className="w-3 h-3" />
+                                    )}
+                                    Resend Invoice
+                                  </button>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Queue this invoice for re-delivery
+                                  </span>
+                                </div>
+                              )}
                               {invoice.line_items && invoice.line_items.length > 0 ? (
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

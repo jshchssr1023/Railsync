@@ -12,7 +12,9 @@ export type AlertType =
   | 'bad_order_critical'
   | 'assignment_expedited'
   | 'assignment_conflict'
-  | 'project_car_at_shop';
+  | 'project_car_at_shop'
+  | 'car_released'
+  | 'car_transferred';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 

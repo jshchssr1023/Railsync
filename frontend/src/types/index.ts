@@ -441,6 +441,120 @@ export interface DashboardConfig {
 }
 
 // ============================================================================
+// COMPONENT REGISTRY TYPES
+// ============================================================================
+
+export type ComponentType = 'valve' | 'bov' | 'fitting' | 'gauge' | 'relief_device' | 'lining' | 'coating' | 'heater' | 'other';
+export type ComponentStatus = 'active' | 'removed' | 'failed' | 'replaced';
+export type ComponentHistoryAction = 'installed' | 'inspected' | 'repaired' | 'replaced' | 'removed' | 'failed';
+
+export interface RailcarComponent {
+  id: string;
+  car_number: string;
+  component_type: ComponentType;
+  serial_number: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  install_date: string | null;
+  last_inspection_date: string | null;
+  next_inspection_due: string | null;
+  status: ComponentStatus;
+  specification: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComponentHistory {
+  id: string;
+  component_id: string;
+  action: ComponentHistoryAction;
+  performed_by: string | null;
+  performed_at: string;
+  shop_code: string | null;
+  old_serial_number: string | null;
+  new_serial_number: string | null;
+  work_order_reference: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ComponentWithHistory extends RailcarComponent {
+  history: ComponentHistory[];
+}
+
+export interface ComponentStats {
+  by_type: { component_type: string; count: number }[];
+  by_status: { status: string; count: number }[];
+  total: number;
+  overdue_inspections: number;
+  due_soon_inspections: number;
+}
+
+// ============================================================================
+// COMMODITY CLEANING TYPES
+// ============================================================================
+
+export type CleaningClass = 'A' | 'B' | 'C' | 'D' | 'E' | 'kosher' | 'hazmat' | 'none';
+
+export interface CommodityCleaning {
+  id: string;
+  commodity_code: string;
+  commodity_name: string;
+  cleaning_class: CleaningClass;
+  requires_interior_blast: boolean;
+  requires_exterior_paint: boolean;
+  requires_new_lining: boolean;
+  requires_kosher_cleaning: boolean;
+  special_instructions: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CleaningRequirements {
+  commodity_code: string;
+  commodity_name: string;
+  cleaning_class: CleaningClass;
+  requires_interior_blast: boolean;
+  requires_exterior_paint: boolean;
+  requires_new_lining: boolean;
+  requires_kosher_cleaning: boolean;
+  special_instructions: string | null;
+  cleaning_description: string;
+}
+
+// ============================================================================
+// INVOICE DISTRIBUTION TYPES
+// ============================================================================
+
+export interface InvoiceDistributionConfig {
+  id: string;
+  customer_id: string;
+  delivery_method: 'email' | 'portal' | 'mail' | 'edi';
+  email_recipients: string[];
+  cc_recipients: string[];
+  template_name: string;
+  include_line_detail: boolean;
+  include_pdf: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceDelivery {
+  id: string;
+  invoice_id: string;
+  customer_id: string;
+  delivery_method: string;
+  status: 'pending' | 'sent' | 'failed' | 'bounced';
+  sent_at: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+// ============================================================================
 // QUALIFICATION TYPES
 // ============================================================================
 

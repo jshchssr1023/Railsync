@@ -1856,6 +1856,19 @@ export async function revertBadOrder(id: string, notes?: string) {
   return response.data;
 }
 
+export async function duplicateShoppingRequest(
+  sourceId: string,
+  carNumber: string,
+  overrides?: Record<string, unknown>
+) {
+  const response = await fetchApi(`/shopping-requests/${sourceId}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify({ car_number: carNumber, overrides }),
+  });
+  if (!response.data) throw new Error('Failed to duplicate shopping request');
+  return response.data;
+}
+
 export async function revertShoppingRequest(id: string, notes?: string) {
   const response = await fetchApi(`/shopping-requests/${id}/revert`, {
     method: 'POST',
@@ -2249,5 +2262,331 @@ export async function getCustomerBillingHistory(customerId: string, limit = 20, 
   const response = await fetchApi(
     `/billing/customers/${encodeURIComponent(customerId)}/history?limit=${limit}&offset=${offset}`
   );
+  return response.data;
+}
+
+// ============================================================================
+// COMPONENT REGISTRY
+// ============================================================================
+
+export async function listComponents(filters: {
+  car_number?: string; component_type?: string; status?: string; limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.car_number) params.set('car_number', filters.car_number);
+  if (filters.component_type) params.set('component_type', filters.component_type);
+  if (filters.status) params.set('status', filters.status);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/components?${params}`);
+  return response.data;
+}
+
+export async function getComponentStats(carNumber?: string) {
+  const params = carNumber ? `?car_number=${encodeURIComponent(carNumber)}` : '';
+  const response = await fetchApi(`/components/stats${params}`);
+  return response.data;
+}
+
+export async function getComponent(id: string) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function createComponent(data: {
+  car_number: string; component_type: string; serial_number?: string;
+  manufacturer?: string; model?: string; install_date?: string;
+  next_inspection_due?: string; specification?: string; notes?: string;
+}) {
+  const response = await fetchApi('/components', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function updateComponent(id: string, data: Record<string, unknown>) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function replaceComponent(id: string, data: {
+  newSerialNumber: string; newManufacturer?: string; shopCode?: string; notes?: string;
+}) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}/replace`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function removeComponent(id: string) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return response.data;
+}
+
+export async function recordComponentInspection(id: string, data: {
+  shopCode?: string; notes?: string; nextInspectionDue?: string; workOrderReference?: string;
+}) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}/inspect`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function getComponentHistory(id: string) {
+  const response = await fetchApi(`/components/${encodeURIComponent(id)}/history`);
+  return response.data;
+}
+
+export async function getCarComponents(carNumber: string) {
+  const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/components`);
+  return response.data;
+}
+
+// ============================================================================
+// COMMODITY / CLEANING MATRIX
+// ============================================================================
+
+export async function listCommodities(includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  const response = await fetchApi(`/commodities${params}`);
+  return response.data;
+}
+
+export async function getCommodityByCode(code: string) {
+  const response = await fetchApi(`/commodities/${encodeURIComponent(code)}`);
+  return response.data;
+}
+
+export async function getCommodityCleaningRequirements(code: string) {
+  const response = await fetchApi(`/commodities/${encodeURIComponent(code)}/cleaning`);
+  return response.data;
+}
+
+export async function getCarCleaningRequirements(carNumber: string) {
+  const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/cleaning-requirements`);
+  return response.data;
+}
+
+// ============================================================================
+// INVOICE DISTRIBUTION
+// ============================================================================
+
+export async function listDistributionConfigs() {
+  const response = await fetchApi('/billing/distribution/configs');
+  return response.data;
+}
+
+export async function getDistributionConfig(customerId: string) {
+  const response = await fetchApi(`/billing/distribution/configs/${encodeURIComponent(customerId)}`);
+  return response.data;
+}
+
+export async function upsertDistributionConfig(customerId: string, data: {
+  delivery_method: string; email_recipients: string[]; cc_recipients?: string[];
+  template_name?: string; include_line_detail?: boolean; include_pdf?: boolean;
+}) {
+  const response = await fetchApi(`/billing/distribution/configs/${encodeURIComponent(customerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function queueInvoiceDelivery(invoiceId: string) {
+  const response = await fetchApi(`/billing/distribution/queue/${encodeURIComponent(invoiceId)}`, {
+    method: 'POST',
+  });
+  return response.data;
+}
+
+export async function processDeliveries() {
+  const response = await fetchApi('/billing/distribution/process', { method: 'POST' });
+  return response.data;
+}
+
+export async function getDeliveryHistory(invoiceId: string) {
+  const response = await fetchApi(`/billing/distribution/invoices/${encodeURIComponent(invoiceId)}/history`);
+  return response.data;
+}
+
+export async function getDeliveryStats(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi(`/billing/distribution/stats?fiscalYear=${fiscalYear}&fiscalMonth=${fiscalMonth}`);
+  return response.data;
+}
+
+export async function getPendingDeliveries(limit = 50) {
+  const response = await fetchApi(`/billing/distribution/pending?limit=${limit}`);
+  return response.data;
+}
+
+// ============================================================================
+// RELEASE MANAGEMENT
+// ============================================================================
+
+export async function listReleases(filters: {
+  car_number?: string; rider_id?: string; status?: string; release_type?: string;
+  limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.car_number) params.set('car_number', filters.car_number);
+  if (filters.rider_id) params.set('rider_id', filters.rider_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.release_type) params.set('release_type', filters.release_type);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/releases?${params}`);
+  return response.data;
+}
+
+export async function getActiveReleases() {
+  const response = await fetchApi('/releases/active');
+  return response.data;
+}
+
+export async function getRelease(id: string) {
+  const response = await fetchApi(`/releases/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function initiateRelease(data: {
+  car_number: string; rider_id: string; release_type: string;
+  assignment_id?: string; shopping_event_id?: string; notes?: string;
+}) {
+  const response = await fetchApi('/releases', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function approveRelease(id: string, notes?: string) {
+  const response = await fetchApi(`/releases/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  return response.data;
+}
+
+export async function executeRelease(id: string) {
+  const response = await fetchApi(`/releases/${encodeURIComponent(id)}/execute`, { method: 'POST' });
+  return response.data;
+}
+
+export async function completeRelease(id: string, notes?: string) {
+  const response = await fetchApi(`/releases/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  return response.data;
+}
+
+export async function cancelRelease(id: string, reason: string) {
+  const response = await fetchApi(`/releases/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// CONTRACT TRANSFERS
+// ============================================================================
+
+export async function validateTransferPrerequisites(data: {
+  car_number: string; from_rider_id: string; to_rider_id: string;
+}) {
+  const response = await fetchApi('/transfers/validate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function initiateTransfer(data: {
+  car_number: string; from_rider_id: string; to_rider_id: string;
+  transition_type: string; target_completion_date?: string;
+  requires_shop_visit?: boolean; notes?: string;
+}) {
+  const response = await fetchApi('/transfers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function listTransfers(filters: {
+  car_number?: string; from_rider_id?: string; to_rider_id?: string;
+  status?: string; transition_type?: string; limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.car_number) params.set('car_number', filters.car_number);
+  if (filters.from_rider_id) params.set('from_rider_id', filters.from_rider_id);
+  if (filters.to_rider_id) params.set('to_rider_id', filters.to_rider_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.transition_type) params.set('transition_type', filters.transition_type);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/transfers?${params}`);
+  return response.data;
+}
+
+export async function getTransferOverview() {
+  const response = await fetchApi('/transfers/overview');
+  return response.data;
+}
+
+export async function getTransfer(id: string) {
+  const response = await fetchApi(`/transfers/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function confirmTransfer(id: string, notes?: string) {
+  const response = await fetchApi(`/transfers/${encodeURIComponent(id)}/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  return response.data;
+}
+
+export async function completeTransfer(id: string, notes?: string) {
+  const response = await fetchApi(`/transfers/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  return response.data;
+}
+
+export async function cancelTransfer(id: string, reason: string) {
+  const response = await fetchApi(`/transfers/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  return response.data;
+}
+
+export async function getRiderTransfers(riderId: string) {
+  const response = await fetchApi(`/riders/${encodeURIComponent(riderId)}/transfers`);
+  return response.data;
+}
+
+// ============================================================================
+// APPROVAL PACKETS (extended)
+// ============================================================================
+
+export async function getApprovalPacket(packetId: string) {
+  const response = await fetchApi(`/approval-packets/${encodeURIComponent(packetId)}`);
+  return response.data;
+}
+
+export async function releaseApprovalPacket(packetId: string) {
+  const response = await fetchApi(`/approval-packets/${encodeURIComponent(packetId)}/release`, {
+    method: 'POST',
+  });
   return response.data;
 }
