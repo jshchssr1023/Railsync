@@ -3841,11 +3841,17 @@ router.get('/analytics/capacity/bottlenecks', authenticate, analyticsController.
 router.get('/analytics/cost/trends', authenticate, analyticsController.getCostTrends);
 router.get('/analytics/cost/budget-comparison', authenticate, analyticsController.getBudgetComparison);
 router.get('/analytics/cost/by-shop', authenticate, analyticsController.getShopCostComparison);
+router.get('/analytics/cost/variance', authenticate, analyticsController.getCostVarianceReport);
+router.get('/analytics/cost/by-customer', authenticate, analyticsController.getCustomerCostBreakdown);
 
 // Operations KPIs
 router.get('/analytics/operations/kpis', authenticate, analyticsController.getOperationsKPIs);
 router.get('/analytics/operations/dwell-time', authenticate, analyticsController.getDwellTimeByShop);
 router.get('/analytics/operations/throughput', authenticate, analyticsController.getThroughputTrends);
+
+// Shop Performance
+router.get('/analytics/shop-performance/scores', authenticate, analyticsController.getShopPerformanceScores);
+router.get('/analytics/shop-performance/:shopCode/trend', authenticate, analyticsController.getShopPerformanceTrend);
 
 // Demand Forecasting
 router.get('/analytics/demand/forecast', authenticate, analyticsController.getDemandForecast);
@@ -4242,6 +4248,26 @@ router.get('/estimates/:id/decisions', optionalAuth, estimateController.getEstim
 router.put('/estimates/:id/status', authenticate, authorize('admin', 'operator'), estimateController.updateEstimateStatus);
 router.post('/estimates/:id/approval-packet', authenticate, authorize('admin', 'operator'), estimateController.generateApprovalPacket);
 
+// AI Pre-Review
+router.post('/estimates/:id/pre-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { preReviewEstimate } = await import('../services/estimate-ai.service');
+    const result = await preReviewEstimate(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Pre-review failed' });
+  }
+});
+router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
+  try {
+    const { getJobCodeStats } = await import('../services/estimate-ai.service');
+    const result = await getJobCodeStats(req.params.code);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch stats' });
+  }
+});
+
 router.get('/approval-packets/:id', optionalAuth, estimateController.getApprovalPacket);
 router.post('/approval-packets/:id/release', authenticate, authorize('admin', 'operator'), estimateController.releaseApprovalPacket);
 
@@ -4400,6 +4426,8 @@ router.post('/billing/runs/preflight', authenticate, authorize('admin', 'operato
 router.post('/billing/runs', authenticate, authorize('admin'), billingController.createBillingRun);
 router.get('/billing/runs', authenticate, billingController.listBillingRuns);
 router.get('/billing/runs/:id', authenticate, billingController.getBillingRun);
+router.put('/billing/runs/:id/approve', authenticate, authorize('admin'), billingController.approveBillingRun);
+router.put('/billing/runs/:id/complete', authenticate, authorize('admin'), billingController.completeBillingRun);
 
 // Outbound Invoices
 router.post('/billing/invoices/generate', authenticate, authorize('admin'), billingController.generateInvoices);
@@ -4433,6 +4461,11 @@ router.put('/billing/adjustments/:id/reject', authenticate, authorize('admin'), 
 // Billing Summary
 router.get('/billing/summary', authenticate, billingController.getBillingSummary);
 router.get('/billing/customers/:customerId/history', authenticate, billingController.getCustomerInvoiceHistory);
+
+// Cost Allocation
+router.post('/billing/cost-allocations', authenticate, authorize('admin', 'operator'), billingController.createCostAllocation);
+router.get('/billing/cost-allocations/summary', authenticate, billingController.getCostAllocationSummary);
+router.get('/billing/cost-allocations', authenticate, billingController.listCostAllocations);
 
 // Invoice Distribution
 import * as distributionController from '../controllers/invoiceDistribution.controller';
@@ -4505,6 +4538,47 @@ router.post('/transfers/:id/cancel', authenticate, authorize('admin', 'operator'
 router.get('/riders/:riderId/transfers', authenticate, transferController.getRiderTransfers);
 
 // ============================================================================
+
+// ============================================================================
+// INTEGRATIONS (SAP, Salesforce, sync log)
+// ============================================================================
+import * as integrationController from '../controllers/integration.controller';
+
+// Connection status
+router.get('/integrations/status', authenticate, authorize('admin'), integrationController.getConnectionStatuses);
+router.get('/integrations/sync-log', authenticate, authorize('admin'), integrationController.getSyncLog);
+router.get('/integrations/sync-stats', authenticate, authorize('admin'), integrationController.getSyncStats);
+router.post('/integrations/sync-log/:id/retry', authenticate, authorize('admin'), integrationController.retrySyncEntry);
+
+// SAP pushes
+router.post('/integrations/sap/push-costs', authenticate, authorize('admin', 'operator'), integrationController.pushApprovedCosts);
+router.post('/integrations/sap/push-billing', authenticate, authorize('admin', 'operator'), integrationController.pushBillingTrigger);
+router.post('/integrations/sap/push-mileage', authenticate, authorize('admin', 'operator'), integrationController.pushMileage);
+router.post('/integrations/sap/push-invoice', authenticate, authorize('admin', 'operator'), integrationController.pushInvoiceToSAP);
+router.post('/integrations/sap/batch-push', authenticate, authorize('admin'), integrationController.batchPushToSAP);
+router.get('/integrations/sap/check', authenticate, authorize('admin'), integrationController.checkSAPConnection);
+
+// CLM (Car Location)
+import * as clmController from '../controllers/clm.controller';
+
+router.post('/integrations/clm/sync', authenticate, authorize('admin'), clmController.syncLocations);
+router.get('/integrations/clm/check', authenticate, authorize('admin'), clmController.checkConnection);
+router.get('/car-locations', authenticate, clmController.listCarLocations);
+router.get('/car-locations/:carNumber', authenticate, clmController.getCarLocation);
+router.get('/car-locations/:carNumber/history', authenticate, clmController.getLocationHistory);
+
+// Railinc EDI
+import * as railincController from '../controllers/railinc.controller';
+
+router.post('/integrations/railinc/import', authenticate, authorize('admin', 'operator'), railincController.importEDIFile);
+router.post('/integrations/railinc/preview', authenticate, authorize('admin', 'operator'), railincController.parseEDIPreview);
+router.get('/integrations/railinc/check', authenticate, authorize('admin'), railincController.checkConnection);
+
+// Salesforce sync
+router.post('/integrations/salesforce/pull-customers', authenticate, authorize('admin'), integrationController.sfPullCustomers);
+router.post('/integrations/salesforce/pull-contacts', authenticate, authorize('admin'), integrationController.sfPullContacts);
+router.post('/integrations/salesforce/full-sync', authenticate, authorize('admin'), integrationController.sfFullSync);
+router.get('/integrations/salesforce/check', authenticate, authorize('admin'), integrationController.checkSFConnection);
 
 /**
  * @route   GET /api/health

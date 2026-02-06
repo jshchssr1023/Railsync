@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Send,
   Ban,
+  ListChecks,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -44,13 +45,17 @@ import {
   createMileageFile,
   queueInvoiceDelivery,
   getDeliveryHistory,
+  approveBillingRun,
+  completeBillingRun,
+  getCostAllocationSummary,
 } from '@/lib/api';
 import { useToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'overview' | 'invoices' | 'chargebacks' | 'adjustments' | 'mileage';
+type TabKey = 'overview' | 'invoices' | 'chargebacks' | 'adjustments' | 'mileage' | 'costs';
 
 interface BillingSummary {
   fiscal_year: number;
@@ -154,6 +159,34 @@ interface MileageSummary {
   total_miles: number;
   car_count: number;
   verified_count: number;
+}
+
+interface CostAllocationSummaryItem {
+  customer_id: string;
+  customer_code: string;
+  customer_name: string;
+  allocation_count: number;
+  total_cost: number;
+  labor_total: number;
+  material_total: number;
+  freight_total: number;
+  lessee_billable: number;
+  owner_absorbed: number;
+  pending_count: number;
+  allocated_count: number;
+  invoiced_count: number;
+}
+
+interface PreflightCheck {
+  name: string;
+  passed: boolean;
+  message: string;
+  details?: unknown;
+}
+
+interface PreflightResult {
+  passed: boolean;
+  checks: PreflightCheck[];
 }
 
 // ---------------------------------------------------------------------------
@@ -366,6 +399,17 @@ export default function BillingPage() {
   // Error state
   const [error, setError] = useState<string | null>(null);
 
+  // Cost allocation data
+  const [costAllocations, setCostAllocations] = useState<CostAllocationSummaryItem[]>([]);
+
+  // Billing run detail
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null);
+  const [approvingRunId, setApprovingRunId] = useState<string | null>(null);
+
+  // Confirmation dialogs
+  const [confirmGenerateInvoices, setConfirmGenerateInvoices] = useState(false);
+
   // ---------------------------------------------------------------------------
   // Data Loaders
   // ---------------------------------------------------------------------------
@@ -454,6 +498,20 @@ export default function BillingPage() {
     }
   }, []);
 
+  const loadCostAllocationData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getCostAllocationSummary(selectedYear, selectedMonth);
+      setCostAllocations(Array.isArray(data) ? data as CostAllocationSummaryItem[] : []);
+    } catch (err) {
+      console.error('Failed to load cost allocation data:', err);
+      setError('Failed to load cost allocation data.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedYear, selectedMonth]);
+
   // ---------------------------------------------------------------------------
   // Tab loading
   // ---------------------------------------------------------------------------
@@ -475,14 +533,18 @@ export default function BillingPage() {
       case 'mileage':
         loadMileageData();
         break;
+      case 'costs':
+        loadCostAllocationData();
+        break;
     }
-  }, [isAuthenticated, activeTab, loadOverviewData, loadInvoicesData, loadChargebacksData, loadAdjustmentsData, loadMileageData]);
+  }, [isAuthenticated, activeTab, loadOverviewData, loadInvoicesData, loadChargebacksData, loadAdjustmentsData, loadMileageData, loadCostAllocationData]);
 
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
   const handleGenerateInvoices = async () => {
+    setConfirmGenerateInvoices(false);
     setGeneratingInvoices(true);
     try {
       await generateMonthlyInvoices(selectedYear, selectedMonth);
@@ -655,6 +717,50 @@ export default function BillingPage() {
     }
   };
 
+  const handleApproveBillingRun = async (runId: string) => {
+    setApprovingRunId(runId);
+    try {
+      await approveBillingRun(runId);
+      toast.success('Billing run approved');
+      await loadOverviewData();
+    } catch (err) {
+      console.error('Failed to approve billing run:', err);
+      toast.error('Failed to approve billing run');
+    } finally {
+      setApprovingRunId(null);
+    }
+  };
+
+  const handleCompleteBillingRun = async (runId: string) => {
+    try {
+      await completeBillingRun(runId);
+      toast.success('Billing run marked complete');
+      await loadOverviewData();
+    } catch (err) {
+      console.error('Failed to complete billing run:', err);
+      toast.error('Failed to complete billing run');
+    }
+  };
+
+  const handleRunPreflight2 = async () => {
+    setRunningPreflight(true);
+    setPreflightResult(null);
+    try {
+      const result = await runBillingPreflight(selectedYear, selectedMonth) as any;
+      setPreflightResult(result as PreflightResult);
+      if (result?.passed) {
+        toast.success('Preflight passed — ready to generate invoices');
+      } else {
+        toast.error('Preflight failed — see details below');
+      }
+    } catch (err) {
+      console.error('Preflight check failed:', err);
+      toast.error('Preflight check failed');
+    } finally {
+      setRunningPreflight(false);
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
@@ -673,6 +779,7 @@ export default function BillingPage() {
     { key: 'chargebacks', label: 'Chargebacks' },
     { key: 'adjustments', label: 'Adjustments' },
     { key: 'mileage', label: 'Mileage' },
+    { key: 'costs' as TabKey, label: 'Cost Allocation' },
   ];
 
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
@@ -693,6 +800,21 @@ export default function BillingPage() {
   // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Generate Invoices Confirmation */}
+      <ConfirmDialog
+        open={confirmGenerateInvoices}
+        onConfirm={handleGenerateInvoices}
+        onCancel={() => setConfirmGenerateInvoices(false)}
+        title="Generate Monthly Invoices"
+        description={`This will generate rental invoices for all active contracts for ${MONTHS.find(m => m.value === selectedMonth)?.label || ''} ${selectedYear}. Existing draft invoices for this period will not be duplicated.`}
+        variant="warning"
+        loading={generatingInvoices}
+        confirmLabel="Generate Invoices"
+        summaryItems={[
+          { label: 'Billing Period', value: `${MONTHS.find(m => m.value === selectedMonth)?.label || ''} ${selectedYear}` },
+          { label: 'Existing Invoices', value: String(summary.total_invoices) },
+        ]}
+      />
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -829,7 +951,7 @@ export default function BillingPage() {
             {/* Quick Actions */}
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={handleGenerateInvoices}
+                onClick={() => setConfirmGenerateInvoices(true)}
                 disabled={generatingInvoices}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 text-sm font-medium"
               >
@@ -841,7 +963,7 @@ export default function BillingPage() {
                 Generate Monthly Invoices
               </button>
               <button
-                onClick={handleRunPreflight}
+                onClick={handleRunPreflight2}
                 disabled={runningPreflight}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 text-sm font-medium"
               >
@@ -853,6 +975,38 @@ export default function BillingPage() {
                 Run Preflight Check
               </button>
             </div>
+
+            {/* Preflight Results */}
+            {preflightResult && (
+              <div className={`rounded-lg border p-4 ${
+                preflightResult.passed
+                  ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                  : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <ListChecks className={`w-5 h-5 ${preflightResult.passed ? 'text-green-600' : 'text-red-600'}`} />
+                  <h3 className={`text-sm font-semibold ${preflightResult.passed ? 'text-green-800 dark:text-green-400' : 'text-red-800 dark:text-red-400'}`}>
+                    Preflight {preflightResult.passed ? 'Passed' : 'Failed'}
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  {preflightResult.checks.map((check, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      {check.passed ? (
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                      )}
+                      <div>
+                        <p className={`text-sm ${check.passed ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                          {check.message}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Recent Billing Runs */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
@@ -873,27 +1027,108 @@ export default function BillingPage() {
                       <th className="px-4 py-3 text-center font-medium text-gray-700 dark:text-gray-300">Status</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Invoices</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Total Amount</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {billingRuns.map((run) => (
-                      <tr key={run.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                        <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{formatDate(run.run_date)}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{capitalize(run.type)}</td>
-                        <td className="px-4 py-3 text-center">
-                          <StatusBadge status={run.status} colorMap={RUN_STATUS_COLORS} />
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100 font-medium">
-                          {run.invoices_generated}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100 font-mono">
-                          {formatCurrency(run.total_amount)}
-                        </td>
-                      </tr>
+                      <>
+                        <tr key={run.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer" onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}>
+                          <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{formatDate(run.run_date)}</td>
+                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{capitalize(run.type)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <StatusBadge status={run.status} colorMap={RUN_STATUS_COLORS} />
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100 font-medium">
+                            {run.invoices_generated}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100 font-mono">
+                            {formatCurrency(run.total_amount)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              {run.status === 'review' && (
+                                <button
+                                  onClick={() => handleApproveBillingRun(run.id)}
+                                  disabled={approvingRunId === run.id}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  {approvingRunId === run.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                  Approve
+                                </button>
+                              )}
+                              {run.status === 'approved' && (
+                                <button
+                                  onClick={() => handleCompleteBillingRun(run.id)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Complete
+                                </button>
+                              )}
+                              <button className="p-1 text-gray-400 hover:text-primary-600">
+                                {expandedRunId === run.id ? <ChevronUp className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedRunId === run.id && (
+                          <tr key={`${run.id}-detail`}>
+                            <td colSpan={6} className="px-4 py-4 bg-gray-50 dark:bg-gray-900/50">
+                              <div className="space-y-3">
+                                {/* Orchestration Steps */}
+                                <div className="flex items-center gap-1">
+                                  {['preflight', 'generating', 'review', 'approved', 'posting', 'completed'].map((step, idx) => {
+                                    const runStatuses = ['pending', 'preflight', 'generating', 'review', 'approved', 'posting', 'completed', 'failed'];
+                                    const currentIdx = runStatuses.indexOf(run.status);
+                                    const stepIdx = runStatuses.indexOf(step);
+                                    const isComplete = stepIdx < currentIdx;
+                                    const isCurrent = step === run.status;
+                                    const isFailed = run.status === 'failed' && step === 'preflight';
+                                    return (
+                                      <div key={step} className="flex items-center gap-1">
+                                        {idx > 0 && <div className={`w-6 h-0.5 ${isComplete ? 'bg-green-400' : 'bg-gray-300 dark:bg-gray-600'}`} />}
+                                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                                          isFailed ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                            : isComplete ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            : isCurrent ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                                        }`}>
+                                          {isComplete ? <CheckCircle className="w-3 h-3" /> : isFailed ? <XCircle className="w-3 h-3" /> : null}
+                                          {capitalize(step)}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {/* Run details */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Invoices Generated</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">{run.invoices_generated}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Total Amount</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100 font-mono">{formatCurrency(run.total_amount)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">{capitalize(run.status)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Run Date</p>
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(run.run_date)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     ))}
                     {billingRuns.length === 0 && (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <EmptyState
                             icon={<FileText className="w-10 h-10" strokeWidth={1.5} />}
                             message="No billing runs for this period. Generate invoices to get started."
@@ -2002,6 +2237,145 @@ export default function BillingPage() {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB 6: COST ALLOCATION                                            */}
+        {/* ================================================================= */}
+        {!loading && activeTab === 'costs' && (
+          <div className="space-y-6">
+            {/* Period Selector */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              >
+                {MONTHS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={loadCostAllocationData}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+
+            {/* Summary Cards */}
+            {costAllocations.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <KpiCard
+                  label="Total Maintenance Cost"
+                  value={costAllocations.reduce((sum, c) => sum + Number(c.total_cost), 0)}
+                  icon={<DollarSign className="w-5 h-5 text-red-600" />}
+                  color="bg-red-50 dark:bg-red-900/20"
+                  isCurrency
+                />
+                <KpiCard
+                  label="Lessee Billable"
+                  value={costAllocations.reduce((sum, c) => sum + Number(c.lessee_billable), 0)}
+                  icon={<TrendingUp className="w-5 h-5 text-green-600" />}
+                  color="bg-green-50 dark:bg-green-900/20"
+                  isCurrency
+                />
+                <KpiCard
+                  label="Owner Absorbed"
+                  value={costAllocations.reduce((sum, c) => sum + Number(c.owner_absorbed), 0)}
+                  icon={<AlertTriangle className="w-5 h-5 text-yellow-600" />}
+                  color="bg-yellow-50 dark:bg-yellow-900/20"
+                  isCurrency
+                />
+              </div>
+            )}
+
+            {/* Cost Allocation by Customer Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Cost Allocation by Customer
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Maintenance cost allocation for {MONTHS.find(m => m.value === selectedMonth)?.label} {selectedYear}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Customer</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Allocations</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Labor</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Material</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Freight</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Total Cost</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Lessee Share</th>
+                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Owner Share</th>
+                      <th className="px-4 py-3 text-center font-medium text-gray-700 dark:text-gray-300">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {costAllocations.map((ca) => (
+                      <tr key={ca.customer_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{ca.customer_name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{ca.customer_code}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{ca.allocation_count}</td>
+                        <td className="px-4 py-3 text-right font-mono text-gray-600 dark:text-gray-400">{formatCurrency(Number(ca.labor_total))}</td>
+                        <td className="px-4 py-3 text-right font-mono text-gray-600 dark:text-gray-400">{formatCurrency(Number(ca.material_total))}</td>
+                        <td className="px-4 py-3 text-right font-mono text-gray-600 dark:text-gray-400">{formatCurrency(Number(ca.freight_total))}</td>
+                        <td className="px-4 py-3 text-right font-mono font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(ca.total_cost))}</td>
+                        <td className="px-4 py-3 text-right font-mono text-green-600 dark:text-green-400">{formatCurrency(Number(ca.lessee_billable))}</td>
+                        <td className="px-4 py-3 text-right font-mono text-yellow-600 dark:text-yellow-400">{formatCurrency(Number(ca.owner_absorbed))}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {ca.pending_count > 0 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                {ca.pending_count} pending
+                              </span>
+                            )}
+                            {ca.allocated_count > 0 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                {ca.allocated_count} allocated
+                              </span>
+                            )}
+                            {ca.invoiced_count > 0 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                {ca.invoiced_count} invoiced
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {costAllocations.length === 0 && (
+                      <tr>
+                        <td colSpan={9}>
+                          <EmptyState
+                            icon={<DollarSign className="w-10 h-10" strokeWidth={1.5} />}
+                            message="No cost allocation data for this period."
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

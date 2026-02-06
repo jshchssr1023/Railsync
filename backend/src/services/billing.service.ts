@@ -1523,6 +1523,255 @@ export async function voidOutboundInvoice(
 }
 
 // ============================================================================
+// 8. BILLING RUN APPROVAL
+// ============================================================================
+
+/**
+ * Approve a billing run (transition from review to approved).
+ * This marks the billing run as approved for posting to SAP.
+ */
+export async function approveBillingRun(
+  id: string,
+  approvedBy: string,
+  notes?: string
+): Promise<BillingRun | null> {
+  const rows = await query<BillingRun>(
+    `UPDATE billing_runs
+     SET status = 'approved',
+         approved_by = $2,
+         approved_at = NOW(),
+         review_notes = $3,
+         current_step = 'approved'
+     WHERE id = $1
+       AND status = 'review'
+     RETURNING *`,
+    [id, approvedBy, notes || null]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Complete a billing run (mark as completed after SAP posting or final review).
+ */
+export async function completeBillingRun(
+  id: string
+): Promise<BillingRun | null> {
+  const rows = await query<BillingRun>(
+    `UPDATE billing_runs
+     SET status = 'completed',
+         completed_at = NOW(),
+         current_step = 'completed'
+     WHERE id = $1
+       AND status IN ('approved', 'posting')
+     RETURNING *`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+// ============================================================================
+// 9. COST ALLOCATION
+// ============================================================================
+
+export interface CostAllocationEntry {
+  id: string;
+  allocation_id: string;
+  customer_id: string;
+  car_number: string;
+  labor_cost: number;
+  material_cost: number;
+  freight_cost: number;
+  total_cost: number;
+  billing_entity: string;
+  lessee_share_pct: number;
+  owner_share_pct: number;
+  lessee_amount: number;
+  owner_amount: number;
+  applied_to_invoice_id: string | null;
+  applied_at: string | null;
+  brc_number: string | null;
+  shopping_event_id: string | null;
+  scope_of_work_id: string | null;
+  status: string;
+  allocated_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  customer_code?: string;
+  customer_name?: string;
+}
+
+export interface CostAllocationSummary {
+  customer_id: string;
+  customer_code: string;
+  customer_name: string;
+  billing_month: string;
+  allocation_count: number;
+  total_cost: number;
+  labor_total: number;
+  material_total: number;
+  freight_total: number;
+  lessee_billable: number;
+  owner_absorbed: number;
+  pending_count: number;
+  allocated_count: number;
+  invoiced_count: number;
+}
+
+/**
+ * Create a cost allocation entry for a completed allocation.
+ */
+export async function createCostAllocationEntry(data: {
+  allocation_id: string;
+  customer_id: string;
+  car_number: string;
+  labor_cost?: number;
+  material_cost?: number;
+  freight_cost?: number;
+  total_cost: number;
+  billing_entity?: string;
+  lessee_share_pct?: number;
+  brc_number?: string;
+  shopping_event_id?: string;
+  scope_of_work_id?: string;
+  allocated_by?: string;
+  notes?: string;
+}): Promise<CostAllocationEntry> {
+  const ownerPct = 100 - (data.lessee_share_pct || 0);
+  const lesseeAmount = Math.round(data.total_cost * (data.lessee_share_pct || 0) / 100 * 100) / 100;
+  const ownerAmount = Math.round(data.total_cost * ownerPct / 100 * 100) / 100;
+
+  const rows = await query<CostAllocationEntry>(
+    `INSERT INTO cost_allocation_entries (
+      allocation_id, customer_id, car_number,
+      labor_cost, material_cost, freight_cost, total_cost,
+      billing_entity, lessee_share_pct, owner_share_pct,
+      lessee_amount, owner_amount,
+      brc_number, shopping_event_id, scope_of_work_id,
+      status, allocated_by, notes
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'allocated', $16, $17)
+    RETURNING *`,
+    [
+      data.allocation_id,
+      data.customer_id,
+      data.car_number,
+      data.labor_cost || 0,
+      data.material_cost || 0,
+      data.freight_cost || 0,
+      data.total_cost,
+      data.billing_entity || 'owner',
+      data.lessee_share_pct || 0,
+      ownerPct,
+      lesseeAmount,
+      ownerAmount,
+      data.brc_number || null,
+      data.shopping_event_id || null,
+      data.scope_of_work_id || null,
+      data.allocated_by || null,
+      data.notes || null,
+    ]
+  );
+  return rows[0];
+}
+
+/**
+ * Get cost allocation summary by customer for a billing period.
+ */
+export async function getCostAllocationSummary(
+  fiscalYear: number,
+  fiscalMonth: number
+): Promise<CostAllocationSummary[]> {
+  const periodStart = `${fiscalYear}-${String(fiscalMonth).padStart(2, '0')}-01`;
+  return query<CostAllocationSummary>(
+    `SELECT
+       c.id AS customer_id,
+       c.customer_code,
+       c.customer_name,
+       $1::date AS billing_month,
+       COUNT(cae.id)::integer AS allocation_count,
+       COALESCE(SUM(cae.total_cost), 0)::numeric AS total_cost,
+       COALESCE(SUM(cae.labor_cost), 0)::numeric AS labor_total,
+       COALESCE(SUM(cae.material_cost), 0)::numeric AS material_total,
+       COALESCE(SUM(cae.freight_cost), 0)::numeric AS freight_total,
+       COALESCE(SUM(cae.lessee_amount), 0)::numeric AS lessee_billable,
+       COALESCE(SUM(cae.owner_amount), 0)::numeric AS owner_absorbed,
+       COUNT(CASE WHEN cae.status = 'pending' THEN 1 END)::integer AS pending_count,
+       COUNT(CASE WHEN cae.status = 'allocated' THEN 1 END)::integer AS allocated_count,
+       COUNT(CASE WHEN cae.status = 'invoiced' THEN 1 END)::integer AS invoiced_count
+     FROM cost_allocation_entries cae
+     JOIN allocations a ON a.id = cae.allocation_id
+     JOIN customers c ON c.id = cae.customer_id
+     WHERE a.target_month = $1
+     GROUP BY c.id, c.customer_code, c.customer_name
+     ORDER BY c.customer_name`,
+    [periodStart]
+  );
+}
+
+/**
+ * List cost allocation entries with optional filters.
+ */
+export async function listCostAllocationEntries(filters: {
+  customer_id?: string;
+  allocation_id?: string;
+  status?: string;
+  billing_month?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ entries: CostAllocationEntry[]; total: number }> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let paramIndex = 1;
+
+  if (filters.customer_id) {
+    conditions.push(`cae.customer_id = $${paramIndex++}`);
+    params.push(filters.customer_id);
+  }
+  if (filters.allocation_id) {
+    conditions.push(`cae.allocation_id = $${paramIndex++}`);
+    params.push(filters.allocation_id);
+  }
+  if (filters.status) {
+    conditions.push(`cae.status = $${paramIndex++}`);
+    params.push(filters.status);
+  }
+  if (filters.billing_month) {
+    conditions.push(`a.target_month = $${paramIndex++}`);
+    params.push(filters.billing_month);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const countResult = await queryOne<{ count: string }>(
+    `SELECT COUNT(*) AS count
+     FROM cost_allocation_entries cae
+     JOIN allocations a ON a.id = cae.allocation_id
+     ${whereClause}`,
+    params
+  );
+  const total = parseInt(countResult?.count || '0', 10);
+
+  const limit = filters.limit || 50;
+  const offset = filters.offset || 0;
+
+  const entries = await query<CostAllocationEntry>(
+    `SELECT cae.*,
+            c.customer_code,
+            c.customer_name
+     FROM cost_allocation_entries cae
+     JOIN allocations a ON a.id = cae.allocation_id
+     JOIN customers c ON c.id = cae.customer_id
+     ${whereClause}
+     ORDER BY cae.created_at DESC
+     LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+    [...params, limit, offset]
+  );
+
+  return { entries, total };
+}
+
+// ============================================================================
 // DEFAULT EXPORT
 // ============================================================================
 
@@ -1553,6 +1802,12 @@ export default {
   createBillingRun,
   getBillingRun,
   listBillingRuns,
+  approveBillingRun,
+  completeBillingRun,
+  // Cost Allocation
+  createCostAllocationEntry,
+  getCostAllocationSummary,
+  listCostAllocationEntries,
   // Reporting
   getBillingSummary,
   getCustomerInvoiceHistory,

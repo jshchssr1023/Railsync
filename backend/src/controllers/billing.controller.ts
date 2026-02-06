@@ -463,3 +463,93 @@ export async function getCustomerInvoiceHistory(req: Request, res: Response): Pr
     res.status(500).json({ success: false, error: 'Failed to get customer invoice history' });
   }
 }
+
+// ============================================================================
+// BILLING RUN APPROVAL
+// ============================================================================
+
+// PUT /api/billing/runs/:id/approve
+export async function approveBillingRun(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user?.userId;
+    const { notes } = req.body;
+    const result = await billingService.approveBillingRun(req.params.id, userId, notes);
+    if (!result) {
+      res.status(404).json({ success: false, error: 'Billing run not found or not in review state' });
+      return;
+    }
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error approving billing run:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve billing run' });
+  }
+}
+
+// PUT /api/billing/runs/:id/complete
+export async function completeBillingRun(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await billingService.completeBillingRun(req.params.id);
+    if (!result) {
+      res.status(404).json({ success: false, error: 'Billing run not found or not in approved/posting state' });
+      return;
+    }
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error completing billing run:', error);
+    res.status(500).json({ success: false, error: 'Failed to complete billing run' });
+  }
+}
+
+// ============================================================================
+// COST ALLOCATION
+// ============================================================================
+
+// POST /api/billing/cost-allocations
+export async function createCostAllocation(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user?.userId;
+    const result = await billingService.createCostAllocationEntry({
+      ...req.body,
+      allocated_by: userId,
+    });
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error creating cost allocation:', error);
+    res.status(500).json({ success: false, error: 'Failed to create cost allocation' });
+  }
+}
+
+// GET /api/billing/cost-allocations/summary
+export async function getCostAllocationSummary(req: Request, res: Response): Promise<void> {
+  try {
+    const fiscalYear = Number(req.query.fiscalYear);
+    const fiscalMonth = Number(req.query.fiscalMonth);
+    if (!fiscalYear || !fiscalMonth) {
+      res.status(400).json({ success: false, error: 'fiscalYear and fiscalMonth are required' });
+      return;
+    }
+    const result = await billingService.getCostAllocationSummary(fiscalYear, fiscalMonth);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error getting cost allocation summary:', error);
+    res.status(500).json({ success: false, error: 'Failed to get cost allocation summary' });
+  }
+}
+
+// GET /api/billing/cost-allocations
+export async function listCostAllocations(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await billingService.listCostAllocationEntries({
+      customer_id: req.query.customerId as string,
+      allocation_id: req.query.allocationId as string,
+      status: req.query.status as string,
+      billing_month: req.query.billingMonth as string,
+      limit: Number(req.query.limit) || 50,
+      offset: Number(req.query.offset) || 0,
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error listing cost allocations:', error);
+    res.status(500).json({ success: false, error: 'Failed to list cost allocations' });
+  }
+}

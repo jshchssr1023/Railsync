@@ -2426,6 +2426,76 @@ export async function getPendingDeliveries(limit = 50) {
 }
 
 // ============================================================================
+// BILLING RUN APPROVAL
+// ============================================================================
+
+export async function approveBillingRun(runId: string, notes?: string) {
+  const response = await fetchApi(`/billing/runs/${encodeURIComponent(runId)}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  });
+  return response.data;
+}
+
+export async function completeBillingRun(runId: string) {
+  const response = await fetchApi(`/billing/runs/${encodeURIComponent(runId)}/complete`, {
+    method: 'PUT',
+  });
+  return response.data;
+}
+
+// ============================================================================
+// COST ALLOCATION
+// ============================================================================
+
+export async function createCostAllocation(data: {
+  allocation_id: string;
+  customer_id: string;
+  car_number: string;
+  labor_cost?: number;
+  material_cost?: number;
+  freight_cost?: number;
+  total_cost: number;
+  billing_entity?: string;
+  lessee_share_pct?: number;
+  brc_number?: string;
+  shopping_event_id?: string;
+  notes?: string;
+}) {
+  const response = await fetchApi('/billing/cost-allocations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function getCostAllocationSummary(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi(
+    `/billing/cost-allocations/summary?fiscalYear=${fiscalYear}&fiscalMonth=${fiscalMonth}`
+  );
+  return response.data;
+}
+
+export async function listCostAllocations(filters: {
+  customerId?: string;
+  allocationId?: string;
+  status?: string;
+  billingMonth?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.customerId) params.set('customerId', filters.customerId);
+  if (filters.allocationId) params.set('allocationId', filters.allocationId);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.billingMonth) params.set('billingMonth', filters.billingMonth);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/billing/cost-allocations?${params}`);
+  return response.data;
+}
+
+// ============================================================================
 // RELEASE MANAGEMENT
 // ============================================================================
 
