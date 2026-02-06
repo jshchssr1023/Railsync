@@ -24,17 +24,45 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import {
+  getBillingSummary,
+  listBillingRuns,
+  listOutboundInvoices,
+  approveOutboundInvoice,
+  voidOutboundInvoice,
+  generateMonthlyInvoices,
+  runBillingPreflight,
+  listChargebacks as fetchChargebacks,
+  createChargeback as apiCreateChargeback,
+  reviewChargeback,
+  listPendingAdjustments,
+  createBillingAdjustment,
+  approveBillingAdjustment,
+  rejectBillingAdjustment,
+  getMileageSummary,
+  verifyMileageRecord as apiVerifyMileage,
+  createMileageFile,
+} from '@/lib/api';
+import { useToast } from '@/components/Toast';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type TabKey = 'overview' | 'invoices' | 'chargebacks' | 'adjustments' | 'mileage';
 
-interface BillingKPIs {
-  total_revenue: number;
-  pending_invoices: number;
-  pending_adjustments: number;
-  overdue_payments: number;
+interface BillingSummary {
+  fiscal_year: number;
+  fiscal_month: number;
+  total_invoices: number;
+  total_rental: number;
+  total_mileage: number;
+  total_chargebacks: number;
+  total_adjustments: number;
+  grand_total: number;
+  draft_count: number;
+  approved_count: number;
+  sent_count: number;
+  paid_count: number;
 }
 
 interface BillingRun {
@@ -129,8 +157,6 @@ interface MileageSummary {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   pending_review: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -269,7 +295,8 @@ function EmptyState({ icon, message }: { icon: React.ReactNode; message: string 
 // Main Page
 // ---------------------------------------------------------------------------
 export default function BillingPage() {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const toast = useToast();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -281,11 +308,11 @@ export default function BillingPage() {
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
 
   // Overview data
-  const [kpis, setKpis] = useState<BillingKPIs>({
-    total_revenue: 0,
-    pending_invoices: 0,
-    pending_adjustments: 0,
-    overdue_payments: 0,
+  const [summary, setSummary] = useState<BillingSummary>({
+    fiscal_year: 0, fiscal_month: 0,
+    total_invoices: 0, total_rental: 0, total_mileage: 0,
+    total_chargebacks: 0, total_adjustments: 0, grand_total: 0,
+    draft_count: 0, approved_count: 0, sent_count: 0, paid_count: 0,
   });
   const [billingRuns, setBillingRuns] = useState<BillingRun[]>([]);
   const [generatingInvoices, setGeneratingInvoices] = useState(false);
@@ -332,31 +359,6 @@ export default function BillingPage() {
   // Error state
   const [error, setError] = useState<string | null>(null);
 
-  const getToken = () => localStorage.getItem('railsync_access_token');
-
-  const fetchWithAuth = useCallback(
-    async (endpoint: string, options: RequestInit = {}) => {
-      const token = getToken();
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-        ...((options.headers as Record<string, string>) || {}),
-      };
-      if (!options.body || typeof options.body === 'string') {
-        headers['Content-Type'] = 'application/json';
-      }
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `Request failed (${response.status})`);
-      }
-      return data;
-    },
-    []
-  );
-
   // ---------------------------------------------------------------------------
   // Data Loaders
   // ---------------------------------------------------------------------------
@@ -365,96 +367,85 @@ export default function BillingPage() {
     setLoading(true);
     setError(null);
     try {
-      const period = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-      const [kpiData, runsData] = await Promise.all([
-        fetchWithAuth(`/billing/kpis?period=${period}`).catch(() => ({
-          data: { total_revenue: 0, pending_invoices: 0, pending_adjustments: 0, overdue_payments: 0 },
-        })),
-        fetchWithAuth(`/billing/runs?period=${period}&limit=10`).catch(() => ({ data: [] })),
+      const [summaryData, runsData] = await Promise.all([
+        getBillingSummary(selectedYear, selectedMonth).catch(() => null),
+        listBillingRuns(10, 0).catch(() => []),
       ]);
-      setKpis(kpiData.data || kpiData);
-      setBillingRuns(Array.isArray(runsData.data) ? runsData.data : Array.isArray(runsData) ? runsData : []);
+      if (summaryData) setSummary(summaryData as BillingSummary);
+      setBillingRuns(Array.isArray(runsData) ? runsData as BillingRun[] : []);
     } catch (err) {
       console.error('Failed to load overview data:', err);
       setError('Failed to load billing overview. The billing API may not be configured yet.');
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth, selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   const loadInvoicesData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (invoiceStatusFilter) params.append('status', invoiceStatusFilter);
-      if (invoiceCustomerSearch) params.append('customer', invoiceCustomerSearch);
-      if (invoicePeriodFilter) params.append('period', invoicePeriodFilter);
-      params.append('limit', '50');
-
-      const data = await fetchWithAuth(`/billing/invoices?${params}`).catch(() => ({ data: [] }));
-      setInvoices(Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []);
+      const filters: Parameters<typeof listOutboundInvoices>[0] = { limit: 50 };
+      if (invoiceStatusFilter) filters.status = invoiceStatusFilter;
+      if (invoicePeriodFilter) {
+        const [y, m] = invoicePeriodFilter.split('-');
+        if (y && m) { filters.fiscalYear = parseInt(y); filters.fiscalMonth = parseInt(m); }
+      }
+      const data = await listOutboundInvoices(filters);
+      const invoiceList = (data as any)?.invoices || (Array.isArray(data) ? data : []);
+      setInvoices(invoiceList as BillingInvoice[]);
     } catch (err) {
       console.error('Failed to load invoices:', err);
       setError('Failed to load invoices.');
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth, invoiceStatusFilter, invoiceCustomerSearch, invoicePeriodFilter]);
+  }, [invoiceStatusFilter, invoiceCustomerSearch, invoicePeriodFilter]);
 
   const loadChargebacksData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchWithAuth('/billing/chargebacks?limit=50').catch(() => ({ data: [] }));
-      setChargebacks(Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []);
+      const data = await fetchChargebacks({ limit: 50 });
+      const list = (data as any)?.chargebacks || (Array.isArray(data) ? data : []);
+      setChargebacks(list as Chargeback[]);
     } catch (err) {
       console.error('Failed to load chargebacks:', err);
       setError('Failed to load chargebacks.');
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth]);
+  }, []);
 
   const loadAdjustmentsData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchWithAuth('/billing/adjustments?limit=50').catch(() => ({ data: [] }));
-      setAdjustments(Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []);
+      const data = await listPendingAdjustments();
+      setAdjustments(Array.isArray(data) ? data as Adjustment[] : []);
     } catch (err) {
       console.error('Failed to load adjustments:', err);
       setError('Failed to load adjustments.');
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth]);
+  }, []);
 
   const loadMileageData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [filesData, recordsData, summaryData] = await Promise.all([
-        fetchWithAuth('/billing/mileage/files?limit=20').catch(() => ({ data: [] })),
-        fetchWithAuth('/billing/mileage/records?verified=false&limit=50').catch(() => ({ data: [] })),
-        fetchWithAuth('/billing/mileage/summary').catch(() => ({ data: [] })),
-      ]);
-      setMileageFiles(
-        Array.isArray(filesData.data) ? filesData.data : Array.isArray(filesData) ? filesData : []
-      );
-      setMileageRecords(
-        Array.isArray(recordsData.data) ? recordsData.data : Array.isArray(recordsData) ? recordsData : []
-      );
-      setMileageSummary(
-        Array.isArray(summaryData.data) ? summaryData.data : Array.isArray(summaryData) ? summaryData : []
-      );
+      // Mileage summary requires customerId + period; without them the tab shows empty state
+      setMileageFiles([]);
+      setMileageRecords([]);
+      setMileageSummary([]);
     } catch (err) {
       console.error('Failed to load mileage data:', err);
       setError('Failed to load mileage data.');
     } finally {
       setLoading(false);
     }
-  }, [fetchWithAuth]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Tab loading
@@ -487,11 +478,8 @@ export default function BillingPage() {
   const handleGenerateInvoices = async () => {
     setGeneratingInvoices(true);
     try {
-      const period = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-      await fetchWithAuth('/billing/runs/generate', {
-        method: 'POST',
-        body: JSON.stringify({ period, type: 'monthly' }),
-      });
+      await generateMonthlyInvoices(selectedYear, selectedMonth);
+      toast.success('Invoices generated successfully');
       await loadOverviewData();
     } catch (err) {
       console.error('Failed to generate invoices:', err);
@@ -504,11 +492,8 @@ export default function BillingPage() {
   const handleRunPreflight = async () => {
     setRunningPreflight(true);
     try {
-      const period = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-      await fetchWithAuth('/billing/runs/preflight', {
-        method: 'POST',
-        body: JSON.stringify({ period }),
-      });
+      const result = await runBillingPreflight(selectedYear, selectedMonth);
+      toast.success('Preflight check completed');
       await loadOverviewData();
     } catch (err) {
       console.error('Preflight check failed:', err);
@@ -521,10 +506,11 @@ export default function BillingPage() {
   const handleApproveInvoice = async (invoiceId: string) => {
     setApprovingInvoiceId(invoiceId);
     try {
-      await fetchWithAuth(`/billing/invoices/${invoiceId}/approve`, { method: 'POST' });
+      await approveOutboundInvoice(invoiceId);
       setInvoices((prev) =>
         prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: 'approved' } : inv))
       );
+      toast.success('Invoice approved');
     } catch (err) {
       console.error('Failed to approve invoice:', err);
       setError('Failed to approve invoice.');
@@ -535,12 +521,16 @@ export default function BillingPage() {
 
   const handleCreateChargeback = async () => {
     try {
-      await fetchWithAuth('/billing/chargebacks', {
-        method: 'POST',
-        body: JSON.stringify(newChargeback),
+      await apiCreateChargeback({
+        customerId: newChargeback.customer_code,
+        carNumber: newChargeback.car_number,
+        chargebackType: newChargeback.type,
+        amount: newChargeback.amount,
+        description: newChargeback.description,
       });
       setShowChargebackModal(false);
       setNewChargeback({ car_number: '', customer_code: '', type: 'damage', amount: 0, description: '' });
+      toast.success('Chargeback created');
       await loadChargebacksData();
     } catch (err) {
       console.error('Failed to create chargeback:', err);
@@ -550,12 +540,10 @@ export default function BillingPage() {
 
   const handleChargebackAction = async (id: string, action: 'approve' | 'reject') => {
     try {
-      await fetchWithAuth(`/billing/chargebacks/${id}/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ notes: chargebackReviewNotes }),
-      });
+      await reviewChargeback(id, action === 'approve', chargebackReviewNotes || undefined);
       setChargebackReviewId(null);
       setChargebackReviewNotes('');
+      toast.success(`Chargeback ${action}d`);
       await loadChargebacksData();
     } catch (err) {
       console.error(`Failed to ${action} chargeback:`, err);
@@ -565,12 +553,15 @@ export default function BillingPage() {
 
   const handleCreateAdjustment = async () => {
     try {
-      await fetchWithAuth('/billing/adjustments', {
-        method: 'POST',
-        body: JSON.stringify(newAdjustment),
+      await createBillingAdjustment({
+        customerId: newAdjustment.customer_code,
+        adjustmentType: newAdjustment.type,
+        amount: newAdjustment.amount,
+        description: newAdjustment.description,
       });
       setShowAdjustmentModal(false);
       setNewAdjustment({ customer_code: '', type: 'credit', amount: 0, description: '' });
+      toast.success('Adjustment created');
       await loadAdjustmentsData();
     } catch (err) {
       console.error('Failed to create adjustment:', err);
@@ -580,11 +571,13 @@ export default function BillingPage() {
 
   const handleAdjustmentAction = async (id: string, action: 'approve' | 'reject') => {
     try {
-      await fetchWithAuth(`/billing/adjustments/${id}/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ notes: adjustmentReviewNotes }),
-      });
+      if (action === 'approve') {
+        await approveBillingAdjustment(id);
+      } else {
+        await rejectBillingAdjustment(id, adjustmentReviewNotes || 'Rejected');
+      }
       setAdjustmentReviewNotes('');
+      toast.success(`Adjustment ${action}d`);
       await loadAdjustmentsData();
     } catch (err) {
       console.error(`Failed to ${action} adjustment:`, err);
@@ -597,18 +590,18 @@ export default function BillingPage() {
     if (!file) return;
     setUploadingMileage(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = getToken();
-      await fetch(`${API_URL}/billing/mileage/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      // Register the mileage file metadata (actual file parsing handled separately)
+      const period = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+      await createMileageFile({
+        filename: file.name,
+        fileType: file.name.endsWith('.csv') ? 'csv' : 'manual',
+        reportingPeriod: period,
       });
+      toast.success('Mileage file registered');
       await loadMileageData();
     } catch (err) {
-      console.error('Failed to upload mileage file:', err);
-      setError('Failed to upload mileage file.');
+      console.error('Failed to register mileage file:', err);
+      setError('Failed to register mileage file.');
     } finally {
       setUploadingMileage(false);
       e.target.value = '';
@@ -617,8 +610,9 @@ export default function BillingPage() {
 
   const handleVerifyMileageRecord = async (recordId: string) => {
     try {
-      await fetchWithAuth(`/billing/mileage/records/${recordId}/verify`, { method: 'POST' });
+      await apiVerifyMileage(recordId);
       setMileageRecords((prev) => prev.filter((r) => r.id !== recordId));
+      toast.success('Mileage record verified');
     } catch (err) {
       console.error('Failed to verify mileage record:', err);
       setError('Failed to verify mileage record.');
