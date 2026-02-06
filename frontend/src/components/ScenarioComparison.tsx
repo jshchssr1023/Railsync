@@ -53,7 +53,7 @@ export default function ScenarioComparison({
         // Group by network
         const byNetwork: Record<string, { count: number; cost: number }> = {};
         for (const alloc of result.allocations) {
-          const network = alloc.shop_code.startsWith('AITX') ? 'AITX' : 'External';
+          const network = alloc.shop_code?.startsWith('AITX') ? 'AITX' : 'External';
           if (!byNetwork[network]) {
             byNetwork[network] = { count: 0, cost: 0 };
           }

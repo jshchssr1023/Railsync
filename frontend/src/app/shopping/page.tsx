@@ -260,10 +260,16 @@ function ShoppingContent() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { setShowCreateForm(!showCreateForm); setShowBatchForm(false); }}
+            onClick={() => router.push('/shopping/new')}
             className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm font-medium"
           >
-            + New Shopping Event
+            + New Shopping Request
+          </button>
+          <button
+            onClick={() => { setShowCreateForm(!showCreateForm); setShowBatchForm(false); }}
+            className="px-4 py-2 border border-primary-600 text-primary-600 dark:text-primary-400 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 text-sm font-medium"
+          >
+            Quick Event
           </button>
           <button
             onClick={() => { setShowBatchForm(!showBatchForm); setShowCreateForm(false); }}

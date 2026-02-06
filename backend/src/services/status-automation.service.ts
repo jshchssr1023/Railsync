@@ -11,7 +11,7 @@ interface StatusUpdateResult {
 
 interface AllocationRecord {
   id: string;
-  car_id: string;
+  car_id?: string;
   current_status: string;
   pipeline_status: string;
   last_shopping_date: string | null;

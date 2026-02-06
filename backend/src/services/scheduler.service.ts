@@ -32,7 +32,7 @@ interface ShopCapacityStatus {
   shop_name: string;
   month: string;
   utilization_pct: number;
-  confirmed_railcars: number;
+  allocated_count: number;
   total_capacity: number;
 }
 
@@ -102,7 +102,7 @@ async function scanCapacityWarnings(): Promise<void> {
         s.shop_name,
         smc.month,
         smc.utilization_pct,
-        smc.confirmed_railcars,
+        smc.allocated_count,
         smc.total_capacity
       FROM shop_monthly_capacity smc
       JOIN shops s ON smc.shop_code = s.shop_code
@@ -124,7 +124,7 @@ async function scanCapacityWarnings(): Promise<void> {
         alert_type: alertType,
         severity,
         title: `${isCritical ? 'Critical' : 'Warning'}: ${capacity.shop_name} capacity for ${capacity.month}`,
-        message: `Shop ${capacity.shop_name} (${capacity.shop_code}) is at ${capacity.utilization_pct.toFixed(1)}% capacity for ${capacity.month} (${capacity.confirmed_railcars}/${capacity.total_capacity} confirmed).`,
+        message: `Shop ${capacity.shop_name} (${capacity.shop_code}) is at ${capacity.utilization_pct.toFixed(1)}% capacity for ${capacity.month} (${capacity.allocated_count}/${capacity.total_capacity} allocated).`,
         entity_type: 'shop',
         entity_id: `${capacity.shop_code}-${capacity.month}`,
         target_role: 'operator',
@@ -132,7 +132,7 @@ async function scanCapacityWarnings(): Promise<void> {
           shop_code: capacity.shop_code,
           month: capacity.month,
           utilization_pct: capacity.utilization_pct,
-          confirmed_railcars: capacity.confirmed_railcars,
+          allocated_count: capacity.allocated_count,
           total_capacity: capacity.total_capacity,
         },
       });

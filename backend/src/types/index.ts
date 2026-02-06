@@ -560,9 +560,11 @@ export interface Allocation {
   id: string;
   demand_id?: string;
   scenario_id?: string;
-  car_id: string;
+  plan_id?: string;
+  car_id?: string;
+  car_mark_number?: string;
   car_number?: string;
-  shop_code: string;
+  shop_code: string | null;
   target_month: string;
   status: AllocationStatus;
   estimated_cost?: number;

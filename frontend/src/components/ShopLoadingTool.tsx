@@ -261,7 +261,7 @@ export default function ShopLoadingTool({
     setCellDetails({
       shopCode,
       month,
-      cars: cellAllocs.map(a => a.car_number || a.car_id).slice(0, 10)
+      cars: cellAllocs.map(a => a.car_number || a.car_mark_number || '?').slice(0, 10)
     });
   };
 
@@ -377,7 +377,7 @@ export default function ShopLoadingTool({
                 <Car className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-mono text-sm text-gray-900 dark:text-gray-100 truncate">
-                    {allocation.car_number || allocation.car_id.slice(0, 8)}
+                    {allocation.car_number || allocation.car_mark_number?.slice(0, 8) || '-'}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {allocation.status}

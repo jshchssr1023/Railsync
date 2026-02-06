@@ -552,7 +552,7 @@ export async function createAllocation(req: Request, res: Response): Promise<voi
     }
 
     const allocation = await planningService.createAllocation({
-      car_id,
+      car_mark_number: car_id,
       car_number,
       shop_code,
       target_month,

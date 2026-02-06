@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import carModel from '../models/car.model';
 import { ApiResponse, CarWithCommodity, ServiceEvent } from '../types';
+import * as assetEventService from '../services/assetEvent.service';
 
 /**
  * GET /api/cars/:carNumber
@@ -47,6 +48,31 @@ export async function getCarByNumber(req: Request, res: Response): Promise<void>
   }
 }
 
+/**
+ * GET /api/cars/:carNumber/history
+ * Get asset event history for a car
+ */
+export async function getCarHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const { carNumber } = req.params;
+    const limit = parseInt(req.query.limit as string) || 100;
+
+    const events = await assetEventService.getCarHistoryByNumber(carNumber, limit);
+
+    res.json({
+      success: true,
+      data: events,
+    });
+  } catch (error) {
+    console.error('Error fetching car history:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    } as ApiResponse<null>);
+  }
+}
+
 export default {
   getCarByNumber,
+  getCarHistory,
 };

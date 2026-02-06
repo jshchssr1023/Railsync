@@ -106,7 +106,7 @@ export async function updateShopCapacity(
  * Initialize capacity for all shops for next 18 months
  */
 export async function initializeCapacity(
-  defaultCapacity: number = 20
+  defaultCapacity: number = 50
 ): Promise<number> {
   // Get all active shops
   const shops = await query<{ shop_code: string }>('SELECT shop_code FROM shops WHERE is_active = TRUE');
@@ -139,7 +139,7 @@ export async function getCarsForShopMonth(
 ): Promise<{ car_number: string; status: string; estimated_cost: number | null }[]> {
   const sql = `
     SELECT
-      COALESCE(a.car_number, LEFT(a.car_id::text, 8)) as car_number,
+      COALESCE(a.car_number, LEFT(a.car_mark_number::text, 8)) as car_number,
       a.status,
       a.estimated_cost
     FROM allocations a
@@ -444,7 +444,7 @@ export async function updateAllocationStatus(
  * Create a new allocation with capacity check
  */
 export async function createAllocation(input: {
-  car_id: string;
+  car_mark_number: string;
   car_number?: string;
   shop_code: string;
   target_month: string;
@@ -456,7 +456,7 @@ export async function createAllocation(input: {
   created_by?: string;
 }): Promise<Allocation> {
   const {
-    car_id,
+    car_mark_number,
     car_number,
     shop_code,
     target_month,
@@ -497,13 +497,13 @@ export async function createAllocation(input: {
   // Insert allocation
   const rows = await query<Allocation>(
     `INSERT INTO allocations (
-      car_id, car_number, shop_code, target_month, status,
+      car_mark_number, car_number, car_id, shop_code, target_month, status,
       estimated_cost, estimated_cost_breakdown, service_event_id,
       notes, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    ) VALUES ($1, $2, (SELECT id FROM cars WHERE car_number = $2), $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *`,
     [
-      car_id,
+      car_mark_number,
       car_number || null,
       shop_code,
       target_month,
@@ -552,17 +552,19 @@ export async function createAllocation(input: {
   const allocation = rows[0];
 
   // Emit SSE event for real-time updates
-  capacityEvents.emitAllocationCreated(
-    allocation.shop_code,
-    allocation.target_month,
-    {
-      id: allocation.id,
-      car_number: allocation.car_number,
-      status: allocation.status,
-      version: (allocation as { version?: number }).version || 1,
-    },
-    created_by
-  );
+  if (allocation.shop_code) {
+    capacityEvents.emitAllocationCreated(
+      allocation.shop_code,
+      allocation.target_month,
+      {
+        id: allocation.id,
+        car_number: allocation.car_number,
+        status: allocation.status,
+        version: (allocation as { version?: number }).version || 1,
+      },
+      created_by
+    );
+  }
 
   return allocation;
 }
@@ -732,7 +734,7 @@ export async function generateAllocations(
           allocations.push({
             demand_id: demand.id,
             scenario_id: scenario?.id,
-            car_id: `${demand.name.substring(0, 10)}-${allocations.length + 1}`,
+            car_mark_number: `${demand.name.substring(0, 10)}-${allocations.length + 1}`,
             shop_code: shopResult.shop.shop_code,
             target_month: demand.target_month,
             estimated_cost: shopResult.cost_breakdown.total_cost,
@@ -777,14 +779,14 @@ export async function generateAllocations(
     for (const alloc of allocations) {
       const allocResult = await query(
         `INSERT INTO allocations (
-          demand_id, scenario_id, car_id, shop_code, target_month,
+          demand_id, scenario_id, car_mark_number, shop_code, target_month,
           estimated_cost, estimated_cost_breakdown, status, created_by
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id`,
         [
           alloc.demand_id,
           alloc.scenario_id,
-          alloc.car_id,
+          alloc.car_mark_number,
           alloc.shop_code,
           alloc.target_month,
           alloc.estimated_cost,
@@ -859,13 +861,15 @@ function applyScenarioWeights(
   const scored = shops.map((shop) => {
     // Normalize factors (0-100 scale, higher is better)
     const costScore = 100 - normalizeValue(shop.cost_breakdown.total_cost, 5000, 50000);
-    const capacityScore = 100 - normalizeValue(shop.backlog.hours_backlog, 0, 500);
+    const cycleTimeScore = 100 - normalizeValue(shop.backlog.hours_backlog, 0, 500);
+    const capacityScore = 100 - normalizeValue(shop.backlog.cars_backlog, 0, 50);
     const aitxScore = shop.shop.is_preferred_network ? 100 : 25;
-    const qualityScore = 70; // Default quality score (could be enhanced later)
+    const qualityScore = 70; // Placeholder — no quality_rating column on shops table yet
 
     // Calculate weighted score
     const weightedScore =
       (costScore * weights.cost) / 100 +
+      (cycleTimeScore * weights.cycle_time) / 100 +
       (capacityScore * weights.capacity_balance) / 100 +
       (aitxScore * weights.aitx_preference) / 100 +
       (qualityScore * weights.quality_score) / 100;

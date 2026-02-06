@@ -8,6 +8,7 @@
 import { query } from '../config/database';
 import { createAlert } from './alerts.service';
 import { detectProjectForCar } from './project-planning.service';
+import * as assetEventService from './assetEvent.service';
 
 // ============================================================================
 // TYPES
@@ -19,7 +20,8 @@ export type Priority = 1 | 2 | 3 | 4;
 
 export interface CarAssignment {
   id: string;
-  car_id: string;
+  car_id?: string;
+  car_mark_number?: string;
   car_number: string;
   shop_code: string;
   shop_name?: string;
@@ -163,7 +165,7 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<Ca
       source_reference_type,
       created_by_id
     ) VALUES (
-      gen_random_uuid(),
+      (SELECT id FROM cars WHERE car_number = $1),
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
     )
     RETURNING *
@@ -183,7 +185,22 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<Ca
     input.created_by_id || null,
   ]);
 
-  return normalizeAssignment(rows[0]);
+  const assignment = normalizeAssignment(rows[0]);
+
+  // Record asset event
+  if (assignment.car_id) {
+    assetEventService.recordEvent(assignment.car_id, 'assignment.created', {
+      assignment_id: assignment.id,
+      shop_code: assignment.shop_code,
+      source: assignment.source,
+    }, {
+      sourceTable: 'car_assignments',
+      sourceId: assignment.id,
+      performedBy: input.created_by_id,
+    }).catch(() => {}); // non-blocking
+  }
+
+  return assignment;
 }
 
 /**
@@ -483,6 +500,19 @@ export async function updateStatus(
     } catch {
       // Non-critical: don't fail the status update if project detection errors
     }
+  }
+
+  // Record asset event for status change
+  if (updated.car_id) {
+    assetEventService.recordEvent(updated.car_id, 'assignment.status_changed', {
+      assignment_id: updated.id,
+      from_status: updated.status, // previous status already overwritten, but logged for type
+      to_status: status,
+    }, {
+      sourceTable: 'car_assignments',
+      sourceId: updated.id,
+      performedBy: updatedById,
+    }).catch(() => {}); // non-blocking
   }
 
   return updated;

@@ -112,7 +112,7 @@ export async function getCapacityTrends(months: number = 12): Promise<CapacityTr
   const results = await query<any>(`
     WITH months AS (
       SELECT to_char(generate_series(
-        date_trunc('month', CURRENT_DATE - interval '${months} months'),
+        date_trunc('month', CURRENT_DATE - INTERVAL '1 month' * $1),
         date_trunc('month', CURRENT_DATE),
         '1 month'
       ), 'YYYY-MM') as month
@@ -139,7 +139,7 @@ export async function getCapacityTrends(months: number = 12): Promise<CapacityTr
     CROSS JOIN total_capacity tc
     LEFT JOIN monthly_demand md ON m.month = md.month
     ORDER BY m.month
-  `);
+  `, [months]);
 
   return results.map(r => ({
     month: r.month,
@@ -211,7 +211,7 @@ export async function getCostTrends(months: number = 12): Promise<CostTrend[]> {
   const results = await query<any>(`
     WITH months AS (
       SELECT to_char(generate_series(
-        date_trunc('month', CURRENT_DATE - interval '${months} months'),
+        date_trunc('month', CURRENT_DATE - INTERVAL '1 month' * $1),
         date_trunc('month', CURRENT_DATE),
         '1 month'
       ), 'YYYY-MM') as month
@@ -236,7 +236,7 @@ export async function getCostTrends(months: number = 12): Promise<CostTrend[]> {
     FROM months m
     LEFT JOIN monthly_costs mc ON m.month = mc.month
     ORDER BY m.month
-  `);
+  `, [months]);
 
   return results.map(r => ({
     month: r.month,
@@ -460,7 +460,7 @@ export async function getThroughputTrends(months: number = 6): Promise<Throughpu
   const results = await query<any>(`
     WITH months AS (
       SELECT to_char(generate_series(
-        date_trunc('month', CURRENT_DATE - interval '${months} months'),
+        date_trunc('month', CURRENT_DATE - INTERVAL '1 month' * $1),
         date_trunc('month', CURRENT_DATE),
         '1 month'
       ), 'YYYY-MM') as month
@@ -489,7 +489,7 @@ export async function getThroughputTrends(months: number = 6): Promise<Throughpu
     LEFT JOIN monthly_in mi ON m.month = mi.month
     LEFT JOIN monthly_out mo ON m.month = mo.month
     ORDER BY m.month
-  `);
+  `, [months]);
 
   return results.map(r => ({
     month: r.month,

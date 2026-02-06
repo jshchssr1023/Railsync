@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { listBadOrders, createBadOrder, resolveBadOrder, BadOrderReport } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
 import { useToast } from '@/components/Toast';
@@ -29,6 +29,7 @@ export default function BadOrdersPage() {
 }
 
 function BadOrdersContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const [reports, setReports] = useState<BadOrderReport[]>([]);
@@ -209,6 +210,12 @@ function BadOrdersContent() {
                 </div>
                 {(report.status === 'open' || report.status === 'pending_decision') && (
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => router.push(`/shopping/new?car=${encodeURIComponent(report.car_number)}&boId=${report.id}`)}
+                      className="text-xs px-2 py-1 bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded font-medium"
+                    >
+                      Shopping Request
+                    </button>
                     {report.had_existing_plan ? (
                       <>
                         <button onClick={() => handleResolve(report.id, 'expedite_existing')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">

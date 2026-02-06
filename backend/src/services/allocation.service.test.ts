@@ -35,7 +35,7 @@ describe('Allocation Service', () => {
       // Mock allocation insert
       const mockAllocation = {
         id: 'test-id',
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'planned',
@@ -44,7 +44,7 @@ describe('Allocation Service', () => {
       (mockClient.query as jest.Mock).mockResolvedValueOnce({ rows: [mockAllocation] });
 
       const result = await allocationService.createAllocation({
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'planned',
@@ -80,7 +80,7 @@ describe('Allocation Service', () => {
       // Mock allocation insert
       const mockAllocation = {
         id: 'test-id',
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'confirmed',
@@ -89,7 +89,7 @@ describe('Allocation Service', () => {
       (mockClient.query as jest.Mock).mockResolvedValueOnce({ rows: [mockAllocation] });
 
       const result = await allocationService.createAllocation({
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'confirmed',
@@ -122,7 +122,7 @@ describe('Allocation Service', () => {
       });
 
       await expect(allocationService.createAllocation({
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'confirmed',
@@ -161,7 +161,7 @@ describe('Allocation Service', () => {
       (mockClient.query as jest.Mock).mockResolvedValueOnce({ rows: [mockAllocation] });
 
       const result = await allocationService.createAllocation({
-        car_id: 'CAR001',
+        car_mark_number: 'CAR001',
         shop_code: 'BNSF001',
         target_month: '2026-02',
         status: 'confirmed',
@@ -274,7 +274,7 @@ describe('Allocation Service', () => {
     it('should return filtered allocations', async () => {
       mockQueryOne.mockResolvedValueOnce({ count: '2' });
       mockQuery.mockResolvedValueOnce([
-        { id: '1', car_id: 'CAR001', status: 'planned' },
+        { id: '1', car_mark_number: 'CAR001', status: 'planned' },
         { id: '2', car_id: 'CAR002', status: 'planned' },
       ]);
 

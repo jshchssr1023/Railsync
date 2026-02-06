@@ -26,6 +26,7 @@ import * as shoppingEventController from '../controllers/shopping-event.controll
 import * as shoppingPacketController from '../controllers/shopping-packet.controller';
 import * as estimateController from '../controllers/estimate-workflow.controller';
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
+import * as shoppingRequestController from '../controllers/shopping-request.controller';
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
@@ -50,6 +51,11 @@ const invoiceUpload = multer({
 });
 // Configure multer for packet document uploads
 const packetDocUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+});
+// Configure multer for shopping request attachment uploads
+const shoppingRequestUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
 });
@@ -101,6 +107,13 @@ router.get('/auth/me', authenticate, authController.me);
 // ============================================================================
 // CAR ROUTES
 // ============================================================================
+
+/**
+ * @route   GET /api/cars/:carNumber/history
+ * @desc    Get asset event history for a car
+ * @access  Authenticated
+ */
+router.get('/cars/:carNumber/history', authenticate, carController.getCarHistory);
 
 /**
  * @route   GET /api/cars/:carNumber
@@ -1904,6 +1917,17 @@ router.put('/master-plans/:id', authenticate, authorize('admin', 'operator'), ma
 router.delete('/master-plans/:id', authenticate, authorize('admin'), masterPlanController.deleteMasterPlan);
 router.get('/master-plans/:id/versions', authenticate, masterPlanController.listVersions);
 router.post('/master-plans/:id/versions', authenticate, authorize('admin', 'operator'), masterPlanController.createVersion);
+
+// MASTER PLAN — ALLOCATION MANAGEMENT
+router.get('/master-plans/:id/stats', authenticate, masterPlanController.getPlanStats);
+router.get('/master-plans/:id/allocations', authenticate, masterPlanController.listPlanAllocations);
+router.post('/master-plans/:id/allocations/add-cars', authenticate, authorize('admin', 'operator'), masterPlanController.addCarsToPlan);
+router.post('/master-plans/:id/allocations/import-demands', authenticate, authorize('admin', 'operator'), masterPlanController.importFromDemands);
+router.delete('/master-plans/:id/allocations/:allocationId', authenticate, authorize('admin', 'operator'), masterPlanController.removeAllocationFromPlan);
+router.put('/master-plans/:id/allocations/:allocationId/assign-shop', authenticate, authorize('admin', 'operator'), masterPlanController.assignShopToAllocation);
+
+// CAR SEARCH (typeahead)
+router.get('/cars-search', authenticate, masterPlanController.searchCars);
 
 // ============================================================================
 // NOTIFICATION PREFERENCES
@@ -4224,6 +4248,21 @@ router.post('/invoice-cases/:caseId/attachments/:attachmentId/verify', authentic
 
 // Audit Events
 router.get('/invoice-cases/:id/audit-events', authenticate, invoiceCaseController.getAuditEvents);
+
+// ============================================================================
+// SHOPPING REQUESTS
+// ============================================================================
+
+router.post('/shopping-requests', authenticate, shoppingRequestController.create);
+router.get('/shopping-requests', authenticate, shoppingRequestController.list);
+router.get('/shopping-requests/:id', authenticate, shoppingRequestController.getById);
+router.put('/shopping-requests/:id', authenticate, shoppingRequestController.update);
+router.put('/shopping-requests/:id/approve', authenticate, authorize('admin', 'operator'), shoppingRequestController.approve);
+router.put('/shopping-requests/:id/reject', authenticate, authorize('admin', 'operator'), shoppingRequestController.reject);
+router.put('/shopping-requests/:id/cancel', authenticate, shoppingRequestController.cancel);
+router.post('/shopping-requests/:id/attachments', authenticate, shoppingRequestUpload.single('file'), shoppingRequestController.uploadAttachment);
+router.get('/shopping-requests/:id/attachments', authenticate, shoppingRequestController.listAttachments);
+router.delete('/shopping-requests/:id/attachments/:attachmentId', authenticate, shoppingRequestController.deleteAttachment);
 
 /**
  * @route   GET /api/health

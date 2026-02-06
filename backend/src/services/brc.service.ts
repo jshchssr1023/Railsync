@@ -127,7 +127,7 @@ export async function importBRCFile(
       const allocation = await queryOne<Allocation>(
         `SELECT id, estimated_cost, demand_id
          FROM allocations
-         WHERE (car_id = $1 OR car_number = $2)
+         WHERE (car_mark_number = $1 OR car_number = $2)
            AND status IN ('Planned Shopping', 'Enroute', 'Arrived')
          ORDER BY created_at DESC
          LIMIT 1`,
@@ -250,10 +250,10 @@ async function createRunningRepairAllocation(brc: BRCRecord, userId?: string): P
   // Create allocation with actual = estimated (unplanned)
   await query(
     `INSERT INTO allocations (
-      demand_id, car_id, car_number, shop_code, target_month,
+      demand_id, car_mark_number, car_number, car_id, shop_code, target_month,
       estimated_cost, actual_cost, actual_cost_breakdown,
       brc_number, brc_received_at, actual_completion_date, status, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, NOW(), $9, 'Complete', $10)`,
+    ) VALUES ($1, $2, $3, (SELECT id FROM cars WHERE car_number = $3), $4, $5, $6, $6, $7, $8, NOW(), $9, 'Complete', $10)`,
     [
       demand.id,
       brc.car_id,

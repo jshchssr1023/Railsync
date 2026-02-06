@@ -1,4 +1,7 @@
 import { query, queryOne } from '../config/database';
+import { Allocation } from '../types';
+import * as planningService from './planning.service';
+import * as assetEventService from './assetEvent.service';
 
 export interface MasterPlan {
   id: string;
@@ -210,4 +213,257 @@ export async function getVersionAllocations(versionId: string): Promise<object[]
     [versionId]
   );
   return rows.map(r => r.allocation_snapshot);
+}
+
+// ============================================================================
+// PLAN ALLOCATION MANAGEMENT
+// ============================================================================
+
+export interface PlanAllocationFilters {
+  status?: string;
+  shop_code?: string;
+  unassigned?: boolean;
+}
+
+export interface PlanStats {
+  total_allocations: number;
+  assigned: number;
+  unassigned: number;
+  total_estimated_cost: number;
+  by_status: { status: string; count: number; cost: number }[];
+  by_shop: { shop_code: string; shop_name: string; count: number; cost: number }[];
+}
+
+// List allocations belonging to a plan
+export async function listPlanAllocations(
+  planId: string,
+  filters?: PlanAllocationFilters
+): Promise<Allocation[]> {
+  const conditions: string[] = ['a.plan_id = $1'];
+  const values: (string | boolean)[] = [planId];
+  let idx = 2;
+
+  if (filters?.status) {
+    conditions.push(`a.status = $${idx++}`);
+    values.push(filters.status);
+  }
+  if (filters?.shop_code) {
+    conditions.push(`a.shop_code = $${idx++}`);
+    values.push(filters.shop_code);
+  }
+  if (filters?.unassigned) {
+    conditions.push(`a.shop_code IS NULL`);
+  }
+
+  return query<Allocation>(
+    `SELECT a.*, c.car_mark, c.car_type, c.lessee_name,
+            s.shop_name
+     FROM allocations a
+     LEFT JOIN cars c ON a.car_number = c.car_number
+     LEFT JOIN shops s ON a.shop_code = s.shop_code
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY a.created_at DESC`,
+    values
+  );
+}
+
+// Add cars to a plan (creates allocations with no shop assigned)
+export async function addCarsToPlan(
+  planId: string,
+  carNumbers: string[],
+  targetMonth: string,
+  createdBy: string
+): Promise<{ added: number; skipped: number; errors: string[] }> {
+  let added = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const carNumber of carNumbers) {
+    // Check for duplicates
+    const existing = await queryOne(
+      `SELECT id FROM allocations
+       WHERE plan_id = $1 AND car_number = $2 AND status NOT IN ('cancelled', 'Released')`,
+      [planId, carNumber]
+    );
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    // Look up the car
+    const car = await queryOne<{ car_number: string; id: string }>(
+      `SELECT car_number, id FROM cars WHERE car_number = $1 AND is_active = TRUE`,
+      [carNumber]
+    );
+
+    if (!car) {
+      errors.push(`Car ${carNumber} not found or inactive`);
+      continue;
+    }
+
+    await query(
+      `INSERT INTO allocations (car_mark_number, car_number, car_id, plan_id, target_month, status, created_by)
+       VALUES ($1, $2, $3, $4, $5, 'Need Shopping', $6)`,
+      [car.car_number, car.car_number, car.id, planId, targetMonth, createdBy]
+    );
+
+    // Record asset event
+    assetEventService.recordEvent(car.id, 'plan.added', {
+      plan_id: planId,
+    }, {
+      sourceTable: 'allocations',
+      performedBy: createdBy,
+    }).catch(() => {}); // non-blocking
+
+    added++;
+  }
+
+  return { added, skipped, errors };
+}
+
+// Import from demands — generate allocations and stamp plan_id
+export async function importFromDemands(
+  planId: string,
+  demandIds: string[],
+  scenarioId?: string,
+  createdBy?: string
+): Promise<{ imported: number; warnings: string[] }> {
+  // Use existing generateAllocations engine
+  const result = await planningService.generateAllocations(
+    { demand_ids: demandIds, scenario_id: scenarioId, preview_only: false },
+    createdBy
+  );
+
+  // Stamp plan_id on all generated allocations
+  if (result.allocations && result.allocations.length > 0) {
+    const ids = result.allocations.map(a => a.id);
+    await query(
+      `UPDATE allocations SET plan_id = $1 WHERE id = ANY($2)`,
+      [planId, ids]
+    );
+  }
+
+  return {
+    imported: result.summary.total_cars,
+    warnings: result.warnings,
+  };
+}
+
+// Remove allocation from plan (detach, don't delete)
+export async function removeAllocationFromPlan(
+  planId: string,
+  allocationId: string
+): Promise<boolean> {
+  // Get car_id before removing
+  const alloc = await queryOne<{ car_id: string }>('SELECT car_id FROM allocations WHERE id = $1', [allocationId]);
+
+  const result = await query(
+    `UPDATE allocations SET plan_id = NULL, updated_at = NOW()
+     WHERE id = $1 AND plan_id = $2
+     RETURNING id`,
+    [allocationId, planId]
+  );
+
+  if (result.length > 0 && alloc?.car_id) {
+    assetEventService.recordEvent(alloc.car_id, 'plan.removed', {
+      plan_id: planId,
+      allocation_id: allocationId,
+    }, {
+      sourceTable: 'allocations',
+      sourceId: allocationId,
+    }).catch(() => {}); // non-blocking
+  }
+
+  return result.length > 0;
+}
+
+// Assign a shop to a plan allocation (delegates to planning service)
+export async function assignShopToAllocation(
+  allocationId: string,
+  shopCode: string,
+  targetMonth: string,
+  expectedVersion?: number
+): Promise<{ allocation: Allocation | null; error?: string }> {
+  return planningService.assignAllocation(allocationId, shopCode, targetMonth, expectedVersion);
+}
+
+// Get aggregate stats for a plan
+export async function getPlanStats(planId: string): Promise<PlanStats> {
+  const totals = await queryOne<{
+    total_allocations: string;
+    assigned: string;
+    unassigned: string;
+    total_estimated_cost: string;
+  }>(
+    `SELECT
+       COUNT(*) AS total_allocations,
+       COUNT(*) FILTER (WHERE shop_code IS NOT NULL) AS assigned,
+       COUNT(*) FILTER (WHERE shop_code IS NULL) AS unassigned,
+       COALESCE(SUM(estimated_cost), 0) AS total_estimated_cost
+     FROM allocations
+     WHERE plan_id = $1 AND status NOT IN ('cancelled', 'Released')`,
+    [planId]
+  );
+
+  const byStatus = await query<{ status: string; count: string; cost: string }>(
+    `SELECT status, COUNT(*) AS count, COALESCE(SUM(estimated_cost), 0) AS cost
+     FROM allocations
+     WHERE plan_id = $1 AND status NOT IN ('cancelled', 'Released')
+     GROUP BY status
+     ORDER BY
+       CASE status
+         WHEN 'Need Shopping' THEN 1
+         WHEN 'To Be Routed' THEN 2
+         WHEN 'Planned Shopping' THEN 3
+         WHEN 'Enroute' THEN 4
+         WHEN 'Arrived' THEN 5
+         WHEN 'Complete' THEN 6
+       END`,
+    [planId]
+  );
+
+  const byShop = await query<{ shop_code: string; shop_name: string; count: string; cost: string }>(
+    `SELECT a.shop_code, COALESCE(s.shop_name, 'Unassigned') AS shop_name,
+            COUNT(*) AS count, COALESCE(SUM(a.estimated_cost), 0) AS cost
+     FROM allocations a
+     LEFT JOIN shops s ON a.shop_code = s.shop_code
+     WHERE a.plan_id = $1 AND a.status NOT IN ('cancelled', 'Released')
+     GROUP BY a.shop_code, s.shop_name
+     ORDER BY COUNT(*) DESC`,
+    [planId]
+  );
+
+  return {
+    total_allocations: parseInt(totals?.total_allocations || '0'),
+    assigned: parseInt(totals?.assigned || '0'),
+    unassigned: parseInt(totals?.unassigned || '0'),
+    total_estimated_cost: parseFloat(totals?.total_estimated_cost || '0'),
+    by_status: byStatus.map(r => ({
+      status: r.status,
+      count: parseInt(r.count),
+      cost: parseFloat(r.cost),
+    })),
+    by_shop: byShop.map(r => ({
+      shop_code: r.shop_code || 'unassigned',
+      shop_name: r.shop_name,
+      count: parseInt(r.count),
+      cost: parseFloat(r.cost),
+    })),
+  };
+}
+
+// Search cars for typeahead
+export async function searchCars(
+  searchQuery: string,
+  limit: number = 20
+): Promise<{ car_number: string; car_mark: string; car_type: string; lessee_name: string }[]> {
+  return query(
+    `SELECT car_number, car_mark, car_type, lessee_name
+     FROM cars
+     WHERE is_active = TRUE AND car_number ILIKE $1
+     ORDER BY car_number
+     LIMIT $2`,
+    [`${searchQuery}%`, limit]
+  );
 }

@@ -173,6 +173,169 @@ export async function compareVersions(req: Request, res: Response): Promise<void
   }
 }
 
+// ============================================================================
+// PLAN ALLOCATION MANAGEMENT
+// ============================================================================
+
+// GET /api/master-plans/:id/stats
+export async function getPlanStats(req: Request, res: Response): Promise<void> {
+  try {
+    const stats = await masterPlanService.getPlanStats(req.params.id);
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Error getting plan stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to get plan stats' });
+  }
+}
+
+// GET /api/master-plans/:id/allocations
+export async function listPlanAllocations(req: Request, res: Response): Promise<void> {
+  try {
+    const { status, shop_code, unassigned } = req.query;
+    const allocations = await masterPlanService.listPlanAllocations(req.params.id, {
+      status: status as string | undefined,
+      shop_code: shop_code as string | undefined,
+      unassigned: unassigned === 'true',
+    });
+    res.json({ success: true, data: allocations });
+  } catch (error) {
+    console.error('Error listing plan allocations:', error);
+    res.status(500).json({ success: false, error: 'Failed to list plan allocations' });
+  }
+}
+
+// POST /api/master-plans/:id/allocations/add-cars
+export async function addCarsToPlan(req: Request, res: Response): Promise<void> {
+  try {
+    const { car_numbers, target_month } = req.body;
+
+    if (!car_numbers || !Array.isArray(car_numbers) || car_numbers.length === 0) {
+      res.status(400).json({ success: false, error: 'car_numbers array is required' });
+      return;
+    }
+
+    // Get plan to determine target_month if not provided
+    const plan = await masterPlanService.getMasterPlan(req.params.id);
+    if (!plan) {
+      res.status(404).json({ success: false, error: 'Plan not found' });
+      return;
+    }
+
+    const month = target_month || plan.planning_month;
+    const result = await masterPlanService.addCarsToPlan(
+      req.params.id,
+      car_numbers,
+      month,
+      req.user!.id
+    );
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error adding cars to plan:', error);
+    res.status(500).json({ success: false, error: 'Failed to add cars to plan' });
+  }
+}
+
+// POST /api/master-plans/:id/allocations/import-demands
+export async function importFromDemands(req: Request, res: Response): Promise<void> {
+  try {
+    const { demand_ids, scenario_id } = req.body;
+
+    if (!demand_ids || !Array.isArray(demand_ids) || demand_ids.length === 0) {
+      res.status(400).json({ success: false, error: 'demand_ids array is required' });
+      return;
+    }
+
+    const result = await masterPlanService.importFromDemands(
+      req.params.id,
+      demand_ids,
+      scenario_id,
+      req.user?.id
+    );
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error importing demands:', error);
+    res.status(500).json({ success: false, error: 'Failed to import demands' });
+  }
+}
+
+// DELETE /api/master-plans/:id/allocations/:allocationId
+export async function removeAllocationFromPlan(req: Request, res: Response): Promise<void> {
+  try {
+    const removed = await masterPlanService.removeAllocationFromPlan(
+      req.params.id,
+      req.params.allocationId
+    );
+
+    if (!removed) {
+      res.status(404).json({ success: false, error: 'Allocation not found in this plan' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Allocation removed from plan' });
+  } catch (error) {
+    console.error('Error removing allocation:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove allocation' });
+  }
+}
+
+// PUT /api/master-plans/:id/allocations/:allocationId/assign-shop
+export async function assignShopToAllocation(req: Request, res: Response): Promise<void> {
+  try {
+    const { shop_code, target_month, expected_version } = req.body;
+
+    if (!shop_code) {
+      res.status(400).json({ success: false, error: 'shop_code is required' });
+      return;
+    }
+
+    // Get plan for default target_month
+    const plan = await masterPlanService.getMasterPlan(req.params.id);
+    if (!plan) {
+      res.status(404).json({ success: false, error: 'Plan not found' });
+      return;
+    }
+
+    const month = target_month || plan.planning_month;
+    const result = await masterPlanService.assignShopToAllocation(
+      req.params.allocationId,
+      shop_code,
+      month,
+      expected_version
+    );
+
+    if (result.error) {
+      res.status(400).json({ success: false, error: result.error });
+      return;
+    }
+
+    res.json({ success: true, data: result.allocation });
+  } catch (error) {
+    console.error('Error assigning shop:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign shop' });
+  }
+}
+
+// GET /api/cars-search
+export async function searchCars(req: Request, res: Response): Promise<void> {
+  try {
+    const q = (req.query.q as string) || '';
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (q.length < 1) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const cars = await masterPlanService.searchCars(q, Math.min(limit, 50));
+    res.json({ success: true, data: cars });
+  } catch (error) {
+    console.error('Error searching cars:', error);
+    res.status(500).json({ success: false, error: 'Failed to search cars' });
+  }
+}
+
 export default {
   listMasterPlans,
   getMasterPlan,
@@ -184,4 +347,11 @@ export default {
   getVersion,
   getVersionAllocations,
   compareVersions,
+  getPlanStats,
+  listPlanAllocations,
+  addCarsToPlan,
+  importFromDemands,
+  removeAllocationFromPlan,
+  assignShopToAllocation,
+  searchCars,
 };

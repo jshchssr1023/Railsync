@@ -43,6 +43,9 @@ import {
   CCMInstructionLining,
   CCMHierarchyNode,
   EffectiveCCM,
+  // Shopping Requests
+  ShoppingRequest,
+  ShoppingRequestAttachment,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -834,6 +837,113 @@ export async function getCarShoppingHistory(
   return response.data || (response as unknown as ShoppingEvent[]) || [];
 }
 
+// ---------------------------------------------------------------------------
+// Shopping Requests
+// ---------------------------------------------------------------------------
+
+export async function createShoppingRequest(
+  data: Record<string, unknown>
+): Promise<ShoppingRequest> {
+  const response = await fetchApi<ShoppingRequest>('/shopping-requests', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to create shopping request');
+  return response.data;
+}
+
+export async function getShoppingRequest(id: string): Promise<ShoppingRequest> {
+  const response = await fetchApi<ShoppingRequest>(`/shopping-requests/${id}`);
+  if (!response.data) throw new Error('Shopping request not found');
+  return response.data;
+}
+
+export async function listShoppingRequests(filters?: {
+  status?: string;
+  car_number?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ requests: ShoppingRequest[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.car_number) params.append('car_number', filters.car_number);
+  if (filters?.limit) params.append('limit', String(filters.limit));
+  if (filters?.offset) params.append('offset', String(filters.offset));
+  const qs = params.toString();
+  const response = await fetchApi<ShoppingRequest[]>(`/shopping-requests${qs ? `?${qs}` : ''}`);
+  return {
+    requests: response.data || [],
+    total: (response as any).total || 0,
+  };
+}
+
+export async function approveShoppingRequest(
+  id: string,
+  data: { shop_code: string; notes?: string }
+): Promise<ShoppingRequest> {
+  const response = await fetchApi<ShoppingRequest>(`/shopping-requests/${id}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to approve shopping request');
+  return response.data;
+}
+
+export async function rejectShoppingRequest(
+  id: string,
+  notes: string
+): Promise<ShoppingRequest> {
+  const response = await fetchApi<ShoppingRequest>(`/shopping-requests/${id}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to reject shopping request');
+  return response.data;
+}
+
+export async function cancelShoppingRequest(id: string): Promise<ShoppingRequest> {
+  const response = await fetchApi<ShoppingRequest>(`/shopping-requests/${id}/cancel`, {
+    method: 'PUT',
+  });
+  if (!response.data) throw new Error('Failed to cancel shopping request');
+  return response.data;
+}
+
+export async function uploadShoppingRequestAttachment(
+  requestId: string,
+  file: File,
+  documentType: string
+): Promise<ShoppingRequestAttachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('document_type', documentType);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const res = await fetch(`${API_URL}/shopping-requests/${requestId}/attachments`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Upload failed');
+  return json.data;
+}
+
+export async function listShoppingRequestAttachments(
+  requestId: string
+): Promise<ShoppingRequestAttachment[]> {
+  const response = await fetchApi<ShoppingRequestAttachment[]>(`/shopping-requests/${requestId}/attachments`);
+  return response.data || [];
+}
+
+export async function deleteShoppingRequestAttachment(
+  requestId: string,
+  attachmentId: string
+): Promise<void> {
+  await fetchApi(`/shopping-requests/${requestId}/attachments/${attachmentId}`, {
+    method: 'DELETE',
+  });
+}
+
 // Scope Library
 export async function listScopeTemplates(filters?: {
   car_type?: string;
@@ -1330,6 +1440,112 @@ export async function bundleProjectWork(shoppingEventId: string, input: {
   return response.data;
 }
 
+// ============================================================================
+// MASTER PLAN — ALLOCATION MANAGEMENT
+// ============================================================================
+
+export async function searchCars(q: string, limit: number = 20): Promise<
+  { car_number: string; car_mark: string; car_type: string; lessee_name: string }[]
+> {
+  const response = await fetchApi<{ car_number: string; car_mark: string; car_type: string; lessee_name: string }[]>(
+    `/cars-search?q=${encodeURIComponent(q)}&limit=${limit}`
+  );
+  return response.data || [];
+}
+
+export interface AssetEvent {
+  id: string;
+  car_id: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  previous_state?: Record<string, unknown>;
+  new_state?: Record<string, unknown>;
+  source_table?: string;
+  source_id?: string;
+  performed_by?: string;
+  performed_at: string;
+  notes?: string;
+}
+
+export async function getCarHistory(carNumber: string, limit: number = 100): Promise<AssetEvent[]> {
+  const response = await fetchApi<AssetEvent[]>(
+    `/cars/${encodeURIComponent(carNumber)}/history?limit=${limit}`
+  );
+  return response.data || [];
+}
+
+interface PlanStats {
+  total_allocations: number;
+  assigned: number;
+  unassigned: number;
+  total_estimated_cost: number;
+  by_status: { status: string; count: number; cost: number }[];
+  by_shop: { shop_code: string; shop_name: string; count: number; cost: number }[];
+}
+
+export async function getPlanStats(planId: string): Promise<PlanStats> {
+  const response = await fetchApi<PlanStats>(`/master-plans/${encodeURIComponent(planId)}/stats`);
+  return response.data as PlanStats;
+}
+
+export async function listPlanAllocations(planId: string, filters?: {
+  status?: string;
+  shop_code?: string;
+  unassigned?: boolean;
+}): Promise<Allocation[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.shop_code) params.set('shop_code', filters.shop_code);
+  if (filters?.unassigned) params.set('unassigned', 'true');
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetchApi<Allocation[]>(
+    `/master-plans/${encodeURIComponent(planId)}/allocations${qs}`
+  );
+  return response.data || [];
+}
+
+interface AddCarsResult { added: number; skipped: number; errors: string[]; }
+
+export async function addCarsToPlan(planId: string, carNumbers: string[], targetMonth?: string): Promise<AddCarsResult> {
+  const response = await fetchApi<AddCarsResult>(`/master-plans/${encodeURIComponent(planId)}/allocations/add-cars`, {
+    method: 'POST',
+    body: JSON.stringify({ car_numbers: carNumbers, target_month: targetMonth }),
+  });
+  return response.data as AddCarsResult;
+}
+
+interface ImportDemandsResult { imported: number; warnings: string[]; }
+
+export async function importDemandsIntoPlan(planId: string, demandIds: string[], scenarioId?: string): Promise<ImportDemandsResult> {
+  const response = await fetchApi<ImportDemandsResult>(`/master-plans/${encodeURIComponent(planId)}/allocations/import-demands`, {
+    method: 'POST',
+    body: JSON.stringify({ demand_ids: demandIds, scenario_id: scenarioId }),
+  });
+  return response.data as ImportDemandsResult;
+}
+
+export async function removeAllocationFromPlan(planId: string, allocationId: string): Promise<void> {
+  await fetchApi(`/master-plans/${encodeURIComponent(planId)}/allocations/${encodeURIComponent(allocationId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function assignShopToPlanAllocation(
+  planId: string,
+  allocationId: string,
+  shopCode: string,
+  targetMonth?: string
+): Promise<Allocation> {
+  const response = await fetchApi<Allocation>(
+    `/master-plans/${encodeURIComponent(planId)}/allocations/${encodeURIComponent(allocationId)}/assign-shop`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ shop_code: shopCode, target_month: targetMonth }),
+    }
+  );
+  return response.data as Allocation;
+}
+
 const api = {
   // Core
   getCarByNumber,
@@ -1423,6 +1639,14 @@ const api = {
   // Project Planning Integration
   getShoppingEventProjectFlags,
   bundleProjectWork,
+  // Master Plan Allocations
+  searchCars,
+  getPlanStats,
+  listPlanAllocations,
+  addCarsToPlan,
+  importDemandsIntoPlan,
+  removeAllocationFromPlan,
+  assignShopToPlanAllocation,
 };
 
 export default api;

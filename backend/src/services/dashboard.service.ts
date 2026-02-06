@@ -405,14 +405,25 @@ export async function getHighCostExceptions(thresholdPct: number = 10) {
   );
 }
 
-// Lining & Inspection Expiry Forecast
+// Lining & Inspection Expiry Forecast (includes overdue + upcoming)
 export async function getExpiryForecast() {
   const currentYear = new Date().getFullYear();
   return query(
     `SELECT car_number, car_mark, car_type, lessee_name,
-            tank_qual_year, current_status, portfolio_status
-     FROM v_upcoming_quals
-     WHERE tank_qual_year <= $1 + 1
+            tank_qual_year, current_status, portfolio_status,
+            years_overdue, qual_status
+     FROM (
+       SELECT car_number, car_mark, car_type, lessee_name,
+              tank_qual_year, current_status, portfolio_status,
+              years_overdue, 'overdue' as qual_status
+       FROM v_overdue_cars
+       UNION ALL
+       SELECT car_number, car_mark, car_type, lessee_name,
+              tank_qual_year, current_status, portfolio_status,
+              0 as years_overdue, 'upcoming' as qual_status
+       FROM v_upcoming_quals
+       WHERE tank_qual_year <= $1 + 1
+     ) combined
      ORDER BY tank_qual_year ASC, car_number ASC
      LIMIT 50`,
     [currentYear]

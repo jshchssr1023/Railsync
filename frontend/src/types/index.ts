@@ -297,11 +297,13 @@ export type AllocationStatus =
 
 export interface Allocation {
   id: string;
+  plan_id?: string;
   demand_id?: string;
   scenario_id?: string;
-  car_id: string;
+  car_id?: string;
+  car_mark_number?: string;
   car_number?: string;
-  shop_code: string;
+  shop_code: string | null;
   target_month: string;
   status: AllocationStatus;
   estimated_cost?: number;
@@ -496,6 +498,79 @@ export interface StateHistoryEntry {
   changed_by_email?: string;
   changed_at: string;
   notes: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Shopping Requests
+// ---------------------------------------------------------------------------
+
+export type ShoppingRequestStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected' | 'cancelled';
+
+export interface ShoppingRequest {
+  id: string;
+  request_number: string;
+  status: ShoppingRequestStatus;
+  customer_company: string;
+  customer_first_name: string | null;
+  customer_last_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  car_number: string;
+  current_railroad: string | null;
+  current_location_city: string | null;
+  current_location_state: string | null;
+  next_railroad: string | null;
+  next_location_city: string | null;
+  next_location_state: string | null;
+  stcc_or_un_number: string | null;
+  residue_clean: string;
+  gasket: string;
+  o_rings: string;
+  last_known_commodity: string | null;
+  lining_current: string | null;
+  lining_alternative: string | null;
+  preferred_shop_code: string | null;
+  mobile_repair_unit: boolean;
+  shopping_type_code: string | null;
+  shopping_reason_code: string | null;
+  clean_grade: string | null;
+  is_kosher: boolean;
+  is_food_grade: boolean;
+  dry_grade: string | null;
+  disposition_city: string | null;
+  disposition_state: string | null;
+  disposition_route: string | null;
+  disposition_payer_of_freight: string | null;
+  disposition_comment: string | null;
+  one_time_movement_approval: boolean;
+  comments: string | null;
+  shopping_event_id: string | null;
+  bad_order_report_id: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by_id: string | null;
+  review_notes: string | null;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+  version: number;
+  preferred_shop_name?: string;
+  created_by_name?: string;
+  created_by_email?: string;
+  reviewed_by_name?: string;
+  attachment_count?: number;
+}
+
+export interface ShoppingRequestAttachment {
+  id: string;
+  shopping_request_id: string;
+  file_name: string;
+  file_path: string | null;
+  file_size_bytes: number | null;
+  mime_type: string | null;
+  document_type: 'sds' | 'cleaning_certificate' | 'other';
+  uploaded_by_id: string | null;
+  created_at: string;
 }
 
 export interface JobCode {

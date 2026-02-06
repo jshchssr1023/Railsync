@@ -27,6 +27,7 @@ const ROUTE_LABELS: Record<string, string> = {
   ccm: 'Care Manuals',
   'scope-library': 'SOW Library',
   'bad-orders': 'Bad Orders',
+  new: 'New Shopping Request',
 };
 
 interface BreadcrumbItem {

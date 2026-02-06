@@ -2,12 +2,15 @@ import { query, queryOne, transaction } from '../config/database';
 import { PoolClient } from 'pg';
 import * as assignmentService from './assignment.service';
 import { capacityEvents } from './capacity-events.service';
+import * as assetEventService from './assetEvent.service';
 
 export interface Allocation {
   id: string;
-  car_id: string;
+  plan_id?: string;
+  car_id?: string;
+  car_mark_number?: string;
   car_number?: string;
-  shop_code: string;
+  shop_code: string | null;
   target_month: string;
   status: 'proposed' | 'planned' | 'confirmed' | 'enroute' | 'arrived' | 'complete' | 'cancelled';
   estimated_cost?: number;
@@ -46,7 +49,7 @@ export interface ShopMonthlyCapacity {
 }
 
 export interface CreateAllocationInput {
-  car_id: string;
+  car_mark_number: string;
   car_number?: string;
   shop_code: string;
   target_month: string;
@@ -61,7 +64,7 @@ export interface CreateAllocationInput {
 // Create a new allocation with capacity check (uses transaction for atomicity)
 export async function createAllocation(input: CreateAllocationInput): Promise<Allocation> {
   const {
-    car_id,
+    car_mark_number,
     car_number,
     shop_code,
     target_month,
@@ -95,7 +98,7 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
       if (capacity && capacity.remaining_capacity <= 0) {
         // Allow 10% overcommit
         const overcommitLimit = Math.ceil(capacity.total_capacity * 0.1);
-        const overcommit = capacity.confirmed_railcars - capacity.total_capacity;
+        const overcommit = (capacity.confirmed_railcars + capacity.planned_railcars) - capacity.total_capacity;
         if (overcommit >= overcommitLimit) {
           throw new Error(`Shop ${shop_code} is at capacity for ${target_month}. Cannot confirm allocation.`);
         }
@@ -105,13 +108,13 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
     // Insert the allocation (trigger will update capacity counts)
     const result = await client.query<Allocation>(
       `INSERT INTO allocations (
-        car_id, car_number, shop_code, target_month, status,
+        car_mark_number, car_number, car_id, shop_code, target_month, status,
         estimated_cost, estimated_cost_breakdown, service_event_id,
         notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, (SELECT id FROM cars WHERE car_number = $2), $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
-        car_id,
+        car_mark_number,
         car_number || null,
         shop_code,
         target_month,
@@ -150,17 +153,34 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
     return result.rows[0];
   }).then(async (allocation) => {
     // Emit SSE event after transaction commits
-    capacityEvents.emitAllocationCreated(
-      allocation.shop_code,
-      allocation.target_month,
-      {
-        id: allocation.id,
-        car_number: allocation.car_number,
+    if (allocation.shop_code) {
+      capacityEvents.emitAllocationCreated(
+        allocation.shop_code,
+        allocation.target_month,
+        {
+          id: allocation.id,
+          car_number: allocation.car_number,
+          status: allocation.status,
+          version: allocation.version,
+        },
+        created_by
+      );
+    }
+
+    // Record asset event
+    if (allocation.car_id) {
+      assetEventService.recordEvent(allocation.car_id, 'allocation.created', {
+        allocation_id: allocation.id,
+        shop_code: allocation.shop_code,
+        plan_id: allocation.plan_id,
         status: allocation.status,
-        version: allocation.version,
-      },
-      created_by
-    );
+      }, {
+        sourceTable: 'allocations',
+        sourceId: allocation.id,
+        performedBy: created_by,
+      }).catch(() => {}); // non-blocking
+    }
+
     return allocation;
   });
 }
@@ -209,7 +229,7 @@ export async function updateAllocationStatus(
       const capacity = capacityResult.rows[0];
       if (capacity && capacity.remaining_capacity <= 0) {
         const overcommitLimit = Math.ceil(capacity.total_capacity * 0.1);
-        const overcommit = capacity.confirmed_railcars - capacity.total_capacity;
+        const overcommit = (capacity.confirmed_railcars + capacity.planned_railcars) - capacity.total_capacity;
         if (overcommit >= overcommitLimit) {
           throw new Error(
             `Shop ${current.shop_code} is at capacity for ${current.target_month}. Cannot confirm allocation.`
@@ -229,7 +249,7 @@ export async function updateAllocationStatus(
 
     return result.rows[0];
   }).then((allocation) => {
-    if (allocation) {
+    if (allocation && allocation.shop_code) {
       // Emit SSE event after transaction commits
       capacityEvents.emitAllocationUpdated(
         allocation.shop_code,
@@ -242,6 +262,19 @@ export async function updateAllocationStatus(
         }
       );
     }
+
+    // Record asset event for status change
+    if (allocation && allocation.car_id) {
+      assetEventService.recordEvent(allocation.car_id, 'allocation.status_changed', {
+        allocation_id: allocation.id,
+        from_status: newStatus !== allocation.status ? allocation.status : undefined,
+        to_status: newStatus,
+      }, {
+        sourceTable: 'allocations',
+        sourceId: allocation.id,
+      }).catch(() => {}); // non-blocking
+    }
+
     return allocation;
   });
 }
@@ -360,7 +393,7 @@ export async function deleteAllocation(id: string): Promise<boolean> {
   await query('DELETE FROM allocations WHERE id = $1', [id]);
 
   // Emit SSE event after deletion
-  if (allocation) {
+  if (allocation && allocation.shop_code) {
     capacityEvents.emitAllocationDeleted(
       allocation.shop_code,
       allocation.target_month,

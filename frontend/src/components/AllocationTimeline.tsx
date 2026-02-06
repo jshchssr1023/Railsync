@@ -8,7 +8,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 interface Allocation {
   id: string;
   car_number: string;
-  car_id: string;
+  car_id?: string;
+  car_mark_number?: string;
   shop_code: string;
   target_month: string;
   status: string;
@@ -185,9 +186,9 @@ export default function AllocationTimeline() {
                             <div
                               key={a.id}
                               className={`w-6 h-5 rounded text-[9px] flex items-center justify-center font-medium ${STATUS_COLORS[a.status] || 'bg-gray-500 text-white'}`}
-                              title={`${a.car_number || a.car_id.slice(0,6)} - ${a.status}${getTypeName(a.shopping_type_id) ? ` (${getTypeName(a.shopping_type_id)})` : ''}`}
+                              title={`${a.car_number || a.car_mark_number?.slice(0,6) || '?'} - ${a.status}${getTypeName(a.shopping_type_id) ? ` (${getTypeName(a.shopping_type_id)})` : ''}`}
                             >
-                              {(a.car_number || a.car_id).slice(-3)}
+                              {(a.car_number || a.car_mark_number || '?').slice(-3)}
                             </div>
                           ))}
                           {cellAllocs.length > 8 && (
@@ -227,7 +228,7 @@ export default function AllocationTimeline() {
             <tbody>
               {allocations.filter(a => months.includes(a.target_month)).slice(0, 100).map(a => (
                 <tr key={a.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-3 py-2 font-mono">{a.car_number || a.car_id.slice(0, 8)}</td>
+                  <td className="px-3 py-2 font-mono">{a.car_number || a.car_mark_number?.slice(0, 8) || '-'}</td>
                   <td className="px-3 py-2">{a.shop_code}</td>
                   <td className="px-3 py-2">{formatMonth(a.target_month)}</td>
                   <td className="px-3 py-2 text-xs">{getTypeName(a.shopping_type_id) || '-'}</td>

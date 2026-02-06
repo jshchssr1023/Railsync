@@ -278,7 +278,7 @@ export default function AllocationList({
                       </td>
                       <td>
                         <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
-                          {allocation.car_number || allocation.car_id.slice(0, 8)}
+                          {allocation.car_number || allocation.car_mark_number?.slice(0, 8) || '-'}
                         </span>
                       </td>
                       <td className="text-xs text-gray-600 dark:text-gray-400 max-w-[120px] truncate" title={shopType?.name}>
