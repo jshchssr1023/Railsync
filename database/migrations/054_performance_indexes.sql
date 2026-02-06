@@ -56,7 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_chargebacks_status_created
 
 -- Billing adjustments: status + requested date (approval queue)
 CREATE INDEX IF NOT EXISTS idx_billing_adj_status_requested
-    ON billing_adjustments(status, requested_at DESC);
+    ON billing_adjustments(status, created_at DESC);
 
 -- Mileage records: period + status (batch processing)
 CREATE INDEX IF NOT EXISTS idx_mileage_records_period_status
