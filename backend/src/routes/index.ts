@@ -109,11 +109,32 @@ router.get('/auth/me', authenticate, authController.me);
 // ============================================================================
 
 /**
+ * @route   POST /api/cars/umler/import
+ * @desc    Bulk import UMLER attributes from CSV
+ * @access  Admin only
+ */
+router.post('/cars/umler/import', authenticate, authorize('admin'), carController.importUmlerCSV);
+
+/**
  * @route   GET /api/cars/:carNumber/history
  * @desc    Get asset event history for a car
  * @access  Authenticated
  */
 router.get('/cars/:carNumber/history', authenticate, carController.getCarHistory);
+
+/**
+ * @route   GET /api/cars/:carNumber/umler
+ * @desc    Get UMLER engineering attributes for a car
+ * @access  Authenticated
+ */
+router.get('/cars/:carNumber/umler', authenticate, carController.getCarUmler);
+
+/**
+ * @route   PUT /api/cars/:carNumber/umler
+ * @desc    Create or update UMLER attributes for a car
+ * @access  Admin only
+ */
+router.put('/cars/:carNumber/umler', authenticate, authorize('admin'), carController.updateCarUmler);
 
 /**
  * @route   GET /api/cars/:carNumber

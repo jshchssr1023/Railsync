@@ -1474,6 +1474,13 @@ export async function getCarHistory(carNumber: string, limit: number = 100): Pro
   return response.data || [];
 }
 
+export async function getCarUmler(carNumber: string): Promise<Record<string, unknown> | null> {
+  const response = await fetchApi<Record<string, unknown> | null>(
+    `/cars/${encodeURIComponent(carNumber)}/umler`
+  );
+  return response.data || null;
+}
+
 interface PlanStats {
   total_allocations: number;
   assigned: number;

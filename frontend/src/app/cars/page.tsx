@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
-  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers
+  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList
 } from 'lucide-react';
+import UmlerSpecSection from '@/components/UmlerSpecSection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -234,10 +235,15 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['general', 'specifications', 'qualifications', 'lease'])
   );
+  const [umlerData, setUmlerData] = useState<Record<string, any> | null>(null);
+  const [umlerLoading, setUmlerLoading] = useState(false);
+  const [umlerLoaded, setUmlerLoaded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
+    setUmlerData(null);
+    setUmlerLoaded(false);
     apiFetch<{ data: CarDetail }>(`/contracts-browse/car/${carNumber}`)
       .then(res => setDetail(res.data))
       .catch(() => setDetail(null))
@@ -252,12 +258,21 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  const toggleSection = (s: string) =>
+  const toggleSection = (s: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
       next.has(s) ? next.delete(s) : next.add(s);
       return next;
     });
+    // Lazy-load UMLER data on first expand
+    if (s === 'umler' && !umlerLoaded) {
+      setUmlerLoading(true);
+      apiFetch<{ data: Record<string, any> | null }>(`/cars/${carNumber}/umler`)
+        .then(res => { setUmlerData(res.data); setUmlerLoaded(true); })
+        .catch(() => { setUmlerData(null); setUmlerLoaded(true); })
+        .finally(() => setUmlerLoading(false));
+    }
+  };
 
   const car = detail?.car;
 
@@ -470,6 +485,11 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
                     </div>
                   </>
                 )}
+              </Section>
+
+              {/* UMLER Engineering Specifications — lazy loaded */}
+              <Section id="umler" title="UMLER Specifications" icon={ClipboardList}>
+                <UmlerSpecSection data={umlerData} loading={umlerLoading} />
               </Section>
             </>
           )}

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import carModel from '../models/car.model';
 import { ApiResponse, CarWithCommodity, ServiceEvent } from '../types';
 import * as assetEventService from '../services/assetEvent.service';
+import * as carUmlerService from '../services/carUmler.service';
 
 /**
  * GET /api/cars/:carNumber
@@ -72,7 +73,70 @@ export async function getCarHistory(req: Request, res: Response): Promise<void> 
   }
 }
 
+/**
+ * GET /api/cars/:carNumber/umler
+ * Get UMLER engineering attributes for a car
+ */
+export async function getCarUmler(req: Request, res: Response): Promise<void> {
+  try {
+    const { carNumber } = req.params;
+    const data = await carUmlerService.findByCarNumber(carNumber);
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching UMLER attributes:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
+  }
+}
+
+/**
+ * PUT /api/cars/:carNumber/umler
+ * Create or update UMLER attributes for a car
+ */
+export async function updateCarUmler(req: Request, res: Response): Promise<void> {
+  try {
+    const { carNumber } = req.params;
+    const userId = (req as any).user?.id;
+
+    const data = await carUmlerService.upsert(carNumber, req.body, userId);
+    if (!data) {
+      res.status(404).json({ success: false, error: `Car not found: ${carNumber}` } as ApiResponse<null>);
+      return;
+    }
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error updating UMLER attributes:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
+  }
+}
+
+/**
+ * POST /api/cars/umler/import
+ * Bulk import UMLER attributes from CSV
+ */
+export async function importUmlerCSV(req: Request, res: Response): Promise<void> {
+  try {
+    const { content } = req.body;
+    if (!content || typeof content !== 'string') {
+      res.status(400).json({ success: false, error: 'CSV content is required in request body' } as ApiResponse<null>);
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    const result = await carUmlerService.importCSV(content, userId);
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error importing UMLER CSV:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
+  }
+}
+
 export default {
   getCarByNumber,
   getCarHistory,
+  getCarUmler,
+  updateCarUmler,
+  importUmlerCSV,
 };
