@@ -3,12 +3,13 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-06 (v2) by Claude Opus 4.6
+> **Last Updated:** 2026-02-06 (v3) by Claude Opus 4.6
 
 ### Completed ✅
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
+| **Undo/Back Feature** | Three-layer state transition protection across all 12 processes: (1) confirmation gates before every transition via enhanced ConfirmDialog with irreversibleWarning banner and requireTypedConfirmation, (2) soft recall for reversible transitions via Toast undo button (6-second window) + backend revert endpoints with side-effect validation, (3) hard stops with typed confirmation for irreversible actions (SAP posting, car release, SOW finalization). Unified `state_transition_log` table with partial immutability trigger. Backward transitions added to shopping event JSONB trigger and invoice_state_transitions table. `useTransitionConfirm` hook standardizes confirm-execute-undo pattern. 7 revert endpoints + eligibility check endpoint. | `049_state_transition_log.sql`, `transition-log.service.ts`, `useTransitionConfirm.ts`, `Toast.tsx`, `ConfirmDialog.tsx`, 9 backend services, 4 frontend pages | `7d6e7e0` |
 | **Maintenance Forecast + Budget Scenarios** | Two-tab planning page (Monthly Load / Maintenance Forecast), pipeline summary cards (In Shop/Enroute/Completed with branched breakdown), budget scenario modeling with 4 slider-based multipliers (Assignment/Qualification/Commodity Conversion/Bad Orders), Running Repairs always static, client-side instant preview + server-confirmed impact calculation, system presets (Balanced/AITX First/Cost Optimized/Speed Optimized) + custom scenarios with CRUD | `045_budget_scenarios.sql`, `budgetScenario.service.ts`, `budgetScenario.controller.ts`, `PipelineSummaryCards.tsx`, `BudgetScenarioPanel.tsx`, `planning/page.tsx` | `7f4f744` |
 | **CCM Route Fix** | Fixed Express route ordering bug where generic `/ccm-instructions/:id` wildcard intercepted `/by-scope` and `/parent` routes, preventing CCM draft creation from hierarchy tree. Also fixed migration 031 `u.display_name` → `first_name \|\| last_name` | `routes/index.ts`, `031_invoice_processing_workflow.sql` | `f24ae6b` |
 | **Auth Token Key Fix** | Fixed 11 frontend files reading wrong localStorage key (`auth_token` → `railsync_access_token`), resolving 401 errors on Plans, Analytics, Invoices, Reports, Audit, Settings, Admin pages | 10 page/component files | `8a69569` |
@@ -278,6 +279,16 @@ GET  /api/projects/:id/planning-summary   - Project planning summary
 GET  /api/bad-orders                      - List bad order reports
 POST /api/bad-orders                      - Create bad order report
 PUT  /api/bad-orders/:id/resolve          - Resolve bad order
+POST /api/bad-orders/:id/revert           - Revert last bad order transition
+
+# State Transition Revert
+POST /api/shopping-events/:id/revert      - Revert last shopping event transition
+POST /api/invoice-cases/:id/revert        - Revert last invoice case transition
+POST /api/shopping-requests/:id/revert    - Revert last shopping request transition
+POST /api/allocations/:id/revert          - Revert last allocation transition
+POST /api/demands/:id/revert             - Revert last demand transition
+POST /api/projects/:pid/assignments/:id/unlock - Unlock project assignment (Locked -> Planned)
+GET  /api/transitions/:processType/:entityId/revert-eligibility - Check revert eligibility
 ```
 
 ---
@@ -327,7 +338,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 
 ---
 
-## Database Migrations (46 total)
+## Database Migrations (49 total)
 
 | Range | Area |
 |-------|------|
@@ -344,6 +355,9 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | 044 | **UMLER**: car_umler_attributes (130 typed columns, version trigger, CSV import) |
 | 045 | **Budget scenarios**: 4 slider columns (assignment/qualification/commodity_conversion/bad_orders), system presets + custom, impact calculation |
 | 046 | Fix capacity trigger for NULL shop_code on unassigned allocations |
+| 047 | Demo historical data for dashboard widgets and analytics |
+| 048 | Demand plan unification (master plan demand linking) |
+| 049 | **State transition log**: unified `state_transition_log` table with partial immutability, `is_reversible` on `invoice_state_transitions`, backward transitions in shopping event JSONB trigger + invoice state table |
 
 ---
 
