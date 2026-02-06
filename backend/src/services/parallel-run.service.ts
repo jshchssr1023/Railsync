@@ -261,6 +261,576 @@ export async function compareCarStatuses(ciprotsCsv: string): Promise<ParallelRu
 }
 
 // =============================================================================
+// COMPARE BILLING TOTALS
+// =============================================================================
+
+interface BillingTotalsComparisonRow {
+  customer_code: string;
+  total_billed: string;
+  car_count: string;
+}
+
+/**
+ * Compare billing totals per customer per period from CIPROTS CSV against RailSync data.
+ * CIPROTS CSV expected columns: customer_code, total_billed, car_count
+ */
+export async function compareBillingTotals(
+  ciprotsCsv: string,
+  billingPeriod: string // 'YYYY-MM'
+): Promise<ParallelRunResult> {
+  // Parse CIPROTS CSV
+  const lines = ciprotsCsv.split(/\r?\n/).filter(l => l.trim());
+  const headers = lines[0]?.split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_')) || [];
+  const ciprotsRows: BillingTotalsComparisonRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+    ciprotsRows.push({
+      customer_code: row.customer_code || row.customer || '',
+      total_billed: row.total_billed || row.total || '0',
+      car_count: row.car_count || row.cars || '0',
+    });
+  }
+
+  // Get RailSync billing totals for the period
+  const railsyncTotals = await query<{ customer_code: string; total_billed: number; car_count: number }>(
+    `SELECT
+       c.customer_code,
+       SUM(oi.invoice_total)::numeric AS total_billed,
+       COUNT(DISTINCT oi.id)::int AS car_count
+     FROM outbound_invoices oi
+     JOIN customers c ON c.id = oi.customer_id
+     WHERE oi.billing_period = $1
+     GROUP BY c.customer_code`,
+    [billingPeriod]
+  );
+
+  // Build lookup maps
+  const ciprotsMap = new Map(ciprotsRows.map(r => [r.customer_code, r]));
+  const railsyncMap = new Map(railsyncTotals.map(r => [r.customer_code, r]));
+
+  let matchCount = 0;
+  let mismatchCount = 0;
+  const ciprotsOnlyCustomers: string[] = [];
+  const railsyncOnlyCustomers: string[] = [];
+
+  // Create the parallel run record
+  const runResult = await queryOne<{ id: string }>(
+    `INSERT INTO parallel_run_results (run_date, comparison_type, ciprots_count, railsync_count)
+     VALUES (CURRENT_DATE, 'billing_totals', $1, $2) RETURNING id`,
+    [ciprotsRows.length, railsyncTotals.length]
+  );
+  const runId = runResult!.id;
+
+  // Compare
+  for (const [custCode, ciprotsRow] of ciprotsMap) {
+    const rsRow = railsyncMap.get(custCode);
+    if (!rsRow) {
+      ciprotsOnlyCustomers.push(custCode);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'present', 'missing', 'critical')`,
+        [runId, custCode]
+      );
+      continue;
+    }
+
+    const ciprotsTotal = parseFloat(ciprotsRow.total_billed) || 0;
+    const rsTotal = rsRow.total_billed || 0;
+    const diff = Math.abs(ciprotsTotal - rsTotal);
+
+    if (diff < 1.00) {
+      matchCount++;
+    } else {
+      mismatchCount++;
+      const severity = diff > 1000 ? 'critical' : diff > 100 ? 'warning' : 'info';
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'total_billed', $3, $4, $5)`,
+        [runId, custCode, ciprotsTotal.toString(), rsTotal.toString(), severity]
+      );
+    }
+  }
+
+  for (const [custCode] of railsyncMap) {
+    if (!ciprotsMap.has(custCode)) {
+      railsyncOnlyCustomers.push(custCode);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'missing', 'present', 'warning')`,
+        [runId, custCode]
+      );
+    }
+  }
+
+  const total = Math.max(ciprotsRows.length, railsyncTotals.length, 1);
+  const matchPct = Math.round((matchCount / total) * 10000) / 100;
+
+  await query(
+    `UPDATE parallel_run_results SET
+       match_count = $2, mismatch_count = $3, ciprots_only_count = $4,
+       railsync_only_count = $5, match_pct = $6,
+       summary = $7
+     WHERE id = $1`,
+    [
+      runId, matchCount, mismatchCount,
+      ciprotsOnlyCustomers.length, railsyncOnlyCustomers.length,
+      matchPct,
+      JSON.stringify({ billing_period: billingPeriod, ciprots_only: ciprotsOnlyCustomers.slice(0, 20), railsync_only: railsyncOnlyCustomers.slice(0, 20) }),
+    ]
+  );
+
+  return {
+    id: runId,
+    run_date: new Date().toISOString().slice(0, 10),
+    comparison_type: 'billing_totals',
+    ciprots_count: ciprotsRows.length,
+    railsync_count: railsyncTotals.length,
+    match_count: matchCount,
+    mismatch_count: mismatchCount,
+    ciprots_only_count: ciprotsOnlyCustomers.length,
+    railsync_only_count: railsyncOnlyCustomers.length,
+    match_pct: matchPct,
+    summary: { billing_period: billingPeriod },
+  };
+}
+
+// =============================================================================
+// COMPARE MILEAGE
+// =============================================================================
+
+interface MileageComparisonRow {
+  car_number: string;
+  total_miles: string;
+  railroad: string;
+}
+
+/**
+ * Compare mileage records from CIPROTS CSV against RailSync mileage data.
+ * CIPROTS CSV expected columns: car_number, total_miles, railroad
+ */
+export async function compareMileage(
+  ciprotsCsv: string,
+  reportingPeriod: string // 'YYYY-MM-DD' (first of month)
+): Promise<ParallelRunResult> {
+  // Parse CIPROTS CSV
+  const lines = ciprotsCsv.split(/\r?\n/).filter(l => l.trim());
+  const headers = lines[0]?.split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_')) || [];
+  const ciprotsRows: MileageComparisonRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+    ciprotsRows.push({
+      car_number: row.car_number || row.car_no || '',
+      total_miles: row.total_miles || row.miles || '0',
+      railroad: row.railroad || row.rr || '',
+    });
+  }
+
+  // Get RailSync mileage records for the reporting period
+  const railsyncMileage = await query<{ car_number: string; miles: number }>(
+    `SELECT car_number, miles
+     FROM mileage_records
+     WHERE reporting_period = $1`,
+    [reportingPeriod]
+  );
+
+  // Build lookup maps
+  const ciprotsMap = new Map(ciprotsRows.map(r => [r.car_number, r]));
+  const railsyncMap = new Map(railsyncMileage.map(r => [r.car_number, r]));
+
+  let matchCount = 0;
+  let mismatchCount = 0;
+  const ciprotsOnlyCars: string[] = [];
+  const railsyncOnlyCars: string[] = [];
+
+  // Create the parallel run record
+  const runResult = await queryOne<{ id: string }>(
+    `INSERT INTO parallel_run_results (run_date, comparison_type, ciprots_count, railsync_count)
+     VALUES (CURRENT_DATE, 'mileage', $1, $2) RETURNING id`,
+    [ciprotsRows.length, railsyncMileage.length]
+  );
+  const runId = runResult!.id;
+
+  // Compare
+  for (const [carNum, ciprotsRow] of ciprotsMap) {
+    const rsRow = railsyncMap.get(carNum);
+    if (!rsRow) {
+      ciprotsOnlyCars.push(carNum);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'present', 'missing', 'critical')`,
+        [runId, carNum]
+      );
+      continue;
+    }
+
+    const ciprotsMiles = parseInt(ciprotsRow.total_miles, 10) || 0;
+    const rsMiles = rsRow.miles || 0;
+    const diff = Math.abs(ciprotsMiles - rsMiles);
+
+    if (diff === 0) {
+      matchCount++;
+    } else {
+      mismatchCount++;
+      const severity = diff > 500 ? 'critical' : diff > 50 ? 'warning' : 'info';
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'total_miles', $3, $4, $5)`,
+        [runId, carNum, ciprotsMiles.toString(), rsMiles.toString(), severity]
+      );
+    }
+  }
+
+  for (const [carNum] of railsyncMap) {
+    if (!ciprotsMap.has(carNum)) {
+      railsyncOnlyCars.push(carNum);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'missing', 'present', 'warning')`,
+        [runId, carNum]
+      );
+    }
+  }
+
+  const total = Math.max(ciprotsRows.length, railsyncMileage.length, 1);
+  const matchPct = Math.round((matchCount / total) * 10000) / 100;
+
+  await query(
+    `UPDATE parallel_run_results SET
+       match_count = $2, mismatch_count = $3, ciprots_only_count = $4,
+       railsync_only_count = $5, match_pct = $6,
+       summary = $7
+     WHERE id = $1`,
+    [
+      runId, matchCount, mismatchCount,
+      ciprotsOnlyCars.length, railsyncOnlyCars.length,
+      matchPct,
+      JSON.stringify({ reporting_period: reportingPeriod, ciprots_only: ciprotsOnlyCars.slice(0, 20), railsync_only: railsyncOnlyCars.slice(0, 20) }),
+    ]
+  );
+
+  return {
+    id: runId,
+    run_date: new Date().toISOString().slice(0, 10),
+    comparison_type: 'mileage',
+    ciprots_count: ciprotsRows.length,
+    railsync_count: railsyncMileage.length,
+    match_count: matchCount,
+    mismatch_count: mismatchCount,
+    ciprots_only_count: ciprotsOnlyCars.length,
+    railsync_only_count: railsyncOnlyCars.length,
+    match_pct: matchPct,
+    summary: { reporting_period: reportingPeriod },
+  };
+}
+
+// =============================================================================
+// COMPARE ALLOCATIONS
+// =============================================================================
+
+interface AllocationComparisonRow {
+  car_number: string;
+  shop_code: string;
+  estimated_cost: string;
+  actual_cost: string;
+  status: string;
+}
+
+/**
+ * Compare maintenance allocations from CIPROTS CSV against RailSync allocation data.
+ * CIPROTS CSV expected columns: car_number, shop_code, estimated_cost, actual_cost, status
+ */
+export async function compareAllocations(
+  ciprotsCsv: string,
+  targetMonth: string // 'YYYY-MM'
+): Promise<ParallelRunResult> {
+  // Parse CIPROTS CSV
+  const lines = ciprotsCsv.split(/\r?\n/).filter(l => l.trim());
+  const headers = lines[0]?.split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_')) || [];
+  const ciprotsRows: AllocationComparisonRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+    ciprotsRows.push({
+      car_number: row.car_number || row.car_no || '',
+      shop_code: row.shop_code || row.shop || '',
+      estimated_cost: row.estimated_cost || row.est_cost || '0',
+      actual_cost: row.actual_cost || row.act_cost || '0',
+      status: row.status || '',
+    });
+  }
+
+  // Get RailSync allocations for the target month
+  const railsyncAllocations = await query<{ car_number: string; shop_code: string; estimated_cost: number; actual_cost: number; status: string }>(
+    `SELECT car_number, shop_code, estimated_cost, actual_cost, status
+     FROM allocations
+     WHERE target_month = $1`,
+    [targetMonth]
+  );
+
+  // Build lookup maps (keyed by car_number since car_number + target_month is the logical key)
+  const ciprotsMap = new Map(ciprotsRows.map(r => [r.car_number, r]));
+  const railsyncMap = new Map(railsyncAllocations.map(r => [r.car_number, r]));
+
+  let matchCount = 0;
+  let mismatchCount = 0;
+  const ciprotsOnlyAllocations: string[] = [];
+  const railsyncOnlyAllocations: string[] = [];
+
+  // Create the parallel run record
+  const runResult = await queryOne<{ id: string }>(
+    `INSERT INTO parallel_run_results (run_date, comparison_type, ciprots_count, railsync_count)
+     VALUES (CURRENT_DATE, 'allocations', $1, $2) RETURNING id`,
+    [ciprotsRows.length, railsyncAllocations.length]
+  );
+  const runId = runResult!.id;
+
+  // Compare
+  for (const [carNum, ciprotsRow] of ciprotsMap) {
+    const rsRow = railsyncMap.get(carNum);
+    if (!rsRow) {
+      ciprotsOnlyAllocations.push(carNum);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'present', 'missing', 'critical')`,
+        [runId, carNum]
+      );
+      continue;
+    }
+
+    const ciprotsActual = parseFloat(ciprotsRow.actual_cost) || 0;
+    const rsActual = rsRow.actual_cost || 0;
+    const diff = Math.abs(ciprotsActual - rsActual);
+
+    if (diff < 1.00) {
+      matchCount++;
+    } else {
+      mismatchCount++;
+      const severity = diff > 1000 ? 'critical' : diff > 100 ? 'warning' : 'info';
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'actual_cost', $3, $4, $5)`,
+        [runId, carNum, ciprotsActual.toString(), rsActual.toString(), severity]
+      );
+    }
+  }
+
+  for (const [carNum] of railsyncMap) {
+    if (!ciprotsMap.has(carNum)) {
+      railsyncOnlyAllocations.push(carNum);
+      await query(
+        `INSERT INTO parallel_run_discrepancies (parallel_run_id, entity_ref, field_name, ciprots_value, railsync_value, severity)
+         VALUES ($1, $2, 'existence', 'missing', 'present', 'warning')`,
+        [runId, carNum]
+      );
+    }
+  }
+
+  const total = Math.max(ciprotsRows.length, railsyncAllocations.length, 1);
+  const matchPct = Math.round((matchCount / total) * 10000) / 100;
+
+  await query(
+    `UPDATE parallel_run_results SET
+       match_count = $2, mismatch_count = $3, ciprots_only_count = $4,
+       railsync_only_count = $5, match_pct = $6,
+       summary = $7
+     WHERE id = $1`,
+    [
+      runId, matchCount, mismatchCount,
+      ciprotsOnlyAllocations.length, railsyncOnlyAllocations.length,
+      matchPct,
+      JSON.stringify({ target_month: targetMonth, ciprots_only: ciprotsOnlyAllocations.slice(0, 20), railsync_only: railsyncOnlyAllocations.slice(0, 20) }),
+    ]
+  );
+
+  return {
+    id: runId,
+    run_date: new Date().toISOString().slice(0, 10),
+    comparison_type: 'allocations',
+    ciprots_count: ciprotsRows.length,
+    railsync_count: railsyncAllocations.length,
+    match_count: matchCount,
+    mismatch_count: mismatchCount,
+    ciprots_only_count: ciprotsOnlyAllocations.length,
+    railsync_only_count: railsyncOnlyAllocations.length,
+    match_pct: matchPct,
+    summary: { target_month: targetMonth },
+  };
+}
+
+// =============================================================================
+// GO-LIVE CHECKLIST
+// =============================================================================
+
+interface GoLiveCheckItem {
+  check: string;
+  label: string;
+  passed: boolean;
+  value: string;
+  target: string;
+}
+
+interface GoLiveChecklist {
+  items: GoLiveCheckItem[];
+  overall: boolean;
+}
+
+/**
+ * Returns a systematic go-live readiness checklist.
+ * Checks invoice accuracy, status accuracy, billing accuracy, critical discrepancies,
+ * resolution rate, minimum parallel days, minimum runs, entity migration, and data reconciliation.
+ */
+export async function getGoLiveChecklist(): Promise<GoLiveChecklist> {
+  const items: GoLiveCheckItem[] = [];
+
+  // 1. invoiceAccuracy: latest invoice match_pct >= 99
+  const latestInvoice = await queryOne<{ match_pct: number }>(
+    `SELECT match_pct FROM parallel_run_results
+     WHERE comparison_type = 'invoices'
+     ORDER BY run_date DESC, created_at DESC LIMIT 1`
+  );
+  const invoicePct = latestInvoice?.match_pct ?? 0;
+  items.push({
+    check: 'invoiceAccuracy',
+    label: 'Invoice accuracy >= 99%',
+    passed: invoicePct >= 99,
+    value: `${invoicePct}%`,
+    target: '99%',
+  });
+
+  // 2. statusAccuracy: latest status match_pct >= 98
+  const latestStatus = await queryOne<{ match_pct: number }>(
+    `SELECT match_pct FROM parallel_run_results
+     WHERE comparison_type = 'car_status'
+     ORDER BY run_date DESC, created_at DESC LIMIT 1`
+  );
+  const statusPct = latestStatus?.match_pct ?? 0;
+  items.push({
+    check: 'statusAccuracy',
+    label: 'Car status accuracy >= 98%',
+    passed: statusPct >= 98,
+    value: `${statusPct}%`,
+    target: '98%',
+  });
+
+  // 3. billingAccuracy: latest billing_totals match_pct >= 99
+  const latestBilling = await queryOne<{ match_pct: number }>(
+    `SELECT match_pct FROM parallel_run_results
+     WHERE comparison_type = 'billing_totals'
+     ORDER BY run_date DESC, created_at DESC LIMIT 1`
+  );
+  const billingPct = latestBilling?.match_pct ?? 0;
+  items.push({
+    check: 'billingAccuracy',
+    label: 'Billing totals accuracy >= 99%',
+    passed: billingPct >= 99,
+    value: `${billingPct}%`,
+    target: '99%',
+  });
+
+  // 4. noCriticalDiscrepancies: COUNT of unresolved critical discrepancies = 0
+  const openCritical = await queryOne<{ cnt: number }>(
+    `SELECT COUNT(*)::int AS cnt FROM parallel_run_discrepancies
+     WHERE resolved = FALSE AND severity = 'critical'`
+  );
+  const criticalCount = openCritical?.cnt ?? 0;
+  items.push({
+    check: 'noCriticalDiscrepancies',
+    label: 'No unresolved critical discrepancies',
+    passed: criticalCount === 0,
+    value: `${criticalCount}`,
+    target: '0',
+  });
+
+  // 5. resolutionRate: resolution rate >= 95%
+  const resolutionStats = await queryOne<{ total: number; resolved: number }>(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE resolved = TRUE)::int AS resolved
+     FROM parallel_run_discrepancies`
+  );
+  const resRate = resolutionStats && resolutionStats.total > 0
+    ? Math.round((resolutionStats.resolved / resolutionStats.total) * 100)
+    : 100;
+  items.push({
+    check: 'resolutionRate',
+    label: 'Discrepancy resolution rate >= 95%',
+    passed: resRate >= 95,
+    value: `${resRate}%`,
+    target: '95%',
+  });
+
+  // 6. minimumParallelDays: days since first parallel run >= 14
+  const firstRun = await queryOne<{ first_date: string }>(
+    `SELECT MIN(run_date)::text AS first_date FROM parallel_run_results`
+  );
+  const daysInParallel = firstRun?.first_date
+    ? Math.max(0, Math.ceil((Date.now() - new Date(firstRun.first_date).getTime()) / 86400000))
+    : 0;
+  items.push({
+    check: 'minimumParallelDays',
+    label: 'Minimum 14 days of parallel running',
+    passed: daysInParallel >= 14,
+    value: `${daysInParallel} days`,
+    target: '14 days',
+  });
+
+  // 7. minimumRuns: total parallel runs >= 10
+  const runCount = await queryOne<{ cnt: number }>(
+    `SELECT COUNT(*)::int AS cnt FROM parallel_run_results`
+  );
+  const totalRuns = runCount?.cnt ?? 0;
+  items.push({
+    check: 'minimumRuns',
+    label: 'Minimum 10 parallel comparison runs',
+    passed: totalRuns >= 10,
+    value: `${totalRuns}`,
+    target: '10',
+  });
+
+  // 8. allEntitiesMigrated: migration_runs has at least one 'complete' run for each required entity
+  const requiredEntities = ['car', 'contract', 'shopping', 'qualification', 'customer', 'invoice'];
+  const completedMigrations = await query<{ entity_type: string }>(
+    `SELECT DISTINCT entity_type FROM migration_runs WHERE status = 'complete'`
+  );
+  const completedSet = new Set(completedMigrations.map(r => r.entity_type));
+  const missingEntities = requiredEntities.filter(e => !completedSet.has(e));
+  items.push({
+    check: 'allEntitiesMigrated',
+    label: 'All entity types migrated successfully',
+    passed: missingEntities.length === 0,
+    value: missingEntities.length === 0 ? 'All migrated' : `Missing: ${missingEntities.join(', ')}`,
+    target: requiredEntities.join(', '),
+  });
+
+  // 9. dataReconciled: all comparison types have at least one run with count > 0
+  const reconTypes = await query<{ comparison_type: string; total_compared: number }>(
+    `SELECT comparison_type, SUM(ciprots_count)::int AS total_compared
+     FROM parallel_run_results
+     GROUP BY comparison_type`
+  );
+  const reconMap = new Map(reconTypes.map(r => [r.comparison_type, r.total_compared]));
+  const requiredReconTypes = ['invoices', 'car_status', 'billing_totals', 'mileage', 'allocations'];
+  const missingRecon = requiredReconTypes.filter(t => !reconMap.has(t) || (reconMap.get(t) || 0) === 0);
+  items.push({
+    check: 'dataReconciled',
+    label: 'All data types reconciled',
+    passed: missingRecon.length === 0,
+    value: missingRecon.length === 0 ? 'All reconciled' : `Missing: ${missingRecon.join(', ')}`,
+    target: requiredReconTypes.join(', '),
+  });
+
+  const overall = items.every(item => item.passed);
+
+  return { items, overall };
+}
+
+// =============================================================================
 // QUERY PARALLEL RUN RESULTS
 // =============================================================================
 

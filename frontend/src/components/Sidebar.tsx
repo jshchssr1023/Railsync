@@ -13,7 +13,7 @@ import {
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
-  TrendingUp, Award, Database, GitCompare, Rocket
+  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -124,6 +124,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Migration', href: '/migration', icon: <Database className="w-4 h-4" /> },
       { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
       { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
+      { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },
       { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },

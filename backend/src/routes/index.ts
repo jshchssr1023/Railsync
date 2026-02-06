@@ -4678,6 +4678,182 @@ router.get('/migration/reconciliation', authenticate, authorize('admin'), async 
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
+router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importCustomers } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importCustomers(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importInvoices } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importInvoices(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importAllocations } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importAllocations(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importMileageRecords } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importMileageRecords(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runOrchestration } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await runOrchestration(req.body.files || {}, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/validate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { validateOnly } = await import('../services/migration-pipeline.service');
+    const { entity_type, content } = req.body;
+    if (!entity_type || !content) { res.status(400).json({ success: false, error: 'entity_type and content required' }); return; }
+    const result = await validateOnly(entity_type, content);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { rollbackRun } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await rollbackRun(req.params.id, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// System health dashboard
+router.get('/system/health-dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getHealthDashboard } = await import('../services/system-health.service');
+    const data = await getHealthDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// User feedback
+router.post('/feedback', authenticate, async (req, res) => {
+  try {
+    const { createFeedback } = await import('../services/feedback.service');
+    const userId = (req as any).user?.id;
+    const data = await createFeedback({ ...req.body, user_id: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { listFeedback } = await import('../services/feedback.service');
+    const data = await listFeedback({
+      status: req.query.status as string,
+      category: req.query.category as string,
+      limit: parseInt(req.query.limit as string) || 100,
+    });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getFeedbackStats } = await import('../services/feedback.service');
+    const data = await getFeedbackStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { updateFeedback } = await import('../services/feedback.service');
+    const userId = (req as any).user?.id;
+    const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Performance monitoring
+router.get('/system/performance/tables', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getTableSizes } = await import('../services/performance-monitor.service');
+    const data = await getTableSizes(parseInt(req.query.limit as string) || 30);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/indexes', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getIndexUsage } = await import('../services/performance-monitor.service');
+    const data = await getIndexUsage(parseInt(req.query.limit as string) || 50);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDatabaseStats } = await import('../services/performance-monitor.service');
+    const data = await getDatabaseStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/slow-queries', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getSlowQueries } = await import('../services/performance-monitor.service');
+    const data = await getSlowQueries(parseInt(req.query.limit as string) || 20);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// System mode
+router.get('/system/mode', authenticate, async (req, res) => {
+  try {
+    const { getSystemMode } = await import('../services/system-mode.service');
+    const data = await getSystemMode();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { setSystemMode } = await import('../services/system-mode.service');
+    const userId = (req as any).user?.id;
+    const { mode } = req.body;
+    if (!mode) { res.status(400).json({ success: false, error: 'mode is required' }); return; }
+    const data = await setSystemMode(mode, userId);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// Delta migration
+router.post('/migration/delta/cars', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { deltaMigrateCars } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await deltaMigrateCars(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/delta/summary', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDeltaSummary } = await import('../services/migration-pipeline.service');
+    const data = await getDeltaSummary();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
 
 // Parallel Run Comparison
 router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), async (req, res) => {
@@ -4739,12 +4915,93 @@ router.get('/parallel-run/health-score', authenticate, authorize('admin', 'opera
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
+router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareBillingTotals } = await import('../services/parallel-run.service');
+    const { content, billing_period } = req.body;
+    if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
+    const result = await compareBillingTotals(content, billing_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareMileage } = await import('../services/parallel-run.service');
+    const { content, reporting_period } = req.body;
+    if (!content || !reporting_period) { res.status(400).json({ success: false, error: 'content and reporting_period required' }); return; }
+    const result = await compareMileage(content, reporting_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareAllocations } = await import('../services/parallel-run.service');
+    const { content, target_month } = req.body;
+    if (!content || !target_month) { res.status(400).json({ success: false, error: 'content and target_month required' }); return; }
+    const result = await compareAllocations(content, target_month);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/go-live-checklist', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getGoLiveChecklist } = await import('../services/parallel-run.service');
+    const data = await getGoLiveChecklist();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
 
 // Go-live readiness check
 router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getGoLiveReadiness } = await import('../services/go-live-check.service');
     const data = await getGoLiveReadiness();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Go-live incidents
+router.get('/go-live/incidents', authenticate, async (req, res) => {
+  try {
+    const { listIncidents } = await import('../services/go-live-incidents.service');
+    const data = await listIncidents({
+      status: req.query.status as string,
+      severity: req.query.severity as string,
+      limit: parseInt(req.query.limit as string) || 100,
+    });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
+  try {
+    const { getIncidentStats } = await import('../services/go-live-incidents.service');
+    const data = await getIncidentStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
+  try {
+    const { getIncident } = await import('../services/go-live-incidents.service');
+    const data = await getIncident(req.params.id);
+    if (!data) { res.status(404).json({ success: false, error: 'Incident not found' }); return; }
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { createIncident } = await import('../services/go-live-incidents.service');
+    const userId = (req as any).user?.id;
+    const data = await createIncident({ ...req.body, reported_by: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { updateIncident } = await import('../services/go-live-incidents.service');
+    const data = await updateIncident(req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });

@@ -33,10 +33,14 @@ interface RowError {
 }
 
 const ENTITY_TYPES = [
-  { key: 'cars', label: 'Cars', endpoint: '/migration/import/cars', icon: Database },
-  { key: 'contracts', label: 'Contracts', endpoint: '/migration/import/contracts', icon: FileText },
-  { key: 'shopping', label: 'Shopping Events', endpoint: '/migration/import/shopping', icon: FileText },
-  { key: 'qualifications', label: 'Qualifications', endpoint: '/migration/import/qualifications', icon: FileText },
+  { key: 'customers', label: 'Customers', endpoint: '/migration/import/customers', icon: Database, order: 1 },
+  { key: 'contracts', label: 'Contracts', endpoint: '/migration/import/contracts', icon: FileText, order: 2 },
+  { key: 'cars', label: 'Cars', endpoint: '/migration/import/cars', icon: Database, order: 3 },
+  { key: 'allocations', label: 'Allocations', endpoint: '/migration/import/allocations', icon: FileText, order: 4 },
+  { key: 'shopping', label: 'Shopping Events', endpoint: '/migration/import/shopping', icon: FileText, order: 5 },
+  { key: 'qualifications', label: 'Qualifications', endpoint: '/migration/import/qualifications', icon: FileText, order: 6 },
+  { key: 'invoices', label: 'Invoices', endpoint: '/migration/import/invoices', icon: FileText, order: 7 },
+  { key: 'mileage', label: 'Mileage Records', endpoint: '/migration/import/mileage', icon: FileText, order: 8 },
 ];
 
 export default function MigrationPage() {
@@ -50,6 +54,8 @@ export default function MigrationPage() {
   const [showErrors, setShowErrors] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
+  const [dryRun, setDryRun] = useState(false);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
 
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
   const fetchWithAuth = (endpoint: string, opts?: RequestInit) =>
@@ -82,11 +88,19 @@ export default function MigrationPage() {
     setImportResult(null);
     try {
       const content = await file.text();
-      const res = await fetchWithAuth(entity.endpoint, {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-      });
-      setImportResult(res.data || res);
+      if (dryRun) {
+        const res = await fetchWithAuth('/migration/validate', {
+          method: 'POST',
+          body: JSON.stringify({ entity_type: selectedEntity, content }),
+        });
+        setImportResult({ ...(res.data || res), dry_run: true });
+      } else {
+        const res = await fetchWithAuth(entity.endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ content }),
+        });
+        setImportResult(res.data || res);
+      }
       // Refresh runs
       const runsRes = await fetchWithAuth('/migration/runs');
       setRuns(runsRes.data || []);
@@ -98,6 +112,21 @@ export default function MigrationPage() {
       setImporting(null);
       e.target.value = '';
     }
+  }
+
+  async function handleRollback(runId: string) {
+    if (!confirm('This will delete all records imported by this run. Continue?')) return;
+    setRollingBack(runId);
+    try {
+      await fetchWithAuth(`/migration/runs/${runId}/rollback`, { method: 'POST' });
+      const [runsRes, reconRes] = await Promise.all([
+        fetchWithAuth('/migration/runs'),
+        fetchWithAuth('/migration/reconciliation'),
+      ]);
+      setRuns(runsRes.data || []);
+      setReconciliation(reconRes.data || []);
+    } catch { /* silent */ }
+    finally { setRollingBack(null); }
   }
 
   async function loadErrors(runId: string) {
@@ -115,6 +144,24 @@ export default function MigrationPage() {
       </div>
 
       <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileSelected} />
+
+      {/* Dry Run Toggle */}
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={e => setDryRun(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          Dry Run (validate only, no data written)
+        </label>
+        {dryRun && (
+          <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
+            Validation mode
+          </span>
+        )}
+      </div>
 
       {/* Upload Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -143,7 +190,9 @@ export default function MigrationPage() {
             <p className="text-sm text-red-700 dark:text-red-400">{importResult.error}</p>
           ) : (
             <div className="text-sm">
-              <p className="font-medium text-green-700 dark:text-green-400 mb-1">Import Complete</p>
+              <p className="font-medium text-green-700 dark:text-green-400 mb-1">
+                {importResult.dry_run ? 'Validation Complete (Dry Run)' : 'Import Complete'}
+              </p>
               <div className="flex gap-6 text-gray-600 dark:text-gray-300">
                 <span>Total: {importResult.total_rows}</span>
                 <span className="text-green-600">Imported: {importResult.imported}</span>
@@ -216,13 +265,22 @@ export default function MigrationPage() {
                     <td className="text-right px-4 py-2 text-green-600">{run.imported_rows}</td>
                     <td className="text-right px-4 py-2 text-red-600">{run.error_rows}</td>
                     <td className="text-right px-4 py-2 text-gray-400 text-xs">{new Date(run.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 flex items-center gap-2">
                       {run.error_rows > 0 && (
                         <button
                           onClick={() => loadErrors(run.id)}
                           className="text-xs text-primary-600 hover:underline"
                         >
                           {showErrors === run.id ? 'Hide' : 'Errors'}
+                        </button>
+                      )}
+                      {run.status === 'complete' && (
+                        <button
+                          onClick={() => handleRollback(run.id)}
+                          disabled={rollingBack !== null}
+                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          {rollingBack === run.id ? 'Rolling back...' : 'Rollback'}
                         </button>
                       )}
                     </td>

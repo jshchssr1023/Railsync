@@ -53,17 +53,19 @@ interface DailyReport {
 
 export default function ParallelRunPage() {
   const { isAuthenticated } = useAuth();
-  const [tab, setTab] = useState<'dashboard' | 'compare' | 'history'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'compare' | 'history' | 'checklist'>('dashboard');
   const [results, setResults] = useState<RunResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [comparing, setComparing] = useState(false);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
   const [discLoading, setDiscLoading] = useState(false);
-  const [comparisonType, setComparisonType] = useState<'invoices' | 'statuses'>('invoices');
+  const [comparisonType, setComparisonType] = useState<'invoices' | 'statuses' | 'billing' | 'mileage' | 'allocations'>('invoices');
   const [billingPeriod, setBillingPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [healthScore, setHealthScore] = useState<HealthScore | null>(null);
   const [dailyReport, setDailyReport] = useState<DailyReport[]>([]);
+  const [goLiveChecklist, setGoLiveChecklist] = useState<{ checks: { check: string; label: string; passed: boolean; value: string; target: string }[]; overall: boolean } | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
@@ -86,8 +88,22 @@ export default function ParallelRunPage() {
     setComparing(true);
     try {
       const content = await file.text();
-      const endpoint = comparisonType === 'invoices' ? '/parallel-run/compare-invoices' : '/parallel-run/compare-statuses';
-      const body = comparisonType === 'invoices' ? { content, billing_period: billingPeriod } : { content };
+      const endpointMap: Record<string, string> = {
+        invoices: '/parallel-run/compare-invoices',
+        statuses: '/parallel-run/compare-statuses',
+        billing: '/parallel-run/compare-billing',
+        mileage: '/parallel-run/compare-mileage',
+        allocations: '/parallel-run/compare-allocations',
+      };
+      const endpoint = endpointMap[comparisonType];
+      const bodyMap: Record<string, object> = {
+        invoices: { content, billing_period: billingPeriod },
+        statuses: { content },
+        billing: { content, billing_period: billingPeriod },
+        mileage: { content, reporting_period: billingPeriod },
+        allocations: { content, target_month: billingPeriod },
+      };
+      const body = bodyMap[comparisonType];
       await fetchWithAuth(endpoint, { method: 'POST', body: JSON.stringify(body) });
       const [resResults, resHealth, resDaily] = await Promise.all([
         fetchWithAuth('/parallel-run/results'),
@@ -113,10 +129,20 @@ export default function ParallelRunPage() {
   const TrendIcon = healthScore?.trend_direction === 'improving' ? TrendingUp : healthScore?.trend_direction === 'declining' ? TrendingDown : Minus;
   const trendColor = healthScore?.trend_direction === 'improving' ? 'text-green-600' : healthScore?.trend_direction === 'declining' ? 'text-red-600' : 'text-gray-500';
 
+  async function loadChecklist() {
+    setChecklistLoading(true);
+    try {
+      const res = await fetchWithAuth('/parallel-run/go-live-checklist');
+      setGoLiveChecklist(res.data || null);
+    } catch { /* silent */ }
+    finally { setChecklistLoading(false); }
+  }
+
   const tabs = [
     { key: 'dashboard', label: 'Health Dashboard' },
     { key: 'compare', label: 'New Comparison' },
     { key: 'history', label: 'Run History' },
+    { key: 'checklist', label: 'Go-Live Checklist' },
   ] as const;
 
   return (
@@ -269,15 +295,20 @@ export default function ParallelRunPage() {
               <div className="flex items-end gap-4 flex-wrap">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Type</label>
-                  <select value={comparisonType} onChange={e => setComparisonType(e.target.value as 'invoices' | 'statuses')}
+                  <select value={comparisonType} onChange={e => setComparisonType(e.target.value as typeof comparisonType)}
                     className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800">
                     <option value="invoices">Invoice Comparison</option>
                     <option value="statuses">Car Status Comparison</option>
+                    <option value="billing">Billing Totals</option>
+                    <option value="mileage">Mileage Records</option>
+                    <option value="allocations">Allocations</option>
                   </select>
                 </div>
-                {comparisonType === 'invoices' && (
+                {comparisonType !== 'statuses' && (
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Billing Period</label>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      {comparisonType === 'mileage' ? 'Reporting Period' : comparisonType === 'allocations' ? 'Target Month' : 'Billing Period'}
+                    </label>
                     <input type="month" value={billingPeriod} onChange={e => setBillingPeriod(e.target.value)}
                       className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800" />
                   </div>
@@ -292,8 +323,9 @@ export default function ParallelRunPage() {
                 </button>
               </div>
               <p className="mt-3 text-xs text-gray-400">
-                Upload a CIPROTS export CSV file. For invoices, columns should include: invoice_number, customer_code, total_amount, line_count.
-                For car statuses: car_number, status.
+                Upload a CIPROTS export CSV. Columns: Invoices (invoice_number, customer_code, total_amount, line_count),
+                Car Status (car_number, status), Billing (customer_code, total_billed, car_count),
+                Mileage (car_number, total_miles, railroad), Allocations (car_number, shop_code, estimated_cost, actual_cost).
               </p>
             </div>
           )}
@@ -362,6 +394,65 @@ export default function ParallelRunPage() {
                 </tbody>
               </table>
               {results.length === 0 && <p className="text-sm text-gray-400 text-center py-8">No comparison runs yet</p>}
+            </div>
+          )}
+
+          {/* ============ CHECKLIST TAB ============ */}
+          {tab === 'checklist' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Go-Live Readiness Checklist</h3>
+                <button
+                  onClick={loadChecklist}
+                  disabled={checklistLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {checklistLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {checklistLoading ? 'Checking...' : 'Run Checklist'}
+                </button>
+              </div>
+              {goLiveChecklist && (
+                <>
+                  <div className={`rounded-lg border-2 p-4 text-center ${goLiveChecklist.overall ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-red-300 bg-red-50 dark:bg-red-900/20'}`}>
+                    <div className={`text-lg font-bold ${goLiveChecklist.overall ? 'text-green-600' : 'text-red-600'}`}>
+                      {goLiveChecklist.overall ? 'READY FOR GO-LIVE' : 'NOT READY — Criteria Not Met'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {goLiveChecklist.checks.filter(c => c.passed).length} / {goLiveChecklist.checks.length} checks passed
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                          <th className="w-8 px-4 py-2" />
+                          <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Check</th>
+                          <th className="text-right px-4 py-2 text-xs font-medium text-gray-500">Current</th>
+                          <th className="text-right px-4 py-2 text-xs font-medium text-gray-500">Target</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {goLiveChecklist.checks.map(c => (
+                          <tr key={c.check} className={c.passed ? '' : 'bg-red-50/50 dark:bg-red-900/10'}>
+                            <td className="px-4 py-2 text-center">
+                              {c.passed
+                                ? <span className="text-green-500 text-lg">&#10003;</span>
+                                : <span className="text-red-500 text-lg">&#10007;</span>
+                              }
+                            </td>
+                            <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{c.label}</td>
+                            <td className={`text-right px-4 py-2 font-medium ${c.passed ? 'text-green-600' : 'text-red-600'}`}>{c.value}</td>
+                            <td className="text-right px-4 py-2 text-gray-500">{c.target}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+              {!goLiveChecklist && !checklistLoading && (
+                <p className="text-sm text-gray-400 text-center py-8">Click &quot;Run Checklist&quot; to evaluate go-live readiness</p>
+              )}
             </div>
           )}
         </>

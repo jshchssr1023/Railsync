@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 6
+iteration: 7
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -44,4 +44,13 @@ Iteration 6: Sprint C — SAP integration v1 + Salesforce sync v1.
   - .env.example: SAP_* + SALESFORCE_* env vars documented
   - Seeded field mappings: 15 AP_INVOICE, 12 AR_INVOICE, 8 SPV_COST, 12 Account, 6 Contact, 6 Opportunity
   - Sprint 14: 13% → ~55% (architecture + API clients + field mappings + document tracking)
+  - Backend tsc + frontend next build: clean
+Iteration 7: Sprint D — Data migration pipeline + parallel run enhancement.
+  - Migration pipeline: 4 new importers (customers, invoices, allocations, mileage), runOrchestration (dependency-ordered full load), rollbackRun (delete imported records + mark rolled_back), validateOnly (dry-run mode)
+  - Parallel run: 3 new comparators (billing totals, mileage, allocations), getGoLiveChecklist (8-check readiness assessment with pass/fail/warning scoring)
+  - 11 new API endpoints: 7 migration (import/customers, import/invoices, import/allocations, import/mileage, orchestrate, validate, runs/:id/rollback), 4 parallel-run (compare-billing, compare-mileage, compare-allocations, go-live-checklist)
+  - Frontend migration page: extended from 4 to 8 entity upload cards, dry-run toggle, rollback button per completed run
+  - Frontend parallel-run page: extended from 2 to 5 comparison types, new Go-Live Checklist tab (overall status banner, per-check table with pass/fail/warning indicators, current vs target values)
+  - Sprint 17: 7% → ~55% (8 entity importers, orchestration, rollback, validation)
+  - Sprint 18: 10% → ~45% (5 comparators, health scoring, go-live checklist)
   - Backend tsc + frontend next build: clean
