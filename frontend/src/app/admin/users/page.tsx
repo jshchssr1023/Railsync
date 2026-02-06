@@ -56,7 +56,7 @@ export default function UserManagementPage() {
     customer_id: '',
   });
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${API_URL}${endpoint}`, {

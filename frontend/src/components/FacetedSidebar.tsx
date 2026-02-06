@@ -42,7 +42,7 @@ export default function FacetedSidebar({ onFilterChange, initialFilters }: Facet
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['statuses', 'shopCodes']));
   const [loading, setLoading] = useState(true);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   // Fetch filter options
   useEffect(() => {

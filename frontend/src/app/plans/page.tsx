@@ -80,7 +80,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const getToken = () => localStorage.getItem('auth_token');
+const getToken = () => localStorage.getItem('railsync_access_token');
 
 const formatCurrency = (val?: number) => {
   if (!val && val !== 0) return '-';

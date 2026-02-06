@@ -103,7 +103,7 @@ function InvoicesContent() {
   // Debounce search term
   const debouncedSearch = useDebounce(searchTerm, 300);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);

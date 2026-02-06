@@ -46,7 +46,7 @@ export default function AuditLogPage() {
   const [total, setTotal] = useState(0);
   const pageSize = 50;
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchLogs = async () => {
     setLoading(true);

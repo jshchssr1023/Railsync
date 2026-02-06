@@ -46,7 +46,7 @@ export default function ShopDesignationsPage() {
   const [updating, setUpdating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchShops = async () => {
     try {

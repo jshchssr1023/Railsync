@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchPreferences = async () => {
     try {
@@ -285,7 +285,7 @@ function EmailQueueStatus() {
   const [status, setStatus] = useState<{ pending: number; sent_today: number; failed_today: number } | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchStatus = async () => {
     try {

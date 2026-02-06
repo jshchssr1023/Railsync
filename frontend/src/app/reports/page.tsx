@@ -45,7 +45,7 @@ export default function ReportsPage() {
   const [qualByCsr, setQualByCsr] = useState<{ csr_name: string; total_cars: number; overdue: number; due_next_year: number; current: number }[]>([]);
   const [qualByLessee, setQualByLessee] = useState<{ lessee_name: string; total_cars: number; overdue: number; due_next_year: number }[]>([]);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   useEffect(() => {
     if (!isAuthenticated) return;

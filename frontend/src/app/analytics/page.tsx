@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
   const [demandByRegion, setDemandByRegion] = useState<DemandByRegion[]>([]);
   const [demandByCustomer, setDemandByCustomer] = useState<any[]>([]);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   const fetchWithAuth = async (endpoint: string) => {
     const response = await fetch(`${API_URL}${endpoint}`, {

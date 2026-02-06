@@ -105,7 +105,7 @@ export default function ContractsHealthDashboard() {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const getToken = () => localStorage.getItem('auth_token');
+  const getToken = () => localStorage.getItem('railsync_access_token');
 
   useEffect(() => {
     const headers = { Authorization: `Bearer ${getToken()}` };
