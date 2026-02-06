@@ -4579,6 +4579,185 @@ router.post('/integrations/salesforce/pull-customers', authenticate, authorize('
 router.post('/integrations/salesforce/pull-contacts', authenticate, authorize('admin'), integrationController.sfPullContacts);
 router.post('/integrations/salesforce/full-sync', authenticate, authorize('admin'), integrationController.sfFullSync);
 router.get('/integrations/salesforce/check', authenticate, authorize('admin'), integrationController.checkSFConnection);
+router.post('/integrations/salesforce/pull-deals', authenticate, authorize('admin'), integrationController.sfPullDealStages);
+router.post('/integrations/salesforce/push-billing-status', authenticate, authorize('admin'), integrationController.sfPushBillingStatus);
+router.get('/integrations/salesforce/sync-map', authenticate, authorize('admin'), integrationController.getSFSyncMap);
+
+// SAP field mappings & payload validation
+router.get('/integrations/sap/field-mappings', authenticate, authorize('admin'), integrationController.getSAPFieldMappings);
+router.post('/integrations/sap/validate-payload', authenticate, authorize('admin'), integrationController.validateSAPPayload);
+
+// Retry Queue + Circuit Breaker
+router.post('/integrations/retry-queue/process', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { processRetryQueue } = await import('../services/retry-queue.service');
+    const result = await processRetryQueue();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to process retry queue' });
+  }
+});
+router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getRetryQueueStats } = await import('../services/retry-queue.service');
+    const result = await getRetryQueueStats();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get retry stats' });
+  }
+});
+router.get('/integrations/dead-letters', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDeadLetterEntries } = await import('../services/retry-queue.service');
+    const limit = parseInt(req.query.limit as string) || 50;
+    const result = await getDeadLetterEntries(limit);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get dead letters' });
+  }
+});
+// CIPROTS Migration Pipeline
+router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importCars } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importCars(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importContracts } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importContracts(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importShoppingEvents } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importShoppingEvents(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importQualifications } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importQualifications(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationRuns } = await import('../services/migration-pipeline.service');
+    const limit = parseInt(req.query.limit as string) || 50;
+    const data = await getMigrationRuns(limit);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationRun } = await import('../services/migration-pipeline.service');
+    const data = await getMigrationRun(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs/:id/errors', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationErrors } = await import('../services/migration-pipeline.service');
+    const data = await getMigrationErrors(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/reconciliation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReconciliationSummary } = await import('../services/migration-pipeline.service');
+    const data = await getReconciliationSummary();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Parallel Run Comparison
+router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareInvoices } = await import('../services/parallel-run.service');
+    const { content, billing_period } = req.body;
+    if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
+    const result = await compareInvoices(content, billing_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareCarStatuses } = await import('../services/parallel-run.service');
+    const { content } = req.body;
+    if (!content) { res.status(400).json({ success: false, error: 'content required' }); return; }
+    const result = await compareCarStatuses(content);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/results', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getParallelRunResults } = await import('../services/parallel-run.service');
+    const data = await getParallelRunResults();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDiscrepancies } = await import('../services/parallel-run.service');
+    const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
+    const data = await getDiscrepancies(req.params.id, resolved);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resolveDiscrepancy } = await import('../services/parallel-run.service');
+    const userId = (req as any).user?.id;
+    const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
+    res.json({ success: true, data: { resolved: result } });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Parallel run — daily report and health score
+router.get('/parallel-run/daily-report', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { getDailyReport } = await import('../services/parallel-run.service');
+    const days = parseInt(req.query.days as string) || 30;
+    const data = await getDailyReport(days);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/parallel-run/health-score', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { getHealthScore } = await import('../services/parallel-run.service');
+    const data = await getHealthScore();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Go-live readiness check
+router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getGoLiveReadiness } = await import('../services/go-live-check.service');
+    const data = await getGoLiveReadiness();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resetDeadLetter } = await import('../services/retry-queue.service');
+    const result = await resetDeadLetter(req.params.id);
+    res.json({ success: true, data: { reset: result } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to reset dead letter' });
+  }
+});
 
 /**
  * @route   GET /api/health

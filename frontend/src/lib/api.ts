@@ -2734,3 +2734,42 @@ export async function checkSFConnection() {
   const response = await fetchApi('/integrations/salesforce/check');
   return response.data;
 }
+
+export async function sfPullDealStages() {
+  const response = await fetchApi('/integrations/salesforce/pull-deals', { method: 'POST' });
+  return response.data;
+}
+
+export async function sfPushBillingStatus(customerId: string, billingData: {
+  total_billed: number;
+  outstanding_balance: number;
+  last_invoice_date: string;
+  active_car_count: number;
+}) {
+  const response = await fetchApi('/integrations/salesforce/push-billing-status', {
+    method: 'POST',
+    body: JSON.stringify({ customerId, billingData }),
+  });
+  return response.data;
+}
+
+export async function getSFSyncMap(entityType?: string, limit?: number) {
+  const params = new URLSearchParams();
+  if (entityType) params.set('entity_type', entityType);
+  if (limit) params.set('limit', String(limit));
+  const response = await fetchApi(`/integrations/salesforce/sync-map?${params}`);
+  return response;
+}
+
+export async function getSAPFieldMappings(documentType: string) {
+  const response = await fetchApi(`/integrations/sap/field-mappings?document_type=${encodeURIComponent(documentType)}`);
+  return response.data;
+}
+
+export async function validateSAPPayload(documentType: string, sourceData: Record<string, unknown>) {
+  const response = await fetchApi('/integrations/sap/validate-payload', {
+    method: 'POST',
+    body: JSON.stringify({ documentType, sourceData }),
+  });
+  return response.data;
+}
