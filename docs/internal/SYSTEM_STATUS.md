@@ -20,7 +20,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | Frontend Components | 70+ |
 | Loading Skeletons | 23 |
 | Backend API Endpoints | 410+ |
-| Database Migrations | 46 files (through 046) |
+| Database Migrations | 47 files (through 047) |
 | Database Views | 25+ |
 
 ---
@@ -154,7 +154,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 
 ---
 
-## Database (46 Migrations, through 046)
+## Database (47 Migrations, through 047)
 
 ### Migration Highlights
 | Range | Focus Area |
@@ -175,6 +175,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | 043 | Shopping requests with comprehensive intake form |
 | 044 | UMLER engineering attributes (130+ columns) |
 | 045-046 | Budget scenarios, capacity trigger fix |
+| 047 | Comprehensive 3-year historical demo data (1,508 cars, budgets, invoices, assignments) |
 
 ### Key Database Views
 ```

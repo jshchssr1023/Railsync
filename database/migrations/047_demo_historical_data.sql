@@ -123,6 +123,27 @@ UPDATE cars SET lessee_code = 'ADM', lessee_name = 'Archer Daniels Midland', own
   lining_type = COALESCE(lining_type, 'Epoxy'), commodity = COALESCE(commodity, 'Ethanol')
 WHERE car_number LIKE 'TAEX%';
 
+-- Catch-all: remaining SHQX cars with numeric lessee codes
+UPDATE cars SET lessee_code = 'DOW', lessee_name = 'Dow Chemical', owner_code = 'SHQX',
+  product_code = COALESCE(product_code, 'Tank'), material_type = COALESCE(material_type, 'Carbon Steel'),
+  lining_type = COALESCE(lining_type, 'Rubber'), commodity = COALESCE(commodity, 'Chemical - Organic')
+WHERE car_number LIKE 'SHQX%' AND lessee_code SIMILAR TO '[0-9]+';
+
+-- ACFX cars
+UPDATE cars SET lessee_code = 'BASF', lessee_name = 'BASF Corporation', owner_code = 'ACFX',
+  product_code = COALESCE(product_code, 'Tank'), material_type = COALESCE(material_type, 'Carbon Steel'),
+  lining_type = COALESCE(lining_type, 'High Bake'), commodity = COALESCE(commodity, 'Chemical - Organic')
+WHERE car_number LIKE 'ACFX%' AND lessee_code SIMILAR TO '[0-9]+';
+
+-- Remaining small marks
+UPDATE cars SET lessee_code = 'DOW', lessee_name = 'Dow Chemical', owner_code = LEFT(car_number, 4)
+WHERE car_number SIMILAR TO '(CEFX|CLIX|STPX|TILX)%' AND lessee_code SIMILAR TO '[0-9]+';
+
+-- Any remaining with numeric codes
+UPDATE cars SET lessee_code = 'ADM', lessee_name = 'Archer Daniels Midland', owner_code = LEFT(car_number, 4),
+  product_code = COALESCE(product_code, 'Tank'), material_type = COALESCE(material_type, 'Carbon Steel')
+WHERE lessee_code SIMILAR TO '[0-9]+';
+
 -- Set qualification/inspection years
 UPDATE cars SET
   tank_qual_year = 2021 + (HASHTEXT(car_number) % 4),
@@ -445,8 +466,8 @@ VALUES
   ('FY2026 Master Plan', 'Annual plan for FY2026', 2026, '2026-01', 'active', 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', '2025-11-01');
 
 -- Master plan versions
-INSERT INTO master_plan_versions (plan_id, version_number, label, notes, allocation_count, total_estimated_cost, created_by, created_at)
-SELECT mp.id, v.vn, v.lbl, v.nts, v.ac, v.tec, v.cb::uuid, v.ca::timestamp
+INSERT INTO master_plan_versions (plan_id, version_number, label, notes, snapshot_data, allocation_count, total_estimated_cost, created_by, created_at)
+SELECT mp.id, v.vn, v.lbl, v.nts, '{}'::jsonb, v.ac, v.tec, v.cb::uuid, v.ca::timestamp
 FROM master_plans mp
 JOIN (VALUES
   ('FY2023 Master Plan', 1, 'Initial Draft', 'First draft', 24, 132000.00, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', '2022-12-15'),
