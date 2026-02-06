@@ -18,6 +18,7 @@ interface ProjectPlanViewProps {
   onRelock: (assignment: ProjectAssignment) => void;
   onCancel: (assignment: ProjectAssignment) => void;
   onPlanCars: () => void;
+  onCreateDemand?: () => void;
   isActive: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function ProjectPlanView({
   onRelock,
   onCancel,
   onPlanCars,
+  onCreateDemand,
   isActive,
 }: ProjectPlanViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -124,6 +126,14 @@ export default function ProjectPlanView({
             className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
           >
             Plan Cars
+          </button>
+        )}
+        {isActive && onCreateDemand && plan && plan.unplanned_cars > 0 && (
+          <button
+            onClick={onCreateDemand}
+            className="px-3 py-1.5 border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 rounded text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30"
+          >
+            Create Demand ({plan.unplanned_cars} cars)
           </button>
         )}
         {selectedIds.size > 0 && (

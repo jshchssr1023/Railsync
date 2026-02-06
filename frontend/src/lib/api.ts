@@ -286,6 +286,20 @@ export async function createDemand(
   return response.data;
 }
 
+export async function createDemandFromProject(
+  projectId: string,
+  demand: Omit<Demand, 'id' | 'created_at' | 'updated_at' | 'project_id' | 'status'>
+): Promise<Demand> {
+  const response = await fetchApi<Demand>(`/projects/${projectId}/create-demand`, {
+    method: 'POST',
+    body: JSON.stringify(demand),
+  });
+  if (!response.data) {
+    throw new Error('Failed to create demand from project');
+  }
+  return response.data;
+}
+
 export async function updateDemand(
   id: string,
   updates: Partial<Demand>

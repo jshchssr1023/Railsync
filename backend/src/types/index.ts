@@ -503,6 +503,7 @@ export interface Demand {
   required_region?: string;
   max_cost_per_car?: number;
   excluded_shops?: string[];
+  project_id?: string;
   status: DemandStatus;
   created_by?: string;
   created_at: Date;

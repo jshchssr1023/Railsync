@@ -8,6 +8,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import ProjectPlanView from '@/components/ProjectPlanView';
 import LockConfirmationModal from '@/components/LockConfirmationModal';
 import RelockDialog from '@/components/RelockDialog';
+import CreateDemandDialog, { type CreateDemandFormData } from '@/components/CreateDemandDialog';
 import CommunicationLog from '@/components/CommunicationLog';
 import PlanHistoryTimeline from '@/components/PlanHistoryTimeline';
 import type {
@@ -151,6 +152,10 @@ function ProjectsContent() {
     estimated_cost: '',
   });
   const [shops, setShops] = useState<{ shop_code: string; shop_name: string }[]>([]);
+
+  // Create Demand dialog state
+  const [showCreateDemandDialog, setShowCreateDemandDialog] = useState(false);
+  const [createDemandLoading, setCreateDemandLoading] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -564,6 +569,29 @@ function ProjectsContent() {
       console.error('Failed to cancel:', err);
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  // Create Demand handler
+  const handleCreateDemand = async (formData: CreateDemandFormData) => {
+    if (!selectedProject) return;
+    setCreateDemandLoading(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/projects/${selectedProject.id}/create-demand`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (data.success || data.data) {
+        setShowCreateDemandDialog(false);
+        fetchPlanSummary(selectedProject.id);
+      }
+    } catch (err) {
+      console.error('Failed to create demand:', err);
+    } finally {
+      setCreateDemandLoading(false);
     }
   };
 
@@ -996,6 +1024,7 @@ function ProjectsContent() {
                     onRelock={(a) => { setRelockTarget(a); setRelockDialogOpen(true); }}
                     onCancel={(a) => { setCancelTarget(a); setCancelDialogOpen(true); }}
                     onPlanCars={() => { fetchShops(); setShowPlanCarsModal(true); }}
+                    onCreateDemand={() => setShowCreateDemandDialog(true)}
                     isActive={['active', 'in_progress'].includes(selectedProject.status)}
                   />
                 )}
@@ -1188,6 +1217,23 @@ function ProjectsContent() {
           assignment={relockTarget}
           loading={relockLoading}
           getAccessToken={getAccessToken}
+        />
+
+        {/* Create Demand Dialog */}
+        <CreateDemandDialog
+          open={showCreateDemandDialog}
+          onConfirm={handleCreateDemand}
+          onCancel={() => setShowCreateDemandDialog(false)}
+          project={selectedProject ? {
+            project_number: selectedProject.project_number,
+            project_name: selectedProject.project_name,
+            project_type: selectedProject.project_type,
+            lessee_code: selectedProject.lessee_code,
+            lessee_name: selectedProject.lessee_name,
+            total_cars: parseInt(selectedProject.total_cars, 10) || 0,
+            unplanned_cars: planSummary?.unplanned_cars ?? (parseInt(selectedProject.pending_cars, 10) || 0),
+          } : null}
+          loading={createDemandLoading}
         />
 
         {/* Cancel Plan Dialog */}
