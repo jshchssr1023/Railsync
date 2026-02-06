@@ -3,12 +3,14 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-06 by Claude Opus 4.6
+> **Last Updated:** 2026-02-06 (v2) by Claude Opus 4.6
 
 ### Completed ✅
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
+| **Maintenance Forecast + Budget Scenarios** | Two-tab planning page (Monthly Load / Maintenance Forecast), pipeline summary cards (In Shop/Enroute/Completed with branched breakdown), budget scenario modeling with 4 slider-based multipliers (Assignment/Qualification/Commodity Conversion/Bad Orders), Running Repairs always static, client-side instant preview + server-confirmed impact calculation, system presets (Balanced/AITX First/Cost Optimized/Speed Optimized) + custom scenarios with CRUD | `045_budget_scenarios.sql`, `budgetScenario.service.ts`, `budgetScenario.controller.ts`, `PipelineSummaryCards.tsx`, `BudgetScenarioPanel.tsx`, `planning/page.tsx` | `7f4f744` |
+| **CCM Route Fix** | Fixed Express route ordering bug where generic `/ccm-instructions/:id` wildcard intercepted `/by-scope` and `/parent` routes, preventing CCM draft creation from hierarchy tree. Also fixed migration 031 `u.display_name` → `first_name \|\| last_name` | `routes/index.ts`, `031_invoice_processing_workflow.sql` | `f24ae6b` |
 | **Auth Token Key Fix** | Fixed 11 frontend files reading wrong localStorage key (`auth_token` → `railsync_access_token`), resolving 401 errors on Plans, Analytics, Invoices, Reports, Audit, Settings, Admin pages | 10 page/component files | `8a69569` |
 | **Capacity Trigger Fix** | Fixed `update_monthly_capacity_on_allocation()` trigger crashing on NULL shop_code when adding unassigned allocations to master plans | `046_fix_capacity_trigger_null_shop.sql` | pending |
 | **UMLER Engineering Attributes** | 1:1 `car_umler_attributes` table with ~130 typed columns (20 categories), version tracking trigger, CSV import service with header mapping, lazy-loaded UMLER Specifications section in car detail drawer | `044_car_umler_attributes.sql`, `carUmler.service.ts`, `UmlerSpecSection.tsx` | `cd0de76` |
@@ -166,6 +168,15 @@ GET  /api/events/capacity              - SSE endpoint
 GET  /api/budget/summary
 GET  /api/budget/running-repairs
 GET  /api/budget/service-events
+
+# Budget Scenarios
+GET    /api/budget-scenarios                   - List all budget scenarios (system + custom)
+GET    /api/budget-scenarios/:id               - Get single scenario
+POST   /api/budget-scenarios                   - Create custom scenario
+PUT    /api/budget-scenarios/:id               - Update custom scenario (rename + sliders)
+DELETE /api/budget-scenarios/:id               - Delete custom scenario (custom only)
+GET    /api/budget-scenarios/:id/impact        - Calculate scenario impact (fiscal_year param)
+GET    /api/forecast/pipeline                  - Pipeline metrics (in_shop/enroute/completed)
 
 # Master Plans
 GET  /api/master-plans              - List master plans
@@ -331,7 +342,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | 037-042 | **SSOT**: cars.id UUID, car_id FK renames, asset_events, car_identifiers, denormalized FKs, data health |
 | 043 | Shopping requests (comprehensive intake form, attachments, approval workflow) |
 | 044 | **UMLER**: car_umler_attributes (130 typed columns, version trigger, CSV import) |
-| 045 | Budget scenarios |
+| 045 | **Budget scenarios**: 4 slider columns (assignment/qualification/commodity_conversion/bad_orders), system presets + custom, impact calculation |
 | 046 | Fix capacity trigger for NULL shop_code on unassigned allocations |
 
 ---
@@ -342,7 +353,7 @@ All features are complete.
 
 **Access Points:**
 - http://localhost:3000/dashboard - Configurable widget dashboard
-- http://localhost:3000/planning - Quick Shop, Monthly Load, Network View
+- http://localhost:3000/planning - Monthly Load, Maintenance Forecast (pipeline + budget scenario modeling)
 - http://localhost:3000/contracts - Contracts hierarchy with health dashboard
 - http://localhost:3000/shops - Shop finder with filters
 - http://localhost:3000/cars - Car browse with type hierarchy, detail drawer, and UMLER specifications
