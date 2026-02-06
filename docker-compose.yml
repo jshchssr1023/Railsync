@@ -65,6 +65,10 @@ services:
       - ./database/migrations/041_denormalized_car_id_fks.sql:/docker-entrypoint-initdb.d/48-denormalized-car-id-fks.sql
       - ./database/migrations/042_data_health_gates.sql:/docker-entrypoint-initdb.d/49-data-health-gates.sql
       - ./database/migrations/043_shopping_requests.sql:/docker-entrypoint-initdb.d/50-shopping-requests.sql
+      - ./database/migrations/044_car_umler_attributes.sql:/docker-entrypoint-initdb.d/51-car-umler-attributes.sql
+      - ./database/migrations/045_budget_scenarios.sql:/docker-entrypoint-initdb.d/52-budget-scenarios.sql
+      - ./database/migrations/046_fix_capacity_trigger_null_shop.sql:/docker-entrypoint-initdb.d/53-fix-capacity-trigger.sql
+      - ./database/migrations/047_demo_historical_data.sql:/docker-entrypoint-initdb.d/54-demo-historical-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

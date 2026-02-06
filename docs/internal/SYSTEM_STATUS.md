@@ -1,6 +1,6 @@
 # Railsync System Status Report
 
-**Generated:** February 5, 2026
+**Generated:** February 6, 2026
 **Build Status:** SUCCESS - Production Ready
 **Last Verified:** All systems operational
 
@@ -16,12 +16,12 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 
 | Metric | Count |
 |--------|-------|
-| Frontend Pages | 28 routes |
-| Frontend Components | 60+ |
-| Loading Skeletons | 22 |
-| Backend API Endpoints | 396 |
-| Database Migrations | 39 files (through 034) |
-| Database Views | 20+ |
+| Frontend Pages | 30 routes |
+| Frontend Components | 70+ |
+| Loading Skeletons | 23 |
+| Backend API Endpoints | 410+ |
+| Database Migrations | 46 files (through 046) |
+| Database Views | 25+ |
 
 ---
 
@@ -33,7 +33,8 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | Backend Server | RUNNING | Port 3001, Express.js |
 | Frontend Server | RUNNING | Port 3000, Next.js 14 (App Router) |
 | PostgreSQL Database | RUNNING | Port 5432, `railsync` database |
-| Docker Containers | HEALTHY | All 3 containers up |
+| Nginx Reverse Proxy | RUNNING | TLS termination, ports 80/443 |
+| Docker Containers | HEALTHY | All 4 containers up |
 
 ---
 
@@ -58,7 +59,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 ```
 
 ### Key Architectural Patterns
-- **SSOT**: `car_assignments` table is authoritative for all car-to-shop assignments
+- **SSOT**: `cars.id UUID` is the immutable surrogate key; `car_assignments` table is authoritative for all car-to-shop assignments
 - **State Machines**: Invoice cases use a 17-state deterministic workflow with validation engine
 - **Audit Trail**: All meaningful changes are logged with actor, timestamp, and context
 - **Dark Mode**: Full dark mode support across all components
@@ -79,6 +80,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | Cars | `/cars` | Car master list with URL param filters |
 | Shops | `/shops` | Shop finder with proximity + capability filters |
 | Shopping | `/shopping` | Shopping events with estimate workflow |
+| Shopping Request | `/shopping/new` | Comprehensive 11-section shopping request form |
 | Shopping Detail | `/shopping/[id]` | Event detail with estimates and approvals |
 | Assignments | `/assignments` | Car-to-shop assignment management |
 | Assignment Detail | `/assignments/[id]` | Assignment detail with service options |
@@ -95,6 +97,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | Audit | `/audit` | System-wide audit log viewer |
 | Admin | `/admin` | System administration overview |
 | Admin Users | `/admin/users` | User management with roles and groups |
+| Shop Designations | `/admin/shop-designations` | Repair/Storage/Scrap designation management |
 | Rules | `/rules` | Shop evaluation rule configuration |
 | Settings | `/settings` | User notification preferences |
 | Login | `/login` | JWT authentication |
@@ -139,6 +142,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | Scope Library | 9 | Templates, items, job codes |
 | Scope of Work | 10 | Items, codes, populate, finalize |
 | Shopping Events | 5 | Create, batch, state transitions, estimates |
+| Shopping Requests | 10 | Create, list, get, update, approve/reject/cancel, attachments |
 | Shopping Packets | 11 | Create, issue, acknowledge, documents |
 | Estimates & Approval | 8 | Decisions, status, approval packets |
 | User Management | 17 | Users, groups, permissions, customer assignment |
@@ -150,7 +154,7 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 
 ---
 
-## Database (39 Migrations, through 034)
+## Database (46 Migrations, through 046)
 
 ### Migration Highlights
 | Range | Focus Area |
@@ -166,7 +170,11 @@ Railsync is a full-featured railroad car maintenance management system. All plan
 | 025-028 | Seed data, user management, shopping workflow, CCM forms |
 | 029-030 | Shop tiers/storage/scrap, CCM hierarchy instructions |
 | 031-032 | Invoice processing workflow, view fixes |
-| 033-034 | Project-planning integration, car project history |
+| 033-036 | Project-planning integration, car project history, master plan allocations |
+| 037-042 | SSOT: cars.id UUID, FK renames, asset events, car identifiers, data health |
+| 043 | Shopping requests with comprehensive intake form |
+| 044 | UMLER engineering attributes (130+ columns) |
+| 045-046 | Budget scenarios, capacity trigger fix |
 
 ### Key Database Views
 ```
@@ -180,6 +188,7 @@ v_invoice_summary           v_invoice_line_comparison
 v_invoices_pending_review   v_invoice_approval_queue
 v_user_permissions          v_user_summary
 v_user_groups_summary       v_car_project_history
+v_shopping_requests         v_data_health
 ```
 
 ---
@@ -231,6 +240,13 @@ v_user_groups_summary       v_car_project_history
 - Analytics dashboard (capacity, cost, operations, demand)
 - Reports with KPI cards and qualification trends
 
+### Phase 17: Shopping Requests & Auth Fix
+- Comprehensive 11-section shopping request form (customer info, car info, car status, lining, mobile repair, reason, disposition, attachments, movement, comments)
+- Shopping request API with approval workflow (creates shopping event on approve)
+- File attachment upload with document type classification
+- Auth token key fix across 11 frontend files (was reading wrong localStorage key)
+- Capacity trigger fix for NULL shop_code on unassigned allocations
+
 ### Phase 16: UI/UX Polish
 - Dark mode retrofit across all components
 - Accessibility (ARIA roles, keyboard navigation, screen readers)
@@ -257,6 +273,7 @@ v_user_groups_summary       v_car_project_history
 - `/analytics` - BI analytics dashboard
 - `/ccm` - Car Condition Monitoring
 - `/projects` - Project management
+- `/shopping/new` - Shopping request form
 - Cmd+K anywhere - Global search
 
 **Deployment:**

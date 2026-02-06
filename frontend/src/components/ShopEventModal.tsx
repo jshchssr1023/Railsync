@@ -81,7 +81,7 @@ export default function ShopEventModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('railsync_access_token');
       const res = await fetch(`${API_URL}/shopping-events`, {
         method: 'POST',
         headers: {

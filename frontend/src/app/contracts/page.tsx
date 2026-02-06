@@ -230,7 +230,7 @@ export default function ContractsPage() {
   };
 
   const handleResync = async (riderId: string) => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('railsync_access_token');
     const res = await fetch(`${API_URL}/riders/${riderId}/resync-schedule`, {
       method: 'POST',
       headers: {
@@ -247,7 +247,7 @@ export default function ContractsPage() {
   const handleShopCar = async (carNumber: string) => {
     setValidatingShop(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('railsync_access_token');
       const res = await fetch(`${API_URL}/cars/${encodeURIComponent(carNumber)}/validate-shopping`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

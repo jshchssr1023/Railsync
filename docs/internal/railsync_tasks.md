@@ -3,12 +3,14 @@
 
 ## Implementation Status
 
-> **Last Updated:** 2026-02-05 by Claude Opus 4.6
+> **Last Updated:** 2026-02-06 by Claude Opus 4.6
 
 ### Completed ✅
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
+| **Auth Token Key Fix** | Fixed 11 frontend files reading wrong localStorage key (`auth_token` → `railsync_access_token`), resolving 401 errors on Plans, Analytics, Invoices, Reports, Audit, Settings, Admin pages | 10 page/component files | `8a69569` |
+| **Capacity Trigger Fix** | Fixed `update_monthly_capacity_on_allocation()` trigger crashing on NULL shop_code when adding unassigned allocations to master plans | `046_fix_capacity_trigger_null_shop.sql` | pending |
 | **UMLER Engineering Attributes** | 1:1 `car_umler_attributes` table with ~130 typed columns (20 categories), version tracking trigger, CSV import service with header mapping, lazy-loaded UMLER Specifications section in car detail drawer | `044_car_umler_attributes.sql`, `carUmler.service.ts`, `UmlerSpecSection.tsx` | `cd0de76` |
 | **SSOT Asset Migration** | `cars.id UUID` immutable surrogate key, column renames (`car_id` → `car_mark_number` on allocations/car_assignments), UUID FKs, append-only `asset_events` ledger, `car_identifiers` multi-ID resolution, data health gates + `v_data_health` view | `037-042_*.sql`, `assetEvent.service.ts`, 12 backend/frontend files | `02afcf9` |
 | **Master Plan Builder** | Tabbed plan UI (Overview/Cars & Allocations/Versions), typeahead car search, plan-specific allocations via `plan_id` FK, inline allocation management | `036_master_plan_allocations.sql`, `masterPlan.service.ts`, `/plans` page | `02afcf9` |
@@ -208,11 +210,16 @@ PUT  /api/invoice-cases/:id             - Update case
 PUT  /api/invoice-cases/:id/status      - Transition case status
 
 # Shopping Requests
-GET  /api/shopping-requests             - List shopping requests
-POST /api/shopping-requests             - Create shopping request
-GET  /api/shopping-requests/:id         - Get request details
-PUT  /api/shopping-requests/:id         - Update request
-PUT  /api/shopping-requests/:id/status  - Update request status
+GET    /api/shopping-requests                       - List shopping requests
+POST   /api/shopping-requests                       - Create shopping request
+GET    /api/shopping-requests/:id                   - Get request details
+PUT    /api/shopping-requests/:id                   - Update request
+PUT    /api/shopping-requests/:id/approve           - Approve (creates shopping event)
+PUT    /api/shopping-requests/:id/reject            - Reject with notes
+PUT    /api/shopping-requests/:id/cancel            - Cancel request
+POST   /api/shopping-requests/:id/attachments       - Upload attachment
+GET    /api/shopping-requests/:id/attachments       - List attachments
+DELETE /api/shopping-requests/:id/attachments/:aId  - Delete attachment
 
 # Analytics & BI
 GET  /api/analytics/capacity/forecast     - Capacity forecast by shop/month
@@ -304,11 +311,12 @@ v_user_groups_summary      - Groups with member and permission counts
 
 # SSOT Data Health
 v_data_health              - Orphaned/unresolved car references (should always be 0)
+v_shopping_requests        - Shopping requests with shop name, user name, attachment count
 ```
 
 ---
 
-## Database Migrations (44 total)
+## Database Migrations (46 total)
 
 | Range | Area |
 |-------|------|
@@ -321,8 +329,10 @@ v_data_health              - Orphaned/unresolved car references (should always b
 | 029-032 | Shop tiers, CCM hierarchy instructions, invoice processing, fix invoice views |
 | 033-036 | Project planning integration, car project history, fix project numbers, master plan allocations |
 | 037-042 | **SSOT**: cars.id UUID, car_id FK renames, asset_events, car_identifiers, denormalized FKs, data health |
-| 043 | Shopping requests |
+| 043 | Shopping requests (comprehensive intake form, attachments, approval workflow) |
 | 044 | **UMLER**: car_umler_attributes (130 typed columns, version trigger, CSV import) |
+| 045 | Budget scenarios |
+| 046 | Fix capacity trigger for NULL shop_code on unassigned allocations |
 
 ---
 

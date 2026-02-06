@@ -36,7 +36,7 @@ export default function AlertBanner({ onShopCarNow }: AlertBannerProps) {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/alerts?limit=10`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/alerts?limit=10`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -66,7 +66,7 @@ export default function AlertBanner({ onShopCarNow }: AlertBannerProps) {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/alerts/${alertId}`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/alerts/${alertId}`,
         {
           method: 'DELETE',
           headers: {
@@ -89,7 +89,7 @@ export default function AlertBanner({ onShopCarNow }: AlertBannerProps) {
 
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/alerts/${alertId}/read`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/alerts/${alertId}/read`,
         {
           method: 'PUT',
           headers: {

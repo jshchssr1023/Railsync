@@ -1,8 +1,8 @@
 # RailSync - IT Technical Assessment
 
-**Document Version:** 1.3
+**Document Version:** 1.4
 **Assessment Date:** February 3, 2026
-**Last Updated:** February 5, 2026
+**Last Updated:** February 6, 2026
 **Assessor:** Automated Build Verification + Manual Code Review
 **System Version:** Main branch (latest)
 
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-RailSync is a railcar fleet management system with 93 database tables, 360+ API endpoints, 43 backend services, and 24 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, and a shopping event/estimate approval workflow. Recent additions include a contracts browse page with server-side pagination, a car type hierarchy tree, a side-drawer car detail view, and CCM (Customer Care Manual) hierarchy-level instructions with cascade inheritance.
+RailSync is a railcar fleet management system with 100+ database tables, 410+ API endpoints, 45+ backend services, and 30 frontend modules. It covers fleet tracking, shop management, car assignments, invoicing, bad orders, capacity planning, shopping requests, and a shopping event/estimate approval workflow. Recent additions include a comprehensive 11-section shopping request form, SSOT asset identity migration (cars.id UUID), UMLER engineering attributes, master plan builder with allocations, and auth token key fix across all frontend pages.
 
 **Overall Verdict: NOT production-ready.** The system is a functional prototype suitable for internal demonstration and iterative development. It is not yet suitable for deployment to a production environment where data integrity, security, and uptime are non-negotiable. Specific blockers are detailed below.
 
@@ -33,22 +33,22 @@ RailSync is a railcar fleet management system with 93 database tables, 360+ API 
 
 | Metric | Count |
 |--------|-------|
-| Database tables | 93 |
-| Migration files | 34 (030 numbered, some duplicate numbers) |
-| API endpoints | 360+ |
-| Backend services | 43 |
-| Backend controllers | 26 |
-| Frontend page modules | 24 |
+| Database tables | 100+ |
+| Migration files | 46 (some duplicate number prefixes, sequenced in docker-compose) |
+| API endpoints | 410+ |
+| Backend services | 45+ |
+| Backend controllers | 28 |
+| Frontend page modules | 30 |
 | Backend dependencies | 15 production, 21 dev |
 | Frontend dependencies | 8 production, 17 dev |
 
 ### Data Flow
 
 ```
-Browser -> Next.js (port 3000) -> Express API (port 3001) -> PostgreSQL (port 5432)
+Browser -> Nginx (port 80/443) -> Next.js (port 3000) -> Express API (port 3001) -> PostgreSQL (port 5432)
 ```
 
-All three services run as Docker containers on a single host. There is no reverse proxy, load balancer, or CDN in front of them.
+All four services run as Docker containers on a single host. Nginx provides TLS termination and reverse proxying. The API and database are only accessible via the internal Docker network.
 
 ---
 
@@ -56,26 +56,23 @@ All three services run as Docker containers on a single host. There is no revers
 
 ### CRITICAL ISSUES
 
-#### 2.1 Hardcoded JWT Secret Fallback
+#### 2.1 JWT Secret Management
 **File:** `backend/src/middleware/auth.ts:14`
-```
-const JWT_SECRET = process.env.JWT_SECRET || 'railsync-secret-change-in-production';
-```
-**Risk:** If the `JWT_SECRET` environment variable is not set (and it is NOT set in `docker-compose.yml`), every installation uses the same predictable secret. Anyone who reads the source code can forge valid JWT tokens for any user, including admin accounts.
 
-**Status:** The `docker-compose.yml` does NOT set `JWT_SECRET`. This means the hardcoded fallback is currently active in every deployment.
+**Status:** PARTIALLY RESOLVED. The auth middleware now exits with a fatal error if `JWT_SECRET` is not set (no more hardcoded fallback). The `docker-compose.yml` references `${JWT_SECRET}` from `.env` file. However, the `.env` file must be properly configured for each deployment.
 
-**Severity:** CRITICAL. This is the single most dangerous issue in the codebase.
+**Remaining Risk:** The `.env` file containing `JWT_SECRET` must not be committed to version control and must use a cryptographically random value.
 
-#### 2.2 Database Credentials in docker-compose.yml
-**File:** `docker-compose.yml:7-9`
-```yaml
-POSTGRES_USER: railsync
-POSTGRES_PASSWORD: railsync_password
-```
-**Risk:** Database credentials are committed to source control in plaintext. The `DATABASE_URL` with the same credentials is also hardcoded on line 66.
+**Severity:** MEDIUM (downgraded from CRITICAL - no longer has a hardcoded fallback).
 
-**Severity:** HIGH. These should be in a `.env` file excluded from version control, or managed via a secrets manager.
+#### 2.2 Database Credentials
+**File:** `docker-compose.yml`
+
+**Status:** PARTIALLY RESOLVED. Credentials are now referenced via environment variables (`${POSTGRES_USER}`, `${POSTGRES_PASSWORD}`) from `.env` file rather than hardcoded in docker-compose.yml. Database port is no longer exposed to host network.
+
+**Remaining Risk:** The `.env` file must be properly secured and not committed to version control.
+
+**Severity:** MEDIUM (downgraded from HIGH - no longer hardcoded in compose file).
 
 #### 2.3 No Rate Limiting
 There is no rate limiting middleware on any endpoint, including:
@@ -85,23 +82,15 @@ There is no rate limiting middleware on any endpoint, including:
 
 **Severity:** HIGH. A single client can hammer the login endpoint with unlimited password attempts.
 
-#### 2.4 All Ports Exposed to Host
-```yaml
-ports:
-  - "5432:5432"  # PostgreSQL directly accessible
-  - "3001:3001"  # Backend API directly accessible
-  - "3000:3000"  # Frontend directly accessible
-```
-**Risk:** PostgreSQL is exposed to the host network (and potentially beyond). In production, only the frontend should be exposed; the database and API should be on internal networks only.
+#### 2.4 Port Exposure
+**Status:** RESOLVED. PostgreSQL and backend API ports are no longer exposed to the host network. Only Nginx (ports 80/443) is exposed. The database and API are only accessible via the internal Docker network (`railsync-network`).
 
-**Severity:** HIGH for database exposure. Medium for API direct access.
+**Severity:** RESOLVED (downgraded from HIGH).
 
 ### MODERATE ISSUES
 
-#### 2.5 No HTTPS / TLS
-The system runs on plain HTTP. No TLS certificates are configured. All traffic, including JWT tokens and passwords, is transmitted in cleartext.
-
-**Mitigation path:** Deploy behind a reverse proxy (nginx/Traefik) with TLS termination.
+#### 2.5 HTTPS / TLS
+**Status:** RESOLVED. Nginx reverse proxy is configured with TLS termination (ports 80/443). TLS certificates are stored in `nginx/certs/` and mounted read-only into the container.
 
 #### 2.6 CORS Configuration
 CORS is configured via environment variable `FRONTEND_URL` (set to `http://localhost:3000`). This is correct for development. For production, this must be changed to the actual frontend domain with HTTPS.

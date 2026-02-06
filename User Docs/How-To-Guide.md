@@ -1,7 +1,7 @@
 # RailSync - How To Guide
 
-**Document Version:** 1.3
-**Last Updated:** February 5, 2026
+**Document Version:** 1.4
+**Last Updated:** February 6, 2026
 **Applicable System Version:** Main branch (latest)
 
 > This document is a living guide. It should be updated as new features are added or existing features are modified.
@@ -17,19 +17,20 @@
 5. [Contracts Management](#5-contracts-management)
 6. [Shop Management](#6-shop-management)
 7. [Car Assignments](#7-car-assignments)
-8. [Shopping Events](#8-shopping-events)
-9. [Scope of Work (SOW)](#9-scope-of-work-sow)
-10. [SOW Library](#10-sow-library)
-11. [Customer Care Manuals (CCM)](#11-customer-care-manuals-ccm)
-12. [Estimates and Approval Workflow](#12-estimates-and-approval-workflow)
-13. [Bad Orders](#13-bad-orders)
-14. [Invoices](#14-invoices)
-15. [Budget and Forecasts](#15-budget-and-forecasts)
-16. [Analytics and Reports](#16-analytics-and-reports)
-17. [Planning](#17-planning)
-18. [Admin and Settings](#18-admin-and-settings)
-19. [Keyboard Shortcuts and Tips](#19-keyboard-shortcuts-and-tips)
-20. [Troubleshooting](#20-troubleshooting)
+8. [Shopping Requests](#8-shopping-requests)
+9. [Shopping Events](#9-shopping-events)
+10. [Scope of Work (SOW)](#10-scope-of-work-sow)
+11. [SOW Library](#11-sow-library)
+12. [Customer Care Manuals (CCM)](#12-customer-care-manuals-ccm)
+13. [Estimates and Approval Workflow](#13-estimates-and-approval-workflow)
+14. [Bad Orders](#14-bad-orders)
+15. [Invoices](#15-invoices)
+16. [Budget and Forecasts](#16-budget-and-forecasts)
+17. [Analytics and Reports](#17-analytics-and-reports)
+18. [Planning](#18-planning)
+19. [Admin and Settings](#19-admin-and-settings)
+20. [Keyboard Shortcuts and Tips](#20-keyboard-shortcuts-and-tips)
+21. [Troubleshooting](#21-troubleshooting)
 
 ---
 
@@ -70,7 +71,7 @@ RailSync uses a vertical sidebar navigation on the left side of the screen. The 
 | Category | Icon | Subcategories |
 |----------|------|---------------|
 | **Dashboard** | LayoutDashboard | (direct link to /dashboard) |
-| **Shopping** | ShoppingCart | Shopping Events, Quick Shop, Bad Orders, Shop Finder |
+| **Shopping** | ShoppingCart | Shopping Events, New Request, Quick Shop, Bad Orders, Shop Finder |
 | **Pipeline** | Truck | Pipeline, Monthly Load, Network View, Master Plans |
 | **Contracts** | FileText | Contracts, Projects |
 | **Cars** | Train | All Cars, In Shop, Enroute, Overdue, Service Due |
@@ -313,7 +314,60 @@ When a Shopping Event reaches the WORK_AUTHORIZED state, the linked car assignme
 
 ---
 
-## 8. Shopping Events
+## 8. Shopping Requests
+
+**URL:** `/shopping/new`
+
+Shopping Requests are the comprehensive intake form for submitting a car to be shopped. This form replaces the minimal inline creation form and captures all information needed to properly route a car to a repair shop.
+
+### Creating a Shopping Request
+
+1. Navigate to `/shopping` and click **New Shopping Request**, or
+2. From `/bad-orders`, click **Shopping Request** on any open bad order (pre-fills car number).
+
+### Form Sections
+
+The shopping request form has 11 sections:
+
+| Section | Fields | Notes |
+|---------|--------|-------|
+| **1. Customer Information** | Company (AITX/Customer), name, email, phone | Company radio determines whether this is an internal or customer-initiated request |
+| **2. Car Information** | Car number (typeahead search), current railroad, current location (city/state), next railroad, next location, STCC/UN number | Car number is the only required field on the form |
+| **3. Car Shopping Status** | Residue clean (Yes/No/Unknown), Gasket (Yes/No/Unknown), O-Rings (Yes/No/Unknown), last known commodity, preferred shop, current lining, alternative lining | Tri-state radios for condition fields; shop dropdown populated from shop database |
+| **4. Shopping Facilities Notice** | Static disclaimer | Read-only notice about AITX discretion on shop selection |
+| **5. Mobile Repair Unit** | Yes/No radio | Whether a mobile repair unit is requested |
+| **6. Reason for Shopping** | Shopping type, shopping reason (cascading dropdowns), clean grade, dry grade, kosher (Yes/No), food grade (Yes/No) | Reuses the shopping classification system (18 types, 59 reasons) |
+| **7. Return Disposition** | City, state, route, payer of freight, comment | Where to send the car after repairs |
+| **8. Attachments** | Drag-and-drop file upload with document type (SDS, Cleaning Certificate, Other) | Max 10 files, 25MB each |
+| **9. One-Time Movement** | Yes/No radio with conditional procedural notice | Displays regulatory notice when Yes is selected |
+| **10. Comments** | Free-text textarea | Additional instructions or notes |
+| **11. Submit** | Submit and Reset buttons | Validates car_number required, email format |
+
+### Request Lifecycle
+
+Shopping requests follow this status workflow:
+
+```
+draft → submitted → under_review → approved / rejected / cancelled
+```
+
+- **Submitted**: Request is created and awaiting review
+- **Under Review**: An operator or admin is reviewing the request
+- **Approved**: Creates a shopping event in REQUESTED state and links it to the request
+- **Rejected**: Request is denied with review notes
+- **Cancelled**: Request is withdrawn
+
+Each request is assigned a unique number in the format `SR-YYYYMMDD-NNNNN`.
+
+### Pre-filling from Bad Orders
+
+When clicking "Shopping Request" from a bad order card on `/bad-orders`, the form pre-fills:
+- **Car number** from the bad order
+- **Bad order ID** is linked so that approval can also resolve the bad order
+
+---
+
+## 9. Shopping Events
 
 **URL:** `/shopping`
 
@@ -417,7 +471,7 @@ Each shopping event maintains a complete, immutable state history log. View it a
 
 ---
 
-## 9. Scope of Work (SOW)
+## 10. Scope of Work (SOW)
 
 A Scope of Work defines the specific repair instructions for a shopping event. Each SOW contains line items that tell the shop what work to perform.
 
@@ -475,7 +529,7 @@ If you have built a good SOW that you want to reuse:
 
 ---
 
-## 10. SOW Library
+## 11. SOW Library
 
 **URL:** `/scope-library`
 
@@ -512,7 +566,7 @@ Templates that match all three criteria appear first, sorted by usage frequency.
 
 ---
 
-## 11. Customer Care Manuals (CCM)
+## 12. Customer Care Manuals (CCM)
 
 **URL:** `/ccm`
 
@@ -614,7 +668,7 @@ CCM sections marked as "can include in SOW" will appear as checkboxes when popul
 
 ---
 
-## 12. Estimates and Approval Workflow
+## 13. Estimates and Approval Workflow
 
 Estimates are submitted by the repair shop and reviewed/approved by your team.
 
@@ -677,7 +731,7 @@ After reviewing all estimate lines:
 
 ---
 
-## 13. Bad Orders
+## 14. Bad Orders
 
 **URL:** `/bad-orders`
 
@@ -698,7 +752,7 @@ Bad Orders track cars that require unplanned repairs due to defects found during
 
 ---
 
-## 14. Invoices
+## 15. Invoices
 
 **URL:** `/invoices`
 
@@ -719,7 +773,7 @@ The Invoices module handles billing from repair shops.
 
 ---
 
-## 15. Budget and Forecasts
+## 16. Budget and Forecasts
 
 **URL:** `/budget`
 
@@ -739,7 +793,7 @@ The Invoices module handles billing from repair shops.
 
 ---
 
-## 16. Analytics and Reports
+## 17. Analytics and Reports
 
 ### Analytics
 
@@ -773,7 +827,7 @@ Complete audit trail of all system changes including:
 
 ---
 
-## 17. Planning
+## 18. Planning
 
 ### Quick Shop
 
@@ -804,7 +858,7 @@ Long-term maintenance plans for fleet management including:
 
 ---
 
-## 18. Admin and Settings
+## 19. Admin and Settings
 
 ### User Management
 
@@ -833,7 +887,7 @@ Long-term maintenance plans for fleet management including:
 
 ---
 
-## 19. Keyboard Shortcuts and Tips
+## 20. Keyboard Shortcuts and Tips
 
 ### General Tips
 
@@ -851,7 +905,7 @@ Long-term maintenance plans for fleet management including:
 
 ---
 
-## 20. Troubleshooting
+## 21. Troubleshooting
 
 ### Common Issues
 
@@ -915,4 +969,9 @@ Long-term maintenance plans for fleet management including:
 
 ---
 
-*This document should be updated whenever new features are added to RailSync. Last verified against system version c6f9e43.*
+| **Shopping Request** | A comprehensive intake form for requesting car shop visits |
+| **Request Number** | Unique identifier for shopping requests (SR-YYYYMMDD-NNNNN format) |
+
+---
+
+*This document should be updated whenever new features are added to RailSync. Last verified against system version 8a69569.*

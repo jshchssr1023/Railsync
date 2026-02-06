@@ -27,6 +27,7 @@ import * as shoppingPacketController from '../controllers/shopping-packet.contro
 import * as estimateController from '../controllers/estimate-workflow.controller';
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import * as shoppingRequestController from '../controllers/shopping-request.controller';
+import * as budgetScenarioController from '../controllers/budgetScenario.controller';
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
@@ -932,6 +933,18 @@ router.get('/brc/history', authenticate, planningController.getBRCHistory);
 
 router.get('/forecast', optionalAuth, planningController.getForecast);
 router.get('/forecast/trends', optionalAuth, planningController.getForecastTrends);
+router.get('/forecast/pipeline', optionalAuth, budgetScenarioController.getPipelineMetrics);
+
+// ============================================================================
+// BUDGET SCENARIOS
+// ============================================================================
+
+router.get('/budget-scenarios', authenticate, budgetScenarioController.listScenarios);
+router.get('/budget-scenarios/:id', authenticate, budgetScenarioController.getScenario);
+router.post('/budget-scenarios', authenticate, budgetScenarioController.createScenario);
+router.put('/budget-scenarios/:id', authenticate, budgetScenarioController.updateScenario);
+router.delete('/budget-scenarios/:id', authenticate, budgetScenarioController.deleteScenario);
+router.get('/budget-scenarios/:id/impact', authenticate, budgetScenarioController.calculateImpact);
 
 // ============================================================================
 // PHASE 9 - DASHBOARD ROUTES
@@ -1555,7 +1568,7 @@ router.get('/shops/browse/detail/:shopCode', optionalAuth, async (req, res) => {
     // Capacity by work type
     const capacityResult = await query(`
       SELECT work_type, weekly_hours_capacity, current_utilization_pct, available_hours
-      FROM shop_work_capacity WHERE shop_code = $1 ORDER BY work_type
+      FROM shop_capacity WHERE shop_code = $1 ORDER BY work_type
     `, [shopCode]);
 
     // Capabilities

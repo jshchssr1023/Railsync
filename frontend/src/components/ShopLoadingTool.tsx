@@ -186,7 +186,7 @@ export default function ShopLoadingTool({
   const assignAllocations = async (allocationIds: string[], shopCode: string, month: string) => {
     setAssigning(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('railsync_access_token');
       const results = await Promise.all(
         allocationIds.map(async (id) => {
           const res = await fetch(`${API_URL}/allocations/${id}/assign`, {

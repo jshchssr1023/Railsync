@@ -463,6 +463,112 @@ export async function getForecast(fiscalYear: number): Promise<ForecastResult> {
 }
 
 // ============================================================================
+// BUDGET SCENARIOS & PIPELINE
+// ============================================================================
+
+export interface BudgetScenario {
+  id: string;
+  name: string;
+  is_system: boolean;
+  slider_assignment: number;
+  slider_qualification: number;
+  slider_commodity_conversion: number;
+  slider_bad_orders: number;
+  created_by: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface BudgetCategory {
+  name: string;
+  base: number;
+  slider: number;
+  impacted: number;
+}
+
+export interface ScenarioImpact {
+  fiscal_year: number;
+  scenario: {
+    id: string;
+    name: string;
+    sliders: {
+      assignment: number;
+      qualification: number;
+      commodity_conversion: number;
+      bad_orders: number;
+    };
+  };
+  running_repairs: { base: number };
+  categories: BudgetCategory[];
+  total: { base: number; impacted: number; delta: number };
+}
+
+export interface PipelineMetrics {
+  fiscal_year: number;
+  in_shop: number;
+  enroute: number;
+  completed: number;
+  completed_qualifications: number;
+  completed_assignments: number;
+  completed_bad_orders: number;
+}
+
+export async function listBudgetScenarios(): Promise<BudgetScenario[]> {
+  const response = await fetchApi<BudgetScenario[]>('/budget-scenarios');
+  return response.data || [];
+}
+
+export async function getBudgetScenario(id: string): Promise<BudgetScenario> {
+  const response = await fetchApi<BudgetScenario>(`/budget-scenarios/${id}`);
+  if (!response.data) throw new Error('Budget scenario not found');
+  return response.data;
+}
+
+export async function createBudgetScenario(
+  name: string,
+  sliders: { assignment: number; qualification: number; commodity_conversion: number; bad_orders: number }
+): Promise<BudgetScenario> {
+  const response = await fetchApi<BudgetScenario>('/budget-scenarios', {
+    method: 'POST',
+    body: JSON.stringify({ name, sliders }),
+  });
+  if (!response.data) throw new Error('Failed to create budget scenario');
+  return response.data;
+}
+
+export async function updateBudgetScenario(
+  id: string,
+  data: { name?: string; sliders?: { assignment: number; qualification: number; commodity_conversion: number; bad_orders: number } }
+): Promise<BudgetScenario> {
+  const response = await fetchApi<BudgetScenario>(`/budget-scenarios/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to update budget scenario');
+  return response.data;
+}
+
+export async function deleteBudgetScenario(id: string): Promise<void> {
+  await fetchApi(`/budget-scenarios/${id}`, { method: 'DELETE' });
+}
+
+export async function getBudgetScenarioImpact(id: string, fiscalYear: number): Promise<ScenarioImpact> {
+  const response = await fetchApi<ScenarioImpact>(
+    `/budget-scenarios/${id}/impact?fiscal_year=${fiscalYear}`
+  );
+  if (!response.data) throw new Error('Failed to calculate scenario impact');
+  return response.data;
+}
+
+export async function getPipelineMetrics(fiscalYear: number): Promise<PipelineMetrics> {
+  const response = await fetchApi<PipelineMetrics>(
+    `/forecast/pipeline?fiscal_year=${fiscalYear}`
+  );
+  if (!response.data) throw new Error('Failed to fetch pipeline metrics');
+  return response.data;
+}
+
+// ============================================================================
 // PHASE 9 - BRC API
 // ============================================================================
 
@@ -917,7 +1023,7 @@ export async function uploadShoppingRequestAttachment(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('document_type', documentType);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
   const res = await fetch(`${API_URL}/shopping-requests/${requestId}/attachments`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -1580,6 +1686,13 @@ const api = {
   listAllocations,
   generateAllocations,
   getForecast,
+  listBudgetScenarios,
+  getBudgetScenario,
+  createBudgetScenario,
+  updateBudgetScenario,
+  deleteBudgetScenario,
+  getBudgetScenarioImpact,
+  getPipelineMetrics,
   getBRCHistory,
   importBRC,
   // Dashboard

@@ -779,14 +779,15 @@ export async function generateAllocations(
     for (const alloc of allocations) {
       const allocResult = await query(
         `INSERT INTO allocations (
-          demand_id, scenario_id, car_mark_number, shop_code, target_month,
+          demand_id, scenario_id, car_mark_number, car_number, car_id, shop_code, target_month,
           estimated_cost, estimated_cost_breakdown, status, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, (SELECT id FROM cars WHERE car_number = $4), $5, $6, $7, $8, $9, $10)
         RETURNING id`,
         [
           alloc.demand_id,
           alloc.scenario_id,
           alloc.car_mark_number,
+          (alloc as any).car_number || null,
           alloc.shop_code,
           alloc.target_month,
           alloc.estimated_cost,

@@ -51,8 +51,8 @@ export default function ShopInfoDrawer({ shop, isOpen, onClose }: ShopInfoDrawer
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/shops/${shopCode}/backlog`, {
+      const token = localStorage.getItem('railsync_access_token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/shops/${shopCode}/backlog`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

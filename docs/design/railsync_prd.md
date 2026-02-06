@@ -1,7 +1,7 @@
 # Railsync Product Requirements Document
 
-**Version:** 2.0
-**Updated:** February 5, 2026
+**Version:** 2.1
+**Updated:** February 6, 2026
 **Status:** Implemented
 
 ---
@@ -51,6 +51,12 @@ All roles authenticate via JWT with role-based access control (RBAC). Permission
 - Estimates with multi-option proposals
 - Approval packets with customer release workflow
 - Shopping packets for document bundling
+- **Shopping Requests**: Comprehensive 11-section intake form (customer info, car info, car status, lining preferences, mobile repair, reason for shopping, return disposition, attachments, one-time movement, comments)
+  - Request numbering: SR-YYYYMMDD-NNNNN
+  - Status workflow: draft → submitted → under_review → approved/rejected/cancelled
+  - On approval: auto-creates shopping event in REQUESTED state
+  - File attachments with document type classification (SDS, cleaning certificate, other)
+  - Pre-fill from Bad Orders page with car number and bad order linkage
 
 ### 3.5 Invoice Processing
 Two invoice systems:
@@ -97,7 +103,7 @@ Two invoice systems:
 ## 4. System Constraints
 
 ### 4.1 Single Source of Truth (SSOT)
-The `car_assignments` table is the authoritative source for all car-to-shop assignments. All modules (Quick Shop, Service Plans, Bad Orders, Pipeline) defer to this table.
+The `cars` table with immutable `id UUID` is the authoritative identity source. The `car_assignments` table is the authoritative source for all car-to-shop assignments. All modules (Quick Shop, Service Plans, Bad Orders, Pipeline) defer to these tables. The `asset_events` ledger provides an append-only lifecycle audit trail.
 
 ### 4.2 State Management
 - Invoice cases use a deterministic 17-state machine with validation gates
@@ -124,7 +130,7 @@ The `car_assignments` table is the authoritative source for all car-to-shop assi
 | Frontend | Next.js 14 (App Router), React, TypeScript, Tailwind CSS |
 | Backend | Express.js, TypeScript, JWT authentication |
 | Database | PostgreSQL with raw SQL queries |
-| Deployment | Docker Compose (3 containers) |
+| Deployment | Docker Compose (4 containers: DB, API, UI, Nginx) |
 | Real-time | Server-Sent Events (SSE) |
 | UI | Dark mode, responsive, ARIA accessible, keyboard navigable |
 
