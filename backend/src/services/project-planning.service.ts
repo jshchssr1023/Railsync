@@ -313,6 +313,18 @@ export async function relockCar(input: RelockCarInput): Promise<ProjectAssignmen
     const shopResult = await client.query('SELECT shop_name FROM shops WHERE shop_code = $1', [input.new_shop_code]);
     const newShopName = shopResult.rows[0]?.shop_name || input.new_shop_code;
 
+    // Mark old row as Superseded FIRST (before inserting new row)
+    // so the partial unique index on project_car_id allows the new insert
+    await client.query(
+      `UPDATE project_assignments SET
+        plan_state = 'Superseded',
+        superseded_at = NOW(),
+        supersede_reason = $1,
+        updated_at = NOW()
+      WHERE id = $2`,
+      [input.reason, old.id]
+    );
+
     // Create new project_assignment row (Locked)
     const newResult = await client.query(
       `INSERT INTO project_assignments (
@@ -334,16 +346,10 @@ export async function relockCar(input: RelockCarInput): Promise<ProjectAssignmen
 
     const newPa = newResult.rows[0] as ProjectAssignment;
 
-    // Mark old row as Superseded
+    // Link old row to new row via superseded_by_id
     await client.query(
-      `UPDATE project_assignments SET
-        plan_state = 'Superseded',
-        superseded_by_id = $1,
-        superseded_at = NOW(),
-        supersede_reason = $2,
-        updated_at = NOW()
-      WHERE id = $3`,
-      [newPa.id, input.reason, old.id]
+      `UPDATE project_assignments SET superseded_by_id = $1 WHERE id = $2`,
+      [newPa.id, old.id]
     );
 
     // Update the SSOT car_assignment if it exists
@@ -768,7 +774,7 @@ export async function bundleProjectWork(input: BundleProjectWorkInput): Promise<
 
     // Update project_cars status to in_progress
     await client.query(
-      `UPDATE project_cars SET status = 'in_progress', updated_at = NOW()
+      `UPDATE project_cars SET status = 'in_progress'
        WHERE id = $1 AND status = 'pending'`,
       [input.project_car_id]
     );
