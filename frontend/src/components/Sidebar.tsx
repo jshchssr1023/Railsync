@@ -12,7 +12,7 @@ import {
   Settings, ChevronRight, ChevronDown, Menu, X, LogOut, User,
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
-  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft
+  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -80,6 +80,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     icon: <Train className="w-5 h-5" />,
     children: [
       { label: 'All Cars', href: '/cars', icon: <Train className="w-4 h-4" /> },
+      { label: 'Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
       { label: 'In Shop', href: '/cars?status=Arrived', icon: <Wrench className="w-4 h-4" /> },
       { label: 'Enroute', href: '/cars?status=Enroute', icon: <Truck className="w-4 h-4" /> },
       { label: 'Overdue', href: '/cars?status=Overdue', icon: <AlertCircle className="w-4 h-4" /> },
@@ -93,6 +94,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'Case Queue', href: '/invoice-cases', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Invoices', href: '/invoices', icon: <FileText className="w-4 h-4" /> },
+      { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
       { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },

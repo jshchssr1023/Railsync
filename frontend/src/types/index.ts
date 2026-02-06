@@ -441,6 +441,105 @@ export interface DashboardConfig {
 }
 
 // ============================================================================
+// QUALIFICATION TYPES
+// ============================================================================
+
+export type QualificationStatus = 'current' | 'due_soon' | 'due' | 'overdue' | 'exempt' | 'unknown';
+
+export interface QualificationType {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  regulatory_body: string;
+  default_interval_months: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Qualification {
+  id: string;
+  car_id: string;
+  qualification_type_id: string;
+  status: QualificationStatus;
+  last_completed_date: string | null;
+  next_due_date: string | null;
+  expiry_date: string | null;
+  interval_months: number | null;
+  completed_by: string | null;
+  completion_shop_code: string | null;
+  certificate_number: string | null;
+  notes: string | null;
+  is_exempt: boolean;
+  exempt_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  type_code?: string;
+  type_name?: string;
+  regulatory_body?: string;
+  car_number?: string;
+  car_mark?: string;
+  lessee_name?: string;
+  lessee_code?: string;
+  current_region?: string;
+}
+
+export interface QualificationHistory {
+  id: string;
+  qualification_id: string;
+  action: string;
+  performed_by: string | null;
+  performed_date: string;
+  old_status: string | null;
+  new_status: string | null;
+  old_due_date: string | null;
+  new_due_date: string | null;
+  notes: string | null;
+}
+
+export interface QualificationAlert {
+  id: string;
+  qualification_id: string;
+  car_id: string;
+  qualification_type_id: string;
+  alert_type: string;
+  alert_date: string;
+  due_date: string;
+  days_until_due: number | null;
+  is_acknowledged: boolean;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+  created_at: string;
+  // Joined fields
+  car_number?: string;
+  car_mark?: string;
+  type_name?: string;
+  type_code?: string;
+  lessee_name?: string;
+}
+
+export interface QualificationStats {
+  total_cars: number;
+  overdue_count: number;
+  due_count: number;
+  due_soon_count: number;
+  current_count: number;
+  exempt_count: number;
+  unknown_count: number;
+  overdue_cars: number;
+  due_cars: number;
+  unacked_alerts: number;
+}
+
+export interface DueByMonth {
+  month: string;
+  count: number;
+  by_type: { type_code: string; type_name: string; count: number }[];
+}
+
+// ============================================================================
 // SHOPPING WORKFLOW TYPES
 // ============================================================================
 

@@ -30,6 +30,7 @@ import * as estimateController from '../controllers/estimate-workflow.controller
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import * as shoppingRequestController from '../controllers/shopping-request.controller';
 import * as budgetScenarioController from '../controllers/budgetScenario.controller';
+import * as qualificationController from '../controllers/qualification.controller';
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
@@ -4362,6 +4363,77 @@ router.get('/transitions/:processType/:entityId/revert-eligibility', authenticat
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
+
+// ============================================================================
+// QUALIFICATION ROUTES
+// ============================================================================
+
+// Static routes MUST come before parameterized routes
+router.get('/qualifications/types', authenticate, qualificationController.listTypes);
+router.get('/qualifications/stats', authenticate, qualificationController.getStats);
+router.get('/qualifications/due-by-month', authenticate, qualificationController.getDueByMonth);
+router.get('/qualifications/alerts', authenticate, qualificationController.getAlerts);
+router.post('/qualifications/alerts/:id/acknowledge', authenticate, qualificationController.acknowledgeAlert);
+router.post('/qualifications/recalculate', authenticate, authorize('admin', 'operator'), qualificationController.recalculate);
+router.post('/qualifications/generate-alerts', authenticate, authorize('admin', 'operator'), qualificationController.generateAlerts);
+router.post('/qualifications/bulk-update', authenticate, authorize('admin', 'operator'), qualificationController.bulkUpdate);
+
+// CRUD routes
+router.get('/qualifications', authenticate, qualificationController.listQualifications);
+router.post('/qualifications', authenticate, authorize('admin', 'operator'), qualificationController.createQualification);
+router.get('/qualifications/:id', authenticate, qualificationController.getQualification);
+router.put('/qualifications/:id', authenticate, authorize('admin', 'operator'), qualificationController.updateQualification);
+router.post('/qualifications/:id/complete', authenticate, authorize('admin', 'operator'), qualificationController.completeQualification);
+router.get('/qualifications/:id/history', authenticate, qualificationController.getHistory);
+
+// Per-car qualifications
+router.get('/cars/:carId/qualifications', authenticate, qualificationController.getCarQualifications);
+
+// ============================================================================
+// BILLING ENGINE
+// ============================================================================
+import * as billingController from '../controllers/billing.controller';
+
+// Billing Runs
+router.post('/billing/runs/preflight', authenticate, authorize('admin', 'operator'), billingController.runPreflight);
+router.post('/billing/runs', authenticate, authorize('admin'), billingController.createBillingRun);
+router.get('/billing/runs', authenticate, billingController.listBillingRuns);
+router.get('/billing/runs/:id', authenticate, billingController.getBillingRun);
+
+// Outbound Invoices
+router.post('/billing/invoices/generate', authenticate, authorize('admin'), billingController.generateInvoices);
+router.get('/billing/invoices', authenticate, billingController.listInvoices);
+router.get('/billing/invoices/:id', authenticate, billingController.getInvoice);
+router.put('/billing/invoices/:id/approve', authenticate, authorize('admin'), billingController.approveInvoice);
+router.put('/billing/invoices/:id/void', authenticate, authorize('admin'), billingController.voidInvoice);
+
+// Rate Management
+router.get('/billing/rates/:riderId/history', authenticate, billingController.getRateHistory);
+router.put('/billing/rates/:riderId', authenticate, authorize('admin', 'operator'), billingController.updateRate);
+
+// Mileage
+router.post('/billing/mileage/files', authenticate, authorize('admin', 'operator'), billingController.registerMileageFile);
+router.post('/billing/mileage/files/:fileId/import', authenticate, authorize('admin', 'operator'), billingController.importMileageRecords);
+router.get('/billing/mileage/summary', authenticate, billingController.getMileageSummary);
+router.put('/billing/mileage/records/:id/verify', authenticate, authorize('admin', 'operator'), billingController.verifyMileageRecord);
+
+// Chargebacks
+router.post('/billing/chargebacks', authenticate, authorize('admin', 'operator'), billingController.createChargeback);
+router.get('/billing/chargebacks', authenticate, billingController.listChargebacks);
+router.put('/billing/chargebacks/:id/review', authenticate, authorize('admin'), billingController.reviewChargeback);
+router.post('/billing/chargebacks/generate-invoice', authenticate, authorize('admin'), billingController.generateChargebackInvoice);
+
+// Adjustments
+router.post('/billing/adjustments', authenticate, authorize('admin', 'operator'), billingController.createAdjustment);
+router.get('/billing/adjustments/pending', authenticate, billingController.listPendingAdjustments);
+router.put('/billing/adjustments/:id/approve', authenticate, authorize('admin'), billingController.approveAdjustment);
+router.put('/billing/adjustments/:id/reject', authenticate, authorize('admin'), billingController.rejectAdjustment);
+
+// Billing Summary
+router.get('/billing/summary', authenticate, billingController.getBillingSummary);
+router.get('/billing/customers/:customerId/history', authenticate, billingController.getCustomerInvoiceHistory);
+
+// ============================================================================
 
 /**
  * @route   GET /api/health

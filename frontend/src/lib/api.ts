@@ -46,6 +46,13 @@ import {
   // Shopping Requests
   ShoppingRequest,
   ShoppingRequestAttachment,
+  // Qualification types
+  QualificationType,
+  Qualification,
+  QualificationAlert,
+  QualificationStats,
+  QualificationHistory,
+  DueByMonth,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -1900,4 +1907,347 @@ export async function checkRevertEligibility(
     `/transitions/${processType}/${entityId}/revert-eligibility`
   );
   return response.data || { allowed: false, blockers: ['Unknown error'] };
+}
+
+// ============================================================================
+// QUALIFICATION API
+// ============================================================================
+
+export async function listQualificationTypes(): Promise<QualificationType[]> {
+  const response = await fetchApi<QualificationType[]>('/qualifications/types');
+  return response.data || [];
+}
+
+export async function getQualificationStats(): Promise<QualificationStats> {
+  const response = await fetchApi<QualificationStats>('/qualifications/stats');
+  return response.data || {
+    total_cars: 0, overdue_count: 0, due_count: 0, due_soon_count: 0,
+    current_count: 0, exempt_count: 0, unknown_count: 0, overdue_cars: 0,
+    due_cars: 0, unacked_alerts: 0,
+  };
+}
+
+export async function getQualificationsDueByMonth(): Promise<DueByMonth[]> {
+  const response = await fetchApi<DueByMonth[]>('/qualifications/due-by-month');
+  return response.data || [];
+}
+
+export async function listQualificationAlerts(filters?: {
+  alert_type?: string;
+  is_acknowledged?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ alerts: QualificationAlert[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.alert_type) params.set('alert_type', filters.alert_type);
+  if (filters?.is_acknowledged !== undefined) params.set('is_acknowledged', String(filters.is_acknowledged));
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  const response = await fetchApi<QualificationAlert[]>(`/qualifications/alerts${qs ? `?${qs}` : ''}`);
+  return { alerts: response.data || [], total: (response as any).total || 0 };
+}
+
+export async function acknowledgeQualificationAlert(alertId: string): Promise<void> {
+  await fetchApi(`/qualifications/alerts/${encodeURIComponent(alertId)}/acknowledge`, { method: 'POST' });
+}
+
+export async function listQualifications(filters?: {
+  car_id?: string;
+  type_code?: string;
+  status?: string;
+  lessee_code?: string;
+  current_region?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ qualifications: Qualification[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.car_id) params.set('car_id', filters.car_id);
+  if (filters?.type_code) params.set('type_code', filters.type_code);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.lessee_code) params.set('lessee_code', filters.lessee_code);
+  if (filters?.current_region) params.set('current_region', filters.current_region);
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  const response = await fetchApi<Qualification[]>(`/qualifications${qs ? `?${qs}` : ''}`);
+  return { qualifications: response.data || [], total: (response as any).total || 0 };
+}
+
+export async function getQualification(id: string): Promise<Qualification> {
+  const response = await fetchApi<Qualification>(`/qualifications/${encodeURIComponent(id)}`);
+  if (!response.data) throw new Error('Qualification not found');
+  return response.data;
+}
+
+export async function createQualification(data: {
+  car_id: string;
+  qualification_type_id: string;
+  status?: string;
+  last_completed_date?: string;
+  next_due_date?: string;
+  notes?: string;
+}): Promise<Qualification> {
+  const response = await fetchApi<Qualification>('/qualifications', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to create qualification');
+  return response.data;
+}
+
+export async function updateQualification(id: string, data: Partial<{
+  status: string;
+  next_due_date: string;
+  notes: string;
+}>): Promise<Qualification> {
+  const response = await fetchApi<Qualification>(`/qualifications/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to update qualification');
+  return response.data;
+}
+
+export async function completeQualification(id: string, data: {
+  completed_date: string;
+  completed_by?: string;
+  completion_shop_code?: string;
+  certificate_number?: string;
+  notes?: string;
+}): Promise<Qualification> {
+  const response = await fetchApi<Qualification>(`/qualifications/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to complete qualification');
+  return response.data;
+}
+
+export async function bulkUpdateQualifications(ids: string[], data: {
+  status?: string;
+  next_due_date?: string;
+  notes?: string;
+}): Promise<{ updated: number }> {
+  const response = await fetchApi<{ updated: number }>('/qualifications/bulk-update', {
+    method: 'POST',
+    body: JSON.stringify({ ids, ...data }),
+  });
+  return response.data || { updated: 0 };
+}
+
+export async function getCarQualifications(carId: string): Promise<Qualification[]> {
+  const response = await fetchApi<Qualification[]>(`/cars/${encodeURIComponent(carId)}/qualifications`);
+  return response.data || [];
+}
+
+export async function getQualificationHistory(qualificationId: string): Promise<QualificationHistory[]> {
+  const response = await fetchApi<QualificationHistory[]>(`/qualifications/${encodeURIComponent(qualificationId)}/history`);
+  return response.data || [];
+}
+
+export async function recalculateQualificationStatuses(): Promise<{ updated: number }> {
+  const response = await fetchApi<{ updated: number }>('/qualifications/recalculate', { method: 'POST' });
+  return response.data || { updated: 0 };
+}
+
+export async function generateQualificationAlerts(): Promise<{ created: number }> {
+  const response = await fetchApi<{ created: number }>('/qualifications/generate-alerts', { method: 'POST' });
+  return response.data || { created: 0 };
+}
+
+// ============================================================================
+// BILLING ENGINE
+// ============================================================================
+
+// Billing Runs
+export async function runBillingPreflight(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi('/billing/runs/preflight', {
+    method: 'POST',
+    body: JSON.stringify({ fiscalYear, fiscalMonth }),
+  });
+  return response.data;
+}
+
+export async function createBillingRun(fiscalYear: number, fiscalMonth: number, runType: string) {
+  const response = await fetchApi('/billing/runs', {
+    method: 'POST',
+    body: JSON.stringify({ fiscalYear, fiscalMonth, runType }),
+  });
+  return response.data;
+}
+
+export async function listBillingRuns(limit = 20, offset = 0) {
+  const response = await fetchApi(`/billing/runs?limit=${limit}&offset=${offset}`);
+  return response.data;
+}
+
+export async function getBillingRun(id: string) {
+  const response = await fetchApi(`/billing/runs/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+// Outbound Invoices
+export async function generateMonthlyInvoices(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi('/billing/invoices/generate', {
+    method: 'POST',
+    body: JSON.stringify({ fiscalYear, fiscalMonth }),
+  });
+  return response.data;
+}
+
+export async function listOutboundInvoices(filters: {
+  status?: string; customerId?: string; fiscalYear?: number; fiscalMonth?: number;
+  limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.customerId) params.set('customerId', filters.customerId);
+  if (filters.fiscalYear) params.set('fiscalYear', String(filters.fiscalYear));
+  if (filters.fiscalMonth) params.set('fiscalMonth', String(filters.fiscalMonth));
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/billing/invoices?${params}`);
+  return response.data;
+}
+
+export async function getOutboundInvoice(id: string) {
+  const response = await fetchApi(`/billing/invoices/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function approveOutboundInvoice(id: string) {
+  const response = await fetchApi(`/billing/invoices/${encodeURIComponent(id)}/approve`, { method: 'PUT' });
+  return response.data;
+}
+
+export async function voidOutboundInvoice(id: string, reason: string) {
+  const response = await fetchApi(`/billing/invoices/${encodeURIComponent(id)}/void`, {
+    method: 'PUT',
+    body: JSON.stringify({ reason }),
+  });
+  return response.data;
+}
+
+// Rate Management
+export async function getRateHistory(riderId: string) {
+  const response = await fetchApi(`/billing/rates/${encodeURIComponent(riderId)}/history`);
+  return response.data;
+}
+
+export async function updateRate(riderId: string, data: {
+  newRate: number; effectiveDate: string; changeType: string; reason: string;
+}) {
+  const response = await fetchApi(`/billing/rates/${encodeURIComponent(riderId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+// Mileage
+export async function createMileageFile(data: { filename: string; fileType: string; reportingPeriod: string }) {
+  const response = await fetchApi('/billing/mileage/files', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function getMileageSummary(customerId?: string, period?: string) {
+  const params = new URLSearchParams();
+  if (customerId) params.set('customerId', customerId);
+  if (period) params.set('period', period);
+  const response = await fetchApi(`/billing/mileage/summary?${params}`);
+  return response.data;
+}
+
+export async function verifyMileageRecord(id: string) {
+  const response = await fetchApi(`/billing/mileage/records/${encodeURIComponent(id)}/verify`, { method: 'PUT' });
+  return response.data;
+}
+
+// Chargebacks
+export async function createChargeback(data: {
+  customerId: string; carNumber: string; chargebackType: string;
+  amount: number; description: string; riderId?: string;
+}) {
+  const response = await fetchApi('/billing/chargebacks', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function listChargebacks(filters: {
+  status?: string; customerId?: string; limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.customerId) params.set('customerId', filters.customerId);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/billing/chargebacks?${params}`);
+  return response.data;
+}
+
+export async function reviewChargeback(id: string, approved: boolean, notes?: string) {
+  const response = await fetchApi(`/billing/chargebacks/${encodeURIComponent(id)}/review`, {
+    method: 'PUT',
+    body: JSON.stringify({ approved, notes }),
+  });
+  return response.data;
+}
+
+export async function generateChargebackInvoice(customerId: string, fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi('/billing/chargebacks/generate-invoice', {
+    method: 'POST',
+    body: JSON.stringify({ customerId, fiscalYear, fiscalMonth }),
+  });
+  return response.data;
+}
+
+// Adjustments
+export async function createBillingAdjustment(data: {
+  customerId: string; adjustmentType: string; amount: number;
+  description: string; riderId?: string; carNumber?: string;
+  sourceEvent?: string; sourceEventId?: string;
+}) {
+  const response = await fetchApi('/billing/adjustments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function listPendingAdjustments(customerId?: string) {
+  const params = customerId ? `?customerId=${customerId}` : '';
+  const response = await fetchApi(`/billing/adjustments/pending${params}`);
+  return response.data;
+}
+
+export async function approveBillingAdjustment(id: string) {
+  const response = await fetchApi(`/billing/adjustments/${encodeURIComponent(id)}/approve`, { method: 'PUT' });
+  return response.data;
+}
+
+export async function rejectBillingAdjustment(id: string, reason: string) {
+  const response = await fetchApi(`/billing/adjustments/${encodeURIComponent(id)}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify({ reason }),
+  });
+  return response.data;
+}
+
+// Billing Summary
+export async function getBillingSummary(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi(`/billing/summary?fiscalYear=${fiscalYear}&fiscalMonth=${fiscalMonth}`);
+  return response.data;
+}
+
+export async function getCustomerBillingHistory(customerId: string, limit = 20, offset = 0) {
+  const response = await fetchApi(
+    `/billing/customers/${encodeURIComponent(customerId)}/history?limit=${limit}&offset=${offset}`
+  );
+  return response.data;
 }
