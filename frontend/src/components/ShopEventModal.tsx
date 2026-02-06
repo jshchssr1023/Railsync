@@ -82,7 +82,7 @@ export default function ShopEventModal({
 
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${API_URL}/shop-events`, {
+      const res = await fetch(`${API_URL}/shopping-events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
