@@ -14,6 +14,7 @@
 
 import { query, queryOne, transaction } from '../config/database';
 import { writeAuditEvent, writeAuditEventTx } from './project-audit.service';
+import { notifyProjectRelock, notifyProjectBundling } from './email.service';
 import * as assignmentService from './assignment.service';
 import type { ProjectAssignment, ProjectCommunication, ProjectPlanSummary } from '../types';
 
@@ -424,6 +425,26 @@ export async function relockCar(input: RelockCarInput): Promise<ProjectAssignmen
       [input.project_id]
     );
 
+    // Queue relock email notification (non-blocking)
+    const projInfo = await client.query(
+      'SELECT project_number, project_name FROM projects WHERE id = $1',
+      [input.project_id]
+    );
+    const proj = projInfo.rows[0];
+    if (proj) {
+      notifyProjectRelock({
+        project_number: proj.project_number,
+        project_name: proj.project_name,
+        car_number: old.car_number,
+        old_shop: old.shop_code,
+        new_shop: input.new_shop_code,
+        old_month: old.target_month,
+        new_month: input.new_target_month,
+        reason: input.reason,
+        relocked_by: input.relocked_by_email || 'system',
+      }).catch(err => console.error('[Email] Failed to queue relock notification:', err));
+    }
+
     return newPa;
   });
 }
@@ -806,6 +827,22 @@ export async function bundleProjectWork(input: BundleProjectWorkInput): Promise<
     });
 
     await updateProjectPlanCountsTx(client, input.project_id);
+
+    // Queue bundling alert email (non-blocking)
+    const projInfo = await client.query(
+      'SELECT project_number, project_name, scope_of_work FROM projects WHERE id = $1',
+      [input.project_id]
+    );
+    const proj = projInfo.rows[0];
+    if (proj) {
+      notifyProjectBundling({
+        project_number: proj.project_number,
+        project_name: proj.project_name,
+        car_number: input.car_number,
+        shop_code: input.shop_code,
+        scope_of_work: proj.scope_of_work || '',
+      }).catch(err => console.error('[Email] Failed to queue bundling alert:', err));
+    }
 
     return newPa;
   });

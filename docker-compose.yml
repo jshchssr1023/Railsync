@@ -52,6 +52,11 @@ services:
       - ./database/migrations/028_ccm_form_structure.sql:/docker-entrypoint-initdb.d/35-ccm-form-structure.sql
       - ./database/migrations/029_shop_tiers_storage_scrap.sql:/docker-entrypoint-initdb.d/36-shop-tiers-storage-scrap.sql
       - ./database/migrations/030_ccm_hierarchy_instructions.sql:/docker-entrypoint-initdb.d/37-ccm-hierarchy-instructions.sql
+      - ./database/migrations/031_invoice_processing_workflow.sql:/docker-entrypoint-initdb.d/38-invoice-processing.sql
+      - ./database/migrations/032_fix_invoice_views.sql:/docker-entrypoint-initdb.d/39-fix-invoice-views.sql
+      - ./database/migrations/033_project_planning_integration.sql:/docker-entrypoint-initdb.d/40-project-planning.sql
+      - ./database/migrations/034_car_project_history_view.sql:/docker-entrypoint-initdb.d/41-car-project-history.sql
+      - ./database/migrations/035_fix_generate_project_number.sql:/docker-entrypoint-initdb.d/42-fix-project-number.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
