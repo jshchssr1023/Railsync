@@ -256,7 +256,7 @@ LEFT JOIN customers c ON g.customer_id = c.id;
 INSERT INTO users (email, password_hash, first_name, last_name, role, organization, customer_id)
 SELECT
     'customer@demo.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.K4.z3AelqfVuui',
+    '$2b$12$wsRHqdya6cGfFJvPavNgA.tpeUyLiQrpn0RVU53cNs84mozkPzHwe',
     'Demo',
     'Customer',
     'viewer',

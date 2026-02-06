@@ -21,7 +21,7 @@ VALUES
    '$2b$12$88aM1qw93N3bF/ouRgUuRO5fwxGXx8/9WmQspGYNHDhE0kJwlvuyu',
    'Demo', 'Operator', 'operator', 'Railsync'),
   ('63d82d01-7bff-4d4d-8774-59babd94e9a2', 'demo-customer@railsync.com',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.K4.z3AelqfVuui',
+   '$2b$12$wsRHqdya6cGfFJvPavNgA.tpeUyLiQrpn0RVU53cNs84mozkPzHwe',
    'Demo', 'Customer', 'viewer', 'Demo Corp')
 ON CONFLICT (id) DO NOTHING;
 
