@@ -265,6 +265,9 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
   const [qualRecords, setQualRecords] = useState<QualRecord[]>([]);
   const [qualRecordsLoading, setQualRecordsLoading] = useState(false);
   const [qualRecordsLoaded, setQualRecordsLoaded] = useState(false);
+  const [clmLocation, setClmLocation] = useState<Record<string, any> | null>(null);
+  const [clmLocationLoading, setClmLocationLoading] = useState(false);
+  const [clmLocationLoaded, setClmLocationLoaded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -273,6 +276,8 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
     setUmlerLoaded(false);
     setQualRecords([]);
     setQualRecordsLoaded(false);
+    setClmLocation(null);
+    setClmLocationLoaded(false);
     apiFetch<{ data: CarDetail }>(`/contracts-browse/car/${carNumber}`)
       .then(res => {
         setDetail(res.data);
@@ -320,6 +325,14 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
         .then(res => { setQualRecords(res.data || []); setQualRecordsLoaded(true); })
         .catch(() => { setQualRecords([]); setQualRecordsLoaded(true); })
         .finally(() => setQualRecordsLoading(false));
+    }
+    // Lazy-load CLM location data on first expand
+    if (s === 'location' && !clmLocationLoaded) {
+      setClmLocationLoading(true);
+      apiFetch<{ data: Record<string, any> | null }>(`/car-locations/${carNumber}`)
+        .then(res => { setClmLocation(res.data); setClmLocationLoaded(true); })
+        .catch(() => { setClmLocation(null); setClmLocationLoaded(true); })
+        .finally(() => setClmLocationLoading(false));
     }
   };
 
@@ -545,6 +558,26 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
               <Section id="location" title="Location" icon={MapPin}>
                 <Field label="Current Region" value={car.current_region} />
                 <Field label="Past Region" value={car.past_region} />
+                {clmLocationLoading && (
+                  <div className="flex items-center justify-center py-3">
+                    <div className="animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full" />
+                  </div>
+                )}
+                {clmLocationLoaded && clmLocation && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">CLM Location Data</div>
+                    <Field label="Railroad" value={clmLocation.railroad} />
+                    <Field label="City" value={clmLocation.city} />
+                    <Field label="State" value={clmLocation.state} />
+                    <Field label="Location Type" value={clmLocation.location_type} />
+                    <Field label="Last Reported" value={clmLocation.reported_at?.slice(0, 16)?.replace('T', ' ')} />
+                  </div>
+                )}
+                {clmLocationLoaded && !clmLocation && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">No CLM location data available</p>
+                  </div>
+                )}
               </Section>
 
               {/* Lease / Contract */}

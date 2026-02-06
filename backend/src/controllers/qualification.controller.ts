@@ -154,6 +154,10 @@ export async function createQualification(req: Request, res: Response): Promise<
       res.status(409).json({ success: false, error: 'Qualification already exists for this car and type' });
       return;
     }
+    if (error.message?.startsWith('Invalid')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
     console.error('[QualController] createQualification error:', error);
     res.status(500).json({ success: false, error: 'Failed to create qualification' });
   }
@@ -190,7 +194,11 @@ export async function completeQualification(req: Request, res: Response): Promis
       return;
     }
     res.json({ success: true, data: qual });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.startsWith('Invalid')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
     console.error('[QualController] completeQualification error:', error);
     res.status(500).json({ success: false, error: 'Failed to complete qualification' });
   }
@@ -207,7 +215,11 @@ export async function bulkUpdate(req: Request, res: Response): Promise<void> {
     const userId = (req as any).user?.id;
     const result = await qualificationService.bulkUpdateQualifications(ids, { status, next_due_date, notes }, userId);
     res.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('limited to') || error.message?.startsWith('Invalid')) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
     console.error('[QualController] bulkUpdate error:', error);
     res.status(500).json({ success: false, error: 'Failed to bulk update qualifications' });
   }

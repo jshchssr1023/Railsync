@@ -232,6 +232,60 @@ export async function getDemandByCustomer(req: Request, res: Response): Promise<
   }
 }
 
+// =============================================================================
+// COST VARIANCE
+// =============================================================================
+
+export async function getCostVarianceReport(req: Request, res: Response): Promise<void> {
+  try {
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await analyticsService.getCostVarianceReport(fiscalYear);
+    res.json({ success: true, data } as ApiResponse<typeof data>);
+  } catch (error) {
+    console.error('Error fetching cost variance report:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch cost variance report' } as ApiResponse<null>);
+  }
+}
+
+export async function getCustomerCostBreakdown(req: Request, res: Response): Promise<void> {
+  try {
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const limit = parseInt(req.query.limit as string) || 20;
+    const data = await analyticsService.getCustomerCostBreakdown(fiscalYear, limit);
+    res.json({ success: true, data } as ApiResponse<typeof data>);
+  } catch (error) {
+    console.error('Error fetching customer cost breakdown:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch customer cost breakdown' } as ApiResponse<null>);
+  }
+}
+
+// =============================================================================
+// SHOP PERFORMANCE
+// =============================================================================
+
+export async function getShopPerformanceScores(req: Request, res: Response): Promise<void> {
+  try {
+    const limit = parseInt(req.query.limit as string) || 30;
+    const data = await analyticsService.getShopPerformanceScores(limit);
+    res.json({ success: true, data } as ApiResponse<typeof data>);
+  } catch (error) {
+    console.error('Error fetching shop performance scores:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch shop performance scores' } as ApiResponse<null>);
+  }
+}
+
+export async function getShopPerformanceTrend(req: Request, res: Response): Promise<void> {
+  try {
+    const shopCode = req.params.shopCode;
+    const months = parseInt(req.query.months as string) || 6;
+    const data = await analyticsService.getShopPerformanceTrend(shopCode, months);
+    res.json({ success: true, data } as ApiResponse<typeof data>);
+  } catch (error) {
+    console.error('Error fetching shop performance trend:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch shop performance trend' } as ApiResponse<null>);
+  }
+}
+
 export default {
   getCapacityForecast,
   getCapacityTrends,
@@ -245,4 +299,8 @@ export default {
   getDemandForecast,
   getDemandByRegion,
   getDemandByCustomer,
+  getCostVarianceReport,
+  getCustomerCostBreakdown,
+  getShopPerformanceScores,
+  getShopPerformanceTrend,
 };

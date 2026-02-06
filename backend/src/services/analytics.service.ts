@@ -677,6 +677,283 @@ export async function getDemandByCustomer(limit: number = 10): Promise<DemandByC
   });
 }
 
+// =============================================================================
+// COST VARIANCE ANALYSIS
+// =============================================================================
+
+interface CostVarianceMonth {
+  month: string;
+  budgeted: number;
+  actual: number;
+  variance: number;
+  variance_pct: number;
+  cumulative_budget: number;
+  cumulative_actual: number;
+  cumulative_variance: number;
+}
+
+interface CustomerCostBreakdown {
+  customer_name: string;
+  customer_code: string;
+  car_count: number;
+  total_estimated: number;
+  total_actual: number;
+  avg_cost_per_car: number;
+  variance_pct: number;
+}
+
+export async function getCostVarianceReport(fiscalYear: number = 2026): Promise<CostVarianceMonth[]> {
+  const results = await query<any>(`
+    WITH months AS (
+      SELECT generate_series(1, 12) as month_num
+    ),
+    budget_by_month AS (
+      SELECT month_number, monthly_budget
+      FROM running_repairs_budget
+      WHERE fiscal_year = $1
+    ),
+    actual_by_month AS (
+      SELECT
+        EXTRACT(MONTH FROM ca.created_at)::int as month_num,
+        SUM(COALESCE(ca.actual_cost, ca.estimated_cost, 0)) as actual_spend
+      FROM car_assignments ca
+      WHERE EXTRACT(YEAR FROM ca.created_at) = $1
+        AND ca.status NOT IN ('Cancelled')
+      GROUP BY month_num
+    )
+    SELECT
+      m.month_num,
+      to_char(make_date($1::int, m.month_num, 1), 'YYYY-MM') as month,
+      COALESCE(b.monthly_budget, 0) as budgeted,
+      COALESCE(a.actual_spend, 0) as actual
+    FROM months m
+    LEFT JOIN budget_by_month b ON b.month_number = m.month_num
+    LEFT JOIN actual_by_month a ON a.month_num = m.month_num
+    WHERE m.month_num <= EXTRACT(MONTH FROM CURRENT_DATE) OR $1 < EXTRACT(YEAR FROM CURRENT_DATE)
+    ORDER BY m.month_num
+  `, [fiscalYear]);
+
+  let cumulativeBudget = 0;
+  let cumulativeActual = 0;
+
+  return results.map((r: any) => {
+    const budgeted = parseFloat(r.budgeted) || 0;
+    const actual = parseFloat(r.actual) || 0;
+    const variance = actual - budgeted;
+    const variance_pct = budgeted > 0 ? Math.round((variance / budgeted) * 10000) / 100 : 0;
+    cumulativeBudget += budgeted;
+    cumulativeActual += actual;
+    return {
+      month: r.month,
+      budgeted,
+      actual,
+      variance,
+      variance_pct,
+      cumulative_budget: cumulativeBudget,
+      cumulative_actual: cumulativeActual,
+      cumulative_variance: cumulativeActual - cumulativeBudget,
+    };
+  });
+}
+
+export async function getCustomerCostBreakdown(fiscalYear: number = 2026, limit: number = 20): Promise<CustomerCostBreakdown[]> {
+  const results = await query<any>(`
+    SELECT
+      COALESCE(c.customer_name, 'Unassigned') as customer_name,
+      COALESCE(c.customer_code, '-') as customer_code,
+      COUNT(DISTINCT ca.car_number) as car_count,
+      COALESCE(SUM(ca.estimated_cost), 0) as total_estimated,
+      COALESCE(SUM(ca.actual_cost), 0) as total_actual,
+      CASE WHEN COUNT(DISTINCT ca.car_number) > 0
+        THEN ROUND(COALESCE(SUM(COALESCE(ca.actual_cost, ca.estimated_cost)), 0) / COUNT(DISTINCT ca.car_number))
+        ELSE 0
+      END as avg_cost_per_car
+    FROM car_assignments ca
+    LEFT JOIN cars cr ON ca.car_number = cr.car_number
+    LEFT JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+    LEFT JOIN lease_riders lr ON lr.id = rc.rider_id
+    LEFT JOIN master_leases ml ON ml.id = lr.master_lease_id
+    LEFT JOIN customers c ON c.id = ml.customer_id
+    WHERE EXTRACT(YEAR FROM ca.created_at) = $1
+      AND ca.status NOT IN ('Cancelled')
+    GROUP BY c.customer_name, c.customer_code
+    ORDER BY total_actual DESC NULLS LAST
+    LIMIT $2
+  `, [fiscalYear, limit]);
+
+  return results.map((r: any) => {
+    const estimated = parseFloat(r.total_estimated) || 0;
+    const actual = parseFloat(r.total_actual) || 0;
+    return {
+      customer_name: r.customer_name,
+      customer_code: r.customer_code,
+      car_count: parseInt(r.car_count) || 0,
+      total_estimated: estimated,
+      total_actual: actual,
+      avg_cost_per_car: parseFloat(r.avg_cost_per_car) || 0,
+      variance_pct: estimated > 0 ? Math.round(((actual - estimated) / estimated) * 10000) / 100 : 0,
+    };
+  });
+}
+
+// =============================================================================
+// SHOP PERFORMANCE SCORING
+// =============================================================================
+
+interface ShopPerformanceScore {
+  shop_code: string;
+  shop_name: string;
+  region: string;
+  overall_score: number;       // 0-100 composite
+  cycle_time_score: number;    // 0-100
+  otd_score: number;           // 0-100
+  cost_efficiency_score: number; // 0-100
+  defect_rate_score: number;   // 0-100
+  avg_dwell_days: number;
+  otd_pct: number;
+  avg_cost_per_car: number;
+  defect_rate_pct: number;
+  car_count: number;
+  completed_count: number;
+  trend: 'improving' | 'stable' | 'declining';
+}
+
+interface ShopPerformanceTrend {
+  month: string;
+  avg_dwell_days: number;
+  completed_count: number;
+  avg_cost: number;
+  otd_pct: number;
+}
+
+export async function getShopPerformanceScores(limit: number = 30): Promise<ShopPerformanceScore[]> {
+  const results = await query<any>(`
+    WITH shop_metrics AS (
+      SELECT
+        s.shop_code,
+        s.shop_name,
+        s.region,
+        COUNT(*) as total_assignments,
+        COUNT(*) FILTER (WHERE ca.status = 'Complete') as completed_count,
+        AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400)
+          FILTER (WHERE ca.status IN ('Complete', 'InShop', 'Arrived')) as avg_dwell_days,
+        COALESCE(AVG(COALESCE(ca.actual_cost, ca.estimated_cost)) FILTER (WHERE ca.status = 'Complete'), 0) as avg_cost_per_car,
+        -- OTD: completed within target (21 days)
+        COUNT(*) FILTER (
+          WHERE ca.status = 'Complete'
+          AND EXTRACT(EPOCH FROM (ca.completed_at - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400 <= 21
+        ) as on_time_count
+      FROM shops s
+      INNER JOIN car_assignments ca ON s.shop_code = ca.shop_code
+      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '180 days'
+        AND s.is_active = true
+      GROUP BY s.shop_code, s.shop_name, s.region
+      HAVING COUNT(*) >= 3
+    ),
+    defect_rates AS (
+      SELECT
+        shop_code,
+        COUNT(*) as bad_order_count
+      FROM bad_order_reports
+      WHERE created_at >= CURRENT_DATE - INTERVAL '180 days'
+      GROUP BY shop_code
+    )
+    SELECT
+      sm.*,
+      COALESCE(dr.bad_order_count, 0) as bad_order_count
+    FROM shop_metrics sm
+    LEFT JOIN defect_rates dr ON sm.shop_code = dr.shop_code
+    ORDER BY sm.completed_count DESC
+    LIMIT $1
+  `, [limit]);
+
+  // Calculate fleet-wide averages for scoring baseline
+  const fleetAvgDwell = results.length > 0
+    ? results.reduce((sum: number, r: any) => sum + (parseFloat(r.avg_dwell_days) || 0), 0) / results.length
+    : 14;
+  const fleetAvgCost = results.length > 0
+    ? results.reduce((sum: number, r: any) => sum + (parseFloat(r.avg_cost_per_car) || 0), 0) / results.length
+    : 5000;
+
+  return results.map((r: any) => {
+    const avgDwell = parseFloat(r.avg_dwell_days) || 0;
+    const completed = parseInt(r.completed_count) || 0;
+    const total = parseInt(r.total_assignments) || 1;
+    const onTime = parseInt(r.on_time_count) || 0;
+    const avgCost = parseFloat(r.avg_cost_per_car) || 0;
+    const badOrders = parseInt(r.bad_order_count) || 0;
+    const otdPct = completed > 0 ? Math.round((onTime / completed) * 100) : 0;
+    const defectRate = total > 0 ? Math.round((badOrders / total) * 10000) / 100 : 0;
+
+    // Score each dimension 0-100 (higher is better)
+    const cycleTimeScore = Math.max(0, Math.min(100, Math.round(100 - ((avgDwell - 7) / fleetAvgDwell) * 50)));
+    const otdScore = otdPct;
+    const costScore = fleetAvgCost > 0 ? Math.max(0, Math.min(100, Math.round(100 - ((avgCost - fleetAvgCost * 0.5) / fleetAvgCost) * 50))) : 50;
+    const defectScore = Math.max(0, Math.min(100, Math.round(100 - defectRate * 10)));
+
+    const overallScore = Math.round(cycleTimeScore * 0.3 + otdScore * 0.3 + costScore * 0.25 + defectScore * 0.15);
+
+    return {
+      shop_code: r.shop_code,
+      shop_name: r.shop_name,
+      region: r.region || 'Unknown',
+      overall_score: overallScore,
+      cycle_time_score: cycleTimeScore,
+      otd_score: otdScore,
+      cost_efficiency_score: costScore,
+      defect_rate_score: defectScore,
+      avg_dwell_days: Math.round(avgDwell * 10) / 10,
+      otd_pct: otdPct,
+      avg_cost_per_car: Math.round(avgCost),
+      defect_rate_pct: defectRate,
+      car_count: total,
+      completed_count: completed,
+      trend: overallScore >= 70 ? 'improving' : overallScore >= 40 ? 'stable' : 'declining',
+    };
+  });
+}
+
+export async function getShopPerformanceTrend(shopCode: string, months: number = 6): Promise<ShopPerformanceTrend[]> {
+  const results = await query<any>(`
+    WITH months AS (
+      SELECT to_char(generate_series(
+        date_trunc('month', CURRENT_DATE - INTERVAL '1 month' * $2),
+        date_trunc('month', CURRENT_DATE),
+        '1 month'
+      ), 'YYYY-MM') as month
+    )
+    SELECT
+      m.month,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400), 0) as avg_dwell_days,
+      COUNT(*) FILTER (WHERE ca.status = 'Complete') as completed_count,
+      COALESCE(AVG(COALESCE(ca.actual_cost, ca.estimated_cost)), 0) as avg_cost,
+      CASE WHEN COUNT(*) FILTER (WHERE ca.status = 'Complete') > 0
+        THEN ROUND(
+          COUNT(*) FILTER (
+            WHERE ca.status = 'Complete'
+            AND EXTRACT(EPOCH FROM (ca.completed_at - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400 <= 21
+          )::numeric
+          / NULLIF(COUNT(*) FILTER (WHERE ca.status = 'Complete'), 0)
+          * 100
+        )
+        ELSE 0
+      END as otd_pct
+    FROM months m
+    LEFT JOIN car_assignments ca ON to_char(date_trunc('month', ca.created_at), 'YYYY-MM') = m.month
+      AND ca.shop_code = $1
+    GROUP BY m.month
+    ORDER BY m.month
+  `, [shopCode, months]);
+
+  return results.map((r: any) => ({
+    month: r.month,
+    avg_dwell_days: Math.round(parseFloat(r.avg_dwell_days) * 10) / 10,
+    completed_count: parseInt(r.completed_count) || 0,
+    avg_cost: Math.round(parseFloat(r.avg_cost) || 0),
+    otd_pct: parseInt(r.otd_pct) || 0,
+  }));
+}
+
 export default {
   getCapacityForecast,
   getCapacityTrends,
@@ -690,4 +967,8 @@ export default {
   getDemandForecast,
   getDemandByRegion,
   getDemandByCustomer,
+  getCostVarianceReport,
+  getCustomerCostBreakdown,
+  getShopPerformanceScores,
+  getShopPerformanceTrend,
 };

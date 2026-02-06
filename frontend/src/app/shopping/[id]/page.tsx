@@ -11,9 +11,10 @@ import {
   getShoppingEventProjectFlags,
   bundleProjectWork,
   revertShoppingEvent,
+  getCarCleaningRequirements,
 } from '@/lib/api';
-import { ShoppingEvent, StateHistoryEntry, EstimateSubmission } from '@/types';
-import { Info, AlertTriangle, ChevronDown, Zap } from 'lucide-react';
+import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, CleaningRequirements } from '@/types';
+import { Info, AlertTriangle, ChevronDown, Zap, Droplets } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
@@ -134,6 +135,9 @@ export default function ShoppingEventDetailPage() {
   const [bundling, setBundling] = useState(false);
   const [bundleSuccess, setBundleSuccess] = useState(false);
 
+  // Commodity & cleaning requirements
+  const [cleaningReqs, setCleaningReqs] = useState<CleaningRequirements | null>(null);
+
   // Estimate decisions moved to EstimateReviewPanel component
 
   // -----------------------------------------------------------------------
@@ -175,6 +179,14 @@ export default function ShoppingEventDetailPage() {
       .then(flag => setProjectFlag(flag))
       .catch(() => { /* non-critical */ });
   }, [id]);
+
+  // Fetch commodity/cleaning requirements for the car
+  useEffect(() => {
+    if (!event?.car_number) return;
+    getCarCleaningRequirements(event.car_number)
+      .then(reqs => setCleaningReqs(reqs as CleaningRequirements))
+      .catch(() => { /* non-critical */ });
+  }, [event?.car_number]);
 
   // Estimate approval moved to EstimateReviewPanel component
 
@@ -338,6 +350,68 @@ export default function ShoppingEventDetailPage() {
       {/* State Progress Bar                                                */}
       {/* ----------------------------------------------------------------- */}
       <StateProgressBar currentState={event.state} />
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Commodity & Cleaning Requirements                                 */}
+      {/* ----------------------------------------------------------------- */}
+      {cleaningReqs && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Droplets className="w-4 h-4 text-blue-500" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Commodity & Cleaning</h3>
+          </div>
+          <dl className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400 text-xs">Commodity</dt>
+              <dd className="font-medium text-gray-900 dark:text-gray-100">
+                {cleaningReqs.commodity_code || '--'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400 text-xs">Description</dt>
+              <dd className="font-medium text-gray-900 dark:text-gray-100">
+                {cleaningReqs.commodity_name || '--'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400 text-xs">Cleaning Class</dt>
+              <dd className="font-medium text-gray-900 dark:text-gray-100">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  cleaningReqs.cleaning_class === 'A' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                  cleaningReqs.cleaning_class === 'B' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                  cleaningReqs.cleaning_class === 'C' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                  cleaningReqs.cleaning_class === 'D' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                  {cleaningReqs.cleaning_class || 'N/A'}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400 text-xs">Cleaning</dt>
+              <dd className="font-medium text-gray-900 dark:text-gray-100 text-xs">
+                {cleaningReqs.cleaning_description || '--'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400 text-xs">Special Requirements</dt>
+              <dd className="font-medium text-gray-900 dark:text-gray-100">
+                {[
+                  cleaningReqs.requires_interior_blast && 'Interior Blast',
+                  cleaningReqs.requires_exterior_paint && 'Exterior Paint',
+                  cleaningReqs.requires_new_lining && 'New Lining',
+                  cleaningReqs.requires_kosher_cleaning && 'Kosher',
+                ].filter(Boolean).join(', ') || 'None'}
+              </dd>
+            </div>
+          </dl>
+          {cleaningReqs.special_instructions && (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1">
+              {cleaningReqs.special_instructions}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* Error / Warning banners                                           */}

@@ -232,37 +232,60 @@ export async function createQualification(data: {
   is_exempt?: boolean;
   exempt_reason?: string;
 }, userId?: string): Promise<Qualification> {
-  const rows = await query<Qualification>(
-    `INSERT INTO qualifications (
-       car_id, qualification_type_id, status,
-       last_completed_date, next_due_date, expiry_date,
-       interval_months, completed_by, completion_shop_code,
-       certificate_number, notes, is_exempt, exempt_reason
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-     RETURNING *`,
-    [
-      data.car_id,
-      data.qualification_type_id,
-      data.status || 'unknown',
-      data.last_completed_date || null,
-      data.next_due_date || null,
-      data.expiry_date || null,
-      data.interval_months || null,
-      data.completed_by || null,
-      data.completion_shop_code || null,
-      data.certificate_number || null,
-      data.notes || null,
-      data.is_exempt || false,
-      data.exempt_reason || null,
-    ]
-  );
-
-  // Log history
-  if (rows[0]) {
-    await logHistory(rows[0].id, 'created', userId, null, rows[0].status);
+  // Validate dates if provided
+  if (data.last_completed_date && isNaN(new Date(data.last_completed_date).getTime())) {
+    throw new Error('Invalid last_completed_date: must be a valid date string');
+  }
+  if (data.next_due_date && isNaN(new Date(data.next_due_date).getTime())) {
+    throw new Error('Invalid next_due_date: must be a valid date string');
   }
 
-  return rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `INSERT INTO qualifications (
+         car_id, qualification_type_id, status,
+         last_completed_date, next_due_date, expiry_date,
+         interval_months, completed_by, completion_shop_code,
+         certificate_number, notes, is_exempt, exempt_reason
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING *`,
+      [
+        data.car_id,
+        data.qualification_type_id,
+        data.status || 'unknown',
+        data.last_completed_date || null,
+        data.next_due_date || null,
+        data.expiry_date || null,
+        data.interval_months || null,
+        data.completed_by || null,
+        data.completion_shop_code || null,
+        data.certificate_number || null,
+        data.notes || null,
+        data.is_exempt || false,
+        data.exempt_reason || null,
+      ]
+    );
+
+    const created = result.rows[0];
+    if (created) {
+      await client.query(
+        `INSERT INTO qualification_history (qualification_id, action, performed_by, old_status, new_status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [created.id, 'created', userId || null, null, created.status, null]
+      );
+    }
+
+    await client.query('COMMIT');
+    return created;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateQualification(
@@ -329,58 +352,77 @@ export async function completeQualification(
   },
   userId?: string
 ): Promise<Qualification | null> {
+  // Validate completed_date is a real date
+  const completedDate = new Date(data.completed_date);
+  if (isNaN(completedDate.getTime())) {
+    throw new Error('Invalid completed_date: must be a valid date string');
+  }
+
   const current = await getQualificationById(id);
   if (!current) return null;
 
   // Calculate next due date from completion date + interval
   const intervalMonths = current.interval_months || 120; // default 10 years
-  const completedDate = new Date(data.completed_date);
   const nextDueDate = new Date(completedDate);
   nextDueDate.setMonth(nextDueDate.getMonth() + intervalMonths);
-  const expiryDate = new Date(nextDueDate);
-  expiryDate.setFullYear(expiryDate.getFullYear(), 11, 31); // end of year
+  // Expiry is end of the year that next_due_date falls in
+  const expiryDate = new Date(nextDueDate.getFullYear(), 11, 31);
 
-  const rows = await query<Qualification>(
-    `UPDATE qualifications SET
-       status = 'current',
-       last_completed_date = $2,
-       next_due_date = $3,
-       expiry_date = $4,
-       completed_by = COALESCE($5, completed_by),
-       completion_shop_code = COALESCE($6, completion_shop_code),
-       certificate_number = COALESCE($7, certificate_number),
-       notes = COALESCE($8, notes),
-       is_exempt = FALSE,
-       updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [
-      id,
-      data.completed_date,
-      nextDueDate.toISOString().split('T')[0],
-      expiryDate.toISOString().split('T')[0],
-      data.completed_by || null,
-      data.completion_shop_code || null,
-      data.certificate_number || null,
-      data.notes || null,
-    ]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (rows[0]) {
-    await logHistory(
-      id, 'completed', userId, current.status, 'current',
-      current.next_due_date || undefined,
-      nextDueDate.toISOString().split('T')[0],
-      data.notes
+    const result = await client.query(
+      `UPDATE qualifications SET
+         status = 'current',
+         last_completed_date = $2,
+         next_due_date = $3,
+         expiry_date = $4,
+         completed_by = COALESCE($5, completed_by),
+         completion_shop_code = COALESCE($6, completion_shop_code),
+         certificate_number = COALESCE($7, certificate_number),
+         notes = COALESCE($8, notes),
+         is_exempt = FALSE,
+         updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [
+        id,
+        data.completed_date,
+        nextDueDate.toISOString().split('T')[0],
+        expiryDate.toISOString().split('T')[0],
+        data.completed_by || null,
+        data.completion_shop_code || null,
+        data.certificate_number || null,
+        data.notes || null,
+      ]
     );
-  }
 
-  return rows[0] || null;
+    const updated = result.rows[0] || null;
+
+    if (updated) {
+      await client.query(
+        `INSERT INTO qualification_history (qualification_id, action, performed_by, old_status, new_status, old_due_date, new_due_date, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, 'completed', userId || null, current.status, 'current', current.next_due_date || null, nextDueDate.toISOString().split('T')[0], data.notes || null]
+      );
+    }
+
+    await client.query('COMMIT');
+    return updated;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================================
 // Bulk Update — update multiple qualifications at once
 // ============================================================================
+
+const BULK_UPDATE_MAX = 500;
 
 export async function bulkUpdateQualifications(
   ids: string[],
@@ -392,6 +434,14 @@ export async function bulkUpdateQualifications(
   userId?: string
 ): Promise<{ updated: number }> {
   if (ids.length === 0) return { updated: 0 };
+  if (ids.length > BULK_UPDATE_MAX) {
+    throw new Error(`Bulk update limited to ${BULK_UPDATE_MAX} records per request. Received ${ids.length}.`);
+  }
+
+  // Validate date if provided
+  if (data.next_due_date && isNaN(new Date(data.next_due_date).getTime())) {
+    throw new Error('Invalid next_due_date: must be a valid date string');
+  }
 
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -590,6 +640,14 @@ export async function generateAlerts(): Promise<{ created: number }> {
   // Recalculate statuses first
   await recalculateAllStatuses();
 
+  // Shared rule applicability clause: when applies_to_car_types is non-empty,
+  // only match cars whose aar_type appears in the rule's JSONB array.
+  // Same pattern for applies_to_commodities.
+  const ruleApplicabilityClause = `
+    AND (jsonb_array_length(qr.applies_to_car_types) = 0 OR c.aar_type IN (SELECT jsonb_array_elements_text(qr.applies_to_car_types)))
+    AND (jsonb_array_length(qr.applies_to_commodities) = 0 OR c.commodity IN (SELECT jsonb_array_elements_text(qr.applies_to_commodities)))
+  `;
+
   // Generate 90-day warnings
   const result90 = await pool.query(`
     INSERT INTO qualification_alerts (qualification_id, car_id, qualification_type_id, alert_type, alert_date, due_date, days_until_due)
@@ -597,9 +655,11 @@ export async function generateAlerts(): Promise<{ created: number }> {
       (q.next_due_date - CURRENT_DATE)
     FROM qualifications q
     JOIN qualification_rules qr ON qr.qualification_type_id = q.qualification_type_id AND qr.is_active = TRUE AND qr.warning_days_90 = TRUE
+    JOIN cars c ON c.id = q.car_id
     WHERE q.next_due_date IS NOT NULL
       AND q.next_due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '90 days'
       AND q.status != 'exempt'
+      ${ruleApplicabilityClause}
       AND NOT EXISTS (
         SELECT 1 FROM qualification_alerts qa
         WHERE qa.qualification_id = q.id AND qa.alert_type = 'warning_90'
@@ -614,9 +674,11 @@ export async function generateAlerts(): Promise<{ created: number }> {
       (q.next_due_date - CURRENT_DATE)
     FROM qualifications q
     JOIN qualification_rules qr ON qr.qualification_type_id = q.qualification_type_id AND qr.is_active = TRUE AND qr.warning_days_60 = TRUE
+    JOIN cars c ON c.id = q.car_id
     WHERE q.next_due_date IS NOT NULL
       AND q.next_due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '60 days'
       AND q.status != 'exempt'
+      ${ruleApplicabilityClause}
       AND NOT EXISTS (
         SELECT 1 FROM qualification_alerts qa
         WHERE qa.qualification_id = q.id AND qa.alert_type = 'warning_60'
@@ -631,9 +693,11 @@ export async function generateAlerts(): Promise<{ created: number }> {
       (q.next_due_date - CURRENT_DATE)
     FROM qualifications q
     JOIN qualification_rules qr ON qr.qualification_type_id = q.qualification_type_id AND qr.is_active = TRUE AND qr.warning_days_30 = TRUE
+    JOIN cars c ON c.id = q.car_id
     WHERE q.next_due_date IS NOT NULL
       AND q.next_due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
       AND q.status != 'exempt'
+      ${ruleApplicabilityClause}
       AND NOT EXISTS (
         SELECT 1 FROM qualification_alerts qa
         WHERE qa.qualification_id = q.id AND qa.alert_type = 'warning_30'
@@ -641,7 +705,7 @@ export async function generateAlerts(): Promise<{ created: number }> {
       )
   `);
 
-  // Generate overdue alerts
+  // Generate overdue alerts (always fires, no rule gating needed)
   const resultOverdue = await pool.query(`
     INSERT INTO qualification_alerts (qualification_id, car_id, qualification_type_id, alert_type, alert_date, due_date, days_until_due)
     SELECT q.id, q.car_id, q.qualification_type_id, 'overdue', CURRENT_DATE, q.next_due_date,
@@ -657,7 +721,24 @@ export async function generateAlerts(): Promise<{ created: number }> {
       )
   `);
 
-  const total = (result90.rowCount || 0) + (result60.rowCount || 0) + (result30.rowCount || 0) + (resultOverdue.rowCount || 0);
+  // Generate expired alerts (expiry_date has passed)
+  const resultExpired = await pool.query(`
+    INSERT INTO qualification_alerts (qualification_id, car_id, qualification_type_id, alert_type, alert_date, due_date, days_until_due)
+    SELECT q.id, q.car_id, q.qualification_type_id, 'expired', CURRENT_DATE, q.expiry_date,
+      (q.expiry_date - CURRENT_DATE)
+    FROM qualifications q
+    WHERE q.expiry_date IS NOT NULL
+      AND q.expiry_date < CURRENT_DATE
+      AND q.status != 'exempt'
+      AND NOT EXISTS (
+        SELECT 1 FROM qualification_alerts qa
+        WHERE qa.qualification_id = q.id AND qa.alert_type = 'expired'
+          AND qa.alert_date >= CURRENT_DATE - INTERVAL '7 days'
+      )
+  `);
+
+  const total = (result90.rowCount || 0) + (result60.rowCount || 0) + (result30.rowCount || 0)
+    + (resultOverdue.rowCount || 0) + (resultExpired.rowCount || 0);
   return { created: total };
 }
 

@@ -12,7 +12,8 @@ import {
   Settings, ChevronRight, ChevronDown, Menu, X, LogOut, User,
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
-  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign
+  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
+  TrendingUp, Award, Database, GitCompare, Rocket
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,8 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
+      { label: 'Cost Analytics', href: '/cost-analytics', icon: <TrendingUp className="w-4 h-4" /> },
+      { label: 'Shop Performance', href: '/shop-performance', icon: <Award className="w-4 h-4" /> },
       { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },
@@ -117,6 +120,10 @@ const NAV_CATEGORIES: NavCategory[] = [
     adminOnly: true,
     children: [
       { label: 'Rules', href: '/rules', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Integrations', href: '/integrations', icon: <Wifi className="w-4 h-4" /> },
+      { label: 'Migration', href: '/migration', icon: <Database className="w-4 h-4" /> },
+      { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
+      { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },
       { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },

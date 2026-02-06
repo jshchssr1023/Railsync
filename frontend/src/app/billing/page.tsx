@@ -357,6 +357,8 @@ export default function BillingPage() {
 
   // Invoices data
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
+  const [invoicePage, setInvoicePage] = useState(0);
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
   const [invoiceCustomerSearch, setInvoiceCustomerSearch] = useState('');
   const [invoicePeriodFilter, setInvoicePeriodFilter] = useState('');
@@ -368,6 +370,8 @@ export default function BillingPage() {
 
   // Chargebacks data
   const [chargebacks, setChargebacks] = useState<Chargeback[]>([]);
+  const [chargebackTotal, setChargebackTotal] = useState(0);
+  const [chargebackPage, setChargebackPage] = useState(0);
   const [showChargebackModal, setShowChargebackModal] = useState(false);
   const [newChargeback, setNewChargeback] = useState({
     car_number: '',
@@ -436,7 +440,7 @@ export default function BillingPage() {
     setLoading(true);
     setError(null);
     try {
-      const filters: Parameters<typeof listOutboundInvoices>[0] = { limit: 50 };
+      const filters: Parameters<typeof listOutboundInvoices>[0] = { limit: 50, offset: invoicePage * 50 };
       if (invoiceStatusFilter) filters.status = invoiceStatusFilter;
       if (invoicePeriodFilter) {
         const [y, m] = invoicePeriodFilter.split('-');
@@ -444,29 +448,33 @@ export default function BillingPage() {
       }
       const data = await listOutboundInvoices(filters);
       const invoiceList = (data as any)?.invoices || (Array.isArray(data) ? data : []);
+      const count = (data as any)?.total ?? invoiceList.length;
       setInvoices(invoiceList as BillingInvoice[]);
+      setInvoiceTotal(count);
     } catch (err) {
       console.error('Failed to load invoices:', err);
       setError('Failed to load invoices.');
     } finally {
       setLoading(false);
     }
-  }, [invoiceStatusFilter, invoiceCustomerSearch, invoicePeriodFilter]);
+  }, [invoiceStatusFilter, invoiceCustomerSearch, invoicePeriodFilter, invoicePage]);
 
   const loadChargebacksData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchChargebacks({ limit: 50 });
+      const data = await fetchChargebacks({ limit: 50, offset: chargebackPage * 50 });
       const list = (data as any)?.chargebacks || (Array.isArray(data) ? data : []);
+      const count = (data as any)?.total ?? list.length;
       setChargebacks(list as Chargeback[]);
+      setChargebackTotal(count);
     } catch (err) {
       console.error('Failed to load chargebacks:', err);
       setError('Failed to load chargebacks.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [chargebackPage]);
 
   const loadAdjustmentsData = useCallback(async () => {
     setLoading(true);
@@ -1155,7 +1163,7 @@ export default function BillingPage() {
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Status</label>
                   <select
                     value={invoiceStatusFilter}
-                    onChange={(e) => setInvoiceStatusFilter(e.target.value)}
+                    onChange={(e) => { setInvoiceStatusFilter(e.target.value); setInvoicePage(0); }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                   >
                     <option value="">All Statuses</option>
@@ -1181,7 +1189,7 @@ export default function BillingPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     {invoiceCustomerSearch && (
                       <button
-                        onClick={() => setInvoiceCustomerSearch('')}
+                        onClick={() => { setInvoiceCustomerSearch(''); setInvoicePage(0); }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
                         <X className="w-4 h-4" />
@@ -1194,7 +1202,7 @@ export default function BillingPage() {
                   <input
                     type="month"
                     value={invoicePeriodFilter}
-                    onChange={(e) => setInvoicePeriodFilter(e.target.value)}
+                    onChange={(e) => { setInvoicePeriodFilter(e.target.value); setInvoicePage(0); }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                   />
                 </div>
@@ -1211,6 +1219,7 @@ export default function BillingPage() {
                       setInvoiceStatusFilter('');
                       setInvoiceCustomerSearch('');
                       setInvoicePeriodFilter('');
+                      setInvoicePage(0);
                     }}
                     className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
                   >
@@ -1485,6 +1494,34 @@ export default function BillingPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Invoice Pagination */}
+              {invoiceTotal > 50 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing {invoicePage * 50 + 1} to {Math.min((invoicePage + 1) * 50, invoiceTotal)} of {invoiceTotal} invoices
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setInvoicePage(p => Math.max(0, p - 1))}
+                      disabled={invoicePage === 0}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Page {invoicePage + 1} of {Math.max(1, Math.ceil(invoiceTotal / 50))}
+                    </span>
+                    <button
+                      onClick={() => setInvoicePage(p => Math.min(Math.ceil(invoiceTotal / 50) - 1, p + 1))}
+                      disabled={(invoicePage + 1) * 50 >= invoiceTotal}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1645,6 +1682,34 @@ export default function BillingPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Chargeback Pagination */}
+              {chargebackTotal > 50 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing {chargebackPage * 50 + 1} to {Math.min((chargebackPage + 1) * 50, chargebackTotal)} of {chargebackTotal} chargebacks
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setChargebackPage(p => Math.max(0, p - 1))}
+                      disabled={chargebackPage === 0}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Page {chargebackPage + 1} of {Math.max(1, Math.ceil(chargebackTotal / 50))}
+                    </span>
+                    <button
+                      onClick={() => setChargebackPage(p => Math.min(Math.ceil(chargebackTotal / 50) - 1, p + 1))}
+                      disabled={(chargebackPage + 1) * 50 >= chargebackTotal}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Create Chargeback Modal */}

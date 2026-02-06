@@ -1166,3 +1166,42 @@ export interface ProjectPlanSummary {
   assignments: ProjectAssignment[];
   assignments_by_shop: Record<string, ProjectAssignment[]>;
 }
+
+// ============================================================================
+// INTEGRATION TYPES
+// ============================================================================
+
+export interface IntegrationConnectionStatus {
+  system_name: string;
+  is_connected: boolean;
+  mode: 'mock' | 'live' | 'disabled';
+  last_check_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface IntegrationSyncLogEntry {
+  id: string;
+  system_name: string;
+  operation: string;
+  direction: 'push' | 'pull';
+  entity_type: string | null;
+  entity_id: string | null;
+  entity_ref: string | null;
+  status: 'pending' | 'in_progress' | 'success' | 'failed' | 'retrying';
+  payload: unknown;
+  response: unknown;
+  error_message: string | null;
+  external_id: string | null;
+  retry_count: number;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface IntegrationSyncStats {
+  total: number;
+  pending: number;
+  success: number;
+  failed: number;
+  by_system: { system_name: string; total: number; success: number; failed: number }[];
+}

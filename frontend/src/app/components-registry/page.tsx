@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   Loader2, Wrench, Search, X, Plus, Filter, RefreshCw,
   CheckCircle, AlertTriangle, Clock, Eye, ChevronUp, Settings,
@@ -19,6 +19,8 @@ import type {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+const PAGE_SIZE = 50;
+
 const COMPONENT_TYPES: { value: ComponentType; label: string }[] = [
   { value: 'valve', label: 'Valve' },
   { value: 'bov', label: 'BOV (Bottom Outlet Valve)' },
@@ -97,9 +99,13 @@ export default function ComponentRegistryPage() {
 
   const [loading, setLoading] = useState(true);
   const [components, setComponents] = useState<RailcarComponent[]>([]);
+  const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<ComponentStats | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<ComponentWithHistory | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(0);
 
   // Filters
   const [carFilter, setCarFilter] = useState('');
@@ -126,19 +132,22 @@ export default function ComponentRegistryPage() {
   const loadComponents = useCallback(async () => {
     setLoading(true);
     try {
-      const filters: Record<string, string | number> = { limit: 100 };
+      const filters: Record<string, string | number> = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
       if (carFilter) filters.car_number = carFilter;
       if (typeFilter) filters.component_type = typeFilter;
       if (statusFilter) filters.status = statusFilter;
       const data = await listComponents(filters as any);
-      setComponents(Array.isArray(data) ? data : (data as any)?.components || []);
+      const list = Array.isArray(data) ? data : (data as any)?.components || [];
+      const count = (data as any)?.total ?? list.length;
+      setComponents(list);
+      setTotal(count);
     } catch (err) {
       console.error('Failed to load components:', err);
       toast.error('Failed to load components');
     } finally {
       setLoading(false);
     }
-  }, [carFilter, typeFilter, statusFilter, toast]);
+  }, [carFilter, typeFilter, statusFilter, page, toast]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -323,7 +332,7 @@ export default function ComponentRegistryPage() {
               </select>
             </div>
             <button
-              onClick={loadComponents}
+              onClick={() => { setPage(0); loadComponents(); }}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700"
             >
               <Filter className="w-4 h-4" />
@@ -331,7 +340,7 @@ export default function ComponentRegistryPage() {
             </button>
             {(carFilter || typeFilter || statusFilter) && (
               <button
-                onClick={() => { setCarFilter(''); setTypeFilter(''); setStatusFilter(''); }}
+                onClick={() => { setCarFilter(''); setTypeFilter(''); setStatusFilter(''); setPage(0); }}
                 className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
               >
                 Clear
@@ -368,8 +377,8 @@ export default function ComponentRegistryPage() {
                   {components.map((comp) => {
                     const inspStatus = getInspectionStatus(comp.next_inspection_due);
                     return (
-                      <>
-                        <tr key={comp.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <Fragment key={comp.id}>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-4 py-3 font-mono font-medium text-gray-900 dark:text-gray-100">
                             {comp.car_number}
                           </td>
@@ -470,7 +479,7 @@ export default function ComponentRegistryPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                   {components.length === 0 && (
@@ -486,6 +495,34 @@ export default function ComponentRegistryPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {total > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing {page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()} components
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Page {page + 1} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+                  </span>
+                  <button
+                    onClick={() => setPage(p => Math.min(Math.ceil(total / PAGE_SIZE) - 1, p + 1))}
+                    disabled={(page + 1) * PAGE_SIZE >= total}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
