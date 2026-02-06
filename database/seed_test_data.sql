@@ -4,7 +4,7 @@
 -- Safe to run multiple times (uses ON CONFLICT DO NOTHING where applicable).
 -- ============================================================================
 
--- Reference IDs (from existing seed data)
+-- Reference IDs (created by migration 047_demo_historical_data.sql)
 -- Admin user:    de69920f-cdcb-4668-9f21-9c4dbccfb8c9
 -- Operator user: 7b15c7ba-1b51-4aef-a48c-338e0713405f
 -- Customer user: 63d82d01-7bff-4d4d-8774-59babd94e9a2
@@ -55,7 +55,10 @@ ON CONFLICT (id) DO NOTHING;
 -- 4. CAR ASSIGNMENTS (SSOT)
 -- ============================================================================
 
-INSERT INTO car_assignments (id, car_id, car_number, shop_code, shop_name, target_month, status, source, estimated_cost, created_by_id, created_at)
+-- Disable trigger that validates car_number exists (UMLER cars may not be loaded yet)
+ALTER TABLE car_assignments DISABLE TRIGGER trg_assignment_car_gate;
+
+INSERT INTO car_assignments (id, car_mark_number, car_number, shop_code, shop_name, target_month, status, source, estimated_cost, created_by_id, created_at)
 VALUES
   ('c0000001-0000-0000-0000-000000000001', gen_random_uuid(), 'ACFX079506', 'BNSF001', 'Alliance Repair Center', '2026-04', 'Planned', 'demand_plan', 4500, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', NOW() - INTERVAL '10 days'),
   ('c0000001-0000-0000-0000-000000000002', gen_random_uuid(), 'ACFX079727', 'BNSF002', 'Galesburg Tank Shop', '2026-04', 'Planned', 'demand_plan', 5200, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', NOW() - INTERVAL '10 days'),
@@ -71,6 +74,9 @@ VALUES
   ('c0000001-0000-0000-0000-000000000012', gen_random_uuid(), 'ACFX095852', 'NS001', 'Roanoke Heavy Repair', '2025-12', 'Complete', 'service_plan', 6300, '7b15c7ba-1b51-4aef-a48c-338e0713405f', NOW() - INTERVAL '75 days'),
   ('c0000001-0000-0000-0000-000000000013', gen_random_uuid(), 'ACFX095853', 'KCS001', 'Shreveport Terminal', '2026-01', 'Cancelled', 'demand_plan', 5000, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', NOW() - INTERVAL '40 days')
 ON CONFLICT (id) DO NOTHING;
+
+-- Re-enable trigger
+ALTER TABLE car_assignments ENABLE TRIGGER trg_assignment_car_gate;
 
 -- ============================================================================
 -- 5. BAD ORDER REPORTS
@@ -149,10 +155,10 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
--- 9. PROJECT CARS
+-- 9. PROJECT CARS (wrapped in exception handler — car_numbers may not exist without UMLER import)
 -- ============================================================================
 
--- Project 1: 10 cars (qualification)
+DO $$ BEGIN
 INSERT INTO project_cars (id, project_id, car_number, status, added_by)
 VALUES
   ('11000001-0000-0000-0000-000000000001', '10000001-0000-0000-0000-000000000001', 'SHQX009712', 'in_progress', 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9'),
@@ -202,10 +208,15 @@ VALUES
   ('15000001-0000-0000-0000-000000000002', '10000001-0000-0000-0000-000000000005', 'SHQX009723', 'pending', '7b15c7ba-1b51-4aef-a48c-338e0713405f')
 ON CONFLICT (id) DO NOTHING;
 
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'project_cars inserts skipped (UMLER data not loaded): %', SQLERRM;
+END $$;
+
 -- ============================================================================
--- 10. PROJECT ASSIGNMENTS
+-- 10. PROJECT ASSIGNMENTS (wrapped — depends on project_cars from section 9)
 -- ============================================================================
 
+DO $$ BEGIN
 -- Project 1: 4 locked, 3 planned, 1 superseded
 INSERT INTO project_assignments (id, project_id, project_car_id, car_number, shop_code, shop_name, target_month, plan_state, estimated_cost, locked_at, locked_by, lock_version, created_by)
 VALUES
@@ -234,6 +245,10 @@ VALUES
   ('30000001-0000-0000-0000-000000000004', '10000001-0000-0000-0000-000000000003', '13000001-0000-0000-0000-000000000004', 'TILX901234', 'NS001', 'Roanoke Heavy Repair', '2026-03', 'Locked', 9500, NOW() - INTERVAL '25 days', 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', 1, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9')
 ON CONFLICT (id) DO NOTHING;
 
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'project_assignments inserts skipped (project_cars not loaded): %', SQLERRM;
+END $$;
+
 -- ============================================================================
 -- 11. PROJECT COMMUNICATIONS
 -- ============================================================================
@@ -247,9 +262,10 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
--- 12. PROJECT PLAN AUDIT EVENTS
+-- 12. PROJECT PLAN AUDIT EVENTS (wrapped — depends on project_assignments)
 -- ============================================================================
 
+DO $$ BEGIN
 INSERT INTO project_plan_audit_events (id, project_id, project_assignment_id, car_number, actor_id, actor_email, action, before_state, after_state, reason, event_timestamp)
 VALUES
   ('50000001-0000-0000-0000-000000000001', '10000001-0000-0000-0000-000000000001', '20000001-0000-0000-0000-000000000001', 'SHQX009712', 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', 'admin@railsync.com', 'plan_created', NULL, 'Planned', NULL, NOW() - INTERVAL '20 days'),
@@ -262,6 +278,10 @@ VALUES
   ('50000001-0000-0000-0000-000000000008', '10000001-0000-0000-0000-000000000001', '20000001-0000-0000-0000-000000000003', 'SHQX009715', 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', 'admin@railsync.com', 'plan_relocked', 'Locked', 'Locked', 'Galesburg capacity full, redirected to Atlanta', NOW() - INTERVAL '8 days'),
   ('50000001-0000-0000-0000-000000000009', '10000001-0000-0000-0000-000000000001', NULL, NULL, 'de69920f-cdcb-4668-9f21-9c4dbccfb8c9', 'admin@railsync.com', 'communication_logged', NULL, NULL, NULL, NOW() - INTERVAL '7 days')
 ON CONFLICT (id) DO NOTHING;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'project_plan_audit_events inserts skipped (project_assignments not loaded): %', SQLERRM;
+END $$;
 
 -- ============================================================================
 -- 13. INVOICE CASES

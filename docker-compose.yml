@@ -69,6 +69,7 @@ services:
       - ./database/migrations/045_budget_scenarios.sql:/docker-entrypoint-initdb.d/52-budget-scenarios.sql
       - ./database/migrations/046_fix_capacity_trigger_null_shop.sql:/docker-entrypoint-initdb.d/53-fix-capacity-trigger.sql
       - ./database/migrations/047_demo_historical_data.sql:/docker-entrypoint-initdb.d/54-demo-historical-data.sql
+      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/55-seed-test-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
