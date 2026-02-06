@@ -10,6 +10,84 @@
 -- Customer: 63d82d01-7bff-4d4d-8774-59babd94e9a2
 
 -- ============================================================================
+-- 0. ENSURE REFERENCE USERS EXIST WITH KNOWN UUIDs FOR FK CONSTRAINTS
+-- ============================================================================
+INSERT INTO users (id, email, password_hash, first_name, last_name, role, organization)
+VALUES
+  ('de69920f-cdcb-4668-9f21-9c4dbccfb8c9', 'demo-admin@railsync.com',
+   '$2b$12$DAbdF7nwOhVY7T0D/4AhCeTuOEUgQom3kChE/kk71Pgv60AyFwXyi',
+   'Demo', 'Admin', 'admin', 'Railsync'),
+  ('7b15c7ba-1b51-4aef-a48c-338e0713405f', 'demo-operator@railsync.com',
+   '$2b$12$88aM1qw93N3bF/ouRgUuRO5fwxGXx8/9WmQspGYNHDhE0kJwlvuyu',
+   'Demo', 'Operator', 'operator', 'Railsync'),
+  ('63d82d01-7bff-4d4d-8774-59babd94e9a2', 'demo-customer@railsync.com',
+   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.K4.z3AelqfVuui',
+   'Demo', 'Customer', 'viewer', 'Demo Corp')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 0b. ENSURE ALL REFERENCED CARS EXIST (for FK constraints and triggers)
+-- ============================================================================
+INSERT INTO cars (car_number, product_code, material_type, owner_code, is_active) VALUES
+  ('SHPX200883','Tank','Carbon Steel','SHPX',TRUE),('SHPX200885','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX200886','Tank','Carbon Steel','SHPX',TRUE),('SHPX200887','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX200888','Tank','Carbon Steel','SHPX',TRUE),('SHPX200889','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX200890','Tank','Carbon Steel','SHPX',TRUE),('SHPX200891','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX200892','Tank','Carbon Steel','SHPX',TRUE),('SHPX200895','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX201146','Tank','Carbon Steel','SHPX',TRUE),('SHPX201457','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX201459','Tank','Carbon Steel','SHPX',TRUE),('SHPX202933','Tank','Stainless','SHPX',TRUE),
+  ('SHPX202938','Tank','Stainless','SHPX',TRUE),('SHPX202960','Tank','Stainless','SHPX',TRUE),
+  ('SHPX205321','Tank','Carbon Steel','SHPX',TRUE),('SHPX205994','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX205995','Tank','Carbon Steel','SHPX',TRUE),('SHPX206570','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX206596','Tank','Carbon Steel','SHPX',TRUE),('SHPX206598','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207084','Tank','Carbon Steel','SHPX',TRUE),('SHPX207088','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207090','Tank','Carbon Steel','SHPX',TRUE),('SHPX207167','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207168','Tank','Carbon Steel','SHPX',TRUE),('SHPX207171','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207172','Tank','Carbon Steel','SHPX',TRUE),('SHPX207173','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207174','Tank','Carbon Steel','SHPX',TRUE),('SHPX207183','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207188','Tank','Carbon Steel','SHPX',TRUE),('SHPX207209','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX207226','Tank','Carbon Steel','SHPX',TRUE),('SHPX213549','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX213550','Tank','Carbon Steel','SHPX',TRUE),('SHPX213551','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX213552','Tank','Carbon Steel','SHPX',TRUE),('SHPX214341','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX214344','Tank','Carbon Steel','SHPX',TRUE),('SHPX214345','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHPX214346','Tank','Carbon Steel','SHPX',TRUE),
+  ('SHQX007222','Tank','Carbon Steel','SHQX',TRUE),('SHQX007228','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX007229','Tank','Carbon Steel','SHQX',TRUE),('SHQX007234','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX007236','Tank','Carbon Steel','SHQX',TRUE),('SHQX007237','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009402','Tank','Carbon Steel','SHQX',TRUE),('SHQX009604','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009605','Tank','Carbon Steel','SHQX',TRUE),('SHQX009700','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009730','Tank','Carbon Steel','SHQX',TRUE),('SHQX009731','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009732','Tank','Carbon Steel','SHQX',TRUE),('SHQX009733','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009734','Tank','Carbon Steel','SHQX',TRUE),('SHQX009735','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009736','Tank','Carbon Steel','SHQX',TRUE),('SHQX009737','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009738','Tank','Carbon Steel','SHQX',TRUE),('SHQX009739','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009740','Tank','Carbon Steel','SHQX',TRUE),('SHQX009741','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009742','Tank','Carbon Steel','SHQX',TRUE),('SHQX009743','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX009744','Tank','Carbon Steel','SHQX',TRUE),('SHQX009745','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX010136','Tank','Carbon Steel','SHQX',TRUE),('SHQX010138','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX010142','Tank','Carbon Steel','SHQX',TRUE),('SHQX050735','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX050736','Tank','Carbon Steel','SHQX',TRUE),('SHQX050737','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX050738','Tank','Carbon Steel','SHQX',TRUE),('SHQX050739','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX050740','Tank','Carbon Steel','SHQX',TRUE),('SHQX050741','Tank','Carbon Steel','SHQX',TRUE),
+  ('SHQX050742','Tank','Carbon Steel','SHQX',TRUE),
+  ('TAEX000252','Tank','Carbon Steel','TAEX',TRUE),('TAEX000256','Tank','Carbon Steel','TAEX',TRUE),
+  ('TAEX000261','Tank','Carbon Steel','TAEX',TRUE),('TAEX000264','Tank','Carbon Steel','TAEX',TRUE),
+  ('TAEX000268','Tank','Carbon Steel','TAEX',TRUE),('TAEX000386','Tank','Carbon Steel','TAEX',TRUE),
+  ('TCBX231000','Tank','Carbon Steel','TCBX',TRUE),('TCBX231001','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX231002','Tank','Carbon Steel','TCBX',TRUE),('TCBX231003','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX231004','Tank','Carbon Steel','TCBX',TRUE),('TCBX231015','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX231017','Tank','Carbon Steel','TCBX',TRUE),('TCBX280000','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX280001','Tank','Carbon Steel','TCBX',TRUE),('TCBX280003','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX280004','Tank','Carbon Steel','TCBX',TRUE),('TCBX280006','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX280007','Tank','Carbon Steel','TCBX',TRUE),('TCBX280010','Tank','Carbon Steel','TCBX',TRUE),
+  ('TCBX280016','Tank','Carbon Steel','TCBX',TRUE),
+  ('TEIX025166','Tank','Carbon Steel','TEIX',TRUE),('TEIX025167','Tank','Carbon Steel','TEIX',TRUE),
+  ('TEIX025168','Tank','Carbon Steel','TEIX',TRUE),('TEIX025169','Tank','Carbon Steel','TEIX',TRUE),
+  ('TEIX025171','Tank','Carbon Steel','TEIX',TRUE),('TEIX025172','Tank','Carbon Steel','TEIX',TRUE),
+  ('TEIX025173','Tank','Carbon Steel','TEIX',TRUE)
+ON CONFLICT (car_number) DO NOTHING;
+
+-- ============================================================================
 -- 1. UPDATE EXISTING CARS WITH LESSEE/OWNER METADATA
 -- ============================================================================
 
@@ -225,6 +303,10 @@ VALUES
 -- 4. HISTORICAL CAR ASSIGNMENTS — 3 years
 -- ============================================================================
 
+-- Disable triggers that validate car_number exists (cars may be loaded via UMLER import later)
+ALTER TABLE car_assignments DISABLE TRIGGER trg_assignment_car_gate;
+ALTER TABLE bad_order_reports DISABLE TRIGGER ALL;
+
 INSERT INTO car_assignments (car_mark_number, car_number, shop_code, shop_name, target_month, status, source, estimated_cost, actual_cost, created_by_id, created_at)
 VALUES
   -- 2023 Complete
@@ -362,6 +444,10 @@ UPDATE bad_order_reports SET resolved_at = reported_date + INTERVAL '21 days', r
   resolution_notes = 'Combined with existing shop assignment.', resolution_action = 'expedite_existing'
 WHERE status = 'resolved' AND car_number IN ('SHQX009733', 'SHQX050741', 'SHQX009734', 'SHPX213552', 'SHPX214346')
   AND resolved_at IS NULL;
+
+-- Re-enable triggers
+ALTER TABLE car_assignments ENABLE TRIGGER trg_assignment_car_gate;
+ALTER TABLE bad_order_reports ENABLE TRIGGER ALL;
 
 -- ============================================================================
 -- 7. INVOICE CASES — historical
