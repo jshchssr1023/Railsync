@@ -138,11 +138,10 @@ export async function recalculatePipelineStatuses(): Promise<{ updated: number }
             WHEN current_status IN ('planned', 'scheduled') AND shop_code IS NULL THEN 'backlog'
             WHEN current_status = 'scheduled' AND shop_code IS NOT NULL THEN 'pipeline'
             WHEN current_status IN ('enroute', 'in_shop') THEN 'active'
-            WHEN current_status = 'completed' THEN 'complete'
-            WHEN current_status = 'dispo' THEN 'healthy'
+            WHEN current_status IN ('completed', 'dispo') THEN 'healthy'
             ELSE 'backlog'
         END
-     WHERE status NOT IN ('Released', 'cancelled')
+     WHERE status NOT IN ('Released')
      RETURNING id`
   );
 
@@ -177,6 +176,9 @@ export async function getPipelineBuckets(): Promise<{
       buckets[status] = parseInt(row.car_count, 10);
     }
   }
+
+  // Combine 'complete' into 'healthy' to match v_healthy_cars which includes both
+  buckets.healthy += buckets.complete;
 
   return buckets;
 }

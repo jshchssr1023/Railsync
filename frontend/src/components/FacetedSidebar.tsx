@@ -42,22 +42,19 @@ export default function FacetedSidebar({ onFilterChange, initialFilters }: Facet
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['statuses', 'shopCodes']));
   const [loading, setLoading] = useState(true);
 
+  const getToken = () => localStorage.getItem('auth_token');
+
   // Fetch filter options
   useEffect(() => {
+    const headers = { Authorization: `Bearer ${getToken()}` };
+
     Promise.all([
-      fetch(`${API_URL}/customers?limit=100`).then(r => r.json()).catch(() => ({ data: [] })),
-      fetch(`${API_URL}/shops?limit=50`).then(r => r.json()).catch(() => ({ data: [] })),
-      fetch(`${API_URL}/cars?limit=500`).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${API_URL}/customers?limit=100`, { headers }).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${API_URL}/shops?limit=50`, { headers }).then(r => r.json()).catch(() => ({ data: [] })),
     ])
-      .then(([customersData, shopsData, carsData]) => {
+      .then(([customersData, shopsData]) => {
         const customers = customersData.data || [];
         const shops = shopsData.data || [];
-        const cars = carsData.data || [];
-
-        // Extract unique values from cars
-        const carTypes = [...new Set(cars.map((c: any) => c.product_code).filter(Boolean))];
-        const materialTypes = [...new Set(cars.map((c: any) => c.material_type).filter(Boolean))];
-        const commodities = [...new Set(cars.map((c: any) => c.commodity_cin).filter(Boolean))];
 
         setSections([
           {
@@ -77,7 +74,7 @@ export default function FacetedSidebar({ onFilterChange, initialFilters }: Facet
             label: 'Customer',
             options: customers.map((c: any) => ({
               value: c.id,
-              label: c.name,
+              label: c.customer_name || c.customer_code,
               count: c.total_cars,
             })),
           },
@@ -86,31 +83,7 @@ export default function FacetedSidebar({ onFilterChange, initialFilters }: Facet
             label: 'Shop Location',
             options: shops.map((s: any) => ({
               value: s.shop_code,
-              label: s.name || s.shop_code,
-            })),
-          },
-          {
-            key: 'carTypes',
-            label: 'Car Type',
-            options: carTypes.slice(0, 20).map((t: any) => ({
-              value: t,
-              label: t,
-            })),
-          },
-          {
-            key: 'materialTypes',
-            label: 'Material',
-            options: materialTypes.slice(0, 10).map((m: any) => ({
-              value: m,
-              label: m,
-            })),
-          },
-          {
-            key: 'commodities',
-            label: 'Commodity',
-            options: commodities.slice(0, 20).map((c: any) => ({
-              value: c,
-              label: c,
+              label: s.shop_name || s.shop_code,
             })),
           },
         ]);

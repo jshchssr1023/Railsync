@@ -331,25 +331,23 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
   );
   const seTotalBudget = parseFloat(seResult?.total_budget || '0');
 
-  // Get planned and actual costs from allocations for service events
+  // Get committed costs from allocations for service events
+  // Use actual_cost if available, otherwise estimated_cost (not both)
   const allocResult = await queryOne<{
-    planned_cost: string;
-    actual_cost: string;
+    committed_cost: string;
   }>(
     `SELECT
-      COALESCE(SUM(CAST(estimated_cost AS DECIMAL)), 0) as planned_cost,
-      COALESCE(SUM(CAST(actual_cost AS DECIMAL)), 0) as actual_cost
+      COALESCE(SUM(CAST(COALESCE(actual_cost, estimated_cost) AS DECIMAL)), 0) as committed_cost
     FROM allocations
-    WHERE EXTRACT(YEAR FROM created_at) = $1
-      AND status NOT IN ('cancelled', 'Released')`,
+    WHERE LEFT(target_month, 4)::int = $1
+      AND status NOT IN ('Released')`,
     [fiscalYear]
   );
-  const sePlannedCost = parseFloat(allocResult?.planned_cost || '0');
-  const seActualCost = parseFloat(allocResult?.actual_cost || '0');
+  const seCommittedCost = parseFloat(allocResult?.committed_cost || '0');
 
   // Calculate totals
   const totalBudget = rrTotalBudget + seTotalBudget;
-  const totalCommitted = rrActualSpend + sePlannedCost + seActualCost;
+  const totalCommitted = rrActualSpend + seCommittedCost;
   const totalRemaining = totalBudget - totalCommitted;
   const consumedPct = totalBudget > 0 ? (totalCommitted / totalBudget) * 100 : 0;
 
@@ -362,9 +360,9 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
     },
     service_events: {
       total_budget: seTotalBudget,
-      planned_cost: sePlannedCost,
-      actual_cost: seActualCost,
-      remaining: seTotalBudget - sePlannedCost - seActualCost,
+      planned_cost: seCommittedCost,
+      actual_cost: 0,
+      remaining: seTotalBudget - seCommittedCost,
     },
     total: {
       budget: totalBudget,

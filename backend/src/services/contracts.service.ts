@@ -127,7 +127,7 @@ export async function listCustomers(activeOnly: boolean = true): Promise<Custome
       COUNT(DISTINCT rc.car_number) AS total_cars
     FROM customers c
     LEFT JOIN master_leases ml ON ml.customer_id = c.id AND ml.status = 'Active'
-    LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
+    LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id AND lr.status = 'Active'
     LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
     ${whereClause}
     GROUP BY c.id, c.customer_code, c.customer_name, c.is_active
@@ -148,7 +148,7 @@ export async function getCustomer(customerId: string): Promise<Customer | null> 
       COUNT(DISTINCT rc.car_number) AS total_cars
     FROM customers c
     LEFT JOIN master_leases ml ON ml.customer_id = c.id AND ml.status = 'Active'
-    LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
+    LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id AND lr.status = 'Active'
     LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
     WHERE c.id = $1
     GROUP BY c.id, c.customer_code, c.customer_name, c.is_active
@@ -173,7 +173,11 @@ export async function getCustomerLeases(customerId: string): Promise<MasterLease
       ml.status,
       COUNT(DISTINCT lr.id) AS rider_count,
       COUNT(DISTINCT rc.car_number) AS car_count,
-      COALESCE(SUM(lr.rate_per_car * lr.car_count), 0) AS monthly_revenue
+      COALESCE((
+        SELECT SUM(lr2.rate_per_car * lr2.car_count)
+        FROM lease_riders lr2
+        WHERE lr2.master_lease_id = ml.id AND lr2.status = 'Active'
+      ), 0) AS monthly_revenue
     FROM master_leases ml
     JOIN customers c ON c.id = ml.customer_id
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
@@ -198,7 +202,11 @@ export async function getLease(leaseId: string): Promise<MasterLease | null> {
       ml.status,
       COUNT(DISTINCT lr.id) AS rider_count,
       COUNT(DISTINCT rc.car_number) AS car_count,
-      COALESCE(SUM(lr.rate_per_car * lr.car_count), 0) AS monthly_revenue
+      COALESCE((
+        SELECT SUM(lr2.rate_per_car * lr2.car_count)
+        FROM lease_riders lr2
+        WHERE lr2.master_lease_id = ml.id AND lr2.status = 'Active'
+      ), 0) AS monthly_revenue
     FROM master_leases ml
     JOIN customers c ON c.id = ml.customer_id
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id

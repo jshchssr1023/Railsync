@@ -79,22 +79,16 @@ export default function ReportsPage() {
           {
             label: 'Active Allocations',
             value: (pipeline.active || 0) + (pipeline.in_transit || 0),
-            change: 12,
-            changeLabel: 'vs last month',
             color: 'blue',
           },
           {
             label: 'Completed YTD',
             value: pipeline.completed || 0,
-            change: 8,
-            changeLabel: 'vs target',
             color: 'green',
           },
           {
             label: 'Bad Orders',
             value: pipeline.bad_order || 0,
-            change: -3,
-            changeLabel: 'vs last month',
             color: pipeline.bad_order > 10 ? 'red' : 'amber',
           },
           {
@@ -104,35 +98,56 @@ export default function ReportsPage() {
           },
         ]);
 
-        // Mock shop metrics for now
-        setShopMetrics([
-          { shop_code: 'AITX-BRK', total_allocations: 45, completed: 32, in_progress: 13, avg_days_in_shop: 18, utilization_pct: 85 },
-          { shop_code: 'AITX-MIL', total_allocations: 38, completed: 28, in_progress: 10, avg_days_in_shop: 21, utilization_pct: 72 },
-          { shop_code: 'GATX-CHI', total_allocations: 52, completed: 41, in_progress: 11, avg_days_in_shop: 15, utilization_pct: 91 },
-          { shop_code: 'UTLX-HOU', total_allocations: 29, completed: 22, in_progress: 7, avg_days_in_shop: 24, utilization_pct: 68 },
-          { shop_code: 'NATX-ATL', total_allocations: 33, completed: 25, in_progress: 8, avg_days_in_shop: 19, utilization_pct: 78 },
-        ]);
+        // Fetch real shop performance from analytics
+        try {
+          const shopRes = await fetch(`${API_URL}/analytics/capacity/bottlenecks`, {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          });
+          const shopData = await shopRes.json();
+          if (shopData.data && shopData.data.length > 0) {
+            setShopMetrics(shopData.data.map((s: any) => ({
+              shop_code: s.shop_code,
+              total_allocations: s.current_load + (s.cars_backlog || 0),
+              completed: 0,
+              in_progress: s.current_load,
+              avg_days_in_shop: 0,
+              utilization_pct: s.utilization_pct,
+            })));
+          }
+        } catch { /* shop metrics unavailable */ }
 
-        // Mock trends
-        setTrends([
-          { month: '2026-01', allocations: 142, completed: 128, total_cost: 4200000 },
-          { month: '2026-02', allocations: 156, completed: 145, total_cost: 4800000 },
-          { month: '2026-03', allocations: 168, completed: 152, total_cost: 5100000 },
-          { month: '2026-04', allocations: 145, completed: 138, total_cost: 4500000 },
-          { month: '2026-05', allocations: 172, completed: 160, total_cost: 5400000 },
-          { month: '2026-06', allocations: 158, completed: 148, total_cost: 4900000 },
-        ]);
+        // Fetch real throughput trends from analytics
+        try {
+          const trendRes = await fetch(`${API_URL}/analytics/operations/throughput`, {
+            headers: { Authorization: `Bearer ${getToken()}` },
+          });
+          const trendData = await trendRes.json();
+          if (trendData.data && trendData.data.length > 0) {
+            setTrends(trendData.data.map((t: any) => ({
+              month: t.month,
+              allocations: t.cars_in,
+              completed: t.cars_out,
+              total_cost: 0,
+            })));
+          }
+        } catch { /* trend data unavailable */ }
 
         // Fetch qualification data
-        const qualDashRes = await fetch(`${API_URL}/reports/qual-dashboard`);
+        const qualDashRes = await fetch(`${API_URL}/reports/qual-dashboard`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
         const qualDashData = await qualDashRes.json();
         if (qualDashData.data) setQualDashboard(qualDashData.data);
 
-        const qualCsrRes = await fetch(`${API_URL}/reports/qual-by-csr`);
+        const qualCsrRes = await fetch(`${API_URL}/reports/qual-by-csr`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
         const qualCsrData = await qualCsrRes.json();
         if (qualCsrData.data) setQualByCsr(qualCsrData.data.slice(0, 10));
 
-        const qualLesseeRes = await fetch(`${API_URL}/reports/qual-by-lessee`);
+        const qualLesseeRes = await fetch(`${API_URL}/reports/qual-by-lessee`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
         const qualLesseeData = await qualLesseeRes.json();
         if (qualLesseeData.data) setQualByLessee(qualLesseeData.data.slice(0, 10));
 

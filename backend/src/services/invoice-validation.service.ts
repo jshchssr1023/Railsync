@@ -77,7 +77,20 @@ export interface AttachmentData {
 // Constants
 // ==============================================================================
 
-const SPECIAL_LESSEES = ['EXXON', 'IMPOIL', 'MARATHON'];
+// Loaded from special_lessees table on first use
+let _specialLesseeCache: string[] | null = null;
+
+async function getSpecialLessees(): Promise<string[]> {
+  if (_specialLesseeCache) return _specialLesseeCache;
+  try {
+    const result = await pool.query(`SELECT lessee_name FROM special_lessees WHERE is_active = TRUE`);
+    _specialLesseeCache = result.rows.map((r: any) => r.lessee_name.toUpperCase());
+  } catch {
+    // Fallback if table doesn't exist yet
+    _specialLesseeCache = ['EXXON', 'IMPOIL', 'MARATHON'];
+  }
+  return _specialLesseeCache;
+}
 
 const MRU_AUTO_APPROVE_THRESHOLD = 1500;
 
@@ -257,7 +270,8 @@ async function validateSpecialLessee(
     return;
   }
 
-  const isSpecialLessee = SPECIAL_LESSEES.includes(caseData.lessee.toUpperCase());
+  const specialLessees = await getSpecialLessees();
+  const isSpecialLessee = specialLessees.includes(caseData.lessee.toUpperCase());
 
   if (!isSpecialLessee) {
     passed.push('NOT_SPECIAL_LESSEE');

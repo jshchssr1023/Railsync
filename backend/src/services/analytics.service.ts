@@ -53,7 +53,7 @@ export async function getCapacityForecast(months: number = 6): Promise<CapacityF
         ), 'YYYY-MM') as month,
         COUNT(*) as allocation_count
       FROM car_assignments ca
-      WHERE ca.status NOT IN ('cancelled', 'completed')
+      WHERE ca.status NOT IN ('Cancelled', 'Complete')
       GROUP BY ca.shop_code, month
     ),
     historical_avg AS (
@@ -164,7 +164,7 @@ export async function getBottleneckShops(limit: number = 10): Promise<any[]> {
       COALESCE(sb.hours_backlog, 0) as hours_backlog,
       COALESCE(sb.cars_backlog, 0) as cars_backlog
     FROM shops s
-    LEFT JOIN car_assignments ca ON s.shop_code = ca.shop_code AND ca.status = 'active'
+    LEFT JOIN car_assignments ca ON s.shop_code = ca.shop_code AND ca.status IN ('Arrived', 'InShop')
     LEFT JOIN shop_backlogs sb ON s.shop_code = sb.shop_code
     WHERE s.is_active = true
     GROUP BY s.shop_code, s.shop_name, s.region, s.capacity, sb.hours_backlog, sb.cars_backlog
@@ -241,41 +241,31 @@ export async function getCostTrends(months: number = 12): Promise<CostTrend[]> {
   return results.map(r => ({
     month: r.month,
     total_cost: parseFloat(r.total_cost) || 0,
-    labor_cost: parseFloat(r.total_cost) * 0.45 || 0, // Estimate: 45% labor
-    material_cost: parseFloat(r.total_cost) * 0.35 || 0, // Estimate: 35% material
-    freight_cost: parseFloat(r.total_cost) * 0.20 || 0, // Estimate: 20% freight
+    labor_cost: 0,
+    material_cost: 0,
+    freight_cost: 0,
     avg_cost_per_car: parseFloat(r.avg_cost_per_car) || 0,
     car_count: parseInt(r.car_count) || 0,
   }));
 }
 
 export async function getBudgetComparison(fiscalYear: number = 2026): Promise<BudgetComparison[]> {
-  // Get budget data from running_repairs and service_events_budget
+  // Get budget data from running_repairs_budget and service_event_budget
   const budgetResult = await query<any>(`
     SELECT
       'Running Repairs' as category,
-      COALESCE(SUM(budgeted_amount), 0) as budgeted,
-      COALESCE(SUM(actual_amount), 0) as actual
-    FROM running_repairs
+      COALESCE(SUM(monthly_budget), 0) as budgeted,
+      COALESCE(SUM(actual_spend), 0) as actual
+    FROM running_repairs_budget
     WHERE fiscal_year = $1
     UNION ALL
     SELECT
       'Service Events' as category,
-      COALESCE(SUM(budgeted_amount), 0) as budgeted,
-      COALESCE(SUM(actual_amount), 0) as actual
-    FROM service_events_budget
+      COALESCE(SUM(total_budget), 0) as budgeted,
+      0 as actual
+    FROM service_event_budget
     WHERE fiscal_year = $1
   `, [fiscalYear]);
-
-  // If no budget data, return mock data
-  if (!budgetResult || budgetResult.length === 0 || budgetResult.every((r: any) => r.budgeted === '0')) {
-    return [
-      { category: 'Running Repairs', budgeted: 5000000, actual: 4200000, variance: -800000, variance_pct: -16 },
-      { category: 'Service Events', budgeted: 8000000, actual: 7500000, variance: -500000, variance_pct: -6.25 },
-      { category: 'Tank Qualification', budgeted: 3000000, actual: 3200000, variance: 200000, variance_pct: 6.67 },
-      { category: 'Bad Orders', budgeted: 2000000, actual: 1800000, variance: -200000, variance_pct: -10 },
-    ];
-  }
 
   return budgetResult.map((r: any) => {
     const budgeted = parseFloat(r.budgeted);
@@ -356,9 +346,9 @@ export async function getOperationsKPIs(): Promise<OperationsKPI[]> {
   // Get various KPIs from the database
   const pipelineResult = await queryOne<any>(`
     SELECT
-      COUNT(*) FILTER (WHERE status = 'active') as active_count,
-      COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
-      COUNT(*) FILTER (WHERE status = 'in_transit') as in_transit_count,
+      COUNT(*) FILTER (WHERE status IN ('Arrived', 'InShop')) as active_count,
+      COUNT(*) FILTER (WHERE status = 'Complete') as completed_count,
+      COUNT(*) FILTER (WHERE status = 'Enroute') as in_transit_count,
       COUNT(*) as total_count
     FROM car_assignments
     WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
@@ -366,9 +356,9 @@ export async function getOperationsKPIs(): Promise<OperationsKPI[]> {
 
   const dwellResult = await queryOne<any>(`
     SELECT
-      AVG(EXTRACT(EPOCH FROM (COALESCE(completed_at, CURRENT_TIMESTAMP) - created_at)) / 86400) as avg_dwell_days
+      AVG(EXTRACT(EPOCH FROM (COALESCE(completed_at, CURRENT_TIMESTAMP) - COALESCE(arrived_at, in_shop_at, created_at))) / 86400) as avg_dwell_days
     FROM car_assignments
-    WHERE status IN ('active', 'completed')
+    WHERE status IN ('Arrived', 'InShop', 'Complete')
     AND created_at >= CURRENT_DATE - INTERVAL '90 days'
   `);
 
@@ -443,9 +433,9 @@ export async function getDwellTimeByShop(limit: number = 15): Promise<DwellTimeB
     SELECT
       s.shop_code,
       s.shop_name,
-      AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - ca.created_at)) / 86400) as avg_dwell_days,
-      MIN(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - ca.created_at)) / 86400) as min_dwell_days,
-      MAX(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - ca.created_at)) / 86400) as max_dwell_days,
+      AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as avg_dwell_days,
+      MIN(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as min_dwell_days,
+      MAX(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as max_dwell_days,
       COUNT(*) as car_count
     FROM shops s
     INNER JOIN car_assignments ca ON s.shop_code = ca.shop_code
@@ -634,24 +624,30 @@ export async function getDemandByCustomer(limit: number = 10): Promise<DemandByC
   const results = await query<any>(`
     WITH current_demand AS (
       SELECT
-        c.name as customer_name,
+        c.customer_name,
         COUNT(*) as current_demand
       FROM car_assignments ca
       JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN customers c ON cr.customer_id = c.id
+      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+      JOIN lease_riders lr ON lr.id = rc.rider_id
+      JOIN master_leases ml ON ml.id = lr.master_lease_id
+      JOIN customers c ON c.id = ml.customer_id
       WHERE ca.created_at >= CURRENT_DATE - INTERVAL '30 days'
-      GROUP BY c.name
+      GROUP BY c.customer_name
     ),
     historical_demand AS (
       SELECT
-        c.name as customer_name,
+        c.customer_name,
         COUNT(*) / 3.0 as avg_monthly
       FROM car_assignments ca
       JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN customers c ON cr.customer_id = c.id
+      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+      JOIN lease_riders lr ON lr.id = rc.rider_id
+      JOIN master_leases ml ON ml.id = lr.master_lease_id
+      JOIN customers c ON c.id = ml.customer_id
       WHERE ca.created_at >= CURRENT_DATE - INTERVAL '90 days'
       AND ca.created_at < CURRENT_DATE - INTERVAL '30 days'
-      GROUP BY c.name
+      GROUP BY c.customer_name
     )
     SELECT
       COALESCE(cd.customer_name, hd.customer_name, 'Unknown') as customer_name,

@@ -350,9 +350,9 @@ export async function getDwellTimeHeatmap() {
     `SELECT
        a.status,
        COUNT(*) AS car_count,
-       ROUND(AVG(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS avg_days,
-       ROUND(MIN(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS min_days,
-       ROUND(MAX(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400)::numeric, 1) AS max_days
+       ROUND(AVG(EXTRACT(EPOCH FROM (NOW() - COALESCE(a.actual_arrival_date, a.created_at))) / 86400)::numeric, 1) AS avg_days,
+       ROUND(MIN(EXTRACT(EPOCH FROM (NOW() - COALESCE(a.actual_arrival_date, a.created_at))) / 86400)::numeric, 1) AS min_days,
+       ROUND(MAX(EXTRACT(EPOCH FROM (NOW() - COALESCE(a.actual_arrival_date, a.created_at))) / 86400)::numeric, 1) AS max_days
      FROM allocations a
      WHERE a.status NOT IN ('Complete', 'Released')
      GROUP BY a.status

@@ -105,65 +105,54 @@ export default function ContractsHealthDashboard() {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getToken = () => localStorage.getItem('auth_token');
+
   useEffect(() => {
+    const headers = { Authorization: `Bearer ${getToken()}` };
+
     Promise.all([
-      fetch(`${API_URL}/allocations?limit=1000`).then(r => r.json()),
-      fetch(`${API_URL}/cars?limit=1000`).then(r => r.json()),
-      fetch(`${API_URL}/riders?limit=500`).then(r => r.json()).catch(() => ({ data: [] })),
-      fetch(`${API_URL}/amendments?limit=500`).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${API_URL}/dashboard/contracts-readiness`, { headers }).then(r => r.json()),
+      fetch(`${API_URL}/customers`, { headers }).then(r => r.json()),
     ])
-      .then(([allocData, carsData, ridersData, amendmentsData]) => {
-        const allocations = allocData.data || [];
-        const cars = carsData.data || [];
-        const riders = ridersData.data || [];
-        const amendments = amendmentsData.data || [];
+      .then(([readinessData, customersData]) => {
+        const readiness = readinessData.data || {};
+        const customers = customersData.data || [];
 
-        // Shopping health
-        const inShop = allocations.filter((a: any) => a.status === 'Arrived').length;
-        const enroute = allocations.filter((a: any) => a.status === 'Enroute').length;
-        const overdue = allocations.filter((a: any) => {
-          if (!a.planned_arrival_date) return false;
-          return new Date(a.planned_arrival_date) < new Date() &&
-                 !['Complete', 'Released'].includes(a.status);
-        }).length;
+        // Shopping health from contracts-readiness (uses real allocations table)
+        const inShop = Number(readiness.arrived || 0);
+        const enroute = Number(readiness.enroute || 0);
+        const needShopping = Number(readiness.need_shopping || 0);
+        const total = Number(readiness.total_cars || 0);
 
-        // Utilization
-        const assigned = allocations.filter((a: any) =>
-          ['Planned Shopping', 'Enroute', 'Arrived', 'Complete'].includes(a.status)
-        ).length;
-        const totalCars = cars.length || 100;
-        const unassigned = totalCars - assigned;
+        // Utilization from contracts-readiness
+        const inPipeline = Number(readiness.in_pipeline || 0);
+        const available = Number(readiness.available || 0);
 
-        // Risk
-        const now = new Date();
-        const days90 = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-        const ridersExpiring = riders.filter((r: any) => {
-          if (!r.end_date) return false;
-          const endDate = new Date(r.end_date);
-          return endDate > now && endDate <= days90;
-        }).length;
-        const pendingAmendments = amendments.filter((a: any) =>
-          a.status === 'pending' || a.status === 'draft'
-        ).length;
+        // Aggregate rider/car counts from customers
+        const totalRiders = customers.reduce((sum: number, c: any) => sum + Number(c.total_riders || 0), 0);
+        const totalCars = customers.reduce((sum: number, c: any) => sum + Number(c.total_cars || 0), 0);
 
         setMetrics({
           shopping: {
             inShop,
             enroute,
-            overdue,
-            total: allocations.length,
+            overdue: needShopping,
+            total,
           },
           utilization: {
-            assigned,
-            unassigned,
-            total: totalCars,
-            percentage: Math.round((assigned / Math.max(totalCars, 1)) * 100),
+            assigned: inPipeline,
+            unassigned: Math.max(0, (totalCars || total) - inPipeline),
+            total: totalCars || total,
+            percentage: Number(readiness.availability_pct || 0),
           },
           risk: {
-            ridersExpiring90Days: ridersExpiring,
-            pendingAmendments,
+            ridersExpiring90Days: totalRiders,
+            pendingAmendments: 0,
           },
         });
+      })
+      .catch(err => {
+        console.error('Failed to fetch contracts health:', err);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -202,17 +191,17 @@ export default function ContractsHealthDashboard() {
         percentage={metrics.utilization.percentage}
       />
       <StoplightCard
-        title="Contractual Risk"
+        title="Contract Coverage"
         items={[
           {
-            label: 'Riders Expiring <90d',
+            label: 'Active Riders',
             value: metrics.risk.ridersExpiring90Days,
-            status: metrics.risk.ridersExpiring90Days > 5 ? 'red' : metrics.risk.ridersExpiring90Days > 0 ? 'yellow' : 'green'
+            status: metrics.risk.ridersExpiring90Days > 0 ? 'green' : 'gray'
           },
           {
-            label: 'Pending Amendments',
-            value: metrics.risk.pendingAmendments,
-            status: metrics.risk.pendingAmendments > 3 ? 'yellow' : 'green'
+            label: 'Need Shopping',
+            value: metrics.shopping.overdue,
+            status: metrics.shopping.overdue > 10 ? 'red' : metrics.shopping.overdue > 0 ? 'yellow' : 'green'
           },
         ]}
       />
