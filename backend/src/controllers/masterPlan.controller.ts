@@ -317,6 +317,61 @@ export async function assignShopToAllocation(req: Request, res: Response): Promi
   }
 }
 
+// GET /api/master-plans/:id/demands
+export async function listPlanDemands(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await masterPlanService.listPlanDemands(req.params.id);
+    res.json({ success: true, data: result.demands, total: result.total });
+  } catch (error) {
+    console.error('Error listing plan demands:', error);
+    res.status(500).json({ success: false, error: 'Failed to list plan demands' });
+  }
+}
+
+// POST /api/master-plans/:id/demands
+export async function createDemandForPlan(req: Request, res: Response): Promise<void> {
+  try {
+    const { name, event_type, car_count, target_month, priority, description,
+            car_type, default_lessee_code, required_network, required_region,
+            max_cost_per_car } = req.body;
+
+    if (!name || !event_type || !car_count) {
+      res.status(400).json({
+        success: false,
+        error: 'name, event_type, and car_count are required',
+      });
+      return;
+    }
+
+    const demand = await masterPlanService.createDemandForPlan(
+      req.params.id,
+      {
+        name,
+        event_type,
+        car_count,
+        target_month,
+        priority,
+        description,
+        car_type,
+        default_lessee_code,
+        required_network,
+        required_region,
+        max_cost_per_car,
+      },
+      req.user?.id
+    );
+
+    res.status(201).json({ success: true, data: demand });
+  } catch (error: any) {
+    console.error('Error creating demand for plan:', error);
+    if (error.message === 'Master plan not found') {
+      res.status(404).json({ success: false, error: 'Master plan not found' });
+      return;
+    }
+    res.status(500).json({ success: false, error: 'Failed to create demand for plan' });
+  }
+}
+
 // GET /api/cars-search
 export async function searchCars(req: Request, res: Response): Promise<void> {
   try {
@@ -353,5 +408,7 @@ export default {
   importFromDemands,
   removeAllocationFromPlan,
   assignShopToAllocation,
+  listPlanDemands,
+  createDemandForPlan,
   searchCars,
 };

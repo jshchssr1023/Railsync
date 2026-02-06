@@ -246,6 +246,7 @@ export interface Demand {
   max_cost_per_car?: number;
   excluded_shops?: string[];
   project_id?: string;
+  plan_id?: string;
   status: DemandStatus;
   created_at: string;
   updated_at: string;
@@ -314,6 +315,12 @@ export interface Allocation {
   planned_arrival_date?: string;
   actual_arrival_date?: string;
   actual_completion_date?: string;
+  car_mark?: string;
+  car_type?: string;
+  lessee_name?: string;
+  lessee_code?: string;
+  contract_number?: string;
+  shop_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -389,6 +396,8 @@ export interface BudgetSummary {
   };
   total: {
     budget: number;
+    planned: number;
+    shop_committed: number;
     committed: number;
     remaining: number;
     consumed_pct: number;

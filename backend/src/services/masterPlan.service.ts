@@ -2,6 +2,7 @@ import { query, queryOne } from '../config/database';
 import { Allocation } from '../types';
 import * as planningService from './planning.service';
 import * as assetEventService from './assetEvent.service';
+import * as demandService from './demand.service';
 
 export interface MasterPlan {
   id: string;
@@ -230,6 +231,8 @@ export interface PlanStats {
   assigned: number;
   unassigned: number;
   total_estimated_cost: number;
+  planned_cost: number;
+  committed_cost: number;
   by_status: { status: string; count: number; cost: number }[];
   by_shop: { shop_code: string; shop_name: string; count: number; cost: number }[];
 }
@@ -256,7 +259,7 @@ export async function listPlanAllocations(
   }
 
   return query<Allocation>(
-    `SELECT a.*, c.car_mark, c.car_type, c.lessee_name,
+    `SELECT a.*, c.car_mark, c.car_type, c.lessee_name, c.lessee_code, c.contract_number,
             s.shop_name
      FROM allocations a
      LEFT JOIN cars c ON a.car_number = c.car_number
@@ -395,12 +398,16 @@ export async function getPlanStats(planId: string): Promise<PlanStats> {
     assigned: string;
     unassigned: string;
     total_estimated_cost: string;
+    planned_cost: string;
+    committed_cost: string;
   }>(
     `SELECT
        COUNT(*) AS total_allocations,
        COUNT(*) FILTER (WHERE shop_code IS NOT NULL) AS assigned,
        COUNT(*) FILTER (WHERE shop_code IS NULL) AS unassigned,
-       COALESCE(SUM(estimated_cost), 0) AS total_estimated_cost
+       COALESCE(SUM(estimated_cost), 0) AS total_estimated_cost,
+       COALESCE(SUM(estimated_cost) FILTER (WHERE shop_code IS NULL), 0) AS planned_cost,
+       COALESCE(SUM(COALESCE(actual_cost, estimated_cost)) FILTER (WHERE shop_code IS NOT NULL), 0) AS committed_cost
      FROM allocations
      WHERE plan_id = $1 AND status NOT IN ('cancelled', 'Released')`,
     [planId]
@@ -439,6 +446,8 @@ export async function getPlanStats(planId: string): Promise<PlanStats> {
     assigned: parseInt(totals?.assigned || '0'),
     unassigned: parseInt(totals?.unassigned || '0'),
     total_estimated_cost: parseFloat(totals?.total_estimated_cost || '0'),
+    planned_cost: parseFloat(totals?.planned_cost || '0'),
+    committed_cost: parseFloat(totals?.committed_cost || '0'),
     by_status: byStatus.map(r => ({
       status: r.status,
       count: parseInt(r.count),
@@ -451,6 +460,50 @@ export async function getPlanStats(planId: string): Promise<PlanStats> {
       cost: parseFloat(r.cost),
     })),
   };
+}
+
+// ============================================================================
+// PLAN DEMAND MANAGEMENT
+// ============================================================================
+
+// List demands belonging to a plan
+export async function listPlanDemands(planId: string) {
+  return demandService.listDemands({ plan_id: planId, limit: 100 });
+}
+
+// Create a demand within a plan context
+export async function createDemandForPlan(
+  planId: string,
+  data: {
+    name: string;
+    description?: string;
+    target_month?: string;
+    car_count: number;
+    event_type: string;
+    car_type?: string;
+    default_lessee_code?: string;
+    priority?: string;
+    required_network?: string;
+    required_region?: string;
+    max_cost_per_car?: number;
+  },
+  userId?: string
+) {
+  // Get plan context for defaults
+  const plan = await getMasterPlan(planId);
+  if (!plan) throw new Error('Master plan not found');
+
+  return demandService.createDemand(
+    {
+      ...data,
+      fiscal_year: plan.fiscal_year,
+      target_month: data.target_month || plan.planning_month,
+      event_type: data.event_type as any,
+      priority: (data.priority as any) || 'Medium',
+      plan_id: planId,
+    },
+    userId
+  );
 }
 
 // Search cars for typeahead

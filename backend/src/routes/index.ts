@@ -1960,6 +1960,10 @@ router.post('/master-plans/:id/allocations/import-demands', authenticate, author
 router.delete('/master-plans/:id/allocations/:allocationId', authenticate, authorize('admin', 'operator'), masterPlanController.removeAllocationFromPlan);
 router.put('/master-plans/:id/allocations/:allocationId/assign-shop', authenticate, authorize('admin', 'operator'), masterPlanController.assignShopToAllocation);
 
+// MASTER PLAN — DEMAND MANAGEMENT
+router.get('/master-plans/:id/demands', authenticate, masterPlanController.listPlanDemands);
+router.post('/master-plans/:id/demands', authenticate, authorize('admin', 'operator'), masterPlanController.createDemandForPlan);
+
 // CAR SEARCH (typeahead)
 router.get('/cars-search', authenticate, masterPlanController.searchCars);
 

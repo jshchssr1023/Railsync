@@ -301,6 +301,8 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
   };
   total: {
     budget: number;
+    planned: number;
+    shop_committed: number;
     committed: number;
     remaining: number;
     consumed_pct: number;
@@ -331,23 +333,28 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
   );
   const seTotalBudget = parseFloat(seResult?.total_budget || '0');
 
-  // Get committed costs from allocations for service events
-  // Use actual_cost if available, otherwise estimated_cost (not both)
+  // Get planned vs committed costs from allocations for service events
+  // Planned = no shop assigned, Committed = shop assigned
   const allocResult = await queryOne<{
+    planned_cost: string;
     committed_cost: string;
   }>(
     `SELECT
-      COALESCE(SUM(CAST(COALESCE(actual_cost, estimated_cost) AS DECIMAL)), 0) as committed_cost
+      COALESCE(SUM(CASE WHEN shop_code IS NULL THEN CAST(COALESCE(estimated_cost, 0) AS DECIMAL) ELSE 0 END), 0) as planned_cost,
+      COALESCE(SUM(CASE WHEN shop_code IS NOT NULL THEN CAST(COALESCE(actual_cost, estimated_cost) AS DECIMAL) ELSE 0 END), 0) as committed_cost
     FROM allocations
     WHERE LEFT(target_month, 4)::int = $1
       AND status NOT IN ('Released')`,
     [fiscalYear]
   );
+  const sePlannedCost = parseFloat(allocResult?.planned_cost || '0');
   const seCommittedCost = parseFloat(allocResult?.committed_cost || '0');
 
   // Calculate totals
   const totalBudget = rrTotalBudget + seTotalBudget;
-  const totalCommitted = rrActualSpend + seCommittedCost;
+  const totalPlanned = sePlannedCost;
+  const totalShopCommitted = rrActualSpend + seCommittedCost;
+  const totalCommitted = totalPlanned + totalShopCommitted;
   const totalRemaining = totalBudget - totalCommitted;
   const consumedPct = totalBudget > 0 ? (totalCommitted / totalBudget) * 100 : 0;
 
@@ -360,12 +367,14 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
     },
     service_events: {
       total_budget: seTotalBudget,
-      planned_cost: seCommittedCost,
-      actual_cost: 0,
-      remaining: seTotalBudget - seCommittedCost,
+      planned_cost: sePlannedCost,
+      actual_cost: seCommittedCost,
+      remaining: seTotalBudget - sePlannedCost - seCommittedCost,
     },
     total: {
       budget: totalBudget,
+      planned: totalPlanned,
+      shop_committed: totalShopCommitted,
       committed: totalCommitted,
       remaining: totalRemaining,
       consumed_pct: consumedPct,

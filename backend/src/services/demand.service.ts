@@ -14,6 +14,7 @@ export async function listDemands(filters: {
   target_month?: string;
   status?: DemandStatus;
   event_type?: EventType;
+  plan_id?: string;
   limit?: number;
   offset?: number;
 }): Promise<{ demands: Demand[]; total: number }> {
@@ -39,6 +40,11 @@ export async function listDemands(filters: {
   if (filters.event_type) {
     conditions.push(`event_type = $${paramIndex++}`);
     params.push(filters.event_type);
+  }
+
+  if (filters.plan_id) {
+    conditions.push(`plan_id = $${paramIndex++}`);
+    params.push(filters.plan_id);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -93,6 +99,7 @@ export async function createDemand(
     max_cost_per_car?: number;
     excluded_shops?: string[];
     project_id?: string;
+    plan_id?: string;
   },
   userId?: string
 ): Promise<Demand> {
@@ -101,8 +108,8 @@ export async function createDemand(
       name, description, fiscal_year, target_month, car_count, event_type,
       car_type, default_lessee_code, default_material_type, default_lining_type,
       default_commodity, priority, required_network, required_region,
-      max_cost_per_car, excluded_shops, created_by, project_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      max_cost_per_car, excluded_shops, created_by, project_id, plan_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     RETURNING *
   `;
 
@@ -125,6 +132,7 @@ export async function createDemand(
     data.excluded_shops,
     userId,
     data.project_id || null,
+    data.plan_id || null,
   ]);
 
   return rows[0];

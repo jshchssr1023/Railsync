@@ -16,6 +16,8 @@ import {
   evaluateShops,
   listDemands,
   listScenarios,
+  listPlanDemands,
+  createDemandForPlan,
 } from '@/lib/api';
 import type { Allocation, EvaluationResult, Demand, Scenario } from '@/types';
 import {
@@ -29,6 +31,7 @@ import {
   X,
   ChevronRight,
   AlertCircle,
+  ClipboardList,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -68,11 +71,13 @@ interface PlanStatsData {
   assigned: number;
   unassigned: number;
   total_estimated_cost: number;
+  planned_cost: number;
+  committed_cost: number;
   by_status: { status: string; count: number; cost: number }[];
   by_shop: { shop_code: string; shop_name: string; count: number; cost: number }[];
 }
 
-type TabId = 'overview' | 'allocations' | 'versions';
+type TabId = 'overview' | 'allocations' | 'demands' | 'versions';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -133,11 +138,16 @@ export default function MasterPlansPage() {
   // Versions
   const [versions, setVersions] = useState<PlanVersion[]>([]);
 
+  // Demands
+  const [demands, setDemands] = useState<Demand[]>([]);
+  const [demandsLoading, setDemandsLoading] = useState(false);
+
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [showAddCarsModal, setShowAddCarsModal] = useState(false);
   const [showImportDemandsModal, setShowImportDemandsModal] = useState(false);
+  const [showCreateDemandModal, setShowCreateDemandModal] = useState(false);
   const [showAssignShopModal, setShowAssignShopModal] = useState<Allocation | null>(null);
 
   // Confirm dialog
@@ -197,6 +207,18 @@ export default function MasterPlansPage() {
     }
   }, []);
 
+  const fetchDemands = useCallback(async (planId: string) => {
+    setDemandsLoading(true);
+    try {
+      const data = await listPlanDemands(planId);
+      setDemands(data);
+    } catch {
+      setDemands([]);
+    } finally {
+      setDemandsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) fetchPlans();
   }, [isAuthenticated, fetchPlans]);
@@ -206,15 +228,17 @@ export default function MasterPlansPage() {
     fetchVersions(selectedPlan.id);
     fetchStats(selectedPlan.id);
     fetchAllocations(selectedPlan.id);
-  }, [selectedPlan, fetchVersions, fetchStats, fetchAllocations]);
+    fetchDemands(selectedPlan.id);
+  }, [selectedPlan, fetchVersions, fetchStats, fetchAllocations, fetchDemands]);
 
   // Refresh the current plan's data
   const refreshPlanData = useCallback(() => {
     if (!selectedPlan) return;
     fetchStats(selectedPlan.id);
     fetchAllocations(selectedPlan.id);
+    fetchDemands(selectedPlan.id);
     fetchPlans();
-  }, [selectedPlan, fetchStats, fetchAllocations, fetchPlans]);
+  }, [selectedPlan, fetchStats, fetchAllocations, fetchDemands, fetchPlans]);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -436,6 +460,7 @@ export default function MasterPlansPage() {
                 <div className="flex gap-1 mt-4">
                   {([
                     { id: 'overview' as TabId, label: 'Overview', icon: BarChart3 },
+                    { id: 'demands' as TabId, label: 'Demands', icon: ClipboardList },
                     { id: 'allocations' as TabId, label: 'Cars & Allocations', icon: Wrench },
                     { id: 'versions' as TabId, label: 'Versions', icon: GitBranch },
                   ]).map(tab => (
@@ -459,6 +484,22 @@ export default function MasterPlansPage() {
               <div className="p-4">
                 {activeTab === 'overview' && (
                   <OverviewTab stats={stats} loading={statsLoading} />
+                )}
+                {activeTab === 'demands' && (
+                  <DemandsTab
+                    plan={selectedPlan}
+                    demands={demands}
+                    loading={demandsLoading}
+                    onCreateDemand={() => setShowCreateDemandModal(true)}
+                    onImportDemands={(demandIds) => {
+                      importDemandsIntoPlan(selectedPlan.id, demandIds)
+                        .then(result => {
+                          toast.success(`${result.imported} allocation(s) generated`);
+                          refreshPlanData();
+                        })
+                        .catch(() => toast.error('Failed to generate allocations'));
+                    }}
+                  />
                 )}
                 {activeTab === 'allocations' && (
                   <AllocationsTab
@@ -512,6 +553,17 @@ export default function MasterPlansPage() {
           onClose={() => setShowAddCarsModal(false)}
           onAdded={() => {
             setShowAddCarsModal(false);
+            refreshPlanData();
+          }}
+        />
+      )}
+
+      {showCreateDemandModal && selectedPlan && (
+        <CreateDemandModal
+          plan={selectedPlan}
+          onClose={() => setShowCreateDemandModal(false)}
+          onCreated={() => {
+            setShowCreateDemandModal(false);
             refreshPlanData();
           }}
         />
@@ -574,6 +626,31 @@ function OverviewTab({ stats, loading }: { stats: PlanStatsData | null; loading:
         <StatCard label="Assigned" value={stats.assigned} color="green" />
         <StatCard label="Unassigned" value={stats.unassigned} color={stats.unassigned > 0 ? 'amber' : 'green'} />
         <StatCard label="Est. Cost" value={formatCurrency(stats.total_estimated_cost)} />
+      </div>
+
+      {/* Budget Impact: Planned vs Committed */}
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">Budget Impact</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
+            <div className="text-xs text-amber-700 dark:text-amber-400 mb-1">Planned (No Shop)</div>
+            <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
+              {formatCurrency(stats.planned_cost || 0)}
+            </div>
+            <div className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
+              {stats.unassigned} car{stats.unassigned !== 1 ? 's' : ''} awaiting shop assignment
+            </div>
+          </div>
+          <div className="p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
+            <div className="text-xs text-green-700 dark:text-green-400 mb-1">Committed (Shop Assigned)</div>
+            <div className="text-xl font-bold text-green-700 dark:text-green-400">
+              {formatCurrency(stats.committed_cost || 0)}
+            </div>
+            <div className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
+              {stats.assigned} car{stats.assigned !== 1 ? 's' : ''} with shop commitment
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* By Status */}
@@ -720,6 +797,8 @@ function AllocationsTab({
             <thead>
               <tr className="border-b border-[var(--color-border)]">
                 <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Car Number</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Customer</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Contract</th>
                 <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Shop</th>
                 <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Target Month</th>
                 <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Status</th>
@@ -732,6 +811,12 @@ function AllocationsTab({
                 <tr key={alloc.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]">
                   <td className="py-2 px-2 font-medium text-[var(--color-text-primary)]">
                     {alloc.car_number || alloc.car_mark_number}
+                  </td>
+                  <td className="py-2 px-2 text-[var(--color-text-secondary)] text-xs">
+                    {alloc.lessee_name || '-'}
+                  </td>
+                  <td className="py-2 px-2 text-[var(--color-text-secondary)] text-xs">
+                    {alloc.contract_number || '-'}
                   </td>
                   <td className="py-2 px-2">
                     {alloc.shop_code ? (
@@ -861,6 +946,281 @@ function VersionsTab({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Demands Tab
+// ===========================================================================
+
+function DemandsTab({
+  plan,
+  demands,
+  loading,
+  onCreateDemand,
+  onImportDemands,
+}: {
+  plan: MasterPlan;
+  demands: Demand[];
+  loading: boolean;
+  onCreateDemand: () => void;
+  onImportDemands: (demandIds: string[]) => void;
+}) {
+  if (loading) {
+    return <div className="py-8 text-center text-[var(--color-text-tertiary)]">Loading demands...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onCreateDemand}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Demand
+        </button>
+      </div>
+
+      {/* Table */}
+      {demands.length === 0 ? (
+        <div className="py-12 text-center">
+          <ClipboardList className="w-10 h-10 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
+          <p className="text-[var(--color-text-tertiary)]">No demands in this plan yet.</p>
+          <button
+            onClick={onCreateDemand}
+            className="mt-2 text-sm text-blue-600 hover:underline"
+          >
+            Create a demand to get started
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)]">
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Name</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Type</th>
+                <th className="text-right py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Cars</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Target Month</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Priority</th>
+                <th className="text-left py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Status</th>
+                <th className="text-right py-2 px-2 font-medium text-[var(--color-text-tertiary)]">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {demands.map(d => (
+                <tr key={d.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]">
+                  <td className="py-2 px-2 font-medium text-[var(--color-text-primary)]">{d.name}</td>
+                  <td className="py-2 px-2 text-[var(--color-text-secondary)]">{d.event_type}</td>
+                  <td className="py-2 px-2 text-right text-[var(--color-text-primary)]">{d.car_count}</td>
+                  <td className="py-2 px-2 text-[var(--color-text-secondary)]">
+                    {d.target_month ? formatMonth(d.target_month) : '-'}
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      d.priority === 'High' || d.priority === 'Critical'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        : d.priority === 'Medium'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    }`}>
+                      {d.priority}
+                    </span>
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      d.status === 'Allocated' || d.status === 'Complete'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                    }`}>
+                      {d.status}
+                    </span>
+                  </td>
+                  <td className="py-2 px-2 text-right">
+                    <button
+                      onClick={() => onImportDemands([d.id])}
+                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      Generate Allocations
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Modal: Create Demand for Plan
+// ===========================================================================
+
+function CreateDemandModal({
+  plan,
+  onClose,
+  onCreated,
+}: {
+  plan: MasterPlan;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const toast = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    setSubmitting(true);
+    try {
+      await createDemandForPlan(plan.id, {
+        name: formData.get('name') as string,
+        event_type: formData.get('event_type') as string,
+        car_count: parseInt(formData.get('car_count') as string),
+        target_month: (formData.get('target_month') as string) || undefined,
+        priority: (formData.get('priority') as string) || undefined,
+        description: (formData.get('description') as string) || undefined,
+        default_lessee_code: (formData.get('default_lessee_code') as string) || undefined,
+        required_region: (formData.get('required_region') as string) || undefined,
+      });
+      toast.success('Demand created');
+      onCreated();
+    } catch {
+      toast.error('Failed to create demand');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative min-h-screen flex items-center justify-center p-4">
+        <div className="relative rounded-xl shadow-xl max-w-lg w-full p-6 bg-[var(--color-bg-primary)] border border-[var(--color-border)]">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Create Demand</h2>
+            <button onClick={onClose} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-[var(--color-text-tertiary)] mb-4">
+            Create a demand within this plan. It will use the plan&apos;s fiscal year ({plan.fiscal_year}) and default month ({formatMonth(plan.planning_month)}).
+          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Demand Name</label>
+              <input
+                name="name"
+                type="text"
+                required
+                placeholder="e.g., Q1 Tank Car Recerts"
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Event Type</label>
+                <select
+                  name="event_type"
+                  required
+                  className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                >
+                  <option value="Qualification">Qualification</option>
+                  <option value="Requalification">Requalification</option>
+                  <option value="Modification">Modification</option>
+                  <option value="Running Repair">Running Repair</option>
+                  <option value="Retirement">Retirement</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Car Count</label>
+                <input
+                  name="car_count"
+                  type="number"
+                  required
+                  min={1}
+                  defaultValue={1}
+                  className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Target Month</label>
+                <input
+                  name="target_month"
+                  type="month"
+                  defaultValue={plan.planning_month}
+                  className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Priority</label>
+                <select
+                  name="priority"
+                  defaultValue="Medium"
+                  className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Customer Code</label>
+              <input
+                name="default_lessee_code"
+                type="text"
+                placeholder="e.g., SHQX"
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Region</label>
+              <input
+                name="required_region"
+                type="text"
+                placeholder="e.g., US-East"
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Description</label>
+              <textarea
+                name="description"
+                rows={2}
+                placeholder="Optional description..."
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-[var(--color-border)] rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitting ? 'Creating...' : 'Create Demand'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

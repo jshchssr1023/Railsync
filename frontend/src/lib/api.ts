@@ -1592,6 +1592,8 @@ interface PlanStats {
   assigned: number;
   unassigned: number;
   total_estimated_cost: number;
+  planned_cost: number;
+  committed_cost: number;
   by_status: { status: string; count: number; cost: number }[];
   by_shop: { shop_code: string; shop_name: string; count: number; cost: number }[];
 }
@@ -1657,6 +1659,33 @@ export async function assignShopToPlanAllocation(
     }
   );
   return response.data as Allocation;
+}
+
+export async function listPlanDemands(planId: string): Promise<Demand[]> {
+  const response = await fetchApi<Demand[]>(`/master-plans/${encodeURIComponent(planId)}/demands`);
+  return response.data || [];
+}
+
+export interface CreatePlanDemandInput {
+  name: string;
+  event_type: string;
+  car_count: number;
+  target_month?: string;
+  priority?: string;
+  description?: string;
+  car_type?: string;
+  default_lessee_code?: string;
+  required_network?: string;
+  required_region?: string;
+  max_cost_per_car?: number;
+}
+
+export async function createDemandForPlan(planId: string, data: CreatePlanDemandInput): Promise<Demand> {
+  const response = await fetchApi<Demand>(`/master-plans/${encodeURIComponent(planId)}/demands`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data as Demand;
 }
 
 const api = {
@@ -1767,6 +1796,9 @@ const api = {
   importDemandsIntoPlan,
   removeAllocationFromPlan,
   assignShopToPlanAllocation,
+  // Master Plan Demands
+  listPlanDemands,
+  createDemandForPlan,
 };
 
 export default api;

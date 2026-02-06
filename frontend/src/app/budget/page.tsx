@@ -42,7 +42,7 @@ interface BudgetSummary {
   fiscal_year: number;
   running_repairs: { total_budget: number; actual_spend: number; remaining: number };
   service_events: { total_budget: number; planned_cost: number; actual_cost: number; remaining: number };
-  total: { budget: number; committed: number; remaining: number; consumed_pct: number };
+  total: { budget: number; planned: number; shop_committed: number; committed: number; remaining: number; consumed_pct: number };
 }
 
 const fetcher = async (url: string) => {
@@ -297,16 +297,21 @@ function BudgetContent() {
 
       {/* Summary Cards (above tabs) */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">FY{fiscalYear} aggregate allocation</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Planned</p>
+            <p className="text-2xl font-bold text-amber-600">{formatCurrency(summary.total.planned || 0)}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">No shop assigned yet</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
-            <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.committed)}</p>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Planned + actual spending</p>
+            <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.shop_committed || 0)}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Shop assigned + actuals</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
@@ -522,17 +527,21 @@ function BudgetContent() {
           {/* Grand Total */}
           {summary && (
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow p-6 text-white">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <p className="text-primary-100">Total Maintenance Budget - FY{fiscalYear}</p>
+                  <p className="text-primary-100">Total Budget - FY{fiscalYear}</p>
                   <p className="text-3xl font-bold mt-1">{formatCurrency(summary.total.budget)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-primary-100">Committed (Plan + Actual)</p>
-                  <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.committed)}</p>
+                  <p className="text-primary-100">Planned (No Shop)</p>
+                  <p className="text-xl font-semibold mt-1">{formatCurrency(summary.total.planned || 0)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-primary-100">Remaining ({(100 - summary.total.consumed_pct).toFixed(0)}% available)</p>
+                  <p className="text-primary-100">Committed (Shop Assigned)</p>
+                  <p className="text-xl font-semibold mt-1">{formatCurrency(summary.total.shop_committed || 0)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-primary-100">Remaining ({(100 - summary.total.consumed_pct).toFixed(0)}%)</p>
                   <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.total.remaining)}</p>
                 </div>
               </div>
