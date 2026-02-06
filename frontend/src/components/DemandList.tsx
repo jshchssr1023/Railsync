@@ -229,9 +229,10 @@ export default function DemandList({ fiscalYear, onSelect }: DemandListProps) {
       <ConfirmDialog
         open={deleteConfirmId !== null}
         title="Delete Demand"
-        description="Are you sure you want to delete this demand? This action cannot be undone."
+        description="Are you sure you want to delete this demand?"
         confirmLabel="Delete"
         variant="danger"
+        irreversibleWarning
         onConfirm={() => {
           if (deleteConfirmId) {
             handleDelete(deleteConfirmId);

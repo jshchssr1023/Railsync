@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ProjectPlanView from '@/components/ProjectPlanView';
 import LockConfirmationModal from '@/components/LockConfirmationModal';
@@ -106,6 +107,7 @@ export default function ProjectsPage() {
 
 function ProjectsContent() {
   const { getAccessToken } = useAuth();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
@@ -323,12 +325,13 @@ function ProjectsContent() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success('Cars added', `${carNumbers.length} car(s) added to project`);
         setShowAddCarsModal(false);
         setCarNumbersInput('');
         fetchProjectDetails(selectedProject.id);
       }
     } catch (err) {
-      console.error('Failed to add cars:', err);
+      toast.error('Failed to add cars');
     }
   };
 
@@ -341,11 +344,12 @@ function ProjectsContent() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success('Project activated', `${selectedProject.project_number} is now active`);
         fetchProjectDetails(selectedProject.id);
         fetchProjects();
       }
     } catch (err) {
-      console.error('Failed to activate project:', err);
+      toast.error('Failed to activate project');
     }
   };
 
@@ -362,11 +366,12 @@ function ProjectsContent() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success('Project completed', `${selectedProject.project_number} marked as complete`);
         fetchProjectDetails(selectedProject.id);
         fetchProjects();
       }
     } catch (err) {
-      console.error('Failed to complete project:', err);
+      toast.error('Failed to complete project');
     }
   };
 
@@ -515,12 +520,13 @@ function ProjectsContent() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success('Cars locked', `${confirmedIds.length} assignment(s) locked to SSOT`);
         setLockModalOpen(false);
         setLockTargetIds([]);
         fetchPlanSummary(selectedProject.id);
       }
     } catch (err) {
-      console.error('Failed to lock:', err);
+      toast.error('Failed to lock assignments');
     } finally {
       setLockLoading(false);
     }
@@ -539,12 +545,13 @@ function ProjectsContent() {
       });
       const resData = await res.json();
       if (resData.success) {
+        toast.success('Assignment relocked', `${relockTarget.car_number} updated and relocked`);
         setRelockDialogOpen(false);
         setRelockTarget(null);
         fetchPlanSummary(selectedProject.id);
       }
     } catch (err) {
-      console.error('Failed to relock:', err);
+      toast.error('Failed to relock assignment');
     } finally {
       setRelockLoading(false);
     }
@@ -563,13 +570,14 @@ function ProjectsContent() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success('Plan cancelled', `${cancelTarget.car_number} plan cancelled`);
         setCancelDialogOpen(false);
         setCancelTarget(null);
         setCancelReason('');
         fetchPlanSummary(selectedProject.id);
       }
     } catch (err) {
-      console.error('Failed to cancel:', err);
+      toast.error('Failed to cancel plan');
     } finally {
       setCancelLoading(false);
     }
@@ -581,10 +589,11 @@ function ProjectsContent() {
     setUnlockLoading(true);
     try {
       await unlockProjectAssignment(selectedProject.id, unlockTarget.id);
+      toast.success('Assignment unlocked', `${unlockTarget.car_number} reverted to Planned`);
       setUnlockTarget(null);
       fetchPlanSummary(selectedProject.id);
     } catch (err) {
-      console.error('Failed to unlock:', err);
+      toast.error('Failed to unlock assignment', err instanceof Error ? err.message : undefined);
     } finally {
       setUnlockLoading(false);
     }
@@ -1077,9 +1086,15 @@ function ProjectsContent() {
         <ConfirmDialog
           open={showCompleteConfirm}
           title="Complete Project"
-          description="All pending cars will be marked as completed. This action cannot be undone."
+          description="All pending cars will be marked as completed."
           confirmLabel="Complete Project"
           variant="warning"
+          irreversibleWarning
+          summaryItems={selectedProject ? [
+            { label: 'Project', value: selectedProject.project_number },
+            { label: 'Pending Cars', value: selectedProject.pending_cars },
+            { label: 'In Progress', value: selectedProject.in_progress_cars },
+          ] : []}
           onConfirm={() => {
             setShowCompleteConfirm(false);
             handleCompleteProject();
@@ -1288,6 +1303,10 @@ function ProjectsContent() {
                   <div className="flex justify-between"><span className="text-gray-500">Shop</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.shop_name || cancelTarget.shop_code}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Month</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.target_month}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">State</span><span className="font-medium text-gray-900 dark:text-gray-100">{cancelTarget.plan_state}</span></div>
+                </div>
+                <div className="px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+                  <span>This action cannot be undone.</span>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason *</label>

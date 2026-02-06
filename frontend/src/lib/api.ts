@@ -2590,3 +2590,77 @@ export async function releaseApprovalPacket(packetId: string) {
   });
   return response.data;
 }
+
+// ============================================================================
+// INTEGRATION APIs
+// ============================================================================
+
+export async function getIntegrationStatuses() {
+  const response = await fetchApi('/integrations/status');
+  return response.data;
+}
+
+export async function getIntegrationSyncLog(filters?: {
+  system?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const params = new URLSearchParams();
+  if (filters?.system) params.set('system', filters.system);
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.offset) params.set('offset', String(filters.offset));
+  const qs = params.toString();
+  const response = await fetchApi<unknown>(`/integrations/sync-log${qs ? `?${qs}` : ''}`);
+  return { entries: response.data, total: (response as any).total };
+}
+
+export async function getIntegrationSyncStats() {
+  const response = await fetchApi('/integrations/sync-stats');
+  return response.data;
+}
+
+export async function retryIntegrationSync(entryId: string) {
+  const response = await fetchApi(`/integrations/sync-log/${entryId}/retry`, { method: 'POST' });
+  return response.data;
+}
+
+export async function sapPushApprovedCosts(allocationId: string) {
+  const response = await fetchApi('/integrations/sap/push-costs', {
+    method: 'POST',
+    body: JSON.stringify({ allocationId }),
+  });
+  return response.data;
+}
+
+export async function sapPushBillingTrigger(invoiceId: string) {
+  const response = await fetchApi('/integrations/sap/push-billing', {
+    method: 'POST',
+    body: JSON.stringify({ invoiceId }),
+  });
+  return response.data;
+}
+
+export async function sapBatchPush(limit?: number) {
+  const response = await fetchApi('/integrations/sap/batch-push', {
+    method: 'POST',
+    body: JSON.stringify({ limit }),
+  });
+  return response.data;
+}
+
+export async function checkSAPConnection() {
+  const response = await fetchApi('/integrations/sap/check');
+  return response.data;
+}
+
+export async function sfFullSync() {
+  const response = await fetchApi('/integrations/salesforce/full-sync', { method: 'POST' });
+  return response.data;
+}
+
+export async function checkSFConnection() {
+  const response = await fetchApi('/integrations/salesforce/check');
+  return response.data;
+}

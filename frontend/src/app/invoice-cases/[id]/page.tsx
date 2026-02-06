@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { revertInvoiceCase } from '@/lib/api';
 import {
   AlertTriangle, CheckCircle, Clock, FileText, Upload, Download,
   Trash2, ChevronRight, ChevronDown, User, Loader2, ShieldCheck, XOctagon,
@@ -120,6 +121,24 @@ const SPECIAL_LESSEES = ['EXXON', 'IMPOIL', 'MARATHON'];
 
 const TERMINAL_STATES = ['PAID', 'CLOSED'];
 
+// States that cannot be reverted once transitioned TO
+const IRREVERSIBLE_TARGET_STATES = new Set(['SAP_POSTED', 'PAID', 'CLOSED']);
+// Transitions that require typed confirmation (case number)
+const TYPED_CONFIRM_STATES = new Set(['SAP_POSTED']);
+// Reversible transitions get toast undo
+const REVERSIBLE_TRANSITIONS = new Set([
+  'RECEIVED->ASSIGNED', 'ASSIGNED->WAITING_ON_SHOPPING', 'ASSIGNED->WAITING_ON_CUSTOMER_APPROVAL',
+  'ASSIGNED->READY_FOR_IMPORT', 'READY_FOR_IMPORT->IMPORTED', 'IMPORTED->ADMIN_REVIEW',
+  'ADMIN_REVIEW->SUBMITTED', 'SUBMITTED->APPROVER_REVIEW', 'APPROVED->BILLING_REVIEW',
+  'BILLING_REVIEW->BILLING_APPROVED', 'BILLING_APPROVED->SAP_STAGED',
+  // Backward (already reversible)
+  'WAITING_ON_SHOPPING->ASSIGNED', 'WAITING_ON_CUSTOMER_APPROVAL->ASSIGNED',
+  'APPROVER_REVIEW->ADMIN_REVIEW', 'BILLING_REVIEW->APPROVER_REVIEW', 'BLOCKED->ASSIGNED',
+  'ASSIGNED->RECEIVED', 'READY_FOR_IMPORT->ASSIGNED', 'IMPORTED->READY_FOR_IMPORT',
+  'ADMIN_REVIEW->IMPORTED', 'SUBMITTED->ADMIN_REVIEW', 'APPROVED->APPROVER_REVIEW',
+  'BILLING_APPROVED->BILLING_REVIEW', 'SAP_STAGED->BILLING_APPROVED',
+]);
+
 // Full 16-state main path (includes WAITING_ON_SHOPPING and WAITING_ON_CUSTOMER_APPROVAL)
 const WORKFLOW_STATES = [
   'RECEIVED', 'ASSIGNED', 'WAITING_ON_SHOPPING', 'WAITING_ON_CUSTOMER_APPROVAL',
@@ -128,21 +147,21 @@ const WORKFLOW_STATES = [
   'BILLING_APPROVED', 'SAP_STAGED', 'SAP_POSTED', 'PAID', 'CLOSED',
 ];
 
-// Valid next states from each state (derived from invoice_state_transitions seed data)
+// Valid next states from each state (derived from invoice_state_transitions seed data + migration 049 backward transitions)
 const NEXT_STATES: Record<string, string[]> = {
   RECEIVED:                       ['ASSIGNED', 'BLOCKED'],
-  ASSIGNED:                       ['WAITING_ON_SHOPPING', 'WAITING_ON_CUSTOMER_APPROVAL', 'READY_FOR_IMPORT', 'BLOCKED'],
+  ASSIGNED:                       ['WAITING_ON_SHOPPING', 'WAITING_ON_CUSTOMER_APPROVAL', 'READY_FOR_IMPORT', 'RECEIVED', 'BLOCKED'],
   WAITING_ON_SHOPPING:            ['ASSIGNED', 'READY_FOR_IMPORT', 'BLOCKED'],
   WAITING_ON_CUSTOMER_APPROVAL:   ['ASSIGNED', 'READY_FOR_IMPORT', 'BLOCKED'],
   READY_FOR_IMPORT:               ['IMPORTED', 'ASSIGNED', 'BLOCKED'],
-  IMPORTED:                       ['ADMIN_REVIEW', 'BLOCKED'],
-  ADMIN_REVIEW:                   ['SUBMITTED', 'ASSIGNED', 'BLOCKED'],
-  SUBMITTED:                      ['APPROVER_REVIEW', 'BLOCKED'],
+  IMPORTED:                       ['ADMIN_REVIEW', 'READY_FOR_IMPORT', 'BLOCKED'],
+  ADMIN_REVIEW:                   ['SUBMITTED', 'IMPORTED', 'ASSIGNED', 'BLOCKED'],
+  SUBMITTED:                      ['APPROVER_REVIEW', 'ADMIN_REVIEW', 'BLOCKED'],
   APPROVER_REVIEW:                ['APPROVED', 'ADMIN_REVIEW', 'BLOCKED'],
-  APPROVED:                       ['BILLING_REVIEW', 'BLOCKED'],
-  BILLING_REVIEW:                 ['BILLING_APPROVED', 'APPROVED', 'BLOCKED'],
-  BILLING_APPROVED:               ['SAP_STAGED', 'BLOCKED'],
-  SAP_STAGED:                     ['SAP_POSTED', 'BLOCKED'],
+  APPROVED:                       ['BILLING_REVIEW', 'APPROVER_REVIEW', 'BLOCKED'],
+  BILLING_REVIEW:                 ['BILLING_APPROVED', 'APPROVER_REVIEW', 'BLOCKED'],
+  BILLING_APPROVED:               ['SAP_STAGED', 'BILLING_REVIEW', 'BLOCKED'],
+  SAP_STAGED:                     ['SAP_POSTED', 'BILLING_APPROVED', 'BLOCKED'],
   SAP_POSTED:                     ['PAID', 'BLOCKED'],
   PAID:                           ['CLOSED'],
   BLOCKED:                        ['ASSIGNED'],
@@ -282,6 +301,8 @@ export default function InvoiceCaseDetailPage({ params }: { params: Promise<{ id
     description: string;
     variant: 'default' | 'danger' | 'warning';
     summaryItems?: { label: string; value: string }[];
+    irreversibleWarning?: boolean;
+    requireTypedConfirmation?: string;
     onConfirm: () => void;
   }>({ open: false, title: '', description: '', variant: 'default', onConfirm: () => {} });
 
@@ -426,13 +447,17 @@ export default function InvoiceCaseDetailPage({ params }: { params: Promise<{ id
   const confirmTransition = (targetState: string) => {
     if (!invoiceCase) return;
     const isBlock = targetState === 'BLOCKED';
+    const isIrreversible = IRREVERSIBLE_TARGET_STATES.has(targetState);
+    const needsTypedConfirm = TYPED_CONFIRM_STATES.has(targetState);
     setConfirmDialog({
       open: true,
       title: isBlock ? 'Block Case' : `Transition to ${STATE_LABELS[targetState] || targetState}`,
       description: isBlock
         ? 'This will block the case and halt all processing until resolved.'
         : `Advance case ${invoiceCase.case_number} to the next workflow state.`,
-      variant: isBlock ? 'danger' : 'warning',
+      variant: isBlock || isIrreversible ? 'danger' : 'warning',
+      irreversibleWarning: isIrreversible,
+      requireTypedConfirmation: needsTypedConfirm ? invoiceCase.case_number : undefined,
       summaryItems: [
         { label: 'Case', value: invoiceCase.case_number },
         { label: 'Current State', value: STATE_LABELS[invoiceCase.workflow_state] || invoiceCase.workflow_state },
@@ -445,10 +470,15 @@ export default function InvoiceCaseDetailPage({ params }: { params: Promise<{ id
 
   const executeTransition = async (targetState: string) => {
     if (!invoiceCase) return;
+    const fromState = invoiceCase.workflow_state;
+    const transitionKey = `${fromState}->${targetState}`;
+    const isReversible = REVERSIBLE_TRANSITIONS.has(transitionKey);
+    const caseId = invoiceCase.id;
+
     setConfirmDialog(d => ({ ...d, open: false }));
     setTransitioning(true);
     try {
-      const res = await fetch(`${API_URL}/invoice-cases/${invoiceCase.id}/transition`, {
+      const res = await fetch(`${API_URL}/invoice-cases/${caseId}/transition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ target_state: targetState, notes: transitionNotes || undefined }),
@@ -459,7 +489,25 @@ export default function InvoiceCaseDetailPage({ params }: { params: Promise<{ id
         setValidation(data.validation || null);
         setTransitionNotes('');
         fetchAuditEvents();
-        toast.success(`Transitioned to ${STATE_LABELS[targetState] || targetState}`);
+        if (isReversible) {
+          toast.successWithUndo(
+            `Transitioned to ${STATE_LABELS[targetState] || targetState}`,
+            async () => {
+              await revertInvoiceCase(caseId);
+              // Refresh case data after revert
+              const refreshRes = await fetch(`${API_URL}/invoice-cases/${caseId}`, {
+                headers: { Authorization: `Bearer ${getToken()}` },
+              });
+              const refreshData = await refreshRes.json();
+              if (refreshData.success) {
+                setInvoiceCase(refreshData.data);
+                fetchAuditEvents();
+              }
+            }
+          );
+        } else {
+          toast.success(`Transitioned to ${STATE_LABELS[targetState] || targetState}`);
+        }
       } else {
         setValidation(data.validation || null);
         toast.error(data.error || 'Transition blocked');
@@ -1656,6 +1704,8 @@ export default function InvoiceCaseDetailPage({ params }: { params: Promise<{ id
         description={confirmDialog.description}
         variant={confirmDialog.variant}
         summaryItems={confirmDialog.summaryItems}
+        irreversibleWarning={confirmDialog.irreversibleWarning}
+        requireTypedConfirmation={confirmDialog.requireTypedConfirmation}
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(d => ({ ...d, open: false }))}
       />
