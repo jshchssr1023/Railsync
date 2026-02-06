@@ -9,6 +9,7 @@
 
 | Feature | Description | Files | Commit |
 |---------|-------------|-------|--------|
+| **UMLER Engineering Attributes** | 1:1 `car_umler_attributes` table with ~130 typed columns (20 categories), version tracking trigger, CSV import service with header mapping, lazy-loaded UMLER Specifications section in car detail drawer | `044_car_umler_attributes.sql`, `carUmler.service.ts`, `UmlerSpecSection.tsx` | `cd0de76` |
 | **SSOT Asset Migration** | `cars.id UUID` immutable surrogate key, column renames (`car_id` → `car_mark_number` on allocations/car_assignments), UUID FKs, append-only `asset_events` ledger, `car_identifiers` multi-ID resolution, data health gates + `v_data_health` view | `037-042_*.sql`, `assetEvent.service.ts`, 12 backend/frontend files | `02afcf9` |
 | **Master Plan Builder** | Tabbed plan UI (Overview/Cars & Allocations/Versions), typeahead car search, plan-specific allocations via `plan_id` FK, inline allocation management | `036_master_plan_allocations.sql`, `masterPlan.service.ts`, `/plans` page | `02afcf9` |
 | **Shopping Requests** | Shopping request creation, attachments, status workflow | `043_shopping_requests.sql`, `shopping-request.service.ts`, `/shopping` page | `02afcf9` |
@@ -135,6 +136,9 @@ POST /api/amendments/:id/detect-conflicts
 # Cars & Asset Identity
 GET  /api/cars/:carNumber/validate-shopping
 GET  /api/cars/:carNumber/history      - Asset event timeline (SSOT)
+GET  /api/cars/:carNumber/umler        - UMLER engineering attributes (lazy-loaded)
+PUT  /api/cars/:carNumber/umler        - Create/update UMLER attributes (admin)
+POST /api/cars/umler/import            - Bulk CSV import of UMLER data (admin)
 
 # Planning & Allocations
 POST /api/allocations/:id/assign       - Drag-and-drop assignment
@@ -304,7 +308,7 @@ v_data_health              - Orphaned/unresolved car references (should always b
 
 ---
 
-## Database Migrations (43 total)
+## Database Migrations (44 total)
 
 | Range | Area |
 |-------|------|
@@ -318,6 +322,7 @@ v_data_health              - Orphaned/unresolved car references (should always b
 | 033-036 | Project planning integration, car project history, fix project numbers, master plan allocations |
 | 037-042 | **SSOT**: cars.id UUID, car_id FK renames, asset_events, car_identifiers, denormalized FKs, data health |
 | 043 | Shopping requests |
+| 044 | **UMLER**: car_umler_attributes (130 typed columns, version trigger, CSV import) |
 
 ---
 
@@ -330,7 +335,7 @@ All features are complete.
 - http://localhost:3000/planning - Quick Shop, Monthly Load, Network View
 - http://localhost:3000/contracts - Contracts hierarchy with health dashboard
 - http://localhost:3000/shops - Shop finder with filters
-- http://localhost:3000/cars - Car browse with type hierarchy and detail drawer
+- http://localhost:3000/cars - Car browse with type hierarchy, detail drawer, and UMLER specifications
 - http://localhost:3000/budget - Maintenance budget input
 - http://localhost:3000/plans - Master plan builder with allocations and versioning
 - http://localhost:3000/pipeline - Shopping pipeline
