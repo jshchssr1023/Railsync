@@ -57,6 +57,14 @@ services:
       - ./database/migrations/033_project_planning_integration.sql:/docker-entrypoint-initdb.d/40-project-planning.sql
       - ./database/migrations/034_car_project_history_view.sql:/docker-entrypoint-initdb.d/41-car-project-history.sql
       - ./database/migrations/035_fix_generate_project_number.sql:/docker-entrypoint-initdb.d/42-fix-project-number.sql
+      - ./database/migrations/036_master_plan_allocations.sql:/docker-entrypoint-initdb.d/43-master-plan-allocations.sql
+      - ./database/migrations/037_cars_uuid_identity.sql:/docker-entrypoint-initdb.d/44-cars-uuid-identity.sql
+      - ./database/migrations/038_car_id_fk_references.sql:/docker-entrypoint-initdb.d/45-car-id-fk-references.sql
+      - ./database/migrations/039_asset_events_ledger.sql:/docker-entrypoint-initdb.d/46-asset-events-ledger.sql
+      - ./database/migrations/040_car_identifiers.sql:/docker-entrypoint-initdb.d/47-car-identifiers.sql
+      - ./database/migrations/041_denormalized_car_id_fks.sql:/docker-entrypoint-initdb.d/48-denormalized-car-id-fks.sql
+      - ./database/migrations/042_data_health_gates.sql:/docker-entrypoint-initdb.d/49-data-health-gates.sql
+      - ./database/migrations/043_shopping_requests.sql:/docker-entrypoint-initdb.d/50-shopping-requests.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
