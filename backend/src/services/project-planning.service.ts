@@ -15,6 +15,7 @@
 import { query, queryOne, transaction } from '../config/database';
 import { writeAuditEvent, writeAuditEventTx } from './project-audit.service';
 import { notifyProjectRelock, notifyProjectBundling } from './email.service';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 import * as assignmentService from './assignment.service';
 import type { ProjectAssignment, ProjectCommunication, ProjectPlanSummary } from '../types';
 
@@ -849,6 +850,103 @@ export async function bundleProjectWork(input: BundleProjectWorkInput): Promise<
 }
 
 // ============================================================================
+// UNLOCK PLAN (Locked -> Planned)
+// ============================================================================
+
+/**
+ * Unlock a plan (Locked -> Planned).
+ * Cancels the SSOT car_assignment and reverts the project_assignment.
+ */
+export async function unlockPlan(
+  projectId: string,
+  assignmentId: string,
+  userId: string,
+  notes?: string
+): Promise<ProjectAssignment> {
+  return transaction(async (client) => {
+    // Get current assignment with lock
+    const paResult = await client.query(
+      'SELECT * FROM project_assignments WHERE id = $1 FOR UPDATE',
+      [assignmentId]
+    );
+    const pa = paResult.rows[0] as ProjectAssignment;
+
+    if (!pa) throw new Error('Project assignment not found');
+    if (pa.plan_state !== 'Locked') {
+      throw new Error(`Cannot unlock: current state is ${pa.plan_state}, expected Locked`);
+    }
+    if (pa.project_id !== projectId) {
+      throw new Error('Assignment does not belong to this project');
+    }
+
+    // Cancel the SSOT car_assignment if it exists
+    if (pa.car_assignment_id) {
+      await client.query(
+        `UPDATE car_assignments SET
+          status = 'Cancelled',
+          cancelled_at = NOW(),
+          cancelled_by_id = $1,
+          cancellation_reason = 'Plan unlocked'
+        WHERE id = $2`,
+        [userId, pa.car_assignment_id]
+      );
+    }
+
+    // Revert project_assignment to Planned
+    const updateResult = await client.query(
+      `UPDATE project_assignments SET
+        plan_state = 'Planned',
+        locked_at = NULL,
+        locked_by = NULL,
+        car_assignment_id = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING *`,
+      [assignmentId]
+    );
+
+    const updated = updateResult.rows[0] as ProjectAssignment;
+
+    // Log the transition
+    await logTransition({
+      processType: 'project_assignment',
+      entityId: assignmentId,
+      entityNumber: pa.car_number,
+      fromState: 'Locked',
+      toState: 'Planned',
+      isReversible: false,
+      actorId: userId,
+      sideEffects: pa.car_assignment_id
+        ? [{ type: 'cancelled', entity_type: 'car_assignment', entity_id: pa.car_assignment_id }]
+        : [],
+      notes: notes || 'Plan unlocked',
+    });
+
+    // Audit event
+    await writeAuditEventTx(client, {
+      project_id: projectId,
+      project_assignment_id: assignmentId,
+      car_number: pa.car_number,
+      actor_id: userId,
+      action: 'plan_unlocked',
+      before_state: 'Locked',
+      after_state: 'Planned',
+      reason: notes || 'Plan unlocked',
+      plan_snapshot: {
+        shop_code: pa.shop_code,
+        target_month: pa.target_month,
+        car_assignment_id: pa.car_assignment_id,
+      },
+    });
+
+    // Update project counts
+    await updateProjectPlanCountsTx(client, projectId);
+
+    return updated;
+  });
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 
@@ -894,6 +992,7 @@ export default {
   lockCars,
   relockCar,
   cancelPlan,
+  unlockPlan,
   getPlanSummary,
   logCommunication,
   getCommunications,

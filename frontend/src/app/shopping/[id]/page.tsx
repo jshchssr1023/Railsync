@@ -14,10 +14,13 @@ import {
   generateApprovalPacket,
   getShoppingEventProjectFlags,
   bundleProjectWork,
+  revertShoppingEvent,
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, EstimateLineDecision } from '@/types';
 import { Info, AlertTriangle, ChevronDown, Zap } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
 
 // ---------------------------------------------------------------------------
 // State badge color mapping
@@ -121,7 +124,6 @@ export default function ShoppingEventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [gateWarning, setGateWarning] = useState<string | null>(null);
-  const [transitioning, setTransitioning] = useState(false);
   const [transitionNotes, setTransitionNotes] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -149,6 +151,12 @@ export default function ShoppingEventDetailPage() {
   const [lineApprovals, setLineApprovals] = useState<Record<string, 'approve' | 'review' | 'reject'>>({});
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [showEstimateConfirm, setShowEstimateConfirm] = useState<string | null>(null);
+
+  // -----------------------------------------------------------------------
+  // Transition confirmation dialog
+  // -----------------------------------------------------------------------
+  const { confirmDialogProps, requestTransition } = useTransitionConfirm();
 
   // -----------------------------------------------------------------------
   // Data fetching
@@ -223,9 +231,14 @@ export default function ShoppingEventDetailPage() {
   }, [expandedEstimate, estimates, fetchDecisions]);
 
   // -----------------------------------------------------------------------
-  // Approval packet submission
+  // Approval packet submission (gated by ConfirmDialog)
   // -----------------------------------------------------------------------
-  const handleSubmitApproval = async (estimateId: string) => {
+  const requestSubmitApproval = (estimateId: string) => {
+    setShowEstimateConfirm(estimateId);
+  };
+
+  const executeSubmitApproval = async (estimateId: string) => {
+    setShowEstimateConfirm(null);
     setSubmittingApproval(true);
     setApprovalError(null);
     try {
@@ -267,35 +280,74 @@ export default function ShoppingEventDetailPage() {
     setShowApprovalForm(estimateId);
   };
 
-  // -----------------------------------------------------------------------
-  // State transition handler
-  // -----------------------------------------------------------------------
-  const handleTransition = async (targetState: string, notes?: string) => {
-    setTransitioning(true);
-    setTransitionError(null);
-    setGateWarning(null);
-    try {
-      await transitionShoppingEventState(id, targetState, notes || undefined);
-      setTransitionNotes('');
-      setShowCancelForm(false);
-      setCancelReason('');
-      await fetchAll();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Transition failed';
-      // Detect 409 gate-blocked errors
-      if (message.includes('409') || message.toLowerCase().includes('gate') || message.toLowerCase().includes('blocked')) {
-        setGateWarning(message);
-      } else {
-        setTransitionError(message);
-      }
-    } finally {
-      setTransitioning(false);
-    }
-  };
-
   const handleCancel = async () => {
     if (!cancelReason.trim()) return;
-    await handleTransition('CANCELLED', cancelReason.trim());
+    confirmAndTransition('CANCELLED', cancelReason.trim());
+  };
+
+  // -----------------------------------------------------------------------
+  // Confirmation-gated transition wrapper
+  // -----------------------------------------------------------------------
+  const confirmAndTransition = (targetState: string, notes?: string) => {
+    const currentState = event?.state || '';
+    const eventNumber = event?.event_number || '';
+
+    // Determine reversibility based on target state
+    const REVERSIBLE_FORWARD = new Set([
+      'ASSIGNED_TO_SHOP', 'INBOUND', 'INSPECTION', 'ESTIMATE_SUBMITTED',
+      'ESTIMATE_UNDER_REVIEW', 'CHANGES_REQUIRED',
+    ]);
+    const REVERSIBLE_BACKWARD = new Set([
+      'REQUESTED', 'ASSIGNED_TO_SHOP', 'ESTIMATE_SUBMITTED',
+      'ESTIMATE_UNDER_REVIEW', 'IN_REPAIR', 'FINAL_ESTIMATE_APPROVED',
+    ]);
+
+    const isReversible = REVERSIBLE_FORWARD.has(targetState) || REVERSIBLE_BACKWARD.has(targetState);
+
+    let variant: 'default' | 'warning' | 'danger' = 'default';
+    let irreversible = false;
+    let typedConfirmation: string | undefined;
+
+    if (targetState === 'RELEASED') {
+      variant = 'danger';
+      irreversible = true;
+      typedConfirmation = eventNumber;
+    } else if (targetState === 'CANCELLED') {
+      variant = 'danger';
+      irreversible = true;
+    } else if (['WORK_AUTHORIZED', 'IN_REPAIR', 'ESTIMATE_APPROVED', 'FINAL_ESTIMATE_APPROVED'].includes(targetState)) {
+      variant = 'warning';
+      if (targetState === 'IN_REPAIR') irreversible = true;
+    }
+
+    const labelState = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    requestTransition({
+      title: `Transition to ${labelState(targetState)}`,
+      description: `This will move event ${eventNumber} from "${labelState(currentState)}" to "${labelState(targetState)}".`,
+      fromState: currentState,
+      toState: targetState,
+      variant,
+      irreversible,
+      typedConfirmation,
+      summaryItems: [
+        { label: 'Event', value: eventNumber },
+        { label: 'Car', value: event?.car_number || '' },
+        { label: 'Current State', value: labelState(currentState) },
+        { label: 'Target State', value: labelState(targetState) },
+      ],
+      onConfirm: async () => {
+        await transitionShoppingEventState(id, targetState, notes || transitionNotes || undefined);
+        setTransitionNotes('');
+        setShowCancelForm(false);
+        setCancelReason('');
+        await fetchAll();
+      },
+      onUndo: isReversible ? async () => {
+        await revertShoppingEvent(id);
+        await fetchAll();
+      } : undefined,
+    });
   };
 
   // -----------------------------------------------------------------------
@@ -444,19 +496,17 @@ export default function ShoppingEventDetailPage() {
             {transitions.map((t) => (
               <button
                 key={t.target}
-                disabled={transitioning}
-                onClick={() => handleTransition(t.target, transitionNotes || undefined)}
+                onClick={() => confirmAndTransition(t.target, transitionNotes || undefined)}
                 className={`px-4 py-2 text-sm font-medium text-white rounded ${t.color} disabled:opacity-50`}
               >
-                {transitioning ? 'Processing...' : t.label}
+                {t.label}
               </button>
             ))}
 
             {canCancel && !showCancelForm && (
               <button
                 onClick={() => setShowCancelForm(true)}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
-                disabled={transitioning}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded"
               >
                 Cancel Event
               </button>
@@ -479,10 +529,10 @@ export default function ShoppingEventDetailPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleCancel}
-                  disabled={transitioning || !cancelReason.trim()}
+                  disabled={!cancelReason.trim()}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
                 >
-                  {transitioning ? 'Cancelling...' : 'Confirm Cancellation'}
+                  Confirm Cancellation
                 </button>
                 <button
                   onClick={() => {
@@ -709,7 +759,7 @@ export default function ShoppingEventDetailPage() {
 
                             <div className="flex gap-2">
                               <button
-                                onClick={() => handleSubmitApproval(est.id)}
+                                onClick={() => requestSubmitApproval(est.id)}
                                 disabled={submittingApproval}
                                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
                               >
@@ -933,6 +983,34 @@ export default function ShoppingEventDetailPage() {
           )}
         </dl>
       </div>
+
+      {/* Transition confirmation dialog */}
+      <ConfirmDialog {...confirmDialogProps} />
+
+      {/* Estimate decision confirmation dialog */}
+      <ConfirmDialog
+        open={!!showEstimateConfirm}
+        onConfirm={() => showEstimateConfirm && executeSubmitApproval(showEstimateConfirm)}
+        onCancel={() => setShowEstimateConfirm(null)}
+        title="Submit Estimate Decision"
+        description={`This will record an overall decision of "${approvalDecision.replace(/_/g, ' ')}" for this estimate.`}
+        confirmLabel="Submit Decision"
+        variant="warning"
+        loading={submittingApproval}
+        summaryItems={(() => {
+          const approveCount = Object.values(lineApprovals).filter((d) => d === 'approve').length;
+          const reviewCount = Object.values(lineApprovals).filter((d) => d === 'review').length;
+          const rejectCount = Object.values(lineApprovals).filter((d) => d === 'reject').length;
+          const totalLines = Object.keys(lineApprovals).length;
+          return [
+            { label: 'Total Lines', value: String(totalLines) },
+            { label: 'Approved', value: String(approveCount) },
+            { label: 'Changes Required', value: String(reviewCount) },
+            { label: 'Rejected', value: String(rejectCount) },
+            { label: 'Overall Decision', value: approvalDecision.replace(/_/g, ' ') },
+          ];
+        })()}
+      />
     </div>
   );
 }

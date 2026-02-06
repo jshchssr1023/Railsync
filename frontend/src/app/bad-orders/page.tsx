@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { listBadOrders, createBadOrder, resolveBadOrder, BadOrderReport } from '@/lib/api';
+import { listBadOrders, createBadOrder, resolveBadOrder, revertBadOrder, BadOrderReport } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
 import { useToast } from '@/components/Toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
 
 const SEVERITY_COLORS = {
   critical: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
@@ -38,6 +40,7 @@ function BadOrdersContent() {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<string>('');
   const [prefillCar, setPrefillCar] = useState<string>('');
+  const { confirmDialogProps, requestTransition } = useTransitionConfirm();
 
   // Check for car param and auto-show form
   useEffect(() => {
@@ -93,6 +96,34 @@ function BadOrdersContent() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to resolve');
     }
+  };
+
+  const confirmResolve = (id: string, action: string, carNumber?: string) => {
+    const actionLabels: Record<string, string> = {
+      expedite_existing: 'Expedite Existing Plan',
+      planning_review: 'Send to Planning Review',
+      repair_only: 'Repair Only',
+    };
+
+    requestTransition({
+      title: 'Resolve Bad Order',
+      description: `This will resolve the bad order with action: ${actionLabels[action] || action}.`,
+      fromState: 'open',
+      toState: action === 'planning_review' ? 'pending_decision' : 'assigned',
+      variant: 'warning',
+      summaryItems: [
+        ...(carNumber ? [{ label: 'Car', value: carNumber }] : []),
+        { label: 'Resolution', value: actionLabels[action] || action },
+      ],
+      onConfirm: async () => {
+        await resolveBadOrder(id, action);
+        fetchReports();
+      },
+      onUndo: async () => {
+        await revertBadOrder(id);
+        fetchReports();
+      },
+    });
   };
 
   if (error) {
@@ -218,15 +249,15 @@ function BadOrdersContent() {
                     </button>
                     {report.had_existing_plan ? (
                       <>
-                        <button onClick={() => handleResolve(report.id, 'expedite_existing')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                        <button onClick={() => confirmResolve(report.id, 'expedite_existing', report.car_number)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
                           Expedite Existing
                         </button>
-                        <button onClick={() => handleResolve(report.id, 'planning_review')} className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                        <button onClick={() => confirmResolve(report.id, 'planning_review', report.car_number)} className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
                           Planning Review
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => handleResolve(report.id, 'repair_only')} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                      <button onClick={() => confirmResolve(report.id, 'repair_only', report.car_number)} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
                         Create Assignment
                       </button>
                     )}
@@ -238,6 +269,8 @@ function BadOrdersContent() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog {...confirmDialogProps} />
     </div>
   );
 }

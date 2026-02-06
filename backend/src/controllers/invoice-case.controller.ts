@@ -267,6 +267,43 @@ export async function transitionState(req: Request, res: Response) {
   }
 }
 
+/**
+ * Revert the last state transition
+ * POST /api/invoice-cases/:id/revert
+ */
+export async function revertLastTransition(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
+    const updatedCase = await invoiceCaseService.revertLastTransition(id, userId, notes);
+
+    res.json({
+      success: true,
+      data: updatedCase,
+    });
+  } catch (error: any) {
+    console.error('Error reverting last transition:', error);
+
+    // Return 400 for business-logic revert errors, 500 for unexpected failures
+    const isBusinessError = error.message?.startsWith('Cannot revert') ||
+      error.message?.startsWith('Revert transition failed');
+
+    res.status(isBusinessError ? 400 : 500).json({
+      success: false,
+      error: error.message || 'Failed to revert last transition',
+    });
+  }
+}
+
 // ==============================================================================
 // Assignment
 // ==============================================================================

@@ -11,6 +11,7 @@ import RelockDialog from '@/components/RelockDialog';
 import CreateDemandDialog, { type CreateDemandFormData } from '@/components/CreateDemandDialog';
 import CommunicationLog from '@/components/CommunicationLog';
 import PlanHistoryTimeline from '@/components/PlanHistoryTimeline';
+import { unlockProjectAssignment } from '@/lib/api';
 import type {
   ProjectAssignment,
   ProjectPlanSummary,
@@ -131,6 +132,8 @@ function ProjectsContent() {
   const [cancelTarget, setCancelTarget] = useState<ProjectAssignment | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<any>(null);
+  const [unlockLoading, setUnlockLoading] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   // Communications tab state
@@ -569,6 +572,21 @@ function ProjectsContent() {
       console.error('Failed to cancel:', err);
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  // Unlock handler
+  const handleUnlockConfirm = async () => {
+    if (!selectedProject || !unlockTarget) return;
+    setUnlockLoading(true);
+    try {
+      await unlockProjectAssignment(selectedProject.id, unlockTarget.id);
+      setUnlockTarget(null);
+      fetchPlanSummary(selectedProject.id);
+    } catch (err) {
+      console.error('Failed to unlock:', err);
+    } finally {
+      setUnlockLoading(false);
     }
   };
 
@@ -1023,6 +1041,7 @@ function ProjectsContent() {
                     onLockSelected={handleLockSelected}
                     onRelock={(a) => { setRelockTarget(a); setRelockDialogOpen(true); }}
                     onCancel={(a) => { setCancelTarget(a); setCancelDialogOpen(true); }}
+                    onUnlock={(a) => setUnlockTarget(a)}
                     onPlanCars={() => { fetchShops(); setShowPlanCarsModal(true); }}
                     onCreateDemand={() => setShowCreateDemandDialog(true)}
                     isActive={['active', 'in_progress'].includes(selectedProject.status)}
@@ -1066,6 +1085,23 @@ function ProjectsContent() {
             handleCompleteProject();
           }}
           onCancel={() => setShowCompleteConfirm(false)}
+        />
+
+        {/* Unlock Plan Confirmation */}
+        <ConfirmDialog
+          open={!!unlockTarget}
+          title="Unlock Plan"
+          description="This will revert the assignment from Locked back to Planned and cancel the associated car assignment."
+          variant="warning"
+          confirmLabel="Unlock"
+          loading={unlockLoading}
+          summaryItems={unlockTarget ? [
+            { label: 'Car', value: unlockTarget.car_number || '' },
+            { label: 'Shop', value: unlockTarget.shop_code || '' },
+            { label: 'Month', value: unlockTarget.target_month || '' },
+          ] : []}
+          onConfirm={handleUnlockConfirm}
+          onCancel={() => setUnlockTarget(null)}
         />
 
         {/* Create Project Modal */}

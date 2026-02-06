@@ -7,6 +7,7 @@ import {
   approveShoppingRequest as approveService,
   rejectShoppingRequest as rejectService,
   cancelShoppingRequest as cancelService,
+  revertLastTransition as revertService,
 } from '../services/shopping-request.service';
 import {
   uploadAttachment as uploadService,
@@ -162,6 +163,20 @@ export async function deleteAttachment(req: Request, res: Response): Promise<voi
   } catch (error: any) {
     console.error('Error deleting attachment:', error);
     const status = error.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+// POST /api/shopping-requests/:id/revert
+export async function revert(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user?.id;
+    const { notes } = req.body;
+    const result = await revertService(req.params.id, userId, notes);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('Error reverting shopping request:', error);
+    const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
 }

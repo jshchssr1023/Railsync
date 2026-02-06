@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Trash2, X, ShieldAlert } from 'lucide-react';
 
 type ConfirmVariant = 'danger' | 'warning' | 'default';
 
@@ -17,6 +17,10 @@ interface ConfirmDialogProps {
   loading?: boolean;
   /** Optional read-only summary items displayed before the action buttons */
   summaryItems?: { label: string; value: string }[];
+  /** Show a red "This action cannot be undone" warning banner */
+  irreversibleWarning?: boolean;
+  /** Require user to type this exact string before the confirm button enables */
+  requireTypedConfirmation?: string;
 }
 
 const variantStyles: Record<ConfirmVariant, {
@@ -52,9 +56,22 @@ export default function ConfirmDialog({
   variant = 'default',
   loading = false,
   summaryItems,
+  irreversibleWarning,
+  requireTypedConfirmation,
 }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const styles = variantStyles[variant];
+  const [typedValue, setTypedValue] = useState('');
+
+  const typedConfirmationMatch = !requireTypedConfirmation || typedValue === requireTypedConfirmation;
+  const canConfirm = !loading && typedConfirmationMatch;
+
+  // Reset typed value when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      setTypedValue('');
+    }
+  }, [open]);
 
   // Focus the cancel button when the dialog opens
   useEffect(() => {
@@ -122,6 +139,32 @@ export default function ConfirmDialog({
               </div>
             )}
 
+            {/* Irreversible warning banner */}
+            {irreversibleWarning && (
+              <div className="mt-4 px-3 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                <span>This action cannot be undone.</span>
+              </div>
+            )}
+
+            {/* Typed confirmation input */}
+            {requireTypedConfirmation && (
+              <div className="mt-4">
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Type <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{requireTypedConfirmation}</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={typedValue}
+                  onChange={(e) => setTypedValue(e.target.value)}
+                  placeholder={requireTypedConfirmation}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            )}
+
             {/* Actions */}
             <div className="mt-6 flex gap-3 justify-end">
               <button
@@ -134,9 +177,9 @@ export default function ConfirmDialog({
               </button>
               <button
                 onClick={onConfirm}
-                disabled={loading}
+                disabled={!canConfirm}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${styles.confirmBtn} ${
-                  loading ? 'opacity-50 cursor-not-allowed' : ''
+                  !canConfirm ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 {loading ? 'Processing...' : confirmLabel}

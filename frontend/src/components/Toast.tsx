@@ -11,6 +11,10 @@ interface Toast {
   title: string;
   message?: string;
   duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ToastContextValue {
@@ -21,6 +25,8 @@ interface ToastContextValue {
   error: (title: string, message?: string) => void;
   warning: (title: string, message?: string) => void;
   info: (title: string, message?: string) => void;
+  /** Show a success toast with an "Undo" action button (6-second window). */
+  successWithUndo: (title: string, undoFn: () => Promise<void>, message?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -86,9 +92,42 @@ export function ToastProvider({ children }: ToastProviderProps) {
     [addToast]
   );
 
+  const successWithUndo = useCallback(
+    (title: string, undoFn: () => Promise<void>, message?: string) => {
+      const toastId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const handleUndo = async () => {
+        removeToast(toastId);
+        try {
+          await undoFn();
+          addToast({ type: 'success', title: 'Reverted successfully' });
+        } catch (err) {
+          addToast({
+            type: 'error',
+            title: 'Revert failed',
+            message: err instanceof Error ? err.message : 'Could not undo the action',
+            duration: 8000,
+          });
+        }
+      };
+      const newToast: Toast = {
+        id: toastId,
+        type: 'success',
+        title,
+        message,
+        duration: 6000,
+        action: { label: 'Undo', onClick: handleUndo },
+      };
+      setToasts((prev) => [...prev, newToast]);
+      setTimeout(() => {
+        removeToast(toastId);
+      }, 6000);
+    },
+    [addToast, removeToast]
+  );
+
   return (
     <ToastContext.Provider
-      value={{ toasts, addToast, removeToast, success, error, warning, info }}
+      value={{ toasts, addToast, removeToast, success, error, warning, info, successWithUndo }}
     >
       {children}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -156,6 +195,14 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         <p className="text-sm font-medium">{toast.title}</p>
         {toast.message && <p className="text-sm opacity-80 mt-0.5">{toast.message}</p>}
       </div>
+      {toast.action && (
+        <button
+          onClick={toast.action.onClick}
+          className="flex-shrink-0 ml-2 px-2 py-1 text-xs font-semibold rounded bg-white/20 hover:bg-white/30 transition-colors underline"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={onDismiss}
         className="flex-shrink-0 ml-2 opacity-60 hover:opacity-100 transition-opacity"

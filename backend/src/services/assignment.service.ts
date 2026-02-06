@@ -9,6 +9,7 @@ import { query } from '../config/database';
 import { createAlert } from './alerts.service';
 import { detectProjectForCar } from './project-planning.service';
 import * as assetEventService from './assetEvent.service';
+import { logTransition } from './transition-log.service';
 
 // ============================================================================
 // TYPES
@@ -368,6 +369,10 @@ export async function cancelAssignment(
   reason: string,
   cancelledById?: string
 ): Promise<CarAssignment> {
+  // Get current assignment to capture previous status for transition logging
+  const current = await getAssignment(id);
+  const previousStatus = current?.status;
+
   const sql = `
     UPDATE car_assignments SET
       status = 'Cancelled',
@@ -383,7 +388,21 @@ export async function cancelAssignment(
     throw new Error(`Assignment ${id} not found`);
   }
 
-  return normalizeAssignment(rows[0]);
+  const cancelled = normalizeAssignment(rows[0]);
+
+  // Log state transition (non-blocking)
+  logTransition({
+    processType: 'car_assignment',
+    entityId: id,
+    entityNumber: cancelled.car_number || undefined,
+    fromState: previousStatus,
+    toState: 'Cancelled',
+    isReversible: false,
+    actorId: cancelledById,
+    notes: reason,
+  }).catch(err => console.error('[TransitionLog] Failed to log assignment cancellation:', err));
+
+  return cancelled;
 }
 
 /**
@@ -444,6 +463,10 @@ export async function updateStatus(
   status: AssignmentStatus,
   updatedById?: string
 ): Promise<CarAssignment> {
+  // Get current assignment to capture previous status for transition logging
+  const current = await getAssignment(id);
+  const previousStatus = current?.status;
+
   // Map status to timestamp column
   const timestampColumn: Record<AssignmentStatus, string | null> = {
     Planned: 'planned_at',
@@ -506,7 +529,7 @@ export async function updateStatus(
   if (updated.car_id) {
     assetEventService.recordEvent(updated.car_id, 'assignment.status_changed', {
       assignment_id: updated.id,
-      from_status: updated.status, // previous status already overwritten, but logged for type
+      from_status: previousStatus,
       to_status: status,
     }, {
       sourceTable: 'car_assignments',
@@ -514,6 +537,17 @@ export async function updateStatus(
       performedBy: updatedById,
     }).catch(() => {}); // non-blocking
   }
+
+  // Log state transition (non-blocking)
+  logTransition({
+    processType: 'car_assignment',
+    entityId: id,
+    entityNumber: updated.car_number || undefined,
+    fromState: previousStatus,
+    toState: status,
+    isReversible: status === 'Scheduled', // only Planned->Scheduled is reversible
+    actorId: updatedById,
+  }).catch(err => console.error('[TransitionLog] Failed to log assignment transition:', err));
 
   return updated;
 }

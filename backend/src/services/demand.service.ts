@@ -1,10 +1,12 @@
 import { query, queryOne } from '../config/database';
+import { pool } from '../config/database';
 import {
   Demand,
   DemandStatus,
   DemandPriority,
   EventType,
 } from '../types';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 /**
  * List demands with filters
@@ -237,8 +239,13 @@ export async function updateDemand(
  */
 export async function updateDemandStatus(
   id: string,
-  status: DemandStatus
+  status: DemandStatus,
+  userId?: string
 ): Promise<Demand | null> {
+  // Get current status before updating
+  const current = await getDemandById(id);
+  const previousStatus = current?.status;
+
   const sql = `
     UPDATE demands SET status = $2, updated_at = NOW()
     WHERE id = $1
@@ -246,7 +253,23 @@ export async function updateDemandStatus(
   `;
 
   const rows = await query<Demand>(sql, [id, status]);
-  return rows[0] || null;
+  const updated = rows[0] || null;
+
+  // Log state transition (non-blocking)
+  if (updated && previousStatus) {
+    const terminalStates: DemandStatus[] = ['Complete'];
+    logTransition({
+      processType: 'demand',
+      entityId: id,
+      entityNumber: updated.name || undefined,
+      fromState: previousStatus,
+      toState: status,
+      isReversible: !terminalStates.includes(status),
+      actorId: userId,
+    }).catch(err => console.error('[TransitionLog] Failed to log demand transition:', err));
+  }
+
+  return updated;
 }
 
 /**
@@ -293,6 +316,38 @@ export async function getDemandSummaryByMonth(
   }));
 }
 
+/**
+ * Revert the last transition on a demand
+ */
+export async function revertLastTransition(id: string, userId: string, notes?: string): Promise<Demand> {
+  const eligibility = await canRevert('demand', id);
+  if (!eligibility.allowed) throw new Error(`Cannot revert: ${eligibility.blockers.join('; ')}`);
+
+  const last = await getLastTransition('demand', id);
+  if (!last) throw new Error('No transition to revert');
+
+  const result = await pool.query(
+    `UPDATE demands SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+    [last.from_state, id]
+  );
+
+  if (!result.rows[0]) throw new Error('Demand not found');
+
+  const reversalEntry = await logTransition({
+    processType: 'demand',
+    entityId: id,
+    entityNumber: result.rows[0].name || undefined,
+    fromState: last.to_state,
+    toState: last.from_state || '',
+    isReversible: false,
+    actorId: userId,
+    notes: notes || 'Reverted',
+  });
+  await markReverted(last.id, userId, reversalEntry.id);
+
+  return result.rows[0];
+}
+
 export default {
   listDemands,
   getDemandById,
@@ -301,4 +356,5 @@ export default {
   updateDemandStatus,
   deleteDemand,
   getDemandSummaryByMonth,
+  revertLastTransition,
 };

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
+import { revertInvoiceCase } from '@/lib/api';
 import {
   AlertTriangle,
   CheckCircle,
@@ -220,6 +222,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [showDeleteAttachmentConfirm, setShowDeleteAttachmentConfirm] = useState(false);
   const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
   const toast = useToast();
+  const { confirmDialogProps: transitionConfirmProps, requestTransition } = useTransitionConfirm();
 
   const getToken = () => getAccessToken() || localStorage.getItem('railsync_access_token');
 
@@ -442,14 +445,67 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         setValidation(null);
       } else {
         setValidation(data.validation);
-        toast.error(data.error || 'Transition blocked');
+        throw new Error(data.error || 'Transition blocked');
       }
     } catch (err) {
       console.error('Transition failed:', err);
-      toast.error('Failed to transition state');
+      // Re-throw so callers (e.g. useTransitionConfirm hook) can detect failure
+      throw err;
     } finally {
       setTransitioning(false);
     }
+  };
+
+  const confirmAndTransition = (targetState: string) => {
+    if (!invoiceCase) return;
+
+    const currentState = invoiceCase.workflow_state;
+    const caseNumber = invoiceCase.case_number || '';
+
+    // Irreversible states — once reached, cannot revert
+    const IRREVERSIBLE = new Set(['SAP_STAGED', 'SAP_POSTED', 'PAID', 'CLOSED']);
+    const isIrreversible = IRREVERSIBLE.has(targetState);
+
+    let variant: 'default' | 'warning' | 'danger' = 'default';
+    let typedConfirmation: string | undefined;
+
+    if (targetState === 'SAP_POSTED') {
+      variant = 'danger';
+      typedConfirmation = caseNumber;
+    } else if (isIrreversible) {
+      variant = 'danger';
+    } else if (['APPROVED', 'BILLING_APPROVED', 'SUBMITTED'].includes(targetState)) {
+      variant = 'warning';
+    }
+
+    const stateLabel = (s: string) =>
+      s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    requestTransition({
+      title: `Transition to ${stateLabel(targetState)}`,
+      description: `Move case ${caseNumber} from "${stateLabel(currentState)}" to "${stateLabel(targetState)}".`,
+      fromState: currentState,
+      toState: targetState,
+      variant,
+      irreversible: isIrreversible,
+      typedConfirmation,
+      summaryItems: [
+        { label: 'Case', value: caseNumber },
+        { label: 'Current State', value: stateLabel(currentState) },
+        { label: 'Target State', value: stateLabel(targetState) },
+      ],
+      onConfirm: async () => {
+        await handleTransition(targetState);
+      },
+      onUndo: !isIrreversible
+        ? async () => {
+            await revertInvoiceCase(invoiceCase.id);
+            // Refresh case data after revert
+            fetchInvoiceCase();
+            fetchAuditEvents();
+          }
+        : undefined,
+    });
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -849,7 +905,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 Validate → ASSIGNED
               </button>
               <button
-                onClick={() => handleTransition('ASSIGNED')}
+                onClick={() => confirmAndTransition('ASSIGNED')}
                 disabled={transitioning}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
@@ -950,6 +1006,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
+      {/* Workflow Transition Confirm Dialog */}
+      <ConfirmDialog {...transitionConfirmProps} />
+
       {/* Approve Confirm Dialog */}
       <ConfirmDialog
         open={showApproveConfirm}
@@ -960,6 +1019,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         confirmLabel="Approve"
         variant="default"
         loading={approving}
+        irreversibleWarning={false}
       />
 
       {/* Rematch Confirm Dialog */}

@@ -23,6 +23,8 @@ import * as ccmInstructionsService from '../services/ccm-instructions.service';
 import * as scopeLibraryController from '../controllers/scope-library.controller';
 import * as sowController from '../controllers/scope-of-work.controller';
 import * as shoppingEventController from '../controllers/shopping-event.controller';
+import * as shoppingEventService from '../services/shopping-event.service';
+import * as transitionLogService from '../services/transition-log.service';
 import * as shoppingPacketController from '../controllers/shopping-packet.controller';
 import * as estimateController from '../controllers/estimate-workflow.controller';
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
@@ -31,6 +33,7 @@ import * as budgetScenarioController from '../controllers/budgetScenario.control
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
+import * as allocationService from '../services/allocation.service';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -889,6 +892,12 @@ router.post('/demands', authenticate, authorize('admin', 'operator'), planningCo
 router.put('/demands/:id', authenticate, authorize('admin', 'operator'), planningController.updateDemand);
 router.put('/demands/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateDemandStatus);
 router.delete('/demands/:id', authenticate, authorize('admin'), planningController.deleteDemand);
+router.post('/demands/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
+  try {
+    const result = await demandService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
 
 // ============================================================================
 // PHASE 9 - CAPACITY ROUTES
@@ -916,6 +925,12 @@ router.post('/allocations', authenticate, authorize('admin', 'operator'), planni
 router.post('/allocations/generate', authenticate, authorize('admin', 'operator'), planningController.generateAllocations);
 router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateAllocationStatus);
 router.post('/allocations/:id/assign', authenticate, authorize('admin', 'operator'), planningController.assignAllocation);
+router.post('/allocations/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
+  try {
+    const result = await allocationService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
 
 // Shop monthly capacity for Quick Shop
 router.get('/shops/:shopCode/monthly-capacity', optionalAuth, planningController.getShopMonthlyCapacity);
@@ -1436,6 +1451,9 @@ router.post('/bad-orders', authenticate, badOrderController.createBadOrder);
 
 // Resolve bad order (choose action: expedite_existing, new_shop_combined, repair_only, planning_review)
 router.post('/bad-orders/:id/resolve', authenticate, badOrderController.resolveBadOrder);
+
+// Revert last transition on a bad order
+router.post('/bad-orders/:id/revert', authenticate, badOrderController.revertBadOrder);
 
 // ============================================================================
 // SHOP DESIGNATIONS & STORAGE COMMODITIES
@@ -3461,6 +3479,25 @@ router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'opera
 });
 
 /**
+ * @route   POST /api/projects/:projectId/assignments/:id/unlock
+ * @desc    Unlock a locked assignment (Locked -> Planned), cancels SSOT car_assignment
+ * @access  Protected - Operator+
+ */
+router.post('/projects/:projectId/assignments/:id/unlock', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
+  try {
+    const result = await projectPlanningService.unlockPlan(
+      req.params.projectId,
+      req.params.id,
+      (req as any).user.id,
+      req.body.notes
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * @route   POST /api/projects/:id/create-demand
  * @desc    Create a demand linked to this project (Path 2: demand-linked planning)
  * @access  Protected - Operator+
@@ -4179,6 +4216,14 @@ router.get('/shopping-events/:id', optionalAuth, shoppingEventController.getShop
 router.put('/shopping-events/:id/state', authenticate, authorize('admin', 'operator'), shoppingEventController.transitionState);
 router.get('/shopping-events/:id/state-history', optionalAuth, shoppingEventController.getStateHistory);
 
+// Shopping Event Revert
+router.post('/shopping-events/:id/revert', authenticate, async (req, res, next) => {
+  try {
+    const result = await shoppingEventService.revertLastTransition(req.params.id, (req as any).user.id);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
 // Shopping event estimates
 router.post('/shopping-events/:id/estimates', authenticate, authorize('admin', 'operator'), estimateController.submitEstimate);
 router.get('/shopping-events/:id/estimates', optionalAuth, estimateController.listEstimateVersions);
@@ -4270,6 +4315,7 @@ router.put('/invoice-cases/:id', authenticate, authorize('admin', 'operator'), i
 // State Transitions
 router.post('/invoice-cases/:id/validate', authenticate, invoiceCaseController.validateStateTransition);
 router.post('/invoice-cases/:id/transition', authenticate, authorize('admin', 'operator'), invoiceCaseController.transitionState);
+router.post('/invoice-cases/:id/revert', authenticate, authorize('admin', 'operator'), invoiceCaseController.revertLastTransition);
 
 // Assignment
 router.put('/invoice-cases/:id/assign', authenticate, authorize('admin'), invoiceCaseController.assignCase);
@@ -4300,9 +4346,22 @@ router.put('/shopping-requests/:id', authenticate, shoppingRequestController.upd
 router.put('/shopping-requests/:id/approve', authenticate, authorize('admin', 'operator'), shoppingRequestController.approve);
 router.put('/shopping-requests/:id/reject', authenticate, authorize('admin', 'operator'), shoppingRequestController.reject);
 router.put('/shopping-requests/:id/cancel', authenticate, shoppingRequestController.cancel);
+router.post('/shopping-requests/:id/revert', authenticate, authorize('admin', 'operator'), shoppingRequestController.revert);
 router.post('/shopping-requests/:id/attachments', authenticate, shoppingRequestUpload.single('file'), shoppingRequestController.uploadAttachment);
 router.get('/shopping-requests/:id/attachments', authenticate, shoppingRequestController.listAttachments);
 router.delete('/shopping-requests/:id/attachments/:attachmentId', authenticate, shoppingRequestController.deleteAttachment);
+
+// ============================================================================
+// TRANSITION REVERT ELIGIBILITY (generic)
+// ============================================================================
+
+router.get('/transitions/:processType/:entityId/revert-eligibility', authenticate, async (req, res, next) => {
+  try {
+    const { processType, entityId } = req.params;
+    const result = await transitionLogService.canRevert(processType, entityId);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
 
 /**
  * @route   GET /api/health

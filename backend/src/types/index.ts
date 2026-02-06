@@ -84,7 +84,8 @@ export type AuditAction =
   | 'activate'
   | 'update_permissions'
   | 'update_members'
-  | 'assign_customer';
+  | 'assign_customer'
+  | 'revert';
 
 // ============================================================================
 // SHOP TYPES

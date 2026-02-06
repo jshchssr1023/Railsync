@@ -133,9 +133,34 @@ export async function resolveBadOrder(req: Request, res: Response): Promise<void
   }
 }
 
+export async function revertBadOrder(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const result = await badOrderService.revertLastTransition(id, userId, req.body.notes);
+
+    await logFromRequest(req, 'revert', 'bad_order_reports', id, undefined, {
+      notes: req.body.notes,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Revert bad order error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to revert bad order';
+    res.status(400).json({ success: false, error: message });
+  }
+}
+
 export default {
   createBadOrder,
   getBadOrder,
   listBadOrders,
   resolveBadOrder,
+  revertBadOrder,
 };

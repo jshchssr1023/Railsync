@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../config/database';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -400,7 +401,22 @@ export async function approveShoppingRequest(
       );
     }
 
-    return updateResult.rows[0];
+    const updated = updateResult.rows[0];
+
+    // Log transition (non-blocking - outside transaction is fine)
+    logTransition({
+      processType: 'shopping_request',
+      entityId: id,
+      entityNumber: updated.request_number,
+      fromState: req.status,
+      toState: 'approved',
+      isReversible: false,
+      actorId: userId,
+      sideEffects: [{ type: 'created', entity_type: 'shopping_event', entity_id: eventId }],
+      notes: notes || undefined,
+    }).catch(err => console.error('[TransitionLog] Failed to log shopping request approval:', err));
+
+    return updated;
   });
 }
 
@@ -419,6 +435,8 @@ export async function rejectShoppingRequest(
     throw new Error(`Cannot reject a request in '${existing.status}' status`);
   }
 
+  const previousState = existing.status;
+
   const result = await queryOne<ShoppingRequest>(
     `UPDATE shopping_requests
      SET status = 'rejected',
@@ -431,6 +449,18 @@ export async function rejectShoppingRequest(
      RETURNING *`,
     [userId, notes, id]
   );
+
+  // Log transition (reversible - rejection can be reverted)
+  logTransition({
+    processType: 'shopping_request',
+    entityId: id,
+    entityNumber: existing.request_number,
+    fromState: previousState,
+    toState: 'rejected',
+    isReversible: true,
+    actorId: userId,
+    notes,
+  }).catch(err => console.error('[TransitionLog] Failed to log shopping request rejection:', err));
 
   return result!;
 }
@@ -449,6 +479,8 @@ export async function cancelShoppingRequest(
     throw new Error(`Cannot cancel a request in '${existing.status}' status`);
   }
 
+  const previousState = existing.status;
+
   const result = await queryOne<ShoppingRequest>(
     `UPDATE shopping_requests
      SET status = 'cancelled',
@@ -459,5 +491,72 @@ export async function cancelShoppingRequest(
     [userId, id]
   );
 
+  // Log transition (terminal - not reversible)
+  logTransition({
+    processType: 'shopping_request',
+    entityId: id,
+    entityNumber: existing.request_number,
+    fromState: previousState,
+    toState: 'cancelled',
+    isReversible: false,
+    actorId: userId,
+  }).catch(err => console.error('[TransitionLog] Failed to log shopping request cancellation:', err));
+
   return result!;
+}
+
+// ---------------------------------------------------------------------------
+// Revert last transition (only rejections are reversible)
+// ---------------------------------------------------------------------------
+
+export async function revertLastTransition(
+  id: string,
+  userId: string,
+  notes?: string
+): Promise<ShoppingRequest> {
+  // Check if revert is allowed
+  const eligibility = await canRevert('shopping_request', id);
+  if (!eligibility.allowed) {
+    throw new Error(`Cannot revert: ${eligibility.blockers.join('; ')}`);
+  }
+
+  const previousState = eligibility.previousState;
+  if (!previousState) {
+    throw new Error('Cannot revert: no previous state found');
+  }
+
+  // Update the shopping request back to the previous state
+  const result = await queryOne<ShoppingRequest>(
+    `UPDATE shopping_requests
+     SET status = $1,
+         reviewed_at = NULL,
+         reviewed_by_id = NULL,
+         review_notes = NULL,
+         updated_by_id = $2,
+         version = version + 1
+     WHERE id = $3
+     RETURNING *`,
+    [previousState, userId, id]
+  );
+
+  if (!result) throw new Error('Shopping request not found');
+
+  // Log the reversal transition
+  const reversalEntry = await logTransition({
+    processType: 'shopping_request',
+    entityId: id,
+    entityNumber: result.request_number,
+    fromState: 'rejected',
+    toState: previousState,
+    isReversible: false,
+    actorId: userId,
+    notes: notes || 'Reverted rejection',
+  });
+
+  // Mark the original transition as reverted
+  if (eligibility.transitionId) {
+    await markReverted(eligibility.transitionId, userId, reversalEntry.id);
+  }
+
+  return result;
 }

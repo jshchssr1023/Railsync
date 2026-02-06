@@ -70,7 +70,8 @@ services:
       - ./database/migrations/046_fix_capacity_trigger_null_shop.sql:/docker-entrypoint-initdb.d/53-fix-capacity-trigger.sql
       - ./database/migrations/047_demo_historical_data.sql:/docker-entrypoint-initdb.d/54-demo-historical-data.sql
       - ./database/migrations/048_demand_plan_unification.sql:/docker-entrypoint-initdb.d/55-demand-plan-unification.sql
-      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/56-seed-test-data.sql
+      - ./database/migrations/049_state_transition_log.sql:/docker-entrypoint-initdb.d/56-state-transition-log.sql
+      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/57-seed-test-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

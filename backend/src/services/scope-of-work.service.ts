@@ -1,5 +1,6 @@
 import { query, queryOne, transaction } from '../config/database';
 import { incrementUsage } from './scope-library.service';
+import { logTransition } from './transition-log.service';
 
 // Types
 interface ScopeOfWork {
@@ -292,6 +293,17 @@ export async function finalizeSOW(id: string, userId: string): Promise<ScopeOfWo
      RETURNING *`,
     [userId, id]
   );
+
+  if (result) {
+    await logTransition({
+      processType: 'scope_of_work',
+      entityId: id,
+      fromState: 'draft',
+      toState: 'finalized',
+      isReversible: false, // DB trigger prevents changes after finalization
+      actorId: userId,
+    }).catch(() => {}); // non-blocking
+  }
 
   return result || null;
 }

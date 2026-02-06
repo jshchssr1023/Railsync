@@ -1799,6 +1799,105 @@ const api = {
   // Master Plan Demands
   listPlanDemands,
   createDemandForPlan,
+  // State Transition Revert
+  revertShoppingEvent,
+  revertInvoiceCase,
+  revertBadOrder,
+  revertShoppingRequest,
+  revertAllocation,
+  revertDemand,
+  unlockProjectAssignment,
+  checkRevertEligibility,
 };
 
 export default api;
+
+// =============================================================================
+// State Transition Revert API
+// =============================================================================
+
+export interface RevertEligibility {
+  allowed: boolean;
+  previousState?: string;
+  blockers: string[];
+}
+
+export async function revertShoppingEvent(id: string, notes?: string): Promise<ShoppingEvent> {
+  const response = await fetchApi<ShoppingEvent>(`/shopping-events/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert shopping event');
+  return response.data;
+}
+
+export async function revertInvoiceCase(id: string, notes?: string) {
+  const response = await fetchApi(`/invoice-cases/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert invoice case');
+  return response.data;
+}
+
+export async function revertBadOrder(id: string, notes?: string) {
+  const response = await fetchApi(`/bad-orders/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert bad order');
+  return response.data;
+}
+
+export async function revertShoppingRequest(id: string, notes?: string) {
+  const response = await fetchApi(`/shopping-requests/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert shopping request');
+  return response.data;
+}
+
+export async function revertAllocation(id: string, notes?: string) {
+  const response = await fetchApi(`/allocations/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert allocation');
+  return response.data;
+}
+
+export async function revertDemand(id: string, notes?: string) {
+  const response = await fetchApi(`/demands/${id}/revert`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.data) throw new Error('Failed to revert demand');
+  return response.data;
+}
+
+export async function unlockProjectAssignment(
+  projectId: string,
+  assignmentId: string,
+  notes?: string
+) {
+  const response = await fetchApi(
+    `/projects/${projectId}/assignments/${assignmentId}/unlock`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }
+  );
+  if (!response.data) throw new Error('Failed to unlock project assignment');
+  return response.data;
+}
+
+export async function checkRevertEligibility(
+  processType: string,
+  entityId: string
+): Promise<RevertEligibility> {
+  const response = await fetchApi<RevertEligibility>(
+    `/transitions/${processType}/${entityId}/revert-eligibility`
+  );
+  return response.data || { allowed: false, blockers: ['Unknown error'] };
+}

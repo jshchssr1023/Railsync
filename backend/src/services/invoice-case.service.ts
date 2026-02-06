@@ -11,6 +11,12 @@ import {
   ValidationResult,
   InvoiceType,
 } from './invoice-validation.service';
+import {
+  logTransition,
+  canRevert,
+  markReverted,
+  getLastTransition,
+} from './transition-log.service';
 
 // ==============================================================================
 // Types
@@ -387,6 +393,24 @@ export async function transitionState(
 
   const updatedCase = result.rows[0] as InvoiceCase;
 
+  // Log to unified transition log
+  const transRow = await pool.query(
+    'SELECT is_reversible FROM invoice_state_transitions WHERE from_state = $1 AND to_state = $2',
+    [existingCase.workflow_state, targetState]
+  );
+  const isReversible = transRow.rows[0]?.is_reversible ?? false;
+
+  await logTransition({
+    processType: 'invoice_case',
+    entityId: caseId,
+    entityNumber: existingCase.case_number,
+    fromState: existingCase.workflow_state,
+    toState: targetState,
+    isReversible,
+    actorId: userId,
+    notes,
+  });
+
   // Log successful transition
   await logAuditEvent({
     invoice_case_id: caseId,
@@ -401,6 +425,62 @@ export async function transitionState(
   });
 
   return { success: true, case: updatedCase, validation };
+}
+
+/**
+ * Revert the last state transition for an invoice case.
+ * Validates revert eligibility, performs the reverse transition, and logs the reversal.
+ */
+export async function revertLastTransition(
+  caseId: string,
+  userId: string,
+  notes?: string
+): Promise<InvoiceCase> {
+  // 1. Check if revert is allowed
+  const eligibility = await canRevert('invoice_case', caseId);
+  if (!eligibility.allowed) {
+    throw new Error(`Cannot revert: ${eligibility.blockers.join('; ')}`);
+  }
+
+  const previousState = eligibility.previousState as WorkflowState;
+  if (!previousState) {
+    throw new Error('Cannot revert: no previous state recorded');
+  }
+
+  // 2. Get the last transition for marking it as reversed later
+  const lastTransition = await getLastTransition('invoice_case', caseId);
+  if (!lastTransition) {
+    throw new Error('Cannot revert: no transition found');
+  }
+
+  // 3. Perform the reverse transition
+  const result = await transitionState(
+    caseId,
+    previousState,
+    userId,
+    notes || 'Reverted by user'
+  );
+
+  if (!result.success) {
+    throw new Error(`Revert transition failed: ${result.error}`);
+  }
+
+  // 4. Log the reversal transition (marked as non-reversible)
+  const reversalLog = await logTransition({
+    processType: 'invoice_case',
+    entityId: caseId,
+    entityNumber: result.case!.case_number,
+    fromState: lastTransition.to_state,
+    toState: previousState,
+    isReversible: false,
+    actorId: userId,
+    notes: notes || 'Reverted by user',
+  });
+
+  // 5. Mark the original transition as reversed
+  await markReverted(lastTransition.id, userId, reversalLog.id);
+
+  return result.case!;
 }
 
 // ==============================================================================

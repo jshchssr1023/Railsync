@@ -5,10 +5,11 @@
  * The service integrates with SSOT assignments for conflict detection.
  */
 
-import { query } from '../config/database';
+import { query, pool } from '../config/database';
 import { getActiveAssignment } from './assignment.service';
 import { createAlert } from './alerts.service';
 import { notifyBadOrder } from './email.service';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 // ============================================================================
 // TYPES
@@ -228,7 +229,24 @@ export async function resolveBadOrder(
     input.resolved_by_id || null,
   ]);
 
-  return result[0] || null;
+  const badOrder = result[0] || null;
+
+  // Log the state transition
+  if (badOrder) {
+    const toState = input.action === 'planning_review' ? 'pending_decision' : 'assigned';
+    await logTransition({
+      processType: 'bad_order',
+      entityId: id,
+      entityNumber: badOrder.report_number || badOrder.car_number || id,
+      fromState: 'open',
+      toState,
+      isReversible: true,
+      actorId: input.resolved_by_id,
+      notes: `Resolution: ${input.action}`,
+    });
+  }
+
+  return badOrder;
 }
 
 export async function updateBadOrderStatus(
@@ -242,4 +260,45 @@ export async function updateBadOrderStatus(
   `;
   const result = await query(sql, [id, status]);
   return result[0] || null;
+}
+
+export async function revertLastTransition(
+  id: string,
+  userId: string,
+  notes?: string
+): Promise<BadOrderReport> {
+  const eligibility = await canRevert('bad_order', id);
+  if (!eligibility.allowed) {
+    throw new Error(`Cannot revert: ${eligibility.blockers.join('; ')}`);
+  }
+
+  const lastTransition = await getLastTransition('bad_order', id);
+  if (!lastTransition) throw new Error('No transition to revert');
+
+  // Revert the bad order to previous status
+  const result = await pool.query(
+    `UPDATE bad_order_reports
+     SET status = $1, resolved_at = NULL, resolution_action = NULL, updated_at = NOW()
+     WHERE id = $2
+     RETURNING *`,
+    [lastTransition.from_state || 'open', id]
+  );
+
+  if (!result.rows[0]) throw new Error('Bad order not found');
+
+  // Log the reversal
+  const reversalEntry = await logTransition({
+    processType: 'bad_order',
+    entityId: id,
+    entityNumber: result.rows[0].report_number || result.rows[0].car_number || id,
+    fromState: lastTransition.to_state,
+    toState: lastTransition.from_state || 'open',
+    isReversible: false,
+    actorId: userId,
+    notes: notes || 'Reverted by user',
+  });
+
+  await markReverted(lastTransition.id, userId, reversalEntry.id);
+
+  return result.rows[0];
 }

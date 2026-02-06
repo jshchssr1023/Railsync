@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../config/database';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 // Types
 export type ShoppingEventState =
@@ -333,6 +334,20 @@ const APPROVAL_GATES: Partial<Record<ShoppingEventState, (eventId: string) => Pr
   },
 };
 
+// Transitions that are reversible (soft recall allowed)
+const REVERSIBLE_TRANSITIONS = new Set<string>([
+  'REQUESTED->ASSIGNED_TO_SHOP',
+  'ASSIGNED_TO_SHOP->INBOUND',
+  'INBOUND->INSPECTION',
+  'INSPECTION->ESTIMATE_SUBMITTED',
+  'ESTIMATE_SUBMITTED->ESTIMATE_UNDER_REVIEW',
+  'ESTIMATE_UNDER_REVIEW->CHANGES_REQUIRED',
+  'ESTIMATE_UNDER_REVIEW->ESTIMATE_SUBMITTED',
+  'ESTIMATE_APPROVED->ESTIMATE_UNDER_REVIEW',
+  'QA_COMPLETE->IN_REPAIR',
+  'READY_FOR_RELEASE->FINAL_ESTIMATE_APPROVED',
+]);
+
 export async function transitionState(
   id: string,
   toState: ShoppingEventState,
@@ -345,6 +360,14 @@ export async function transitionState(
     if (gate) {
       await gate(id);
     }
+
+    // Capture the current state before update for transition logging
+    const current = await queryOne<{ state: string; event_number: string }>(
+      `SELECT state, event_number FROM shopping_events WHERE id = $1`,
+      [id]
+    );
+    const fromState = current?.state || null;
+    const eventNumber = current?.event_number || undefined;
 
     let result: ShoppingEvent | null;
 
@@ -372,6 +395,21 @@ export async function transitionState(
         [id, toState, userId]
       );
     }
+
+    // Log the transition
+    const transitionKey = fromState ? `${fromState}->${toState}` : '';
+    const isReversible = REVERSIBLE_TRANSITIONS.has(transitionKey);
+
+    await logTransition({
+      processType: 'shopping_event',
+      entityId: id,
+      entityNumber: eventNumber,
+      fromState: fromState || undefined,
+      toState,
+      isReversible,
+      actorId: userId,
+      notes,
+    });
 
     return result!;
   } catch (error: any) {
@@ -407,4 +445,36 @@ export async function getStateHistory(eventId: string): Promise<any[]> {
     [eventId]
   );
   return result;
+}
+
+export async function revertLastTransition(eventId: string, userId: string): Promise<any> {
+  // 1. Check if revert is allowed
+  const eligibility = await canRevert('shopping_event', eventId);
+  if (!eligibility.allowed) {
+    throw new Error(
+      `Cannot revert: ${eligibility.blockers.join('; ')}`
+    );
+  }
+
+  // 2. Get the last transition to find previousState
+  const lastTransition = await getLastTransition('shopping_event', eventId);
+  if (!lastTransition || !lastTransition.from_state) {
+    throw new Error('Cannot revert: no previous state recorded');
+  }
+
+  const previousState = lastTransition.from_state as ShoppingEventState;
+
+  // 3. Transition back to the previous state
+  const updatedEvent = await transitionState(eventId, previousState, userId, `Revert from ${lastTransition.to_state}`);
+
+  // 4. The transitionState call above already logged a new transition.
+  //    Get it so we can link the reversal.
+  const reversalTransition = await getLastTransition('shopping_event', eventId);
+
+  // 5. Mark the original transition as reversed
+  if (reversalTransition) {
+    await markReverted(lastTransition.id, userId, reversalTransition.id);
+  }
+
+  return updatedEvent;
 }

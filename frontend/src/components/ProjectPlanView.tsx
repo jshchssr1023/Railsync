@@ -17,6 +17,7 @@ interface ProjectPlanViewProps {
   onLockSelected: (ids: string[]) => void;
   onRelock: (assignment: ProjectAssignment) => void;
   onCancel: (assignment: ProjectAssignment) => void;
+  onUnlock?: (assignment: ProjectAssignment) => void;
   onPlanCars: () => void;
   onCreateDemand?: () => void;
   isActive: boolean;
@@ -28,6 +29,7 @@ export default function ProjectPlanView({
   onLockSelected,
   onRelock,
   onCancel,
+  onUnlock,
   onPlanCars,
   onCreateDemand,
   isActive,
@@ -259,6 +261,15 @@ export default function ProjectPlanView({
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex gap-1">
+                              {a.plan_state === 'Locked' && isActive && onUnlock && (
+                                <button
+                                  onClick={() => onUnlock(a)}
+                                  className="p-1 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400"
+                                  title="Unlock (revert to Planned)"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               {a.plan_state === 'Locked' && isActive && (
                                 <button
                                   onClick={() => onRelock(a)}

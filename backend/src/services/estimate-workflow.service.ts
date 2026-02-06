@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../config/database';
+import { logTransition } from './transition-log.service';
 
 // Types
 type EstimateStatus = 'submitted' | 'under_review' | 'approved' | 'changes_required' | 'rejected';
@@ -346,7 +347,14 @@ export async function generateApprovalPacket(
     );
   }
 
-  return transaction(async (client) => {
+  // Capture prior status for transition log
+  const priorEstimate = await queryOne<{ status: EstimateStatus }>(
+    `SELECT status FROM estimate_submissions WHERE id = $1`,
+    [estimateId]
+  );
+  const fromState = priorEstimate?.status || 'submitted';
+
+  const packet = await transaction(async (client) => {
     const approvedLineIds: string[] = [];
     const rejectedLineIds: string[] = [];
     const revisionRequiredLineIds: string[] = [];
@@ -401,6 +409,18 @@ export async function generateApprovalPacket(
 
     return packetResult.rows[0] as ApprovalPacket;
   });
+
+  // Log the estimate submission state transition (non-blocking)
+  await logTransition({
+    processType: 'estimate_submission',
+    entityId: estimateId,
+    fromState,
+    toState: overallDecision, // 'approved' | 'changes_required' | 'rejected'
+    isReversible: false, // estimate_line_decisions are immutable
+    actorId: userId,
+  }).catch(() => {}); // non-blocking
+
+  return packet;
 }
 
 export async function releaseApprovalPacket(

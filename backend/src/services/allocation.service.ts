@@ -1,8 +1,10 @@
 import { query, queryOne, transaction } from '../config/database';
+import { pool } from '../config/database';
 import { PoolClient } from 'pg';
 import * as assignmentService from './assignment.service';
 import { capacityEvents } from './capacity-events.service';
 import * as assetEventService from './assetEvent.service';
+import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 export interface Allocation {
   id: string;
@@ -247,8 +249,11 @@ export async function updateAllocationStatus(
       [newStatus, allocationId]
     );
 
-    return result.rows[0];
-  }).then((allocation) => {
+    return { allocation: result.rows[0], previousStatus: current.status };
+  }).then((txResult) => {
+    if (!txResult) return null;
+    const { allocation, previousStatus } = txResult;
+
     if (allocation && allocation.shop_code) {
       // Emit SSE event after transaction commits
       capacityEvents.emitAllocationUpdated(
@@ -267,13 +272,24 @@ export async function updateAllocationStatus(
     if (allocation && allocation.car_id) {
       assetEventService.recordEvent(allocation.car_id, 'allocation.status_changed', {
         allocation_id: allocation.id,
-        from_status: newStatus !== allocation.status ? allocation.status : undefined,
+        from_status: previousStatus,
         to_status: newStatus,
       }, {
         sourceTable: 'allocations',
         sourceId: allocation.id,
       }).catch(() => {}); // non-blocking
     }
+
+    // Log state transition (non-blocking)
+    logTransition({
+      processType: 'allocation',
+      entityId: allocation.id,
+      entityNumber: allocation.car_number || allocation.car_mark_number || undefined,
+      fromState: previousStatus,
+      toState: newStatus,
+      isReversible: ['proposed', 'planned'].includes(newStatus),
+      actorId: undefined, // no userId param on this function
+    }).catch(err => console.error('[TransitionLog] Failed to log allocation transition:', err));
 
     return allocation;
   });
@@ -383,6 +399,36 @@ export async function listAllocations(filters?: {
 // Get allocation by ID
 export async function getAllocationById(id: string): Promise<Allocation | null> {
   return queryOne<Allocation>('SELECT * FROM allocations WHERE id = $1', [id]);
+}
+
+// Revert the last transition on an allocation
+export async function revertLastTransition(id: string, userId: string, notes?: string): Promise<Allocation> {
+  const eligibility = await canRevert('allocation', id);
+  if (!eligibility.allowed) throw new Error(`Cannot revert: ${eligibility.blockers.join('; ')}`);
+
+  const last = await getLastTransition('allocation', id);
+  if (!last) throw new Error('No transition to revert');
+
+  const result = await pool.query(
+    `UPDATE allocations SET status = $1, updated_at = NOW(), version = version + 1 WHERE id = $2 RETURNING *`,
+    [last.from_state, id]
+  );
+
+  if (!result.rows[0]) throw new Error('Allocation not found');
+
+  const reversalEntry = await logTransition({
+    processType: 'allocation',
+    entityId: id,
+    entityNumber: result.rows[0].car_number || result.rows[0].car_mark_number || undefined,
+    fromState: last.to_state,
+    toState: last.from_state || '',
+    isReversible: false,
+    actorId: userId,
+    notes: notes || 'Reverted',
+  });
+  await markReverted(last.id, userId, reversalEntry.id);
+
+  return result.rows[0];
 }
 
 // Delete allocation
