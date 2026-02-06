@@ -4433,6 +4433,47 @@ router.put('/billing/adjustments/:id/reject', authenticate, authorize('admin'), 
 router.get('/billing/summary', authenticate, billingController.getBillingSummary);
 router.get('/billing/customers/:customerId/history', authenticate, billingController.getCustomerInvoiceHistory);
 
+// Invoice Distribution
+import * as distributionController from '../controllers/invoiceDistribution.controller';
+
+router.get('/billing/distribution/configs', authenticate, distributionController.listConfigs);
+router.get('/billing/distribution/configs/:customerId', authenticate, distributionController.getConfig);
+router.put('/billing/distribution/configs/:customerId', authenticate, authorize('admin'), distributionController.upsertConfig);
+router.delete('/billing/distribution/configs/:id', authenticate, authorize('admin'), distributionController.deleteConfig);
+router.post('/billing/distribution/queue/:invoiceId', authenticate, authorize('admin'), distributionController.queueDelivery);
+router.post('/billing/distribution/process', authenticate, authorize('admin'), distributionController.processDeliveries);
+router.get('/billing/distribution/invoices/:invoiceId/history', authenticate, distributionController.getDeliveryHistory);
+router.get('/billing/distribution/stats', authenticate, distributionController.getDeliveryStats);
+router.get('/billing/distribution/pending', authenticate, distributionController.getPendingDeliveries);
+
+// ============================================================================
+// COMPONENT REGISTRY
+// ============================================================================
+import * as componentController from '../controllers/component.controller';
+
+router.get('/components', authenticate, componentController.listComponents);
+router.get('/components/stats', authenticate, componentController.getComponentStats);
+router.get('/components/:id', authenticate, componentController.getComponent);
+router.post('/components', authenticate, authorize('admin', 'operator'), componentController.createComponent);
+router.put('/components/:id', authenticate, authorize('admin', 'operator'), componentController.updateComponent);
+router.post('/components/:id/replace', authenticate, authorize('admin', 'operator'), componentController.replaceComponent);
+router.delete('/components/:id', authenticate, authorize('admin', 'operator'), componentController.removeComponent);
+router.post('/components/:id/inspect', authenticate, authorize('admin', 'operator'), componentController.recordInspection);
+router.get('/components/:id/history', authenticate, componentController.getComponentHistory);
+router.get('/cars/:carNumber/components', authenticate, componentController.getCarComponents);
+
+// ============================================================================
+// COMMODITY / CLEANING MATRIX
+// ============================================================================
+import * as commodityController from '../controllers/commodity.controller';
+
+router.get('/commodities', authenticate, commodityController.listCommodities);
+router.get('/commodities/:code', authenticate, commodityController.getCommodityByCode);
+router.get('/commodities/:code/cleaning', authenticate, commodityController.getCommodityCleaningRequirements);
+router.post('/commodities', authenticate, authorize('admin'), commodityController.createCommodity);
+router.put('/commodities/:id', authenticate, authorize('admin'), commodityController.updateCommodity);
+router.get('/cars/:carNumber/cleaning-requirements', authenticate, commodityController.getCarCleaningRequirements);
+
 // ============================================================================
 
 /**

@@ -14,13 +14,11 @@ import {
   Upload,
   Search,
   X,
-  ChevronDown,
   ChevronUp,
   Eye,
   Filter,
   RefreshCw,
   ArrowRight,
-  Send,
   TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -744,30 +742,50 @@ export default function BillingPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard
-                label="Total Revenue (Month)"
-                value={kpis.total_revenue}
+                label="Grand Total (Month)"
+                value={summary.grand_total}
                 icon={<DollarSign className="w-5 h-5 text-green-600" />}
                 color="bg-green-50 dark:bg-green-900/20"
                 isCurrency
               />
               <KpiCard
-                label="Pending Invoices"
-                value={kpis.pending_invoices}
+                label="Total Invoices"
+                value={summary.total_invoices}
                 icon={<FileText className="w-5 h-5 text-yellow-600" />}
                 color="bg-yellow-50 dark:bg-yellow-900/20"
               />
               <KpiCard
-                label="Pending Adjustments"
-                value={kpis.pending_adjustments}
+                label="Draft Invoices"
+                value={summary.draft_count}
                 icon={<Clock className="w-5 h-5 text-blue-600" />}
                 color="bg-blue-50 dark:bg-blue-900/20"
               />
               <KpiCard
-                label="Overdue Payments"
-                value={kpis.overdue_payments}
-                icon={<AlertTriangle className="w-5 h-5 text-red-600" />}
-                color="bg-red-50 dark:bg-red-900/20"
+                label="Approved / Sent"
+                value={summary.approved_count + summary.sent_count}
+                icon={<CheckCircle className="w-5 h-5 text-emerald-600" />}
+                color="bg-emerald-50 dark:bg-emerald-900/20"
               />
+            </div>
+
+            {/* Revenue Breakdown */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Rental</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">{formatCurrency(summary.total_rental)}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Mileage</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">{formatCurrency(summary.total_mileage)}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Chargebacks</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">{formatCurrency(summary.total_chargebacks)}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Adjustments</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">{formatCurrency(summary.total_adjustments)}</p>
+              </div>
             </div>
 
             {/* Quick Actions */}

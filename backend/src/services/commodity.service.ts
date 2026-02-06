@@ -117,6 +117,9 @@ export async function getCommodity(code: string): Promise<CommodityCleaning | nu
   );
 }
 
+/** Alias for getCommodity — used by controller layer */
+export const getCommodityByCode = getCommodity;
+
 // ============================================================================
 // GET CLEANING REQUIREMENTS FOR A COMMODITY
 // ============================================================================
@@ -156,8 +159,12 @@ export async function getCleaningRequirements(
 
 /**
  * Create a new commodity entry in the cleaning matrix.
+ * An optional userId can be provided for audit purposes (reserved for future use).
  */
-export async function createCommodity(data: CreateCommodityInput): Promise<CommodityCleaning> {
+export async function createCommodity(
+  data: CreateCommodityInput,
+  _userId?: string
+): Promise<CommodityCleaning> {
   const result = await queryOne<CommodityCleaning>(
     `INSERT INTO commodity_cleaning_matrix (
       commodity_code, commodity_name, cleaning_class,
@@ -191,10 +198,12 @@ export async function createCommodity(data: CreateCommodityInput): Promise<Commo
 
 /**
  * Update an existing commodity in the cleaning matrix.
+ * An optional userId can be provided for audit purposes (reserved for future use).
  */
 export async function updateCommodity(
   id: string,
-  data: UpdateCommodityInput
+  data: UpdateCommodityInput,
+  _userId?: string
 ): Promise<CommodityCleaning | null> {
   const fields: string[] = [];
   const params: any[] = [];
@@ -256,23 +265,16 @@ export async function updateCommodity(
  * Lookup cleaning requirements for a specific car by resolving its commodity.
  *
  * Resolution order:
- *   1. Check the car's active rider (rider_cars -> lease_riders) for a commodity
- *      that maps into the commodity_cleaning_matrix.
- *   2. Fall back to the car's commodity_cin field in the cars table, which
+ *   1. Check the car's commodity_cin field in the cars table, which
  *      references the commodities table. If that commodity code exists in the
  *      cleaning matrix, return those requirements.
+ *   2. Fall back to the commodities table for basic cleaning info.
  *   3. If neither resolves, return a response indicating no cleaning data found.
  */
 export async function getCleaningRequirementsForCar(
   carNumber: string
 ): Promise<CarCleaningRequirements | null> {
-  // Strategy 1: Resolve through active rider -> commodity cleaning matrix
-  // The lease_riders table doesn't have a commodity_code column directly,
-  // but we can look up the car's commodity_cin and match it against the matrix.
-  // First, try to find the car's commodity from the UMLER attributes or
-  // the cars table commodity_cin, then look that up in the cleaning matrix.
-
-  // Strategy 2: Direct lookup via cars.commodity_cin -> commodity_cleaning_matrix
+  // Lookup the car and its commodity
   const carCommodity = await queryOne<{
     car_number: string;
     commodity_cin: string | null;
@@ -360,6 +362,9 @@ export async function getCleaningRequirementsForCar(
   };
 }
 
+/** Alias for getCleaningRequirementsForCar — used by controller layer */
+export const getCarCleaningRequirements = getCleaningRequirementsForCar;
+
 // ============================================================================
 // DEFAULT EXPORT
 // ============================================================================
@@ -367,8 +372,10 @@ export async function getCleaningRequirementsForCar(
 export default {
   listCommodities,
   getCommodity,
+  getCommodityByCode,
   getCleaningRequirements,
   createCommodity,
   updateCommodity,
   getCleaningRequirementsForCar,
+  getCarCleaningRequirements,
 };

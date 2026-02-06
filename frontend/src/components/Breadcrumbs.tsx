@@ -28,6 +28,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'scope-library': 'SOW Library',
   'bad-orders': 'Bad Orders',
   qualifications: 'Qualifications',
+  billing: 'Billing',
   new: 'New Shopping Request',
 };
 
