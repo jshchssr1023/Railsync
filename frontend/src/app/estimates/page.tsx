@@ -49,14 +49,14 @@ export default function EstimatesPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     // Fetch estimates from shopping events that have estimates
-    fetchWithAuth('/shopping?limit=200')
+    fetchWithAuth('/shopping-events?limit=200')
       .then(async (res) => {
         const events = res.data || [];
         const estimatePromises = events
           .filter((e: any) => e.status === 'estimate_received' || e.status === 'estimate_review' || e.status === 'approved' || e.status === 'work_in_progress')
           .map(async (e: any) => {
             try {
-              const est = await fetchWithAuth(`/shopping/${e.id}/estimates`);
+              const est = await fetchWithAuth(`/shopping-events/${e.id}/estimates`);
               return (est.data || []).map((sub: any) => ({ ...sub, shopping_event_id: e.id, car_number: e.car_number, shop_code: e.shop_code }));
             } catch { return []; }
           });

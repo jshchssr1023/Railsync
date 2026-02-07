@@ -5,21 +5,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // Mocks
 // ---------------------------------------------------------------------------
 
-let mockIsAuthenticated = true;
-jest.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({
-    isAuthenticated: mockIsAuthenticated,
-    user: mockIsAuthenticated ? { id: '1', email: 'admin@test.com', first_name: 'Admin', last_name: 'User', role: 'admin' as const, is_active: true } : null,
-    isLoading: false,
-  }),
-}));
-
 const mockPush = jest.fn();
+const mockGet = jest.fn().mockReturnValue(null);
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => ({
-    get: jest.fn(() => null),
-  }),
+  useSearchParams: () => ({ get: mockGet }),
 }));
 
 const mockToast = { success: jest.fn(), error: jest.fn(), warning: jest.fn(), info: jest.fn() };
@@ -27,26 +17,10 @@ jest.mock('@/components/Toast', () => ({
   useToast: () => mockToast,
 }));
 
-jest.mock('@/components/ConfirmDialog', () => {
-  return function MockConfirmDialog({ open, onConfirm, onCancel, title, confirmLabel }: {
-    open: boolean; onConfirm: () => void; onCancel: () => void; title: string; confirmLabel?: string;
-  }) {
-    if (!open) return null;
-    return (
-      <div data-testid="confirm-dialog">
-        <p>{title}</p>
-        <button onClick={onConfirm}>{confirmLabel || 'Confirm'}</button>
-        <button onClick={onCancel}>Cancel dialog</button>
-      </div>
-    );
-  };
-});
-
 const mockListBadOrders = jest.fn();
 const mockCreateBadOrder = jest.fn();
 const mockResolveBadOrder = jest.fn();
 const mockRevertBadOrder = jest.fn();
-
 jest.mock('@/lib/api', () => ({
   listBadOrders: (...args: unknown[]) => mockListBadOrders(...args),
   createBadOrder: (...args: unknown[]) => mockCreateBadOrder(...args),
@@ -54,20 +28,26 @@ jest.mock('@/lib/api', () => ({
   revertBadOrder: (...args: unknown[]) => mockRevertBadOrder(...args),
 }));
 
-jest.mock('@/hooks/useTransitionConfirm', () => ({
-  useTransitionConfirm: () => ({
-    confirmDialogProps: { open: false, onConfirm: jest.fn(), onCancel: jest.fn() },
-    requestTransition: jest.fn(),
-  }),
-}));
-
 jest.mock('@/components/ErrorBoundary', () => ({
   FetchError: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
     <div>
-      <p>Error: {error}</p>
+      <span>Error: {error}</span>
       <button onClick={onRetry}>Retry</button>
     </div>
   ),
+}));
+
+jest.mock('@/components/ConfirmDialog', () => {
+  return function MockConfirmDialog() {
+    return <div data-testid="confirm-dialog" />;
+  };
+});
+
+jest.mock('@/hooks/useTransitionConfirm', () => ({
+  useTransitionConfirm: () => ({
+    confirmDialogProps: {},
+    requestTransition: jest.fn(),
+  }),
 }));
 
 import BadOrdersPage from '@/app/bad-orders/page';
@@ -76,25 +56,32 @@ import BadOrdersPage from '@/app/bad-orders/page';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeBadOrder(overrides: Record<string, unknown> = {}) {
+function makeReport(overrides: Record<string, unknown> = {}) {
   return {
     id: '1',
-    car_number: 'GATX 10001',
+    car_number: 'GATX 12345',
+    reported_date: '2026-01-15T00:00:00Z',
     issue_type: 'valve_leak',
-    issue_description: 'Valve leaking',
-    severity: 'critical',
-    status: 'open',
+    issue_description: 'Leaking valve on tank bottom',
+    severity: 'high' as const,
     location: 'Houston Yard',
-    reported_date: '2026-02-01T00:00:00Z',
+    reported_by: 'John Smith',
+    status: 'open' as const,
+    resolution_action: undefined,
     had_existing_plan: false,
+    existing_shop_code: undefined,
+    existing_target_month: undefined,
+    created_at: '2026-01-15T00:00:00Z',
     ...overrides,
   };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockIsAuthenticated = true;
+  mockGet.mockReturnValue(null);
   mockListBadOrders.mockResolvedValue([]);
+  mockCreateBadOrder.mockResolvedValue(makeReport());
+  mockResolveBadOrder.mockResolvedValue(makeReport({ status: 'assigned' }));
 });
 
 // ---------------------------------------------------------------------------
@@ -110,14 +97,14 @@ describe('BadOrdersPage', () => {
     expect(screen.getByText('Track and resolve unplanned repair needs')).toBeInTheDocument();
   });
 
-  it('renders report bad order button', async () => {
+  it('renders Report Bad Order button', async () => {
     render(<BadOrdersPage />);
     await waitFor(() => {
       expect(screen.getByText('+ Report Bad Order')).toBeInTheDocument();
     });
   });
 
-  it('renders filter buttons', async () => {
+  it('renders status filter buttons', async () => {
     render(<BadOrdersPage />);
     await waitFor(() => {
       expect(screen.getByText('All')).toBeInTheDocument();
@@ -128,28 +115,6 @@ describe('BadOrdersPage', () => {
     expect(screen.getByText('resolved')).toBeInTheDocument();
   });
 
-  it('shows loading state', async () => {
-    mockListBadOrders.mockImplementation(() => new Promise(() => {}));
-    render(<BadOrdersPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
-    });
-  });
-
-  it('displays bad order list with data', async () => {
-    mockListBadOrders.mockResolvedValue([
-      makeBadOrder({ id: '1', car_number: 'GATX 10001', severity: 'critical', status: 'open' }),
-      makeBadOrder({ id: '2', car_number: 'GATX 10002', severity: 'high', status: 'pending_decision' }),
-    ]);
-
-    render(<BadOrdersPage />);
-    await waitFor(() => {
-      expect(screen.getByText('GATX 10001')).toBeInTheDocument();
-    });
-    expect(screen.getByText('GATX 10002')).toBeInTheDocument();
-    expect(screen.getByText('Valve leaking')).toBeInTheDocument();
-  });
-
   it('shows empty state when no reports', async () => {
     render(<BadOrdersPage />);
     await waitFor(() => {
@@ -157,36 +122,87 @@ describe('BadOrdersPage', () => {
     });
   });
 
-  it('shows form when report button clicked', async () => {
-    render(<BadOrdersPage />);
-    const reportButton = await screen.findByText('+ Report Bad Order');
-    fireEvent.click(reportButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Submit Bad Order Report')).toBeInTheDocument();
-    });
-  });
-
-  it('renders resolve button for open reports', async () => {
+  it('renders report data', async () => {
     mockListBadOrders.mockResolvedValue([
-      makeBadOrder({ id: '1', status: 'open', had_existing_plan: false }),
+      makeReport({ id: '1', car_number: 'GATX 12345', severity: 'high', issue_type: 'valve_leak', issue_description: 'Leaking valve', location: 'Houston Yard' }),
     ]);
 
     render(<BadOrdersPage />);
     await waitFor(() => {
-      expect(screen.getByText('Create Assignment')).toBeInTheDocument();
+      expect(screen.getByText('GATX 12345')).toBeInTheDocument();
     });
+    expect(screen.getByText('high')).toBeInTheDocument();
+    expect(screen.getByText('Location: Houston Yard')).toBeInTheDocument();
   });
 
-  it('renders expedite and planning review buttons for reports with existing plan', async () => {
+  it('shows form when Report Bad Order button clicked', async () => {
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('+ Report Bad Order')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('+ Report Bad Order'));
+
+    expect(screen.getByText('Car Number *')).toBeInTheDocument();
+    expect(screen.getByText('Severity *')).toBeInTheDocument();
+    expect(screen.getByText('Issue Type *')).toBeInTheDocument();
+    expect(screen.getByText('Description *')).toBeInTheDocument();
+    expect(screen.getByText('Reported By')).toBeInTheDocument();
+    expect(screen.getByText('Submit Bad Order Report')).toBeInTheDocument();
+  });
+
+  it('toggles form button text to Cancel when form is open', async () => {
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('+ Report Bad Order')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('+ Report Bad Order'));
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('renders severity options in form', async () => {
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('+ Report Bad Order')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('+ Report Bad Order'));
+
+    expect(screen.getByText('Critical - Safety issue')).toBeInTheDocument();
+    expect(screen.getByText('High - Needs prompt attention')).toBeInTheDocument();
+    expect(screen.getByText('Medium - Found during inspection')).toBeInTheDocument();
+    expect(screen.getByText('Low - Minor issue')).toBeInTheDocument();
+  });
+
+  it('renders issue type options in form', async () => {
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('+ Report Bad Order')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('+ Report Bad Order'));
+
+    expect(screen.getByText('Valve Leak')).toBeInTheDocument();
+    expect(screen.getByText('Structural Damage')).toBeInTheDocument();
+    expect(screen.getByText('Tank Integrity')).toBeInTheDocument();
+  });
+
+  it('shows Shopping Request and Create Assignment for open reports without existing plan', async () => {
     mockListBadOrders.mockResolvedValue([
-      makeBadOrder({
-        id: '1',
-        status: 'open',
-        had_existing_plan: true,
-        existing_shop_code: 'SHP1',
-        existing_target_month: '2026-03',
-      }),
+      makeReport({ status: 'open', had_existing_plan: false }),
+    ]);
+
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Shopping Request')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Create Assignment')).toBeInTheDocument();
+  });
+
+  it('shows Expedite Existing and Planning Review for open reports with existing plan', async () => {
+    mockListBadOrders.mockResolvedValue([
+      makeReport({ status: 'open', had_existing_plan: true, existing_shop_code: 'SH01', existing_target_month: '2026-03' }),
     ]);
 
     render(<BadOrdersPage />);
@@ -194,37 +210,48 @@ describe('BadOrdersPage', () => {
       expect(screen.getByText('Expedite Existing')).toBeInTheDocument();
     });
     expect(screen.getByText('Planning Review')).toBeInTheDocument();
+    expect(screen.getByText(/Has existing plan: SH01/)).toBeInTheDocument();
   });
 
-  it('renders shopping request button', async () => {
+  it('does not show action buttons for resolved reports', async () => {
     mockListBadOrders.mockResolvedValue([
-      makeBadOrder({ id: '1', status: 'open' }),
+      makeReport({ status: 'resolved' }),
     ]);
 
     render(<BadOrdersPage />);
     await waitFor(() => {
-      expect(screen.getByText('Shopping Request')).toBeInTheDocument();
+      expect(screen.getByText('GATX 12345')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Shopping Request')).not.toBeInTheDocument();
+    expect(screen.queryByText('Create Assignment')).not.toBeInTheDocument();
   });
 
-  it('shows error message when API fails', async () => {
-    mockListBadOrders.mockRejectedValue(new Error('Network error'));
+  it('shows error state when fetch fails', async () => {
+    mockListBadOrders.mockRejectedValue(new Error('Server error'));
 
     render(<BadOrdersPage />);
     await waitFor(() => {
-      expect(screen.getByText('Error: Network error')).toBeInTheDocument();
+      expect(screen.getByText('Error: Server error')).toBeInTheDocument();
     });
+    expect(screen.getByText('Retry')).toBeInTheDocument();
   });
 
-  it('filters reports when filter button clicked', async () => {
-    mockListBadOrders.mockResolvedValue([]);
+  it('calls listBadOrders with status filter when filter clicked', async () => {
     render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByText('All')).toBeInTheDocument();
+    });
 
-    const openButton = await screen.findByText('open');
-    fireEvent.click(openButton);
-
+    fireEvent.click(screen.getByText('open'));
     await waitFor(() => {
       expect(mockListBadOrders).toHaveBeenCalledWith({ status: 'open' });
+    });
+  });
+
+  it('renders confirm dialog component', async () => {
+    render(<BadOrdersPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
     });
   });
 });

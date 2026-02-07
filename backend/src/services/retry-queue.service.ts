@@ -208,6 +208,37 @@ export async function processRetryQueue(): Promise<{
 }
 
 /**
+ * List all pending retry queue entries (status = 'retrying').
+ */
+export async function getRetryQueueEntries(limit: number = 100): Promise<any[]> {
+  return query(
+    `SELECT id, system_name, operation, status, retry_count, max_retries,
+            next_retry_at, error_message, created_at, updated_at
+     FROM integration_sync_log
+     WHERE status IN ('retrying', 'in_progress')
+     ORDER BY next_retry_at ASC
+     LIMIT $1`,
+    [limit]
+  );
+}
+
+/**
+ * Dismiss (remove) a retry queue entry by marking it as dismissed.
+ */
+export async function dismissRetryEntry(syncLogId: string): Promise<boolean> {
+  const result = await query(
+    `UPDATE integration_sync_log
+     SET status = 'dismissed',
+         error_message = COALESCE(error_message, '') || ' [Dismissed by admin]',
+         updated_at = NOW()
+     WHERE id = $1 AND status IN ('retrying', 'failed')
+     RETURNING id`,
+    [syncLogId]
+  );
+  return result.length > 0;
+}
+
+/**
  * Get dead letter entries (max retries exceeded, still failed).
  */
 export async function getDeadLetterEntries(limit: number = 50): Promise<any[]> {

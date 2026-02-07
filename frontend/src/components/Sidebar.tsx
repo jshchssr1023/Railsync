@@ -13,7 +13,7 @@ import {
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
-  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin
+  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin, Bell
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -101,6 +101,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Case Queue', href: '/invoice-cases', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Invoices', href: '/invoices', icon: <FileText className="w-4 h-4" /> },
       { label: 'Estimates', href: '/estimates', icon: <DollarSign className="w-4 h-4" /> },
+      { label: 'Billable Items', href: '/billable-items', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
@@ -117,6 +118,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'SOW Library', href: '/scope-library', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
+      { label: 'Commodities', href: '/commodities', icon: <Layers className="w-4 h-4" /> },
     ],
   },
   {
@@ -134,9 +136,11 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
       { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
       { label: 'Data Validation', href: '/admin/data-validation', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Data Reconciliation', href: '/admin/data-reconciliation', icon: <GitCompare className="w-4 h-4" /> },
       { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },
+      { label: 'Notifications', href: '/notifications', icon: <Bell className="w-4 h-4" /> },
       { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },
     ],
   },

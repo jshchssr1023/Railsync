@@ -2980,13 +2980,13 @@ export async function dismissRetryItem(id: string) {
 }
 
 export async function getScheduledJobs() {
-  const response = await fetchApi('/admin/scheduled-jobs');
+  const response = await fetchApi('/integrations/sync-schedules');
   return response.data;
 }
 
 export async function toggleScheduledJob(id: string, enabled: boolean) {
-  const response = await fetchApi(`/admin/scheduled-jobs/${encodeURIComponent(id)}/toggle`, {
-    method: 'POST',
+  const response = await fetchApi(`/integrations/sync-schedules/${encodeURIComponent(id)}/toggle`, {
+    method: 'PUT',
     body: JSON.stringify({ enabled }),
   });
   return response.data;
@@ -3361,4 +3361,61 @@ export async function dismissAlert(alertId: string) {
 export async function getAlertStats() {
   const response = await fetchApi('/alerts/stats');
   return response.data;
+}
+
+// ============================================================================
+// DATA RECONCILIATION API
+// ============================================================================
+
+export async function getReconciliationDashboard(): Promise<any> {
+  const response = await fetchApi('/migration/reconciliation/dashboard');
+  return response.data;
+}
+
+export async function listReconciliationDiscrepancies(params?: {
+  entity_type?: string;
+  severity?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ items: any[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.entity_type) query.set('entity_type', params.entity_type);
+  if (params?.severity) query.set('severity', params.severity);
+  if (params?.status) query.set('status', params.status || 'open');
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit || 50));
+  const response = await fetchApi<{ items: any[]; total: number }>(
+    `/migration/reconciliation/discrepancies?${query}`
+  );
+  return response.data || { items: [], total: 0 };
+}
+
+export async function resolveReconciliationDiscrepancy(
+  id: string,
+  resolution: { action: string; notes?: string }
+): Promise<any> {
+  const response = await fetchApi(
+    `/migration/reconciliation/discrepancies/${id}/resolve`,
+    { method: 'POST', body: JSON.stringify(resolution) }
+  );
+  return response.data;
+}
+
+export async function bulkResolveDiscrepancies(
+  ids: string[],
+  resolution: { action: string; notes?: string }
+): Promise<any> {
+  const response = await fetchApi(
+    '/migration/reconciliation/discrepancies/bulk-resolve',
+    { method: 'POST', body: JSON.stringify({ ids, ...resolution }) }
+  );
+  return response.data;
+}
+
+export async function detectDuplicates(entityType: string): Promise<any[]> {
+  const response = await fetchApi<any[]>(
+    `/migration/reconciliation/duplicates?entity_type=${entityType}`
+  );
+  return response.data || [];
 }

@@ -58,11 +58,27 @@ jobs:
 
       - name: Run tests
         run: npm test -- --ci --forceExit --coverage
-        continue-on-error: true
         env:
           DATABASE_URL: postgresql://railsync:railsync_password@localhost:5432/railsync_test
           JWT_SECRET: ci-test-secret
           NODE_ENV: test
+
+      - name: Check coverage thresholds
+        run: |
+          node -e "
+            const coverage = require('./coverage/coverage-summary.json');
+            const total = coverage.total;
+            const stmts = total.statements.pct;
+            const branches = total.branches.pct;
+            const functions = total.functions.pct;
+            const lines = total.lines.pct;
+            console.log('Coverage: statements=' + stmts + '%, branches=' + branches + '%, functions=' + functions + '%, lines=' + lines + '%');
+            if (stmts < 40 || lines < 40) {
+              console.error('Coverage below minimum threshold (40%)');
+              process.exit(1);
+            }
+          "
+        continue-on-error: true
 
       - name: Upload coverage
         if: always()
@@ -137,10 +153,64 @@ jobs:
         run: |
           PGPASSWORD=railsync_password psql -h localhost -U railsync -d railsync -c "\dt"
 
+  # Security Scanning
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Backend dependency audit
+        working-directory: ./backend
+        run: npm audit --audit-level=high --omit=dev
+        continue-on-error: true
+
+      - name: Frontend dependency audit
+        working-directory: ./frontend
+        run: npm audit --audit-level=high --omit=dev
+        continue-on-error: true
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "Scanning for potential hardcoded secrets..."
+          FINDINGS=$(grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
+            -E "(password|secret|api_key|token)\s*[:=]\s*['\"][^'\"]{8,}" \
+            backend/src frontend/src \
+            --exclude-dir=node_modules --exclude-dir=tests --exclude-dir=__tests__ \
+            || true)
+          if [ -n "$FINDINGS" ]; then
+            echo "::warning::Potential hardcoded secrets found:"
+            echo "$FINDINGS"
+          else
+            echo "No hardcoded secrets detected."
+          fi
+
+      - name: Check for common security issues
+        run: |
+          echo "Scanning for common security patterns..."
+          # Check for eval() usage
+          EVAL_USAGE=$(grep -rn --include="*.ts" --include="*.tsx" "eval(" backend/src frontend/src --exclude-dir=node_modules || true)
+          if [ -n "$EVAL_USAGE" ]; then
+            echo "::warning::eval() usage found:"
+            echo "$EVAL_USAGE"
+          fi
+          # Check for innerHTML usage
+          INNER_HTML=$(grep -rn --include="*.tsx" "dangerouslySetInnerHTML" frontend/src --exclude-dir=node_modules || true)
+          if [ -n "$INNER_HTML" ]; then
+            echo "::warning::dangerouslySetInnerHTML usage found:"
+            echo "$INNER_HTML"
+          fi
+          echo "Security scan complete."
+
   # Docker Build Test
   docker:
     runs-on: ubuntu-latest
-    needs: [backend, frontend, database]
+    needs: [backend, frontend, database, security]
 
     steps:
       - uses: actions/checkout@v4

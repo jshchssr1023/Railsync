@@ -40,6 +40,7 @@ const ROUTE_LABELS: Record<string, string> = {
   monitoring: 'System Monitoring',
   'commodity-cleaning': 'Commodity Cleaning',
   'data-validation': 'Data Validation',
+  'data-reconciliation': 'Data Reconciliation',
   releases: 'Release Management',
   transfers: 'Contract Transfers',
   training: 'Training Center',
@@ -48,6 +49,9 @@ const ROUTE_LABELS: Record<string, string> = {
   riders: 'Contract Riders',
   'service-events': 'Service Events',
   estimates: 'Estimate Review',
+  commodities: 'Commodities',
+  'billable-items': 'Billable Items',
+  notifications: 'Notifications',
   new: 'New Shopping Request',
 };
 

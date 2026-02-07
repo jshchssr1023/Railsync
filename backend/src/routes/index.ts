@@ -4588,6 +4588,25 @@ router.get('/integrations/sap/field-mappings', authenticate, authorize('admin'),
 router.post('/integrations/sap/validate-payload', authenticate, authorize('admin'), integrationController.validateSAPPayload);
 
 // Retry Queue + Circuit Breaker
+router.get('/integrations/retry-queue', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getRetryQueueEntries } = await import('../services/retry-queue.service');
+    const limit = parseInt(req.query.limit as string) || 100;
+    const result = await getRetryQueueEntries(limit);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get retry queue' });
+  }
+});
+router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { dismissRetryEntry } = await import('../services/retry-queue.service');
+    const result = await dismissRetryEntry(req.params.id);
+    res.json({ success: true, data: { dismissed: result } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to dismiss retry entry' });
+  }
+});
 router.post('/integrations/retry-queue/process', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { processRetryQueue } = await import('../services/retry-queue.service');
@@ -5426,6 +5445,121 @@ router.get('/admin/data-validation', authenticate, authorize('admin'), async (re
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message || 'Data validation failed' });
   }
+});
+
+// Data Reconciliation (admin)
+router.get('/migration/reconciliation/dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReconciliationDashboard } = await import('../services/data-reconciliation.service');
+    const data = await getReconciliationDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/reconciliation/discrepancies', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { listDiscrepancies } = await import('../services/data-reconciliation.service');
+    const data = await listDiscrepancies(req.query as any);
+    res.json({ success: true, ...data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
+    const data = await resolveDiscrepancy(req.params.id, req.body, (req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { bulkResolveDiscrepancies } = await import('../services/data-reconciliation.service');
+    const { ids, ...resolution } = req.body;
+    const data = await bulkResolveDiscrepancies(ids, resolution, (req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { detectDuplicates } = await import('../services/data-reconciliation.service');
+    const data = await detectDuplicates(req.query.entity_type as string);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Training Progress
+router.get('/training/modules', authenticate, async (req, res) => {
+  try {
+    const { listModules } = await import('../services/training-progress.service');
+    const data = await listModules();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/progress', authenticate, async (req, res) => {
+  try {
+    const { getUserProgress } = await import('../services/training-progress.service');
+    const data = await getUserProgress((req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
+  try {
+    const { startModule } = await import('../services/training-progress.service');
+    const data = await startModule((req as any).user?.id, req.params.moduleId);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
+  try {
+    const { completeModule } = await import('../services/training-progress.service');
+    const data = await completeModule((req as any).user?.id, req.params.moduleId, req.body.score);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
+  try {
+    const { updateProgress } = await import('../services/training-progress.service');
+    const data = await updateProgress((req as any).user?.id, req.params.moduleId, req.body.timeSpent);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/certifications', authenticate, async (req, res) => {
+  try {
+    const { getUserCertifications } = await import('../services/training-progress.service');
+    const data = await getUserCertifications((req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { grantCertification } = await import('../services/training-progress.service');
+    const data = await grantCertification(req.body.userId, req.body.certType, (req as any).user?.id, req.body.notes);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/organization', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getOrganizationProgress } = await import('../services/training-progress.service');
+    const data = await getOrganizationProgress();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/readiness', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReadinessAssessment } = await import('../services/training-progress.service');
+    const data = await getReadinessAssessment();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 export default router;
