@@ -13,6 +13,7 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { writeAuditEvent, writeAuditEventTx } from './project-audit.service';
 import { notifyProjectRelock, notifyProjectBundling } from './email.service';
 import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
@@ -443,7 +444,7 @@ export async function relockCar(input: RelockCarInput): Promise<ProjectAssignmen
         new_month: input.new_target_month,
         reason: input.reason,
         relocked_by: input.relocked_by_email || 'system',
-      }).catch(err => console.error('[Email] Failed to queue relock notification:', err));
+      }).catch(err => logger.error({ err: err }, '[Email] Failed to queue relock notification'));
     }
 
     return newPa;
@@ -842,7 +843,7 @@ export async function bundleProjectWork(input: BundleProjectWorkInput): Promise<
         car_number: input.car_number,
         shop_code: input.shop_code,
         scope_of_work: proj.scope_of_work || '',
-      }).catch(err => console.error('[Email] Failed to queue bundling alert:', err));
+      }).catch(err => logger.error({ err: err }, '[Email] Failed to queue bundling alert'));
     }
 
     return newPa;

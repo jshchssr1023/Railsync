@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as transferService from '../services/transfer.service';
 
 /**
@@ -14,7 +15,7 @@ export async function validatePrerequisites(req: Request, res: Response): Promis
     const result = await transferService.validateTransferPrerequisites(car_number, from_rider_id, to_rider_id);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error validating transfer:', error);
+    logger.error({ err: error }, 'Error validating transfer');
     res.status(500).json({ success: false, error: 'Failed to validate transfer prerequisites' });
   }
 }
@@ -28,7 +29,7 @@ export async function initiateTransfer(req: Request, res: Response): Promise<voi
     const result = await transferService.initiateTransfer(req.body, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error initiating transfer:', error);
+    logger.error({ err: error }, 'Error initiating transfer');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -50,7 +51,7 @@ export async function listTransfers(req: Request, res: Response): Promise<void> 
     const result = await transferService.listTransfers(filters);
     res.json({ success: true, data: result.transfers, total: result.total });
   } catch (error) {
-    console.error('Error listing transfers:', error);
+    logger.error({ err: error }, 'Error listing transfers');
     res.status(500).json({ success: false, error: 'Failed to list transfers' });
   }
 }
@@ -63,7 +64,7 @@ export async function getTransferOverview(req: Request, res: Response): Promise<
     const result = await transferService.getTransferOverview();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching transfer overview:', error);
+    logger.error({ err: error }, 'Error fetching transfer overview');
     res.status(500).json({ success: false, error: 'Failed to get transfer overview' });
   }
 }
@@ -80,7 +81,7 @@ export async function getTransfer(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching transfer:', error);
+    logger.error({ err: error }, 'Error fetching transfer');
     res.status(500).json({ success: false, error: 'Failed to get transfer' });
   }
 }
@@ -94,7 +95,7 @@ export async function confirmTransfer(req: Request, res: Response): Promise<void
     const result = await transferService.confirmTransfer(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error confirming transfer:', error);
+    logger.error({ err: error }, 'Error confirming transfer');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -108,7 +109,7 @@ export async function completeTransfer(req: Request, res: Response): Promise<voi
     const result = await transferService.completeTransfer(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error completing transfer:', error);
+    logger.error({ err: error }, 'Error completing transfer');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -127,7 +128,7 @@ export async function cancelTransfer(req: Request, res: Response): Promise<void>
     const result = await transferService.cancelTransfer(req.params.id, userId, reason);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error cancelling transfer:', error);
+    logger.error({ err: error }, 'Error cancelling transfer');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -140,7 +141,7 @@ export async function getRiderTransfers(req: Request, res: Response): Promise<vo
     const result = await transferService.getRiderTransfers(req.params.riderId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching rider transfers:', error);
+    logger.error({ err: error }, 'Error fetching rider transfers');
     res.status(500).json({ success: false, error: 'Failed to get rider transfers' });
   }
 }

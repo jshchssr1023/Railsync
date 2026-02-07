@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as packetService from '../services/shopping-packet.service';
 
 export async function createPacket(req: Request, res: Response): Promise<void> {
@@ -12,7 +13,7 @@ export async function createPacket(req: Request, res: Response): Promise<void> {
     const packet = await packetService.createPacket(req.body, userId);
     res.status(201).json({ success: true, data: packet });
   } catch (error) {
-    console.error('Error creating packet:', error);
+    logger.error({ err: error }, 'Error creating packet');
     res.status(500).json({ success: false, error: 'Failed to create packet' });
   }
 }
@@ -27,7 +28,7 @@ export async function getPacket(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: packet });
   } catch (error) {
-    console.error('Error getting packet:', error);
+    logger.error({ err: error }, 'Error getting packet');
     res.status(500).json({ success: false, error: 'Failed to get packet' });
   }
 }
@@ -45,7 +46,7 @@ export async function listPackets(req: Request, res: Response): Promise<void> {
     const result = await packetService.listPackets(filters);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing packets:', error);
+    logger.error({ err: error }, 'Error listing packets');
     res.status(500).json({ success: false, error: 'Failed to list packets' });
   }
 }
@@ -71,7 +72,7 @@ export async function addDocument(req: Request, res: Response): Promise<void> {
 
     res.status(201).json({ success: true, data: doc });
   } catch (error) {
-    console.error('Error adding document:', error);
+    logger.error({ err: error }, 'Error adding document');
     res.status(500).json({ success: false, error: 'Failed to add document' });
   }
 }
@@ -96,7 +97,7 @@ export async function linkMFilesDocument(req: Request, res: Response): Promise<v
 
     res.status(201).json({ success: true, data: doc });
   } catch (error) {
-    console.error('Error linking MFiles document:', error);
+    logger.error({ err: error }, 'Error linking MFiles document');
     res.status(500).json({ success: false, error: 'Failed to link document' });
   }
 }
@@ -112,7 +113,7 @@ export async function sendPacket(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: packet });
   } catch (error) {
-    console.error('Error sending packet:', error);
+    logger.error({ err: error }, 'Error sending packet');
     res.status(500).json({ success: false, error: 'Failed to send packet' });
   }
 }
@@ -127,7 +128,7 @@ export async function acknowledgePacket(req: Request, res: Response): Promise<vo
     }
     res.json({ success: true, data: packet });
   } catch (error) {
-    console.error('Error acknowledging packet:', error);
+    logger.error({ err: error }, 'Error acknowledging packet');
     res.status(500).json({ success: false, error: 'Failed to acknowledge packet' });
   }
 }

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import qualificationService from '../services/qualification.service';
 
 // GET /api/qualifications/types
@@ -7,7 +8,7 @@ export async function listTypes(req: Request, res: Response): Promise<void> {
     const types = await qualificationService.listQualificationTypes();
     res.json({ success: true, data: types });
   } catch (error) {
-    console.error('[QualController] listTypes error:', error);
+    logger.error({ err: error }, '[QualController] listTypes error');
     res.status(500).json({ success: false, error: 'Failed to list qualification types' });
   }
 }
@@ -18,7 +19,7 @@ export async function getStats(req: Request, res: Response): Promise<void> {
     const stats = await qualificationService.getQualificationStats();
     res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('[QualController] getStats error:', error);
+    logger.error({ err: error }, '[QualController] getStats error');
     res.status(500).json({ success: false, error: 'Failed to get qualification stats' });
   }
 }
@@ -29,7 +30,7 @@ export async function getDueByMonth(req: Request, res: Response): Promise<void> 
     const data = await qualificationService.getDueByMonth();
     res.json({ success: true, data });
   } catch (error) {
-    console.error('[QualController] getDueByMonth error:', error);
+    logger.error({ err: error }, '[QualController] getDueByMonth error');
     res.status(500).json({ success: false, error: 'Failed to get due-by-month data' });
   }
 }
@@ -48,7 +49,7 @@ export async function getAlerts(req: Request, res: Response): Promise<void> {
     const result = await qualificationService.getAlerts(filters);
     res.json({ success: true, data: result.alerts, total: result.total });
   } catch (error) {
-    console.error('[QualController] getAlerts error:', error);
+    logger.error({ err: error }, '[QualController] getAlerts error');
     res.status(500).json({ success: false, error: 'Failed to get alerts' });
   }
 }
@@ -64,7 +65,7 @@ export async function acknowledgeAlert(req: Request, res: Response): Promise<voi
     }
     res.json({ success: true });
   } catch (error) {
-    console.error('[QualController] acknowledgeAlert error:', error);
+    logger.error({ err: error }, '[QualController] acknowledgeAlert error');
     res.status(500).json({ success: false, error: 'Failed to acknowledge alert' });
   }
 }
@@ -75,7 +76,7 @@ export async function recalculate(req: Request, res: Response): Promise<void> {
     const result = await qualificationService.recalculateAllStatuses();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('[QualController] recalculate error:', error);
+    logger.error({ err: error }, '[QualController] recalculate error');
     res.status(500).json({ success: false, error: 'Failed to recalculate statuses' });
   }
 }
@@ -86,7 +87,7 @@ export async function generateAlerts(req: Request, res: Response): Promise<void>
     const result = await qualificationService.generateAlerts();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('[QualController] generateAlerts error:', error);
+    logger.error({ err: error }, '[QualController] generateAlerts error');
     res.status(500).json({ success: false, error: 'Failed to generate alerts' });
   }
 }
@@ -107,7 +108,7 @@ export async function listQualifications(req: Request, res: Response): Promise<v
     const result = await qualificationService.listQualifications(filters);
     res.json({ success: true, data: result.qualifications, total: result.total });
   } catch (error) {
-    console.error('[QualController] listQualifications error:', error);
+    logger.error({ err: error }, '[QualController] listQualifications error');
     res.status(500).json({ success: false, error: 'Failed to list qualifications' });
   }
 }
@@ -122,7 +123,7 @@ export async function getQualification(req: Request, res: Response): Promise<voi
     }
     res.json({ success: true, data: qual });
   } catch (error) {
-    console.error('[QualController] getQualification error:', error);
+    logger.error({ err: error }, '[QualController] getQualification error');
     res.status(500).json({ success: false, error: 'Failed to get qualification' });
   }
 }
@@ -133,7 +134,7 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     const history = await qualificationService.getQualificationHistory(req.params.id);
     res.json({ success: true, data: history });
   } catch (error) {
-    console.error('[QualController] getHistory error:', error);
+    logger.error({ err: error }, '[QualController] getHistory error');
     res.status(500).json({ success: false, error: 'Failed to get qualification history' });
   }
 }
@@ -158,7 +159,7 @@ export async function createQualification(req: Request, res: Response): Promise<
       res.status(400).json({ success: false, error: error.message });
       return;
     }
-    console.error('[QualController] createQualification error:', error);
+    logger.error({ err: error }, '[QualController] createQualification error');
     res.status(500).json({ success: false, error: 'Failed to create qualification' });
   }
 }
@@ -174,7 +175,7 @@ export async function updateQualification(req: Request, res: Response): Promise<
     }
     res.json({ success: true, data: qual });
   } catch (error) {
-    console.error('[QualController] updateQualification error:', error);
+    logger.error({ err: error }, '[QualController] updateQualification error');
     res.status(500).json({ success: false, error: 'Failed to update qualification' });
   }
 }
@@ -199,7 +200,7 @@ export async function completeQualification(req: Request, res: Response): Promis
       res.status(400).json({ success: false, error: error.message });
       return;
     }
-    console.error('[QualController] completeQualification error:', error);
+    logger.error({ err: error }, '[QualController] completeQualification error');
     res.status(500).json({ success: false, error: 'Failed to complete qualification' });
   }
 }
@@ -220,7 +221,7 @@ export async function bulkUpdate(req: Request, res: Response): Promise<void> {
       res.status(400).json({ success: false, error: error.message });
       return;
     }
-    console.error('[QualController] bulkUpdate error:', error);
+    logger.error({ err: error }, '[QualController] bulkUpdate error');
     res.status(500).json({ success: false, error: 'Failed to bulk update qualifications' });
   }
 }
@@ -231,7 +232,7 @@ export async function getCarQualifications(req: Request, res: Response): Promise
     const qualifications = await qualificationService.getCarQualifications(req.params.carId);
     res.json({ success: true, data: qualifications });
   } catch (error) {
-    console.error('[QualController] getCarQualifications error:', error);
+    logger.error({ err: error }, '[QualController] getCarQualifications error');
     res.status(500).json({ success: false, error: 'Failed to get car qualifications' });
   }
 }

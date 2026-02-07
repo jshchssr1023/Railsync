@@ -1,3 +1,4 @@
+import logger from '../config/logger';
 import {
   EligibilityRule,
   CarWithCommodity,
@@ -115,7 +116,7 @@ export class RulesEngine {
       // Default: pass if no condition matches
       return { passed: true, reason: '', notApplicable: true };
     } catch (error) {
-      console.error(`Error evaluating rule ${rule.rule_id}:`, error);
+      logger.error({ err: error }, `Error evaluating rule ${rule.rule_id}`);
       return { passed: true, reason: '', notApplicable: true }; // Fail open on error
     }
   }

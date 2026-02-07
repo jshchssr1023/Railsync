@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import logger from '../config/logger';
 import { query } from '../config/database';
 import {
   createAlertIfNotExists,
@@ -38,7 +39,7 @@ interface ShopCapacityStatus {
 
 // Scan for cars with qualification due soon
 async function scanQualificationDue(): Promise<void> {
-  console.log('[Scheduler] Running qualification due scan...');
+  logger.info('[Scheduler] Running qualification due scan...');
 
   try {
     for (const threshold of QUAL_DUE_THRESHOLDS) {
@@ -57,7 +58,7 @@ async function scanQualificationDue(): Promise<void> {
         [threshold.days]
       );
 
-      console.log(`[Scheduler] Found ${cars.length} cars with qual due in ${threshold.days} days`);
+      logger.info(`[Scheduler] Found ${cars.length} cars with qual due in ${threshold.days} days`);
 
       for (const car of cars) {
         await createAlertIfNotExists({
@@ -79,13 +80,13 @@ async function scanQualificationDue(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('[Scheduler] Error in qualification due scan:', error);
+    logger.error({ err: error }, '[Scheduler] Error in qualification due scan');
   }
 }
 
 // Scan for shops approaching capacity limits
 async function scanCapacityWarnings(): Promise<void> {
-  console.log('[Scheduler] Running capacity warning scan...');
+  logger.info('[Scheduler] Running capacity warning scan...');
 
   try {
     // Get current and next 2 months
@@ -113,7 +114,7 @@ async function scanCapacityWarnings(): Promise<void> {
       [months, CAPACITY_THRESHOLDS.warning]
     );
 
-    console.log(`[Scheduler] Found ${capacities.length} shop-months at risk`);
+    logger.info(`[Scheduler] Found ${capacities.length} shop-months at risk`);
 
     for (const capacity of capacities) {
       const isCritical = capacity.utilization_pct >= CAPACITY_THRESHOLDS.critical;
@@ -138,26 +139,26 @@ async function scanCapacityWarnings(): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('[Scheduler] Error in capacity warning scan:', error);
+    logger.error({ err: error }, '[Scheduler] Error in capacity warning scan');
   }
 }
 
 // Cleanup expired alerts
 async function runCleanup(): Promise<void> {
-  console.log('[Scheduler] Running alert cleanup...');
+  logger.info('[Scheduler] Running alert cleanup...');
   try {
     const deleted = await cleanupExpiredAlerts();
     if (deleted > 0) {
-      console.log(`[Scheduler] Cleaned up ${deleted} expired alerts`);
+      logger.info(`[Scheduler] Cleaned up ${deleted} expired alerts`);
     }
   } catch (error) {
-    console.error('[Scheduler] Error in cleanup:', error);
+    logger.error({ err: error }, '[Scheduler] Error in cleanup');
   }
 }
 
 // Initialize scheduler
 export function initScheduler(): void {
-  console.log('[Scheduler] Initializing scheduled jobs...');
+  logger.info('[Scheduler] Initializing scheduled jobs...');
 
   // Daily at 6:00 AM - Qualification due scan
   cron.schedule('0 6 * * *', async () => {
@@ -174,10 +175,10 @@ export function initScheduler(): void {
     await runCleanup();
   });
 
-  console.log('[Scheduler] Scheduled jobs initialized:');
-  console.log('  - Qualification due scan: daily at 6:00 AM');
-  console.log('  - Capacity warning scan: every 4 hours');
-  console.log('  - Alert cleanup: daily at midnight');
+  logger.info('[Scheduler] Scheduled jobs initialized:');
+  logger.info('  - Qualification due scan: daily at 6:00 AM');
+  logger.info('  - Capacity warning scan: every 4 hours');
+  logger.info('  - Alert cleanup: daily at midnight');
 }
 
 // Manual trigger functions (for testing/admin use)

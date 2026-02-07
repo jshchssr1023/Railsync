@@ -10,6 +10,7 @@
  */
 
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 
 // ============================================================================
 // CONFIG
@@ -274,10 +275,10 @@ export async function syncCarLocations(userId?: string): Promise<SyncResult> {
     const carNumbers = cars.map(c => c.car_number);
 
     if (mode === 'live') {
-      console.log(`[CLM LIVE] Syncing ${carNumbers.length} cars from CLM API`);
+      logger.info(`[CLM LIVE] Syncing ${carNumbers.length} cars from CLM API`);
       await syncLive(carNumbers, result);
     } else {
-      console.log(`[CLM MOCK] Simulating location sync for ${carNumbers.length} cars`);
+      logger.info(`[CLM MOCK] Simulating location sync for ${carNumbers.length} cars`);
       await syncMock(carNumbers, result);
     }
 
@@ -323,7 +324,7 @@ export async function syncSingleCar(carNumber: string, userId?: string): Promise
         );
       }
     } catch (err) {
-      console.error(`[CLM] Failed to sync single car ${carNumber}:`, (err as Error).message);
+      logger.error({ err, carNumber }, 'Failed to sync single car');
     }
   }
   return getCarLocation(carNumber);

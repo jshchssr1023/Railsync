@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   createJobCode as createJobCodeService,
   listJobCodes as listJobCodesService,
@@ -15,7 +16,7 @@ export async function createJobCode(req: Request, res: Response): Promise<void> 
 
     res.status(201).json(jobCode);
   } catch (error) {
-    console.error('Error creating job code:', error);
+    logger.error({ err: error }, 'Error creating job code');
     res.status(500).json({ error: 'Failed to create job code' });
   }
 }
@@ -35,7 +36,7 @@ export async function listJobCodes(req: Request, res: Response): Promise<void> {
 
     res.json(jobCodes);
   } catch (error) {
-    console.error('Error listing job codes:', error);
+    logger.error({ err: error }, 'Error listing job codes');
     res.status(500).json({ error: 'Failed to list job codes' });
   }
 }
@@ -53,7 +54,7 @@ export async function getJobCode(req: Request, res: Response): Promise<void> {
 
     res.json(jobCode);
   } catch (error) {
-    console.error('Error getting job code:', error);
+    logger.error({ err: error }, 'Error getting job code');
     res.status(500).json({ error: 'Failed to get job code' });
   }
 }
@@ -72,7 +73,7 @@ export async function updateJobCode(req: Request, res: Response): Promise<void> 
 
     res.json(jobCode);
   } catch (error) {
-    console.error('Error updating job code:', error);
+    logger.error({ err: error }, 'Error updating job code');
     res.status(500).json({ error: 'Failed to update job code' });
   }
 }

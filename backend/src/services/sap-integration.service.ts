@@ -16,6 +16,8 @@
 
 import { query, queryOne } from '../config/database';
 import * as invoiceService from './invoice.service';
+import logger from '../config/logger';
+import { fetchWithTimeout, sapCircuitBreaker } from './circuit-breaker';
 
 // ============================================================================
 // CONFIG
@@ -141,11 +143,11 @@ async function getOAuthToken(config: SAPConfig): Promise<string> {
     client_secret: config.clientSecret,
   });
 
-  const response = await fetch(config.tokenUrl, {
+  const response = await fetchWithTimeout(config.tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
-  });
+  }, 15_000); // 15s timeout for token requests
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -173,7 +175,7 @@ async function getOAuthToken(config: SAPConfig): Promise<string> {
 // SAP HTTP CLIENT
 // ============================================================================
 
-async function sapRequest(
+async function sapRequestInternal(
   config: SAPConfig,
   method: string,
   path: string,
@@ -193,14 +195,14 @@ async function sapRequest(
   // For POST/PUT, fetch CSRF token first
   if (method !== 'GET') {
     try {
-      const csrfRes = await fetch(config.apiUrl, {
+      const csrfRes = await fetchWithTimeout(config.apiUrl, {
         method: 'HEAD',
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': 'Fetch',
           'sap-client': config.sapClient,
         },
-      });
+      }, 10_000); // 10s timeout for CSRF fetch
       const csrfToken = csrfRes.headers.get('x-csrf-token');
       if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
     } catch {
@@ -208,11 +210,11 @@ async function sapRequest(
     }
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-  });
+  }, 30_000); // 30s timeout for SAP data requests
 
   const responseText = await response.text();
   let data: Record<string, unknown>;
@@ -223,6 +225,20 @@ async function sapRequest(
   }
 
   return { ok: response.ok, status: response.status, data };
+}
+
+/**
+ * SAP HTTP client wrapped with circuit breaker.
+ * When the circuit is OPEN, requests are rejected immediately to avoid
+ * piling up connections to an unresponsive SAP system.
+ */
+async function sapRequest(
+  config: SAPConfig,
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
+  return sapCircuitBreaker.execute(() => sapRequestInternal(config, method, path, body));
 }
 
 // ============================================================================
@@ -432,13 +448,13 @@ export async function checkSAPConnection(): Promise<{
   // Live mode — test connection
   try {
     const token = await getOAuthToken(config);
-    const response = await fetch(`${config.apiUrl}/$metadata`, {
+    const response = await fetchWithTimeout(`${config.apiUrl}/$metadata`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/xml',
         'sap-client': config.sapClient,
       },
-    });
+    }, 15_000); // 15s timeout for connection check
 
     const connected = response.ok;
     const now = new Date();
@@ -528,7 +544,7 @@ export async function pushApprovedCosts(
       timestamp: new Date().toISOString(),
       message: 'Cost allocation posted (mock)',
     };
-    console.log('[SAP MOCK] push_approved_costs:', { car: allocation.car_number, cost: costAmount });
+    logger.info({ car: allocation.car_number, cost: costAmount }, '[SAP MOCK] push_approved_costs');
     await recordSAPDocument('SPV_COST', docId, 'allocation', allocationId, allocation.car_number, mockResponse, logId, userId);
     await completeSyncLog(logId, true, docId, mockResponse);
     return { success: true, sap_document_id: docId, response_data: mockResponse };
@@ -656,7 +672,7 @@ export async function pushBillingTrigger(
       timestamp: new Date().toISOString(),
       message: `AR ${documentClass} posted (mock)`,
     };
-    console.log('[SAP MOCK] push_billing_trigger:', { invoice: invoice.invoice_number, total: invoice.total_amount });
+    logger.info({ invoice: invoice.invoice_number, total: invoice.total_amount }, '[SAP MOCK] push_billing_trigger');
     await recordSAPDocument('AR_INVOICE', docId, 'outbound_invoice', outboundInvoiceId, invoice.invoice_number, mockResponse, logId, userId);
     await completeSyncLog(logId, true, docId, mockResponse);
     return { success: true, sap_document_id: docId, response_data: mockResponse };
@@ -771,7 +787,7 @@ export async function pushMileage(
       timestamp: new Date().toISOString(),
       message: 'Mileage posted (mock)',
     };
-    console.log('[SAP MOCK] push_mileage:', { car: record.car_number, miles: record.total_miles });
+    logger.info({ car: record.car_number, miles: record.total_miles }, '[SAP MOCK] push_mileage');
     await recordSAPDocument('MILEAGE', docId, 'mileage_record', mileageRecordId, record.car_number, mockResponse, logId, userId);
     await completeSyncLog(logId, true, docId, mockResponse);
     return { success: true, sap_document_id: docId, response_data: mockResponse };
@@ -854,10 +870,7 @@ export async function pushInvoiceToSAP(invoiceId: string, userId?: string): Prom
       timestamp: new Date().toISOString(),
       message: 'Invoice document created (mock)',
     };
-    console.log('[SAP MOCK] push_invoice:', {
-      invoice_number: sapPayload.invoice_number,
-      total: sapPayload.invoice_total,
-    });
+    logger.info({ invoice_number: sapPayload.invoice_number, total: sapPayload.invoice_total }, '[SAP MOCK] push_invoice');
     await invoiceService.markInvoiceSentToSap(invoiceId, docId, mockResponse);
     await recordSAPDocument('AP_INVOICE', docId, 'invoice', invoiceId, invoice.invoice_number, mockResponse, logId, userId);
     await completeSyncLog(logId, true, docId, mockResponse);

@@ -6,9 +6,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { Loader2, Upload, Search, X, FileText, ChevronRight } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import ExportButton from '@/components/ExportButton';
 import { useURLFilters } from '@/hooks/useURLFilters';
 import { useFilterPresets } from '@/hooks/useFilterPresets';
 import FilterPresetsBar from '@/components/FilterPresetsBar';
+import type { ExportColumn } from '@/hooks/useExportCSV';
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -244,6 +246,17 @@ function InvoicesContent() {
     });
   };
 
+  const invoiceExportColumns: ExportColumn[] = [
+    { key: 'invoice_number', header: 'Invoice Number' },
+    { key: 'vendor_code', header: 'Vendor' },
+    { key: 'shop_code', header: 'Shop' },
+    { key: 'status', header: 'Status', format: (v: string) => STATUS_LABELS[v] || v || '' },
+    { key: 'invoice_total', header: 'Amount', format: (v: number) => v != null ? v.toFixed(2) : '' },
+    { key: 'invoice_date', header: 'Date', format: (v: string) => v ? new Date(v).toLocaleDateString('en-US') : '' },
+  ];
+
+  const invoiceExportFilename = `railsync-invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+
   const getVarianceColor = (pct?: number) => {
     if (pct === undefined || pct === null) return '';
     if (Math.abs(pct) <= 3) return 'text-green-600 dark:text-green-400';
@@ -274,6 +287,12 @@ function InvoicesContent() {
           </div>
 
           <div className="flex items-center gap-4">
+            <ExportButton
+              data={invoices}
+              columns={invoiceExportColumns}
+              filename={invoiceExportFilename}
+              disabled={loading}
+            />
             <input
               type="file"
               ref={fileInputRef}

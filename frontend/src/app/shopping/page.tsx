@@ -3,14 +3,17 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, FileText, ChevronRight } from 'lucide-react';
-import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents } from '@/lib/api';
+import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent } from '@/lib/api';
 import { ShoppingEvent, ShoppingEventState } from '@/types';
 import { useToast } from '@/components/Toast';
 import EmptyState from '@/components/EmptyState';
+import ExportButton from '@/components/ExportButton';
+import EditableCell from '@/components/EditableCell';
 import ShoppingDetailPanel from '@/components/ShoppingDetailPanel';
 import { useURLFilters } from '@/hooks/useURLFilters';
 import { useFilterPresets } from '@/hooks/useFilterPresets';
 import FilterPresetsBar from '@/components/FilterPresetsBar';
+import type { ExportColumn } from '@/hooks/useExportCSV';
 
 // ---------------------------------------------------------------------------
 // State color mapping
@@ -135,6 +138,20 @@ function ShoppingContent() {
   const [batchCarNumbers, setBatchCarNumbers] = useState('');
   const [batchNotes, setBatchNotes] = useState('');
   const [batchCreating, setBatchCreating] = useState(false);
+
+  // -------------------------------------------------------------------------
+  // CSV Export configuration
+  // -------------------------------------------------------------------------
+  const shoppingExportColumns: ExportColumn[] = [
+    { key: 'event_number', header: 'Event Number' },
+    { key: 'car_number', header: 'Car Number' },
+    { key: 'shop_code', header: 'Shop', format: (v: string) => v || '' },
+    { key: 'state', header: 'Status', format: (v: string) => STATE_LABELS[v] || v || '' },
+    { key: 'shopping_type_code', header: 'Type', format: (v: string | null) => v || '' },
+    { key: 'created_at', header: 'Created Date', format: (v: string) => v ? new Date(v).toLocaleDateString('en-US') : '' },
+  ];
+
+  const shoppingExportFilename = `railsync-shopping-events-${new Date().toISOString().slice(0, 10)}.csv`;
 
   // -------------------------------------------------------------------------
   // Fetch shopping events
@@ -304,6 +321,12 @@ function ShoppingContent() {
                 </p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
+                <ExportButton
+                  data={events as Record<string, any>[]}
+                  columns={shoppingExportColumns}
+                  filename={shoppingExportFilename}
+                  disabled={loading}
+                />
                 <button
                   onClick={() => router.push('/shopping/new')}
                   className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm font-medium"
@@ -636,9 +659,27 @@ function ShoppingContent() {
                             <span className="font-medium text-gray-700 dark:text-gray-300">Car:</span>{' '}
                             {event.car_number}
                           </span>
-                          <span>
+                          <span
+                            className="inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <span className="font-medium text-gray-700 dark:text-gray-300">Shop:</span>{' '}
-                            {event.shop_name || event.shop_code}
+                            <EditableCell
+                              value={event.shop_code}
+                              type="text"
+                              editable={['REQUESTED', 'ASSIGNED_TO_SHOP'].includes(event.state)}
+                              onSave={async (newShopCode) => {
+                                try {
+                                  await updateShoppingEvent(event.id, { shop_code: String(newShopCode) });
+                                  fetchEvents();
+                                  toast.success(`Shop reassigned to ${newShopCode}`);
+                                } catch (err) {
+                                  toast.error(err instanceof Error ? err.message : 'Failed to reassign shop');
+                                  throw err;
+                                }
+                              }}
+                              placeholder="Shop code"
+                            />
                           </span>
                           {event.batch_number && (
                             <span>

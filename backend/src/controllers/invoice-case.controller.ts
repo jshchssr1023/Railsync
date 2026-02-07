@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as invoiceCaseService from '../services/invoice-case.service';
 import * as invoiceValidationService from '../services/invoice-validation.service';
 import * as invoiceAttachmentService from '../services/invoice-attachment.service';
@@ -26,7 +27,7 @@ export async function createInvoiceCase(req: Request, res: Response) {
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error creating invoice case:', error);
+    logger.error({ err: error }, 'Error creating invoice case');
     res.status(500).json({
       success: false,
       error: 'Failed to create invoice case',
@@ -60,7 +61,7 @@ export async function getInvoiceCase(req: Request, res: Response) {
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error fetching invoice case:', error);
+    logger.error({ err: error }, 'Error fetching invoice case');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch invoice case',
@@ -89,7 +90,7 @@ export async function getInvoiceCaseSummary(req: Request, res: Response) {
       data: summary,
     });
   } catch (error) {
-    console.error('Error fetching invoice case summary:', error);
+    logger.error({ err: error }, 'Error fetching invoice case summary');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch invoice case summary',
@@ -142,7 +143,7 @@ export async function listInvoiceCases(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    console.error('Error listing invoice cases:', error);
+    logger.error({ err: error }, 'Error listing invoice cases');
     res.status(500).json({
       success: false,
       error: 'Failed to list invoice cases',
@@ -173,7 +174,7 @@ export async function updateInvoiceCase(req: Request, res: Response) {
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error updating invoice case:', error);
+    logger.error({ err: error }, 'Error updating invoice case');
     res.status(500).json({
       success: false,
       error: 'Failed to update invoice case',
@@ -211,7 +212,7 @@ export async function validateStateTransition(req: Request, res: Response) {
       data: validation,
     });
   } catch (error) {
-    console.error('Error validating state transition:', error);
+    logger.error({ err: error }, 'Error validating state transition');
     res.status(500).json({
       success: false,
       error: 'Failed to validate state transition',
@@ -259,7 +260,7 @@ export async function transitionState(req: Request, res: Response) {
       validation: result.validation,
     });
   } catch (error) {
-    console.error('Error transitioning state:', error);
+    logger.error({ err: error }, 'Error transitioning state');
     res.status(500).json({
       success: false,
       error: 'Failed to transition state',
@@ -291,7 +292,7 @@ export async function revertLastTransition(req: Request, res: Response) {
       data: updatedCase,
     });
   } catch (error: any) {
-    console.error('Error reverting last transition:', error);
+    logger.error({ err: error }, 'Error reverting last transition');
 
     // Return 400 for business-logic revert errors, 500 for unexpected failures
     const isBusinessError = error.message?.startsWith('Cannot revert') ||
@@ -339,7 +340,7 @@ export async function assignCase(req: Request, res: Response) {
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error assigning case:', error);
+    logger.error({ err: error }, 'Error assigning case');
     res.status(500).json({
       success: false,
       error: 'Failed to assign case',
@@ -370,7 +371,7 @@ export async function unassignCase(req: Request, res: Response) {
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error unassigning case:', error);
+    logger.error({ err: error }, 'Error unassigning case');
     res.status(500).json({
       success: false,
       error: 'Failed to unassign case',
@@ -413,7 +414,7 @@ export async function confirmSpecialLesseeApproval(req: Request, res: Response) 
       data: invoiceCase,
     });
   } catch (error) {
-    console.error('Error confirming special lessee approval:', error);
+    logger.error({ err: error }, 'Error confirming special lessee approval');
     res.status(500).json({
       success: false,
       error: 'Failed to confirm special lessee approval',
@@ -459,7 +460,7 @@ export async function uploadAttachment(req: Request, res: Response) {
       data: attachment,
     });
   } catch (error) {
-    console.error('Error uploading attachment:', error);
+    logger.error({ err: error }, 'Error uploading attachment');
     res.status(500).json({
       success: false,
       error: 'Failed to upload attachment',
@@ -483,7 +484,7 @@ export async function listAttachments(req: Request, res: Response) {
       data: attachments,
     });
   } catch (error) {
-    console.error('Error listing attachments:', error);
+    logger.error({ err: error }, 'Error listing attachments');
     res.status(500).json({
       success: false,
       error: 'Failed to list attachments',
@@ -512,7 +513,7 @@ export async function downloadAttachment(req: Request, res: Response) {
     res.setHeader('Content-Disposition', `attachment; filename="${downloadInfo.filename}"`);
     res.send(downloadInfo.buffer);
   } catch (error) {
-    console.error('Error downloading attachment:', error);
+    logger.error({ err: error }, 'Error downloading attachment');
     res.status(500).json({
       success: false,
       error: 'Failed to download attachment',
@@ -543,7 +544,7 @@ export async function deleteAttachment(req: Request, res: Response) {
       message: 'Attachment deleted',
     });
   } catch (error) {
-    console.error('Error deleting attachment:', error);
+    logger.error({ err: error }, 'Error deleting attachment');
     res.status(500).json({
       success: false,
       error: 'Failed to delete attachment',
@@ -566,7 +567,7 @@ export async function validateAttachments(req: Request, res: Response) {
       data: validation,
     });
   } catch (error) {
-    console.error('Error validating attachments:', error);
+    logger.error({ err: error }, 'Error validating attachments');
     res.status(500).json({
       success: false,
       error: 'Failed to validate attachments',
@@ -604,7 +605,7 @@ export async function verifyAttachment(req: Request, res: Response) {
       data: attachment,
     });
   } catch (error) {
-    console.error('Error verifying attachment:', error);
+    logger.error({ err: error }, 'Error verifying attachment');
     res.status(500).json({
       success: false,
       error: 'Failed to verify attachment',
@@ -632,7 +633,7 @@ export async function getAuditEvents(req: Request, res: Response) {
       data: events,
     });
   } catch (error) {
-    console.error('Error fetching audit events:', error);
+    logger.error({ err: error }, 'Error fetching audit events');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch audit events',
@@ -657,7 +658,7 @@ export async function getCasesByState(req: Request, res: Response) {
       data: stats,
     });
   } catch (error) {
-    console.error('Error fetching cases by state:', error);
+    logger.error({ err: error }, 'Error fetching cases by state');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch cases by state',

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   createScopeTemplate,
   getScopeTemplate,
@@ -24,7 +25,7 @@ export async function listScopeTemplatesHandler(req: Request, res: Response): Pr
     const templates = await listScopeTemplates(filters);
     res.json(templates);
   } catch (error) {
-    console.error('Error listing scope templates:', error);
+    logger.error({ err: error }, 'Error listing scope templates');
     res.status(500).json({ error: 'Failed to list scope templates' });
   }
 }
@@ -38,7 +39,7 @@ export async function suggestScopesHandler(req: Request, res: Response): Promise
     const suggestions = await suggestScopes(carType, shoppingTypeCode, shoppingReasonCode);
     res.json(suggestions);
   } catch (error) {
-    console.error('Error suggesting scopes:', error);
+    logger.error({ err: error }, 'Error suggesting scopes');
     res.status(500).json({ error: 'Failed to suggest scopes' });
   }
 }
@@ -55,7 +56,7 @@ export async function getScopeTemplateHandler(req: Request, res: Response): Prom
 
     res.json(template);
   } catch (error) {
-    console.error('Error getting scope template:', error);
+    logger.error({ err: error }, 'Error getting scope template');
     res.status(500).json({ error: 'Failed to get scope template' });
   }
 }
@@ -77,7 +78,7 @@ export async function createScopeTemplateHandler(req: Request, res: Response): P
 
     res.status(201).json(template);
   } catch (error) {
-    console.error('Error creating scope template:', error);
+    logger.error({ err: error }, 'Error creating scope template');
     res.status(500).json({ error: 'Failed to create scope template' });
   }
 }
@@ -102,7 +103,7 @@ export async function updateScopeTemplateHandler(req: Request, res: Response): P
 
     res.json(template);
   } catch (error) {
-    console.error('Error updating scope template:', error);
+    logger.error({ err: error }, 'Error updating scope template');
     res.status(500).json({ error: 'Failed to update scope template' });
   }
 }
@@ -120,7 +121,7 @@ export async function addTemplateItemHandler(req: Request, res: Response): Promi
     const item = await addTemplateItem(id, { line_number, instruction_text, source, ccm_section_id });
     res.status(201).json(item);
   } catch (error) {
-    console.error('Error adding template item:', error);
+    logger.error({ err: error }, 'Error adding template item');
     res.status(500).json({ error: 'Failed to add template item' });
   }
 }
@@ -139,7 +140,7 @@ export async function updateTemplateItemHandler(req: Request, res: Response): Pr
 
     res.json(item);
   } catch (error) {
-    console.error('Error updating template item:', error);
+    logger.error({ err: error }, 'Error updating template item');
     res.status(500).json({ error: 'Failed to update template item' });
   }
 }
@@ -150,7 +151,7 @@ export async function removeTemplateItemHandler(req: Request, res: Response): Pr
     await removeTemplateItem(itemId);
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing template item:', error);
+    logger.error({ err: error }, 'Error removing template item');
     res.status(500).json({ error: 'Failed to remove template item' });
   }
 }
@@ -168,7 +169,7 @@ export async function addItemJobCodeHandler(req: Request, res: Response): Promis
     await addItemJobCode(itemId, job_code_id, is_expected, notes);
     res.status(201).json({ message: 'Job code added to template item' });
   } catch (error) {
-    console.error('Error adding item job code:', error);
+    logger.error({ err: error }, 'Error adding item job code');
     res.status(500).json({ error: 'Failed to add job code to template item' });
   }
 }
@@ -179,7 +180,7 @@ export async function removeItemJobCodeHandler(req: Request, res: Response): Pro
     await removeItemJobCode(itemId, codeId);
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing item job code:', error);
+    logger.error({ err: error }, 'Error removing item job code');
     res.status(500).json({ error: 'Failed to remove job code from template item' });
   }
 }

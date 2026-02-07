@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import { capacityEvents, CapacityChangeEvent } from '../services/capacity-events.service';
 
 // Track active connections for monitoring
@@ -23,7 +24,7 @@ export function subscribeToCapacityEvents(req: Request, res: Response): void {
 
   connectionCount++;
   const clientId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  console.log(`[SSE] Client ${clientId} connected. Active connections: ${connectionCount}`);
+  logger.info(`[SSE] Client ${clientId} connected. Active connections: ${connectionCount}`);
 
   // Send initial connection confirmation
   res.write(`event: connected\ndata: ${JSON.stringify({
@@ -38,7 +39,7 @@ export function subscribeToCapacityEvents(req: Request, res: Response): void {
       const eventId = `${Date.now()}-${event.shopCode}-${event.month}`;
       res.write(`id: ${eventId}\nevent: capacity-change\ndata: ${JSON.stringify(event)}\n\n`);
     } catch (err) {
-      console.error(`[SSE] Error sending event to client ${clientId}:`, err);
+      logger.error({ err: err }, `[SSE] Error sending event to client ${clientId}`);
     }
   };
 
@@ -57,14 +58,14 @@ export function subscribeToCapacityEvents(req: Request, res: Response): void {
   // Cleanup on disconnect
   req.on('close', () => {
     connectionCount--;
-    console.log(`[SSE] Client ${clientId} disconnected. Active connections: ${connectionCount}`);
+    logger.info(`[SSE] Client ${clientId} disconnected. Active connections: ${connectionCount}`);
     capacityEvents.off('capacity-change', onCapacityChange);
     clearInterval(heartbeat);
   });
 
   // Handle errors
   req.on('error', (err) => {
-    console.error(`[SSE] Client ${clientId} error:`, err);
+    logger.error({ err: err }, `[SSE] Client ${clientId} error`);
     connectionCount--;
     capacityEvents.off('capacity-change', onCapacityChange);
     clearInterval(heartbeat);

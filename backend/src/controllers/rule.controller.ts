@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import ruleModel from '../models/rule.model';
 import { ApiResponse, EligibilityRule } from '../types';
 
@@ -25,7 +26,7 @@ export async function listRules(req: Request, res: Response): Promise<void> {
       })),
     } as ApiResponse<any[]>);
   } catch (error) {
-    console.error('Error listing rules:', error);
+    logger.error({ err: error }, 'Error listing rules');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -64,7 +65,7 @@ export async function getRuleById(req: Request, res: Response): Promise<void> {
       data: rule,
     } as ApiResponse<EligibilityRule>);
   } catch (error) {
-    console.error('Error fetching rule:', error);
+    logger.error({ err: error }, 'Error fetching rule');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -129,7 +130,7 @@ export async function updateRule(req: Request, res: Response): Promise<void> {
       message: 'Rule updated successfully',
     } as ApiResponse<EligibilityRule>);
   } catch (error) {
-    console.error('Error updating rule:', error);
+    logger.error({ err: error }, 'Error updating rule');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -186,7 +187,7 @@ export async function createRule(req: Request, res: Response): Promise<void> {
       message: 'Rule created successfully',
     } as ApiResponse<EligibilityRule>);
   } catch (error) {
-    console.error('Error creating rule:', error);
+    logger.error({ err: error }, 'Error creating rule');
     res.status(500).json({
       success: false,
       error: 'Internal server error',

@@ -16,6 +16,8 @@
  */
 
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
+import { fetchWithTimeout, salesforceCircuitBreaker } from './circuit-breaker';
 
 // ============================================================================
 // CONFIG
@@ -104,11 +106,11 @@ async function getSFAccessToken(config: SFConfig): Promise<{ access_token: strin
     password: config.password,
   });
 
-  const response = await fetch(tokenUrl, {
+  const response = await fetchWithTimeout(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
-  });
+  }, 15_000); // 15s timeout for token requests
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -150,7 +152,7 @@ async function getSFAccessToken(config: SFConfig): Promise<{ access_token: strin
 // SALESFORCE REST CLIENT
 // ============================================================================
 
-async function sfRequest(
+async function sfRequestInternal(
   config: SFConfig,
   method: string,
   path: string,
@@ -165,11 +167,11 @@ async function sfRequest(
     'Accept': 'application/json',
   };
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-  });
+  }, 30_000); // 30s timeout for Salesforce data requests
 
   const responseText = await response.text();
   let data: unknown;
@@ -184,11 +186,11 @@ async function sfRequest(
     sfCachedToken = null; // Force re-auth
     const { access_token: newToken, instance_url: newUrl } = await getSFAccessToken(config);
     const retryUrl = `${newUrl}/services/data/${config.apiVersion}${path}`;
-    const retryRes = await fetch(retryUrl, {
+    const retryRes = await fetchWithTimeout(retryUrl, {
       method,
       headers: { ...headers, 'Authorization': `Bearer ${newToken}` },
       body: body ? JSON.stringify(body) : undefined,
-    });
+    }, 30_000); // 30s timeout for retry
     const retryText = await retryRes.text();
     try {
       data = JSON.parse(retryText);
@@ -199,6 +201,20 @@ async function sfRequest(
   }
 
   return { ok: response.ok, status: response.status, data };
+}
+
+/**
+ * Salesforce REST client wrapped with circuit breaker.
+ * When the circuit is OPEN, requests are rejected immediately to avoid
+ * piling up connections to an unresponsive Salesforce instance.
+ */
+async function sfRequest(
+  config: SFConfig,
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  return salesforceCircuitBreaker.execute(() => sfRequestInternal(config, method, path, body));
 }
 
 async function sfQuery(config: SFConfig, soql: string): Promise<SFRecord[]> {
@@ -381,7 +397,7 @@ export async function pullCustomers(userId?: string): Promise<SFSyncResult> {
 
   if (!config.isLive) {
     // Mock mode — simulate processing existing customers
-    console.log('[SF MOCK] pull_customers: Would fetch Account records from Salesforce');
+    logger.info('[SF MOCK] pull_customers: Would fetch Account records from Salesforce');
     const customers = await query<{ id: string; customer_code: string; customer_name: string }>(
       `SELECT id, customer_code, customer_name FROM customers LIMIT 10`
     );
@@ -553,7 +569,7 @@ export async function pullContacts(userId?: string): Promise<SFSyncResult> {
   };
 
   if (!config.isLive) {
-    console.log('[SF MOCK] pull_contacts: Would fetch Contact records from Salesforce');
+    logger.info('[SF MOCK] pull_contacts: Would fetch Contact records from Salesforce');
     await completeSyncLog(logId, true, result);
     return result;
   }
@@ -702,7 +718,7 @@ export async function pullDealStages(userId?: string): Promise<SFSyncResult> {
   };
 
   if (!config.isLive) {
-    console.log('[SF MOCK] pull_deal_stages: Would fetch Opportunity records from Salesforce');
+    logger.info('[SF MOCK] pull_deal_stages: Would fetch Opportunity records from Salesforce');
     await completeSyncLog(logId, true, result);
     return result;
   }
@@ -863,7 +879,7 @@ export async function pushCustomerBillingStatus(
   };
 
   if (!config.isLive) {
-    console.log('[SF MOCK] push_billing_status:', { customerId, ...billingData });
+    logger.info({ customerId, ...billingData }, '[SF MOCK] push_billing_status');
     result.records_skipped = 1;
     await completeSyncLog(logId, true, result);
     return result;
@@ -963,9 +979,9 @@ export async function checkSalesforceConnection(): Promise<{
     // Get org identity
     let orgId: string | undefined;
     try {
-      const idRes = await fetch(`${instance_url}/services/oauth2/userinfo`, {
+      const idRes = await fetchWithTimeout(`${instance_url}/services/oauth2/userinfo`, {
         headers: { 'Authorization': `Bearer ${access_token}` },
-      });
+      }, 10_000); // 10s timeout for identity check
       if (idRes.ok) {
         const idData = await idRes.json() as { organization_id: string };
         orgId = idData.organization_id;

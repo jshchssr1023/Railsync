@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as assignmentService from '../services/assignment.service';
 import * as serviceOptionService from '../services/serviceOption.service';
 import { logFromRequest } from '../services/audit.service';
@@ -26,7 +27,7 @@ export async function listAssignments(req: Request, res: Response): Promise<void
     const result = await assignmentService.listAssignments(filters);
     res.json({ success: true, data: result.assignments, total: result.total });
   } catch (error) {
-    console.error('List assignments error:', error);
+    logger.error({ err: error }, 'List assignments error');
     res.status(500).json({ success: false, error: 'Failed to list assignments' });
   }
 }
@@ -46,7 +47,7 @@ export async function getAssignment(req: Request, res: Response): Promise<void> 
 
     res.json({ success: true, data: { ...assignment, service_options: serviceOptions } });
   } catch (error) {
-    console.error('Get assignment error:', error);
+    logger.error({ err: error }, 'Get assignment error');
     res.status(500).json({ success: false, error: 'Failed to get assignment' });
   }
 }
@@ -91,7 +92,7 @@ export async function createAssignment(req: Request, res: Response): Promise<voi
 
     res.status(201).json({ success: true, data: assignment });
   } catch (error) {
-    console.error('Create assignment error:', error);
+    logger.error({ err: error }, 'Create assignment error');
     const message = error instanceof Error ? error.message : 'Failed to create assignment';
     res.status(400).json({ success: false, error: message });
   }
@@ -111,7 +112,7 @@ export async function updateAssignment(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: assignment });
   } catch (error) {
-    console.error('Update assignment error:', error);
+    logger.error({ err: error }, 'Update assignment error');
     const message = error instanceof Error ? error.message : 'Failed to update assignment';
     res.status(400).json({ success: false, error: message });
   }
@@ -132,7 +133,7 @@ export async function updateAssignmentStatus(req: Request, res: Response): Promi
 
     res.json({ success: true, data: assignment });
   } catch (error) {
-    console.error('Update status error:', error);
+    logger.error({ err: error }, 'Update status error');
     res.status(400).json({ success: false, error: 'Failed to update status' });
   }
 }
@@ -152,7 +153,7 @@ export async function cancelAssignment(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: assignment });
   } catch (error) {
-    console.error('Cancel assignment error:', error);
+    logger.error({ err: error }, 'Cancel assignment error');
     res.status(400).json({ success: false, error: 'Failed to cancel assignment' });
   }
 }
@@ -172,7 +173,7 @@ export async function expediteAssignment(req: Request, res: Response): Promise<v
 
     res.json({ success: true, data: assignment });
   } catch (error) {
-    console.error('Expedite assignment error:', error);
+    logger.error({ err: error }, 'Expedite assignment error');
     res.status(400).json({ success: false, error: 'Failed to expedite assignment' });
   }
 }
@@ -189,7 +190,7 @@ export async function checkConflicts(req: Request, res: Response): Promise<void>
     const conflict = await assignmentService.checkConflicts(car_number as string);
     res.json({ success: true, data: { has_conflict: !!conflict, conflict } });
   } catch (error) {
-    console.error('Check conflicts error:', error);
+    logger.error({ err: error }, 'Check conflicts error');
     res.status(500).json({ success: false, error: 'Failed to check conflicts' });
   }
 }
@@ -204,7 +205,7 @@ export async function getServiceOptions(req: Request, res: Response): Promise<vo
     const options = await serviceOptionService.getServiceOptionsForAssignment(assignmentId);
     res.json({ success: true, data: options });
   } catch (error) {
-    console.error('Get service options error:', error);
+    logger.error({ err: error }, 'Get service options error');
     res.status(500).json({ success: false, error: 'Failed to get service options' });
   }
 }
@@ -219,7 +220,7 @@ export async function addServiceOption(req: Request, res: Response): Promise<voi
 
     res.status(201).json({ success: true, data: option });
   } catch (error) {
-    console.error('Add service option error:', error);
+    logger.error({ err: error }, 'Add service option error');
     res.status(400).json({ success: false, error: 'Failed to add service option' });
   }
 }
@@ -230,7 +231,7 @@ export async function updateServiceOption(req: Request, res: Response): Promise<
     const option = await serviceOptionService.updateServiceOption(optionId, req.body);
     res.json({ success: true, data: option });
   } catch (error) {
-    console.error('Update service option error:', error);
+    logger.error({ err: error }, 'Update service option error');
     res.status(400).json({ success: false, error: 'Failed to update service option' });
   }
 }
@@ -241,7 +242,7 @@ export async function deleteServiceOption(req: Request, res: Response): Promise<
     await serviceOptionService.deleteServiceOption(optionId);
     res.json({ success: true, message: 'Service option deleted' });
   } catch (error) {
-    console.error('Delete service option error:', error);
+    logger.error({ err: error }, 'Delete service option error');
     res.status(400).json({ success: false, error: 'Failed to delete service option' });
   }
 }
@@ -267,7 +268,7 @@ export async function suggestServiceOptions(req: Request, res: Response): Promis
 
     res.json({ success: true, data: { options: suggestions, summary } });
   } catch (error) {
-    console.error('Suggest service options error:', error);
+    logger.error({ err: error }, 'Suggest service options error');
     res.status(500).json({ success: false, error: 'Failed to suggest service options' });
   }
 }

@@ -6,6 +6,7 @@
  */
 
 import { query } from '../config/database';
+import logger from '../config/logger';
 import { createAlert } from './alerts.service';
 import { detectProjectForCar } from './project-planning.service';
 import * as assetEventService from './assetEvent.service';
@@ -400,7 +401,7 @@ export async function cancelAssignment(
     isReversible: false,
     actorId: cancelledById,
     notes: reason,
-  }).catch(err => console.error('[TransitionLog] Failed to log assignment cancellation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log assignment cancellation'));
 
   return cancelled;
 }
@@ -547,7 +548,7 @@ export async function updateStatus(
     toState: status,
     isReversible: status === 'Scheduled', // only Planned->Scheduled is reversible
     actorId: updatedById,
-  }).catch(err => console.error('[TransitionLog] Failed to log assignment transition:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log assignment transition'));
 
   return updated;
 }

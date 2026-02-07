@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -37,7 +38,7 @@ export async function getPreferences(req: Request, res: Response) {
 
     res.json({ success: true, data: prefs });
   } catch (err) {
-    console.error('Error getting notification preferences:', err);
+    logger.error({ err: err }, 'Error getting notification preferences');
     res.status(500).json({ success: false, error: 'Failed to get preferences' });
   }
 }
@@ -66,7 +67,7 @@ export async function updatePreferences(req: Request, res: Response) {
 
     res.json({ success: true, data: prefs });
   } catch (err) {
-    console.error('Error updating notification preferences:', err);
+    logger.error({ err: err }, 'Error updating notification preferences');
     res.status(500).json({ success: false, error: 'Failed to update preferences' });
   }
 }
@@ -81,7 +82,7 @@ export async function getQueueStatus(req: Request, res: Response) {
     const status = await getEmailQueueStatus();
     res.json({ success: true, data: status });
   } catch (err) {
-    console.error('Error getting email queue status:', err);
+    logger.error({ err: err }, 'Error getting email queue status');
     res.status(500).json({ success: false, error: 'Failed to get queue status' });
   }
 }
@@ -98,7 +99,7 @@ export async function processQueue(req: Request, res: Response) {
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Error processing email queue:', err);
+    logger.error({ err: err }, 'Error processing email queue');
     res.status(500).json({ success: false, error: 'Failed to process queue' });
   }
 }

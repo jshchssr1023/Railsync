@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as alertsService from '../services/alerts.service';
 import { manualTriggers } from '../services/scheduler.service';
 
@@ -16,7 +17,7 @@ export async function getAlerts(req: Request, res: Response): Promise<void> {
       data: alerts,
     });
   } catch (error) {
-    console.error('Get alerts error:', error);
+    logger.error({ err: error }, 'Get alerts error');
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve alerts',
@@ -37,7 +38,7 @@ export async function getAlertCount(req: Request, res: Response): Promise<void> 
       data: { count },
     });
   } catch (error) {
-    console.error('Get alert count error:', error);
+    logger.error({ err: error }, 'Get alert count error');
     res.status(500).json({
       success: false,
       error: 'Failed to get alert count',
@@ -65,7 +66,7 @@ export async function markRead(req: Request, res: Response): Promise<void> {
       data: alert,
     });
   } catch (error) {
-    console.error('Mark alert read error:', error);
+    logger.error({ err: error }, 'Mark alert read error');
     res.status(500).json({
       success: false,
       error: 'Failed to mark alert as read',
@@ -102,7 +103,7 @@ export async function dismissAlert(req: Request, res: Response): Promise<void> {
       data: alert,
     });
   } catch (error) {
-    console.error('Dismiss alert error:', error);
+    logger.error({ err: error }, 'Dismiss alert error');
     res.status(500).json({
       success: false,
       error: 'Failed to dismiss alert',
@@ -134,7 +135,7 @@ export async function dismissByType(req: Request, res: Response): Promise<void> 
       data: { dismissed: count },
     });
   } catch (error) {
-    console.error('Dismiss alerts by type error:', error);
+    logger.error({ err: error }, 'Dismiss alerts by type error');
     res.status(500).json({
       success: false,
       error: 'Failed to dismiss alerts',
@@ -170,7 +171,7 @@ export async function triggerScan(req: Request, res: Response): Promise<void> {
       message: `${scanType} scan triggered successfully`,
     });
   } catch (error) {
-    console.error('Trigger scan error:', error);
+    logger.error({ err: error }, 'Trigger scan error');
     res.status(500).json({
       success: false,
       error: 'Failed to trigger scan',

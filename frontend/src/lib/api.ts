@@ -1056,6 +1056,25 @@ export async function createBatchShoppingEvents(input: {
   return response.data;
 }
 
+/**
+ * Update mutable fields on a shopping event (e.g. shop_code reassignment).
+ * Only allowed when the event is in REQUESTED or ASSIGNED_TO_SHOP state.
+ */
+export async function updateShoppingEvent(
+  id: string,
+  updates: { shop_code?: string }
+): Promise<ShoppingEvent> {
+  const response = await fetchApi<ShoppingEvent>(
+    `/shopping-events/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }
+  );
+  if (!response.data) return response as unknown as ShoppingEvent;
+  return response.data;
+}
+
 export async function transitionShoppingEventState(
   id: string,
   toState: string,
@@ -3520,4 +3539,46 @@ export async function getOrganizationTrainingProgress(): Promise<any> {
 export async function getTrainingReadiness(): Promise<any> {
   const response = await fetchApi<any>('/training/readiness');
   return response.data || {};
+}
+
+// ============================================================================
+// Audit Logs
+// ============================================================================
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  description?: string;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
+  ip_address?: string;
+  created_at: string;
+}
+
+export async function getAuditLogs(params?: {
+  entity_type?: string;
+  entity_id?: string;
+  action?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ logs: AuditLogEntry[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.entity_type) query.set('entity_type', params.entity_type);
+  if (params?.entity_id) query.set('entity_id', params.entity_id);
+  if (params?.action) query.set('action', params.action);
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.offset) query.set('offset', String(params.offset));
+  const qs = query.toString();
+  const response = await fetchApi<{ logs: AuditLogEntry[]; total: number }>(`/audit-logs${qs ? `?${qs}` : ''}`);
+  const data = response.data;
+  // Handle both { logs, total } and direct array responses
+  if (Array.isArray(data)) {
+    return { logs: data as unknown as AuditLogEntry[], total: (data as unknown as AuditLogEntry[]).length };
+  }
+  return data || { logs: [], total: 0 };
 }

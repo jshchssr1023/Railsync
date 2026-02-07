@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   createShoppingRequest as createService,
   getShoppingRequest as getService,
@@ -27,7 +28,7 @@ export async function create(req: Request, res: Response): Promise<void> {
     const result = await createService(req.body, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error creating shopping request:', error);
+    logger.error({ err: error }, 'Error creating shopping request');
     res.status(500).json({ error: error.message || 'Failed to create shopping request' });
   }
 }
@@ -45,7 +46,7 @@ export async function list(req: Request, res: Response): Promise<void> {
     const result = await listService(filters);
     res.json({ success: true, data: result.requests, total: result.total });
   } catch (error: any) {
-    console.error('Error listing shopping requests:', error);
+    logger.error({ err: error }, 'Error listing shopping requests');
     res.status(500).json({ error: error.message || 'Failed to list shopping requests' });
   }
 }
@@ -60,7 +61,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error getting shopping request:', error);
+    logger.error({ err: error }, 'Error getting shopping request');
     res.status(500).json({ error: error.message || 'Failed to get shopping request' });
   }
 }
@@ -72,7 +73,7 @@ export async function update(req: Request, res: Response): Promise<void> {
     const result = await updateService(req.params.id, req.body, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error updating shopping request:', error);
+    logger.error({ err: error }, 'Error updating shopping request');
     const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
@@ -90,7 +91,7 @@ export async function approve(req: Request, res: Response): Promise<void> {
     const result = await approveService(req.params.id, userId, shop_code, notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error approving shopping request:', error);
+    logger.error({ err: error }, 'Error approving shopping request');
     const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
@@ -108,7 +109,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
     const result = await rejectService(req.params.id, userId, notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error rejecting shopping request:', error);
+    logger.error({ err: error }, 'Error rejecting shopping request');
     const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
@@ -121,7 +122,7 @@ export async function cancel(req: Request, res: Response): Promise<void> {
     const result = await cancelService(req.params.id, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error cancelling shopping request:', error);
+    logger.error({ err: error }, 'Error cancelling shopping request');
     const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }
@@ -140,7 +141,7 @@ export async function uploadAttachment(req: Request, res: Response): Promise<voi
     const result = await uploadService(req.params.id, file, documentType, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error uploading attachment:', error);
+    logger.error({ err: error }, 'Error uploading attachment');
     res.status(500).json({ error: error.message || 'Failed to upload attachment' });
   }
 }
@@ -151,7 +152,7 @@ export async function listAttachments(req: Request, res: Response): Promise<void
     const result = await listAttachmentsService(req.params.id);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error listing attachments:', error);
+    logger.error({ err: error }, 'Error listing attachments');
     res.status(500).json({ error: error.message || 'Failed to list attachments' });
   }
 }
@@ -162,7 +163,7 @@ export async function deleteAttachment(req: Request, res: Response): Promise<voi
     await deleteAttachmentService(req.params.attachmentId);
     res.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting attachment:', error);
+    logger.error({ err: error }, 'Error deleting attachment');
     const status = error.message.includes('not found') ? 404 : 500;
     res.status(status).json({ error: error.message });
   }
@@ -180,7 +181,7 @@ export async function duplicate(req: Request, res: Response): Promise<void> {
     const result = await duplicateService(req.params.id, { car_number, overrides }, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error duplicating shopping request:', error);
+    logger.error({ err: error }, 'Error duplicating shopping request');
     const status = error.message.includes('not found') ? 404 : 500;
     res.status(status).json({ error: error.message });
   }
@@ -194,7 +195,7 @@ export async function revert(req: Request, res: Response): Promise<void> {
     const result = await revertService(req.params.id, userId, notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error reverting shopping request:', error);
+    logger.error({ err: error }, 'Error reverting shopping request');
     const status = error.message.includes('not found') ? 404 : 400;
     res.status(status).json({ error: error.message });
   }

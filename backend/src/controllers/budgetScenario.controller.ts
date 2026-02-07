@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as budgetScenarioService from '../services/budgetScenario.service';
 
 function getErrorMessage(error: unknown): string {
@@ -10,7 +11,7 @@ export async function listScenarios(req: Request, res: Response): Promise<void> 
     const scenarios = await budgetScenarioService.listScenarios();
     res.json({ success: true, data: scenarios });
   } catch (error: unknown) {
-    console.error('List budget scenarios error:', error);
+    logger.error({ err: error }, 'List budget scenarios error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -24,7 +25,7 @@ export async function getScenario(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: scenario });
   } catch (error: unknown) {
-    console.error('Get budget scenario error:', error);
+    logger.error({ err: error }, 'Get budget scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -42,7 +43,7 @@ export async function createScenario(req: Request, res: Response): Promise<void>
     const scenario = await budgetScenarioService.createCustomScenario(name, sliders, userId);
     res.status(201).json({ success: true, data: scenario });
   } catch (error: unknown) {
-    console.error('Create budget scenario error:', error);
+    logger.error({ err: error }, 'Create budget scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -59,7 +60,7 @@ export async function updateScenario(req: Request, res: Response): Promise<void>
     }
     res.json({ success: true, data: scenario });
   } catch (error: unknown) {
-    console.error('Update budget scenario error:', error);
+    logger.error({ err: error }, 'Update budget scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -73,7 +74,7 @@ export async function deleteScenario(req: Request, res: Response): Promise<void>
     }
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error('Delete budget scenario error:', error);
+    logger.error({ err: error }, 'Delete budget scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -88,7 +89,7 @@ export async function calculateImpact(req: Request, res: Response): Promise<void
     }
     res.json({ success: true, data: impact });
   } catch (error: unknown) {
-    console.error('Calculate budget scenario impact error:', error);
+    logger.error({ err: error }, 'Calculate budget scenario impact error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -99,7 +100,7 @@ export async function getPipelineMetrics(req: Request, res: Response): Promise<v
     const metrics = await budgetScenarioService.getPipelineMetrics(fiscalYear);
     res.json({ success: true, data: metrics });
   } catch (error: unknown) {
-    console.error('Get pipeline metrics error:', error);
+    logger.error({ err: error }, 'Get pipeline metrics error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }

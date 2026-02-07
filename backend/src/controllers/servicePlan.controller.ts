@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   createServicePlan,
   getServicePlan,
@@ -61,7 +62,7 @@ export async function createPlan(req: Request, res: Response) {
 
     return res.status(201).json({ success: true, data: plan });
   } catch (err) {
-    console.error('Create service plan error:', err);
+    logger.error({ err: err }, 'Create service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to create service plan',
@@ -83,7 +84,7 @@ export async function getPlan(req: Request, res: Response) {
 
     return res.json({ success: true, data: { ...plan, options } });
   } catch (err) {
-    console.error('Get service plan error:', err);
+    logger.error({ err: err }, 'Get service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to get service plan',
@@ -105,7 +106,7 @@ export async function listPlans(req: Request, res: Response) {
 
     return res.json({ success: true, data: result.plans, total: result.total });
   } catch (err) {
-    console.error('List service plans error:', err);
+    logger.error({ err: err }, 'List service plans error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to list service plans',
@@ -124,7 +125,7 @@ export async function updatePlan(req: Request, res: Response) {
 
     return res.json({ success: true, data: plan });
   } catch (err) {
-    console.error('Update service plan error:', err);
+    logger.error({ err: err }, 'Update service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to update service plan',
@@ -138,7 +139,7 @@ export async function deletePlan(req: Request, res: Response) {
     await deleteServicePlan(id);
     return res.json({ success: true, message: 'Service plan deleted' });
   } catch (err) {
-    console.error('Delete service plan error:', err);
+    logger.error({ err: err }, 'Delete service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to delete service plan',
@@ -162,7 +163,7 @@ export async function createPlanOption(req: Request, res: Response) {
     const option = await createOption(planId, { option_name, description, is_recommended });
     return res.status(201).json({ success: true, data: option });
   } catch (err) {
-    console.error('Create option error:', err);
+    logger.error({ err: err }, 'Create option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to create option',
@@ -184,7 +185,7 @@ export async function getPlanOption(req: Request, res: Response) {
 
     return res.json({ success: true, data: { ...option, cars } });
   } catch (err) {
-    console.error('Get option error:', err);
+    logger.error({ err: err }, 'Get option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to get option',
@@ -198,7 +199,7 @@ export async function listPlanOptions(req: Request, res: Response) {
     const options = await listOptions(planId);
     return res.json({ success: true, data: options });
   } catch (err) {
-    console.error('List options error:', err);
+    logger.error({ err: err }, 'List options error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to list options',
@@ -217,7 +218,7 @@ export async function updatePlanOption(req: Request, res: Response) {
 
     return res.json({ success: true, data: option });
   } catch (err) {
-    console.error('Update option error:', err);
+    logger.error({ err: err }, 'Update option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to update option',
@@ -231,7 +232,7 @@ export async function deletePlanOption(req: Request, res: Response) {
     await deleteOption(optionId);
     return res.json({ success: true, message: 'Option deleted' });
   } catch (err) {
-    console.error('Delete option error:', err);
+    logger.error({ err: err }, 'Delete option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to delete option',
@@ -250,7 +251,7 @@ export async function finalizePlanOption(req: Request, res: Response) {
 
     return res.json({ success: true, data: option });
   } catch (err) {
-    console.error('Finalize option error:', err);
+    logger.error({ err: err }, 'Finalize option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to finalize option',
@@ -286,7 +287,7 @@ export async function addCarToOptionHandler(req: Request, res: Response) {
 
     return res.status(201).json({ success: true, data: car });
   } catch (err) {
-    console.error('Add car to option error:', err);
+    logger.error({ err: err }, 'Add car to option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to add car to option',
@@ -300,7 +301,7 @@ export async function listOptionCarsHandler(req: Request, res: Response) {
     const cars = await listOptionCars(optionId);
     return res.json({ success: true, data: cars });
   } catch (err) {
-    console.error('List option cars error:', err);
+    logger.error({ err: err }, 'List option cars error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to list option cars',
@@ -314,7 +315,7 @@ export async function removeCarFromOptionHandler(req: Request, res: Response) {
     await removeCarFromOption(carId);
     return res.json({ success: true, message: 'Car removed from option' });
   } catch (err) {
-    console.error('Remove car from option error:', err);
+    logger.error({ err: err }, 'Remove car from option error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to remove car from option',
@@ -345,7 +346,7 @@ export async function approvePlan(req: Request, res: Response) {
       skipped_conflicts: result.skipped_conflicts,
     });
   } catch (err) {
-    console.error('Approve service plan error:', err);
+    logger.error({ err: err }, 'Approve service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to approve service plan',
@@ -362,7 +363,7 @@ export async function rejectPlan(req: Request, res: Response) {
 
     return res.json({ success: true, data: plan });
   } catch (err) {
-    console.error('Reject service plan error:', err);
+    logger.error({ err: err }, 'Reject service plan error');
     return res.status(500).json({
       success: false,
       error: err instanceof Error ? err.message : 'Failed to reject service plan',

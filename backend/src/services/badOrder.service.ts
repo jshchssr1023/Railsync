@@ -6,6 +6,7 @@
  */
 
 import { query, pool } from '../config/database';
+import logger from '../config/logger';
 import { getActiveAssignment } from './assignment.service';
 import { createAlert } from './alerts.service';
 import { notifyBadOrder } from './email.service';
@@ -129,7 +130,7 @@ export async function createBadOrder(input: CreateBadOrderInput): Promise<BadOrd
       reporter: input.reported_by || 'Unknown',
     });
   } catch (emailErr) {
-    console.error('[BadOrder] Failed to queue email notifications:', emailErr);
+    logger.error({ err: emailErr }, 'Failed to queue email notifications');
     // Don't fail the bad order creation if email fails
   }
 

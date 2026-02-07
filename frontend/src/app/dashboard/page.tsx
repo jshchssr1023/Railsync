@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { RefreshCw, ChevronDown } from 'lucide-react';
+import { RefreshCw, ChevronDown, Clock } from 'lucide-react';
+import ActivityTimeline from '@/components/ActivityTimeline';
+import { useAuditLog } from '@/hooks/useAuditLog';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   Area, XAxis, YAxis, CartesianGrid,
@@ -300,6 +302,12 @@ export default function DashboardPage() {
     unplanned_cars: number;
     total_estimated_cost: number;
   } | null>(null);
+
+  // Recent activity (audit logs) for dashboard widget
+  const {
+    entries: recentActivity,
+    loading: activityLoading,
+  } = useAuditLog({ limit: 15 });
 
   // Collapsible section state - persisted in localStorage
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -1266,6 +1274,37 @@ export default function DashboardPage() {
           </div>}
         </div>
       )}
+
+      {/* ================================================================== */}
+      {/* ROW 7: Recent Activity Feed */}
+      {/* ================================================================== */}
+      <div className="card">
+        <button
+          type="button"
+          onClick={() => toggleSection('recentActivity')}
+          className="card-header flex items-center gap-2 w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        >
+          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${collapsedSections['recentActivity'] ? '-rotate-90' : ''}`} />
+          <div className="text-left flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Latest changes across all entities</p>
+            </div>
+          </div>
+        </button>
+        {!collapsedSections['recentActivity'] && (
+          <div className="card-body">
+            <ActivityTimeline
+              entries={recentActivity}
+              compact
+              loading={activityLoading}
+              maxHeight="420px"
+              emptyMessage="No recent activity to display."
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

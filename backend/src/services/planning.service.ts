@@ -1,4 +1,5 @@
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 import {
   Allocation,
   AllocationStatus,
@@ -533,7 +534,7 @@ export async function createAllocation(input: {
         });
       }
     } catch (err) {
-      console.warn('SSOT write failed (non-blocking):', err);
+      logger.warn({ err }, 'SSOT write failed (non-blocking)');
     }
   }
 
@@ -814,7 +815,7 @@ export async function generateAllocations(
             });
           }
         } catch (err) {
-          console.warn('SSOT write failed (non-blocking):', err);
+          logger.warn({ err }, 'SSOT write failed (non-blocking)');
         }
       }
 

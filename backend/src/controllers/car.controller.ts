@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import carModel from '../models/car.model';
 import { ApiResponse, CarWithCommodity, ServiceEvent } from '../types';
 import * as assetEventService from '../services/assetEvent.service';
@@ -41,7 +42,7 @@ export async function getCarByNumber(req: Request, res: Response): Promise<void>
       },
     } as ApiResponse<{ car: CarWithCommodity; active_service_event: ServiceEvent | null }>);
   } catch (error) {
-    console.error('Error fetching car:', error);
+    logger.error({ err: error }, 'Error fetching car');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -65,7 +66,7 @@ export async function getCarHistory(req: Request, res: Response): Promise<void> 
       data: events,
     });
   } catch (error) {
-    console.error('Error fetching car history:', error);
+    logger.error({ err: error }, 'Error fetching car history');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -84,7 +85,7 @@ export async function getCarUmler(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, data });
   } catch (error) {
-    console.error('Error fetching UMLER attributes:', error);
+    logger.error({ err: error }, 'Error fetching UMLER attributes');
     res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
   }
 }
@@ -106,7 +107,7 @@ export async function updateCarUmler(req: Request, res: Response): Promise<void>
 
     res.json({ success: true, data });
   } catch (error) {
-    console.error('Error updating UMLER attributes:', error);
+    logger.error({ err: error }, 'Error updating UMLER attributes');
     res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
   }
 }
@@ -128,7 +129,7 @@ export async function importUmlerCSV(req: Request, res: Response): Promise<void>
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error importing UMLER CSV:', error);
+    logger.error({ err: error }, 'Error importing UMLER CSV');
     res.status(500).json({ success: false, error: 'Internal server error' } as ApiResponse<null>);
   }
 }

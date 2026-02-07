@@ -9,10 +9,12 @@ import {
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 import MobileCarCard from '@/components/MobileCarCard';
 import EmptyState from '@/components/EmptyState';
+import ExportButton from '@/components/ExportButton';
 import { useAuth } from '@/context/AuthContext';
 import { useURLFilters } from '@/hooks/useURLFilters';
 import { useFilterPresets } from '@/hooks/useFilterPresets';
 import FilterPresetsBar from '@/components/FilterPresetsBar';
+import type { ExportColumn } from '@/hooks/useExportCSV';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -809,6 +811,18 @@ function CarsPage() {
     { key: 'car_age', label: 'Age', width: 'w-16' },
   ];
 
+  const exportColumns: ExportColumn[] = [
+    { key: 'car_number', header: 'Car Number' },
+    { key: 'car_type', header: 'Type' },
+    { key: 'current_status', header: 'Status' },
+    { key: 'current_region', header: 'Region' },
+    { key: 'lessee_name', header: 'Lessee' },
+    { key: 'commodity', header: 'Commodity' },
+    { key: 'product_code', header: 'Product Code' },
+  ];
+
+  const exportFilename = `railsync-cars-${new Date().toISOString().slice(0, 10)}.csv`;
+
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
       {/* Left Panel: Car Type Tree (hidden on mobile) */}
@@ -845,6 +859,12 @@ function CarsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <ExportButton
+                data={cars}
+                columns={exportColumns}
+                filename={exportFilename}
+                disabled={carsLoading}
+              />
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearAllFilters}

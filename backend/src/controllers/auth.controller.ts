@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import crypto from 'crypto';
 import { z } from 'zod';
 import {
@@ -135,7 +136,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error({ err: error }, 'Login error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -209,7 +210,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error({ err: error }, 'Registration error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -287,7 +288,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Refresh error:', error);
+    logger.error({ err: error }, 'Refresh error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -320,7 +321,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
       message: 'Logged out successfully',
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error({ err: error }, 'Logout error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -347,7 +348,7 @@ export async function me(req: Request, res: Response): Promise<void> {
       data: req.user,
     });
   } catch (error) {
-    console.error('Me error:', error);
+    logger.error({ err: error }, 'Me error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',

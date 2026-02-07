@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
-import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart3, Loader2 } from 'lucide-react';
+import { X, Plus, Trash2, RefreshCw, Settings, BarChart3, Loader2 } from 'lucide-react';
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import EditableCell from '@/components/EditableCell';
 import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -69,8 +70,6 @@ function BudgetContent() {
   const { getAccessToken } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
-  const [editingRR, setEditingRR] = useState<string | null>(null);
-  const [editingSE, setEditingSE] = useState<string | null>(null);
   const [rrAllocation, setRrAllocation] = useState(450);
   const [showAddModal, setShowAddModal] = useState(false);
   const [seSegmentFilter, setSeSegmentFilter] = useState('All');
@@ -146,26 +145,31 @@ function BudgetContent() {
     }
   };
 
-  // Update individual RR month
-  const handleUpdateRRMonth = async (month: string, data: Partial<RunningRepairsBudget>) => {
+  // Update individual RR month field (used by inline EditableCell)
+  const handleUpdateRRMonthField = async (
+    month: string,
+    field: 'cars_on_lease' | 'actual_spend',
+    newValue: string | number,
+  ) => {
     setSaveError(null);
+    const numValue = typeof newValue === 'string' ? parseFloat(newValue) || 0 : newValue;
     try {
       const res = await fetch(`${API_URL}/budget/running-repairs/${month}?fiscal_year=${fiscalYear}`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify({ [field]: numValue }),
       });
-      if (res.ok) {
-        mutateRR();
-        mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
-        setEditingRR(null);
-      } else {
+      if (!res.ok) {
         const errData = await res.json().catch(() => null);
         setSaveError(errData?.error || `Failed to save month (${res.status})`);
+        throw new Error(errData?.error || 'Save failed');
       }
+      mutateRR();
+      mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
     } catch (err) {
       console.error('Failed to update month:', err);
-      setSaveError('Network error — could not save month');
+      if (!saveError) setSaveError('Network error — could not save month');
+      throw err; // re-throw so EditableCell shows error flash
     }
   };
 
@@ -205,26 +209,31 @@ function BudgetContent() {
     ? serviceEvents
     : serviceEvents.filter(se => (se.fleet_segment || se.customer_code) === seSegmentFilter);
 
-  // Update service event budget
-  const handleUpdateServiceEvent = async (id: string, data: Partial<ServiceEventBudget>) => {
+  // Update a single field on a service event budget (used by inline EditableCell)
+  const handleUpdateSEField = async (
+    id: string,
+    field: 'budgeted_car_count' | 'avg_cost_per_car',
+    newValue: string | number,
+  ) => {
     setSaveError(null);
+    const numValue = typeof newValue === 'string' ? parseFloat(newValue) || 0 : newValue;
     try {
       const res = await fetch(`${API_URL}/budget/service-events/${id}`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify(data),
+        body: JSON.stringify({ [field]: numValue }),
       });
-      if (res.ok) {
-        mutateSE();
-        mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
-        setEditingSE(null);
-      } else {
+      if (!res.ok) {
         const errData = await res.json().catch(() => null);
         setSaveError(errData?.error || `Failed to update service event (${res.status})`);
+        throw new Error(errData?.error || 'Save failed');
       }
+      mutateSE();
+      mutate(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`);
     } catch (err) {
       console.error('Failed to update service event:', err);
-      setSaveError('Network error — could not update service event');
+      if (!saveError) setSaveError('Network error — could not update service event');
+      throw err;
     }
   };
 
@@ -408,25 +417,39 @@ function BudgetContent() {
                     <th className="px-4 py-2 text-right">Monthly Budget</th>
                     <th className="px-4 py-2 text-right">Actual</th>
                     <th className="px-4 py-2 text-right">Remaining</th>
-                    <th className="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {runningRepairs.map((rr) => (
-                    <RRRow
-                      key={rr.id}
-                      data={rr}
-                      isEditing={editingRR === rr.id}
-                      onEdit={() => setEditingRR(rr.id)}
-                      onCancel={() => setEditingRR(null)}
-                      onSave={(data) => handleUpdateRRMonth(rr.month, data)}
-                      formatCurrency={formatCurrency}
-                      formatMonth={formatMonth}
-                    />
+                    <tr key={rr.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-2 font-medium">{formatMonth(rr.month)}</td>
+                      <td className="px-4 py-2 text-right">
+                        <EditableCell
+                          value={rr.cars_on_lease}
+                          type="number"
+                          onSave={(v) => handleUpdateRRMonthField(rr.month, 'cars_on_lease', v)}
+                          formatDisplay={(v) => Number(v).toLocaleString()}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(rr.allocation_per_car)}</td>
+                      <td className="px-4 py-2 text-right">{formatCurrency(rr.monthly_budget)}</td>
+                      <td className="px-4 py-2 text-right">
+                        <EditableCell
+                          value={rr.actual_spend}
+                          type="number"
+                          onSave={(v) => handleUpdateRRMonthField(rr.month, 'actual_spend', v)}
+                          formatDisplay={(v) => formatCurrency(Number(v))}
+                          className="text-green-600"
+                        />
+                      </td>
+                      <td className={`px-4 py-2 text-right font-medium ${rr.remaining_budget >= 0 ? '' : 'text-red-600'}`}>
+                        {formatCurrency(rr.remaining_budget)}
+                      </td>
+                    </tr>
                   ))}
                   {runningRepairs.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                         No running repairs budget. Click Recalculate to generate.
                       </td>
                     </tr>
@@ -441,7 +464,6 @@ function BudgetContent() {
                       <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.monthly_budget, 0))}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.actual_spend, 0))}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(runningRepairs.reduce((s, r) => s + r.remaining_budget, 0))}</td>
-                      <td></td>
                     </tr>
                   </tfoot>
                 )}
@@ -489,16 +511,32 @@ function BudgetContent() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredServiceEvents.map((se) => (
-                    <SERow
-                      key={se.id}
-                      data={se}
-                      isEditing={editingSE === se.id}
-                      onEdit={() => setEditingSE(se.id)}
-                      onCancel={() => setEditingSE(null)}
-                      onSave={(data) => handleUpdateServiceEvent(se.id, data)}
-                      onDelete={() => setDeleteConfirmId(se.id)}
-                      formatCurrency={formatCurrency}
-                    />
+                    <tr key={se.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-2 font-medium">{se.event_type}</td>
+                      <td className="px-4 py-2 text-right">
+                        <EditableCell
+                          value={se.budgeted_car_count}
+                          type="number"
+                          onSave={(v) => handleUpdateSEField(se.id, 'budgeted_car_count', v)}
+                          formatDisplay={(v) => Number(v).toLocaleString()}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <EditableCell
+                          value={se.avg_cost_per_car}
+                          type="number"
+                          onSave={(v) => handleUpdateSEField(se.id, 'avg_cost_per_car', v)}
+                          formatDisplay={(v) => formatCurrency(Number(v))}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium">{formatCurrency(se.total_budget)}</td>
+                      <td className="px-4 py-2 text-gray-400">{se.customer_code || se.fleet_segment || 'All'}</td>
+                      <td className="px-4 py-2 text-right">
+                        <button onClick={() => setDeleteConfirmId(se.id)} className="p-1 text-gray-400 hover:text-red-600">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
                   ))}
                   {filteredServiceEvents.length === 0 && (
                     <tr>
@@ -663,167 +701,3 @@ function BudgetContent() {
   );
 }
 
-// Running Repairs Row Component
-function RRRow({
-  data,
-  isEditing,
-  onEdit,
-  onCancel,
-  onSave,
-  formatCurrency,
-  formatMonth,
-}: {
-  data: RunningRepairsBudget;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancel: () => void;
-  onSave: (data: Partial<RunningRepairsBudget>) => void;
-  formatCurrency: (n: number) => string;
-  formatMonth: (m: string) => string;
-}) {
-  const [editData, setEditData] = useState({
-    cars_on_lease: data.cars_on_lease,
-    actual_spend: data.actual_spend,
-  });
-
-  useEffect(() => {
-    setEditData({ cars_on_lease: data.cars_on_lease, actual_spend: data.actual_spend });
-  }, [data]);
-
-  if (isEditing) {
-    return (
-      <tr className="bg-blue-50 dark:bg-blue-900/20">
-        <td className="px-4 py-2 font-medium">{formatMonth(data.month)}</td>
-        <td className="px-4 py-2">
-          <input
-            type="number"
-            value={editData.cars_on_lease}
-            onChange={(e) => setEditData({ ...editData, cars_on_lease: parseInt(e.target.value) || 0 })}
-            className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-          />
-        </td>
-        <td className="px-4 py-2 text-right">{formatCurrency(data.allocation_per_car)}</td>
-        <td className="px-4 py-2 text-right">{formatCurrency(editData.cars_on_lease * data.allocation_per_car)}</td>
-        <td className="px-4 py-2">
-          <input
-            type="number"
-            value={editData.actual_spend}
-            onChange={(e) => setEditData({ ...editData, actual_spend: parseFloat(e.target.value) || 0 })}
-            className="w-28 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-          />
-        </td>
-        <td className="px-4 py-2 text-right">
-          {formatCurrency((editData.cars_on_lease * data.allocation_per_car) - editData.actual_spend)}
-        </td>
-        <td className="px-4 py-2 text-right">
-          <button onClick={() => onSave(editData)} className="p-1 text-green-600 hover:text-green-700">
-            <Save className="w-4 h-4" />
-          </button>
-          <button onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600 ml-1">
-            <X className="w-4 h-4" />
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-      <td className="px-4 py-2 font-medium">{formatMonth(data.month)}</td>
-      <td className="px-4 py-2 text-right">{data.cars_on_lease.toLocaleString()}</td>
-      <td className="px-4 py-2 text-right">{formatCurrency(data.allocation_per_car)}</td>
-      <td className="px-4 py-2 text-right">{formatCurrency(data.monthly_budget)}</td>
-      <td className="px-4 py-2 text-right text-green-600">{formatCurrency(data.actual_spend)}</td>
-      <td className={`px-4 py-2 text-right font-medium ${data.remaining_budget >= 0 ? '' : 'text-red-600'}`}>
-        {formatCurrency(data.remaining_budget)}
-      </td>
-      <td className="px-4 py-2 text-right">
-        <button onClick={onEdit} className="p-1 text-gray-400 hover:text-primary-600">
-          <Edit2 className="w-4 h-4" />
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-// Service Event Row Component
-function SERow({
-  data,
-  isEditing,
-  onEdit,
-  onCancel,
-  onSave,
-  onDelete,
-  formatCurrency,
-}: {
-  data: ServiceEventBudget;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancel: () => void;
-  onSave: (data: Partial<ServiceEventBudget>) => void;
-  onDelete: () => void;
-  formatCurrency: (n: number) => string;
-}) {
-  const [editData, setEditData] = useState({
-    budgeted_car_count: data.budgeted_car_count,
-    avg_cost_per_car: data.avg_cost_per_car,
-  });
-
-  useEffect(() => {
-    setEditData({ budgeted_car_count: data.budgeted_car_count, avg_cost_per_car: data.avg_cost_per_car });
-  }, [data]);
-
-  if (isEditing) {
-    return (
-      <tr className="bg-blue-50 dark:bg-blue-900/20">
-        <td className="px-4 py-2 font-medium">{data.event_type}</td>
-        <td className="px-4 py-2">
-          <input
-            type="number"
-            value={editData.budgeted_car_count}
-            onChange={(e) => setEditData({ ...editData, budgeted_car_count: parseInt(e.target.value) || 0 })}
-            className="w-24 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-          />
-        </td>
-        <td className="px-4 py-2">
-          <input
-            type="number"
-            value={editData.avg_cost_per_car}
-            onChange={(e) => setEditData({ ...editData, avg_cost_per_car: parseFloat(e.target.value) || 0 })}
-            className="w-28 px-2 py-1 border rounded bg-white dark:bg-gray-700 text-right"
-          />
-        </td>
-        <td className="px-4 py-2 text-right font-medium">
-          {formatCurrency(editData.budgeted_car_count * editData.avg_cost_per_car)}
-        </td>
-        <td className="px-4 py-2 text-gray-400">{data.customer_code || data.fleet_segment || 'All'}</td>
-        <td className="px-4 py-2 text-right">
-          <button onClick={() => onSave(editData)} className="p-1 text-green-600 hover:text-green-700">
-            <Save className="w-4 h-4" />
-          </button>
-          <button onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600 ml-1">
-            <X className="w-4 h-4" />
-          </button>
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-      <td className="px-4 py-2 font-medium">{data.event_type}</td>
-      <td className="px-4 py-2 text-right">{data.budgeted_car_count.toLocaleString()}</td>
-      <td className="px-4 py-2 text-right">{formatCurrency(data.avg_cost_per_car)}</td>
-      <td className="px-4 py-2 text-right font-medium">{formatCurrency(data.total_budget)}</td>
-      <td className="px-4 py-2 text-gray-400">{data.customer_code || data.fleet_segment || 'All'}</td>
-      <td className="px-4 py-2 text-right">
-        <button onClick={onEdit} className="p-1 text-gray-400 hover:text-primary-600">
-          <Edit2 className="w-4 h-4" />
-        </button>
-        <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-600 ml-1">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </td>
-    </tr>
-  );
-}

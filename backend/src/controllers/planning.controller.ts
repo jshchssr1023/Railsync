@@ -1,3 +1,4 @@
+import logger from '../config/logger';
 import { Request, Response } from 'express';
 import * as budgetService from '../services/budget.service';
 import * as carImportService from '../services/carImport.service';
@@ -25,7 +26,7 @@ export async function getRunningRepairsBudget(req: Request, res: Response): Prom
 
     res.json({ success: true, data: budget });
   } catch (error: unknown) {
-    console.error('Get running repairs budget error:', error);
+    logger.error({ err: error }, 'Get running repairs budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -44,7 +45,7 @@ export async function updateRunningRepairsBudget(req: Request, res: Response): P
     await logFromRequest(req, 'update', 'running_repairs_budget', month, undefined, req.body);
     res.json({ success: true, data: budget });
   } catch (error: unknown) {
-    console.error('Update running repairs budget error:', error);
+    logger.error({ err: error }, 'Update running repairs budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -61,7 +62,7 @@ export async function calculateRunningRepairsBudget(req: Request, res: Response)
     await logFromRequest(req, 'create', 'running_repairs_budget', String(fiscal_year));
     res.json({ success: true, data: budget });
   } catch (error: unknown) {
-    console.error('Calculate running repairs budget error:', error);
+    logger.error({ err: error }, 'Calculate running repairs budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -74,7 +75,7 @@ export async function getServiceEventBudgets(req: Request, res: Response): Promi
 
     res.json({ success: true, data: budgets });
   } catch (error: unknown) {
-    console.error('Get service event budgets error:', error);
+    logger.error({ err: error }, 'Get service event budgets error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -85,7 +86,7 @@ export async function createServiceEventBudget(req: Request, res: Response): Pro
     await logFromRequest(req, 'create', 'service_event_budget', budget.id);
     res.status(201).json({ success: true, data: budget });
   } catch (error: unknown) {
-    console.error('Create service event budget error:', error);
+    logger.error({ err: error }, 'Create service event budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -97,7 +98,7 @@ export async function getBudgetSummary(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: summary });
   } catch (error: unknown) {
-    console.error('Get budget summary error:', error);
+    logger.error({ err: error }, 'Get budget summary error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -113,7 +114,7 @@ export async function updateServiceEventBudget(req: Request, res: Response): Pro
     await logFromRequest(req, 'update', 'service_event_budget', id);
     res.json({ success: true, data: budget });
   } catch (error: unknown) {
-    console.error('Update service event budget error:', error);
+    logger.error({ err: error }, 'Update service event budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -125,7 +126,7 @@ export async function deleteServiceEventBudget(req: Request, res: Response): Pro
     await logFromRequest(req, 'delete', 'service_event_budget', id);
     res.json({ success: true, message: 'Service event budget deleted' });
   } catch (error: unknown) {
-    console.error('Delete service event budget error:', error);
+    logger.error({ err: error }, 'Delete service event budget error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -149,7 +150,7 @@ export async function listCars(req: Request, res: Response): Promise<void> {
     const result = await carImportService.listCars(filters);
     res.json({ success: true, data: result.cars, total: result.total });
   } catch (error: unknown) {
-    console.error('List cars error:', error);
+    logger.error({ err: error }, 'List cars error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -163,7 +164,7 @@ export async function getCarById(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: car });
   } catch (error: unknown) {
-    console.error('Get car error:', error);
+    logger.error({ err: error }, 'Get car error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -173,7 +174,7 @@ export async function getActiveCarCount(req: Request, res: Response): Promise<vo
     const count = await carImportService.getActiveCarCount();
     res.json({ success: true, data: { count } });
   } catch (error: unknown) {
-    console.error('Get active car count error:', error);
+    logger.error({ err: error }, 'Get active car count error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -196,7 +197,7 @@ export async function importCars(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import cars error:', error);
+    logger.error({ err: error }, 'Import cars error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -211,7 +212,7 @@ export async function getForecast(req: Request, res: Response): Promise<void> {
     const forecast = await forecastService.getMaintenanceForecast(fiscalYear);
     res.json({ success: true, data: forecast });
   } catch (error: unknown) {
-    console.error('Get forecast error:', error);
+    logger.error({ err: error }, 'Get forecast error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -222,7 +223,7 @@ export async function getForecastTrends(req: Request, res: Response): Promise<vo
     const trends = await forecastService.getForecastTrends(fiscalYear);
     res.json({ success: true, data: trends });
   } catch (error: unknown) {
-    console.error('Get forecast trends error:', error);
+    logger.error({ err: error }, 'Get forecast trends error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -245,7 +246,7 @@ export async function listDemands(req: Request, res: Response): Promise<void> {
     const result = await demandService.listDemands(filters);
     res.json({ success: true, data: result.demands, total: result.total });
   } catch (error: unknown) {
-    console.error('List demands error:', error);
+    logger.error({ err: error }, 'List demands error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -259,7 +260,7 @@ export async function getDemandById(req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, data: demand });
   } catch (error: unknown) {
-    console.error('Get demand error:', error);
+    logger.error({ err: error }, 'Get demand error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -270,7 +271,7 @@ export async function createDemand(req: Request, res: Response): Promise<void> {
     await logFromRequest(req, 'create', 'demand', demand.id);
     res.status(201).json({ success: true, data: demand });
   } catch (error: unknown) {
-    console.error('Create demand error:', error);
+    logger.error({ err: error }, 'Create demand error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -285,7 +286,7 @@ export async function updateDemand(req: Request, res: Response): Promise<void> {
     await logFromRequest(req, 'update', 'demand', demand.id);
     res.json({ success: true, data: demand });
   } catch (error: unknown) {
-    console.error('Update demand error:', error);
+    logger.error({ err: error }, 'Update demand error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -301,7 +302,7 @@ export async function updateDemandStatus(req: Request, res: Response): Promise<v
     await logFromRequest(req, 'update', 'demand', demand.id, undefined, { status });
     res.json({ success: true, data: demand });
   } catch (error: unknown) {
-    console.error('Update demand status error:', error);
+    logger.error({ err: error }, 'Update demand status error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -312,7 +313,7 @@ export async function deleteDemand(req: Request, res: Response): Promise<void> {
     await logFromRequest(req, 'delete', 'demand', req.params.id);
     res.json({ success: true, message: 'Demand deleted' });
   } catch (error: unknown) {
-    console.error('Delete demand error:', error);
+    logger.error({ err: error }, 'Delete demand error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -335,7 +336,7 @@ export async function getCapacity(req: Request, res: Response): Promise<void> {
     const capacity = await planningService.getShopCapacity(startMonth, endMonth, network);
     res.json({ success: true, data: capacity });
   } catch (error: unknown) {
-    console.error('Get capacity error:', error);
+    logger.error({ err: error }, 'Get capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -347,7 +348,7 @@ export async function updateCapacity(req: Request, res: Response): Promise<void>
     await logFromRequest(req, 'update', 'shop_capacity', `${shopCode}:${month}`);
     res.json({ success: true, data: capacity });
   } catch (error: unknown) {
-    console.error('Update capacity error:', error);
+    logger.error({ err: error }, 'Update capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -359,7 +360,7 @@ export async function initializeCapacity(req: Request, res: Response): Promise<v
     await logFromRequest(req, 'create', 'shop_capacity', 'bulk');
     res.json({ success: true, data: { initialized: count } });
   } catch (error: unknown) {
-    console.error('Initialize capacity error:', error);
+    logger.error({ err: error }, 'Initialize capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -370,7 +371,7 @@ export async function getCapacityCars(req: Request, res: Response): Promise<void
     const cars = await planningService.getCarsForShopMonth(shopCode, month);
     res.json({ success: true, data: cars });
   } catch (error: unknown) {
-    console.error('Get capacity cars error:', error);
+    logger.error({ err: error }, 'Get capacity cars error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -384,7 +385,7 @@ export async function listScenarios(req: Request, res: Response): Promise<void> 
     const scenarios = await planningService.listScenarios();
     res.json({ success: true, data: scenarios });
   } catch (error: unknown) {
-    console.error('List scenarios error:', error);
+    logger.error({ err: error }, 'List scenarios error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -395,7 +396,7 @@ export async function createScenario(req: Request, res: Response): Promise<void>
     await logFromRequest(req, 'create', 'scenario', scenario.id);
     res.status(201).json({ success: true, data: scenario });
   } catch (error: unknown) {
-    console.error('Create scenario error:', error);
+    logger.error({ err: error }, 'Create scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -410,7 +411,7 @@ export async function updateScenario(req: Request, res: Response): Promise<void>
     await logFromRequest(req, 'update', 'scenario', scenario.id);
     res.json({ success: true, data: scenario });
   } catch (error: unknown) {
-    console.error('Update scenario error:', error);
+    logger.error({ err: error }, 'Update scenario error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -433,7 +434,7 @@ export async function listAllocations(req: Request, res: Response): Promise<void
     const result = await planningService.listAllocations(filters);
     res.json({ success: true, data: result.allocations, total: result.total });
   } catch (error: unknown) {
-    console.error('List allocations error:', error);
+    logger.error({ err: error }, 'List allocations error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -461,7 +462,7 @@ export async function generateAllocations(req: Request, res: Response): Promise<
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Generate allocations error:', error);
+    logger.error({ err: error }, 'Generate allocations error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -477,7 +478,7 @@ export async function updateAllocationStatus(req: Request, res: Response): Promi
     await logFromRequest(req, 'update', 'allocation', allocation.id, undefined, { status });
     res.json({ success: true, data: allocation });
   } catch (error: unknown) {
-    console.error('Update allocation status error:', error);
+    logger.error({ err: error }, 'Update allocation status error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -518,7 +519,7 @@ export async function assignAllocation(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: result.allocation });
   } catch (error: unknown) {
-    console.error('Assign allocation error:', error);
+    logger.error({ err: error }, 'Assign allocation error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -574,7 +575,7 @@ export async function createAllocation(req: Request, res: Response): Promise<voi
 
     res.status(201).json({ success: true, data: allocation });
   } catch (error: unknown) {
-    console.error('Create allocation error:', error);
+    logger.error({ err: error }, 'Create allocation error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -588,7 +589,7 @@ export async function getShopMonthlyCapacity(req: Request, res: Response): Promi
 
     res.json({ success: true, data: capacity });
   } catch (error: unknown) {
-    console.error('Get shop monthly capacity error:', error);
+    logger.error({ err: error }, 'Get shop monthly capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -616,7 +617,7 @@ export async function importBRC(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import BRC error:', error);
+    logger.error({ err: error }, 'Import BRC error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -630,7 +631,7 @@ export async function getBRCHistory(req: Request, res: Response): Promise<void> 
     const history = await brcService.getBRCHistory(startDate, endDate, limit);
     res.json({ success: true, data: history });
   } catch (error: unknown) {
-    console.error('Get BRC history error:', error);
+    logger.error({ err: error }, 'Get BRC history error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -644,7 +645,7 @@ export async function listWidgets(req: Request, res: Response): Promise<void> {
     const widgets = await dashboardService.listWidgets();
     res.json({ success: true, data: widgets });
   } catch (error: unknown) {
-    console.error('List widgets error:', error);
+    logger.error({ err: error }, 'List widgets error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -654,7 +655,7 @@ export async function listDashboardConfigs(req: Request, res: Response): Promise
     const configs = await dashboardService.listDashboardConfigs(req.user!.id);
     res.json({ success: true, data: configs });
   } catch (error: unknown) {
-    console.error('List dashboard configs error:', error);
+    logger.error({ err: error }, 'List dashboard configs error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -669,7 +670,7 @@ export async function getDashboardConfig(req: Request, res: Response): Promise<v
     }
     res.json({ success: true, data: config });
   } catch (error: unknown) {
-    console.error('Get dashboard config error:', error);
+    logger.error({ err: error }, 'Get dashboard config error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -686,7 +687,7 @@ export async function createDashboardConfig(req: Request, res: Response): Promis
     await logFromRequest(req, 'create', 'dashboard_config', config.id, undefined, { name });
     res.status(201).json({ success: true, data: config });
   } catch (error: unknown) {
-    console.error('Create dashboard config error:', error);
+    logger.error({ err: error }, 'Create dashboard config error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -702,7 +703,7 @@ export async function updateDashboardConfig(req: Request, res: Response): Promis
     await logFromRequest(req, 'update', 'dashboard_config', id, undefined, req.body);
     res.json({ success: true, data: config });
   } catch (error: unknown) {
-    console.error('Update dashboard config error:', error);
+    logger.error({ err: error }, 'Update dashboard config error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -718,7 +719,7 @@ export async function deleteDashboardConfig(req: Request, res: Response): Promis
     await logFromRequest(req, 'delete', 'dashboard_config', id);
     res.json({ success: true, message: 'Dashboard config deleted' });
   } catch (error: unknown) {
-    console.error('Delete dashboard config error:', error);
+    logger.error({ err: error }, 'Delete dashboard config error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }

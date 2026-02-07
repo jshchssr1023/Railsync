@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import logger from '../config/logger';
 
 // Event types for capacity changes
 export interface CapacityChangeEvent {
@@ -52,7 +53,7 @@ class CapacityEventEmitter extends EventEmitter {
    */
   emitCapacityChange(event: CapacityChangeEvent): void {
     this.emit('capacity-change', event);
-    console.log(`[SSE] Emitted ${event.type} for ${event.shopCode}/${event.month}`);
+    logger.info(`[SSE] Emitted ${event.type} for ${event.shopCode}/${event.month}`);
   }
 
   /**

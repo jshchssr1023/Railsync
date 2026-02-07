@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as releaseService from '../services/release.service';
 
 /**
@@ -10,7 +11,7 @@ export async function initiateRelease(req: Request, res: Response): Promise<void
     const result = await releaseService.initiateRelease(req.body, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error initiating release:', error);
+    logger.error({ err: error }, 'Error initiating release');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -31,7 +32,7 @@ export async function listReleases(req: Request, res: Response): Promise<void> {
     const result = await releaseService.listReleases(filters);
     res.json({ success: true, data: result.releases, total: result.total });
   } catch (error) {
-    console.error('Error listing releases:', error);
+    logger.error({ err: error }, 'Error listing releases');
     res.status(500).json({ success: false, error: 'Failed to list releases' });
   }
 }
@@ -44,7 +45,7 @@ export async function getActiveReleases(req: Request, res: Response): Promise<vo
     const result = await releaseService.getActiveReleasesView();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching active releases:', error);
+    logger.error({ err: error }, 'Error fetching active releases');
     res.status(500).json({ success: false, error: 'Failed to get active releases' });
   }
 }
@@ -61,7 +62,7 @@ export async function getRelease(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching release:', error);
+    logger.error({ err: error }, 'Error fetching release');
     res.status(500).json({ success: false, error: 'Failed to get release' });
   }
 }
@@ -75,7 +76,7 @@ export async function approveRelease(req: Request, res: Response): Promise<void>
     const result = await releaseService.approveRelease(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error approving release:', error);
+    logger.error({ err: error }, 'Error approving release');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -89,7 +90,7 @@ export async function executeRelease(req: Request, res: Response): Promise<void>
     const result = await releaseService.executeRelease(req.params.id, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error executing release:', error);
+    logger.error({ err: error }, 'Error executing release');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -103,7 +104,7 @@ export async function completeRelease(req: Request, res: Response): Promise<void
     const result = await releaseService.completeRelease(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error completing release:', error);
+    logger.error({ err: error }, 'Error completing release');
     res.status(400).json({ success: false, error: error.message });
   }
 }
@@ -122,7 +123,7 @@ export async function cancelRelease(req: Request, res: Response): Promise<void> 
     const result = await releaseService.cancelRelease(req.params.id, userId, reason);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error cancelling release:', error);
+    logger.error({ err: error }, 'Error cancelling release');
     res.status(400).json({ success: false, error: error.message });
   }
 }

@@ -5,6 +5,7 @@
  */
 
 import { query, queryOne } from '../config/database';
+import { getAllCircuitBreakerStatuses, CircuitBreakerStatus } from './circuit-breaker';
 
 interface HealthDashboard {
   database: {
@@ -40,6 +41,7 @@ interface HealthDashboard {
     status: string;
     last_sync: string | null;
   }[];
+  circuit_breakers: CircuitBreakerStatus[];
 }
 
 export async function getHealthDashboard(): Promise<HealthDashboard> {
@@ -156,5 +158,6 @@ export async function getHealthDashboard(): Promise<HealthDashboard> {
       total: feedbackStats?.total || 0,
     },
     integrations,
+    circuit_breakers: getAllCircuitBreakerStatuses(),
   };
 }

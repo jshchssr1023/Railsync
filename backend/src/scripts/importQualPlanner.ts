@@ -5,6 +5,7 @@
  */
 
 import * as fs from 'fs';
+import logger from '../config/logger';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { Pool } from 'pg';
@@ -84,7 +85,7 @@ function parseAge(ageStr: string): number | null {
 }
 
 async function importQualPlanner(csvPath: string) {
-  console.log(`Reading CSV from: ${csvPath}`);
+  logger.info(`Reading CSV from: ${csvPath}`);
 
   const fileContent = fs.readFileSync(csvPath, 'utf-8');
 
@@ -94,7 +95,7 @@ async function importQualPlanner(csvPath: string) {
     trim: true,
   });
 
-  console.log(`Found ${records.length} records to import`);
+  logger.info(`Found ${records.length} records to import`);
 
   let imported = 0;
   let updated = 0;
@@ -106,7 +107,7 @@ async function importQualPlanner(csvPath: string) {
       const carNumber = row['Car Mark'] || `${row['Mark']}${row['Number']}`;
 
       if (!carNumber || carNumber.trim() === '') {
-        console.warn('Skipping row with no car number');
+        logger.warn('Skipping row with no car number');
         continue;
       }
 
@@ -252,19 +253,19 @@ async function importQualPlanner(csvPath: string) {
       }
 
       if ((imported + updated) % 100 === 0) {
-        console.log(`Progress: ${imported} imported, ${updated} updated`);
+        logger.info(`Progress: ${imported} imported, ${updated} updated`);
       }
     } catch (err) {
       errors++;
-      console.error(`Error importing row:`, err);
+      logger.error({ err: err }, `Error importing row`);
     }
   }
 
-  console.log('\n=== Import Complete ===');
-  console.log(`Imported: ${imported}`);
-  console.log(`Updated: ${updated}`);
-  console.log(`Errors: ${errors}`);
-  console.log(`Total: ${imported + updated + errors}`);
+  logger.info('\n=== Import Complete ===');
+  logger.info(`Imported: ${imported}`);
+  logger.info(`Updated: ${updated}`);
+  logger.info(`Errors: ${errors}`);
+  logger.info(`Total: ${imported + updated + errors}`);
 
   await pool.end();
 }
@@ -272,17 +273,17 @@ async function importQualPlanner(csvPath: string) {
 // Run if called directly
 const csvPath = process.argv[2];
 if (!csvPath) {
-  console.error('Usage: npx ts-node src/scripts/importQualPlanner.ts <path-to-csv>');
+  logger.error('Usage: npx ts-node src/scripts/importQualPlanner.ts <path-to-csv>');
   process.exit(1);
 }
 
 const resolvedPath = path.resolve(csvPath);
 if (!fs.existsSync(resolvedPath)) {
-  console.error(`File not found: ${resolvedPath}`);
+  logger.error(`File not found: ${resolvedPath}`);
   process.exit(1);
 }
 
 importQualPlanner(resolvedPath).catch((err) => {
-  console.error('Import failed:', err);
+  logger.error({ err: err }, 'Import failed');
   process.exit(1);
 });

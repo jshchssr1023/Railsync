@@ -25,10 +25,10 @@ async function waitForDb(maxRetries = 10, delayMs = 1000) {
     try {
       const client = await pool.connect();
       client.release();
-      console.log('Database connected successfully');
+      logger.info('Database connected successfully');
       return;
     } catch (err: any) {
-      console.warn(`DB connection attempt ${i}/${maxRetries} failed. Retrying in ${delayMs}ms...`);
+      logger.warn(`DB connection attempt ${i}/${maxRetries} failed. Retrying in ${delayMs}ms...`);
       if (i === maxRetries) throw err;
       await new Promise((res) => setTimeout(res, delayMs));
     }
@@ -45,7 +45,7 @@ async function startServer() {
 
     // Start server
     app.listen(PORT, () => {
-      console.log(`
+      logger.info(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   Railsync Shop Loading Tool API                          ║
@@ -67,20 +67,20 @@ async function startServer() {
       `);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error({ err: error }, 'Failed to start server');
     process.exit(1);
   }
 }
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
+  logger.info('SIGTERM received. Shutting down gracefully...');
   await pool.end();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('SIGINT received. Shutting down gracefully...');
+  logger.info('SIGINT received. Shutting down gracefully...');
   await pool.end();
   process.exit(0);
 });

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as componentService from '../services/component.service';
 
 /**
@@ -19,7 +20,7 @@ export async function listComponents(req: Request, res: Response): Promise<void>
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing components:', error);
+    logger.error({ err: error }, 'Error listing components');
     res.status(500).json({ success: false, error: 'Failed to list components' });
   }
 }
@@ -36,7 +37,7 @@ export async function getComponentStats(req: Request, res: Response): Promise<vo
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching component stats:', error);
+    logger.error({ err: error }, 'Error fetching component stats');
     res.status(500).json({ success: false, error: 'Failed to get component stats' });
   }
 }
@@ -58,7 +59,7 @@ export async function getComponent(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching component:', error);
+    logger.error({ err: error }, 'Error fetching component');
     res.status(500).json({ success: false, error: 'Failed to get component' });
   }
 }
@@ -98,7 +99,7 @@ export async function createComponent(req: Request, res: Response): Promise<void
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating component:', error);
+    logger.error({ err: error }, 'Error creating component');
     res.status(500).json({ success: false, error: 'Failed to create component' });
   }
 }
@@ -121,7 +122,7 @@ export async function updateComponent(req: Request, res: Response): Promise<void
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error updating component:', error);
+    logger.error({ err: error }, 'Error updating component');
     res.status(500).json({ success: false, error: 'Failed to update component' });
   }
 }
@@ -156,7 +157,7 @@ export async function replaceComponent(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error replacing component:', error);
+    logger.error({ err: error }, 'Error replacing component');
     res.status(500).json({ success: false, error: 'Failed to replace component' });
   }
 }
@@ -180,7 +181,7 @@ export async function removeComponent(req: Request, res: Response): Promise<void
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error removing component:', error);
+    logger.error({ err: error }, 'Error removing component');
     res.status(500).json({ success: false, error: 'Failed to remove component' });
   }
 }
@@ -207,7 +208,7 @@ export async function recordInspection(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error recording inspection:', error);
+    logger.error({ err: error }, 'Error recording inspection');
     res.status(500).json({ success: false, error: 'Failed to record inspection' });
   }
 }
@@ -229,7 +230,7 @@ export async function getComponentHistory(req: Request, res: Response): Promise<
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching component history:', error);
+    logger.error({ err: error }, 'Error fetching component history');
     res.status(500).json({ success: false, error: 'Failed to get component history' });
   }
 }
@@ -246,7 +247,7 @@ export async function getCarComponents(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching car components:', error);
+    logger.error({ err: error }, 'Error fetching car components');
     res.status(500).json({ success: false, error: 'Failed to get car components' });
   }
 }

@@ -17,10 +17,13 @@ import {
   Trash2,
   RefreshCw,
   ChevronRight,
+  ChevronDown,
   User,
   X,
   Loader2,
 } from 'lucide-react';
+import ActivityTimeline from '@/components/ActivityTimeline';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 // ==============================================================================
 // Types
@@ -223,6 +226,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [pendingDeleteAttachmentId, setPendingDeleteAttachmentId] = useState<string | null>(null);
   const toast = useToast();
   const { confirmDialogProps: transitionConfirmProps, requestTransition } = useTransitionConfirm();
+
+  // Activity history from generic audit logs
+  const {
+    entries: auditLogEntries,
+    loading: auditLogLoading,
+  } = useAuditLog({ entity_type: 'invoice', entity_id: id, limit: 50 });
+  const [activityCollapsed, setActivityCollapsed] = useState(true);
 
   const getToken = () => getAccessToken() || localStorage.getItem('railsync_access_token');
 
@@ -1005,6 +1015,41 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       )}
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Activity History (Audit Trail Timeline)                          */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setActivityCollapsed(!activityCollapsed)}
+          className="px-4 py-3 flex items-center gap-2 w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 transition-transform ${
+              activityCollapsed ? '-rotate-90' : ''
+            }`}
+          />
+          <div className="text-left">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              Activity History
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Full audit trail timeline for this invoice
+            </p>
+          </div>
+        </button>
+        {!activityCollapsed && (
+          <div className="px-4 pb-4">
+            <ActivityTimeline
+              entries={auditLogEntries}
+              loading={auditLogLoading}
+              maxHeight="400px"
+              emptyMessage="No activity recorded for this invoice."
+            />
+          </div>
+        )}
+      </div>
 
       {/* Workflow Transition Confirm Dialog */}
       <ConfirmDialog {...transitionConfirmProps} />
