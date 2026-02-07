@@ -52,6 +52,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Shopping Events', href: '/shopping', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Quick Shop', href: '/planning', icon: <Zap className="w-4 h-4" /> },
       { label: 'Bad Orders', href: '/bad-orders', icon: <AlertTriangle className="w-4 h-4" /> },
+      { label: 'Service Events', href: '/service-events', icon: <Calendar className="w-4 h-4" /> },
       { label: 'Releases', href: '/releases', icon: <Package className="w-4 h-4" /> },
       { label: 'Shop Finder', href: '/shops', icon: <Factory className="w-4 h-4" /> },
     ],
@@ -73,6 +74,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     icon: <FileText className="w-5 h-5" />,
     children: [
       { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
+      { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
       { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
       { label: 'Projects', href: '/projects', icon: <Package className="w-4 h-4" /> },
     ],
@@ -98,6 +100,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'Case Queue', href: '/invoice-cases', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Invoices', href: '/invoices', icon: <FileText className="w-4 h-4" /> },
+      { label: 'Estimates', href: '/estimates', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
@@ -130,6 +133,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
       { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
+      { label: 'Data Validation', href: '/admin/data-validation', icon: <Shield className="w-4 h-4" /> },
       { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },

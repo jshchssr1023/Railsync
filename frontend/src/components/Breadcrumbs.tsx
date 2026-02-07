@@ -39,11 +39,15 @@ const ROUTE_LABELS: Record<string, string> = {
   'fleet-location': 'Fleet Location',
   monitoring: 'System Monitoring',
   'commodity-cleaning': 'Commodity Cleaning',
+  'data-validation': 'Data Validation',
   releases: 'Release Management',
   transfers: 'Contract Transfers',
   training: 'Training Center',
   'sap-validation': 'SAP Validation',
   'components-registry': 'Components',
+  riders: 'Contract Riders',
+  'service-events': 'Service Events',
+  estimates: 'Estimate Review',
   new: 'New Shopping Request',
 };
 

@@ -434,6 +434,19 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | 060 | **System mode + incidents**: system_settings, go_live_incidents |
 | 061 | **User feedback**: user_feedback table with status workflow |
 
+| 062 | **Report builder**: report_configs, saved_reports, report_schedules |
+
+---
+
+## Test Infrastructure
+
+| Area | Files | Coverage |
+|------|-------|----------|
+| **Backend unit tests** | 21 files in `backend/src/tests/` | allocation, badOrder, billing, budget, contracts, dashboard, demand, go-live-incidents, invoice-case, invoice-validation, masterPlan, migration-pipeline, parallel-run, qualification, report-builder, sap-integration, scope-of-work, shopping-event, system-mode, transition-log |
+| **Backend E2E test** | 1 file (`e2e-workflow.test.ts`) | Shopping lifecycle (12 states), Invoice case workflow (10 states), Cross-process integration |
+| **Frontend component tests** | 21 files in `frontend/src/__tests__/` | Analytics, BadOrders, Billing, Budget, Cars, ComponentRegistry, ConfirmDialog, Contracts, Dashboard, ErrorBoundary, InvoiceCases, Invoices, PageSkeleton, Pipeline, Plans, Projects, Qualifications, Reports, Rules, Settings, Shopping |
+| **CI/CD** | `.github/workflows/ci.yml` | Backend (tsc + jest + coverage), Frontend (jest + build), Database schema validation, Docker build |
+
 ---
 
 ## Demo Ready
@@ -471,6 +484,8 @@ All features are complete.
 - http://localhost:3000/training - Training center (7 modules with progress tracking)
 - http://localhost:3000/admin/monitoring - System health, performance, feedback management
 - http://localhost:3000/admin/commodity-cleaning - Commodity cleaning matrix (admin)
+- http://localhost:3000/admin/data-validation - Cross-module data integrity checks (admin)
+- http://localhost:3000/fleet-location - CLM-based car location tracking
 - http://localhost:3000/admin - Admin panel (users, rules, shop designations)
 - http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search

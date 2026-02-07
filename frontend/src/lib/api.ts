@@ -210,6 +210,93 @@ export async function updateRule(
   return response.data;
 }
 
+export async function createRule(
+  rule: Omit<EligibilityRule, 'rule_id'> & { rule_id?: string }
+): Promise<EligibilityRule> {
+  const response = await fetchApi<EligibilityRule>('/rules', {
+    method: 'POST',
+    body: JSON.stringify(rule),
+  });
+  if (!response.data) throw new Error('Failed to create rule');
+  return response.data;
+}
+
+// Service Events API
+export async function listServiceEvents(params?: { status?: string; shop_code?: string }): Promise<ServiceEvent[]> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.shop_code) qs.set('shop_code', params.shop_code);
+  const response = await fetchApi<ServiceEvent[]>(`/service-events?${qs.toString()}`);
+  return response.data || [];
+}
+
+export async function getServiceEvent(eventId: string): Promise<ServiceEvent> {
+  const response = await fetchApi<ServiceEvent>(`/service-events/${eventId}`);
+  if (!response.data) throw new Error('Service event not found');
+  return response.data;
+}
+
+export async function createServiceEvent(data: Partial<ServiceEvent>): Promise<ServiceEvent> {
+  const response = await fetchApi<ServiceEvent>('/service-events', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to create service event');
+  return response.data;
+}
+
+export async function updateServiceEventStatus(eventId: string, status: string): Promise<ServiceEvent> {
+  const response = await fetchApi<ServiceEvent>(`/service-events/${eventId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+  if (!response.data) throw new Error('Failed to update service event status');
+  return response.data;
+}
+
+// Riders API
+export async function listRiders(params?: { contract_id?: string }): Promise<any[]> {
+  const qs = new URLSearchParams();
+  if (params?.contract_id) qs.set('contract_id', params.contract_id);
+  const response = await fetchApi<any[]>(`/riders?${qs.toString()}`);
+  return response.data || [];
+}
+
+export async function getRider(riderId: string): Promise<any> {
+  const response = await fetchApi<any>(`/riders/${riderId}`);
+  if (!response.data) throw new Error('Rider not found');
+  return response.data;
+}
+
+export async function getRiderCars(riderId: string): Promise<any[]> {
+  const response = await fetchApi<any[]>(`/riders/${riderId}/cars`);
+  return response.data || [];
+}
+
+export async function getRiderAmendments(riderId: string): Promise<any[]> {
+  const response = await fetchApi<any[]>(`/riders/${riderId}/amendments`);
+  return response.data || [];
+}
+
+export async function updateRider(riderId: string, data: any): Promise<any> {
+  const response = await fetchApi<any>(`/riders/${riderId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.data) throw new Error('Failed to update rider');
+  return response.data;
+}
+
+// Estimates API
+export async function updateEstimateStatus(estimateId: string, status: string): Promise<any> {
+  const response = await fetchApi<any>(`/estimates/${estimateId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+  if (!response.data) throw new Error('Failed to update estimate status');
+  return response.data;
+}
+
 // Health Check
 export async function healthCheck(): Promise<{
   status: string;

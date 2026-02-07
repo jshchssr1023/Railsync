@@ -5417,4 +5417,15 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Data Validation (admin)
+router.get('/admin/data-validation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runFullValidation } = await import('../services/data-validation.service');
+    const data = await runFullValidation();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Data validation failed' });
+  }
+});
+
 export default router;
