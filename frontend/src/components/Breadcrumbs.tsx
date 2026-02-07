@@ -57,6 +57,9 @@ const ROUTE_LABELS: Record<string, string> = {
   'shopping-types': 'Shopping Types',
   'shopping-reasons': 'Shopping Reasons',
   'service-plans': 'Service Plans',
+  'storage-commodities': 'Storage Commodities',
+  'work-hours': 'Work Hours',
+  alerts: 'Alerts',
   new: 'New Shopping Request',
 };
 
