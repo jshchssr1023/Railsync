@@ -97,6 +97,13 @@ export async function rematchInvoice(req: Request, res: Response): Promise<void>
 export async function getInvoice(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
+    // Validate UUID format to prevent PostgreSQL type errors when
+    // non-UUID strings (e.g. "pending") match the :id wildcard route
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
     const invoice = await invoiceService.getInvoice(id);
     if (!invoice) {
       res.status(404).json({ error: 'Invoice not found' });
