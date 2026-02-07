@@ -5091,6 +5091,45 @@ router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('adm
 });
 
 // ============================================================================
+// Alert Engine Routes
+// ============================================================================
+
+router.post('/alerts/generate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runAlertGeneration } = await import('../services/alert-engine.service');
+    const data = await runAlertGeneration();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getAlertStats } = await import('../services/alert-engine.service');
+    const data = await getAlertStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/alerts', authenticate, async (req, res) => {
+  try {
+    const { getActiveAlerts } = await import('../services/alert-engine.service');
+    const userId = (req as any).user?.id;
+    const role = (req as any).user?.role;
+    const data = await getActiveAlerts(userId, role);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
+  try {
+    const { dismissAlert } = await import('../services/alert-engine.service');
+    const userId = (req as any).user?.id;
+    await dismissAlert(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ============================================================================
 // Forecast & Freight Routes
 // ============================================================================
 
@@ -5314,6 +5353,41 @@ router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('adm
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Report export (HTML + CSV)
+router.get('/reports/templates', authenticate, async (req, res) => {
+  try {
+    const { listTemplates } = await import('../services/report-builder.service');
+    const data = listTemplates();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/reports/run', authenticate, async (req, res) => {
+  try {
+    const { runReport } = await import('../services/report-builder.service');
+    const { templateId, filters } = req.body;
+    if (!templateId) { res.status(400).json({ success: false, error: 'templateId required' }); return; }
+    const data = await runReport(templateId, filters || {});
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/reports/export/:templateId', authenticate, async (req, res) => {
+  try {
+    const { runReport, getTemplate, toCSV, toHTML } = await import('../services/report-builder.service');
+    const format = (req.query.format as string) || 'csv';
+    const template = getTemplate(req.params.templateId);
+    if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
+    const data = await runReport(req.params.templateId, req.query as any);
+    if (format === 'html') {
+      res.setHeader('Content-Type', 'text/html');
+      res.send(toHTML(template, data.rows));
+    } else {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/\s/g, '_')}_report.csv"`);
+      res.send(toCSV(data));
+    }
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // CLM single car on-demand lookup

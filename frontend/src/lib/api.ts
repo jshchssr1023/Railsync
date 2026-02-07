@@ -3199,3 +3199,79 @@ export async function getProjectAuditEvents(projectId: string, carNumber?: strin
   const response = await fetchApi<any>(`/projects/${encodeURIComponent(projectId)}/audit${qs ? `?${qs}` : ''}`);
   return response.data;
 }
+
+// ============================================================================
+// Report Builder
+// ============================================================================
+
+export async function getReportTemplates() {
+  const response = await fetchApi('/reports/templates');
+  return response.data;
+}
+
+export async function runReport(templateId: string, filters?: Record<string, string>) {
+  const response = await fetchApi('/reports/run', {
+    method: 'POST',
+    body: JSON.stringify({ templateId, filters }),
+  });
+  return response.data;
+}
+
+export function getReportExportUrl(templateId: string, format: 'csv' | 'html', filters?: Record<string, string>) {
+  const params = new URLSearchParams({ format, ...filters });
+  return `/api/reports/export/${templateId}?${params}`;
+}
+
+// ============================================================================
+// FLEET LOCATION (CLM Integration)
+// ============================================================================
+
+// Fleet location
+export async function getCarLocations(filters?: { location_type?: string; railroad?: string; state?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.location_type) params.set('location_type', filters.location_type);
+  if (filters?.railroad) params.set('railroad', filters.railroad);
+  if (filters?.state) params.set('state', filters.state);
+  const qs = params.toString();
+  const response = await fetchApi<unknown>(`/car-locations${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
+
+export async function getCarLocationByNumber(carNumber: string) {
+  const response = await fetchApi(`/car-locations/${encodeURIComponent(carNumber)}`);
+  return response.data;
+}
+
+export async function getCarLocationHistory(carNumber: string) {
+  const response = await fetchApi(`/car-locations/${encodeURIComponent(carNumber)}/history`);
+  return response.data;
+}
+
+export async function syncCLMLocations() {
+  const response = await fetchApi('/integrations/clm/sync', { method: 'POST' });
+  return response.data;
+}
+
+// ============================================================================
+// Alerts
+// ============================================================================
+
+export async function generateAlerts() {
+  const response = await fetchApi('/alerts/generate', { method: 'POST' });
+  return response.data;
+}
+
+export async function getActiveAlerts() {
+  const response = await fetchApi('/alerts');
+  return response.data;
+}
+
+export async function dismissAlert(alertId: string) {
+  const response = await fetchApi(`/alerts/${alertId}/dismiss`, { method: 'PUT' });
+  return response;
+}
+
+export async function getAlertStats() {
+  const response = await fetchApi('/alerts/stats');
+  return response.data;
+}

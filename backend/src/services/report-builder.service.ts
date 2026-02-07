@@ -368,6 +368,82 @@ export function toCSV(result: ReportResult): string {
 }
 
 // ============================================================================
+// HTML EXPORT (browser-based PDF printing)
+// ============================================================================
+
+/**
+ * Generate a printable HTML report.
+ * Users can print to PDF from their browser.
+ */
+export function toHTML(
+  template: ReportTemplate,
+  data: any[],
+  title?: string
+): string {
+  const reportTitle = title || template.name;
+  const now = new Date().toLocaleString('en-US');
+
+  const columns = template.available_columns.filter(col =>
+    template.default_columns.includes(col.key)
+  );
+
+  const headerRow = columns
+    .map(col => `<th style="padding:8px 12px;text-align:left;border-bottom:2px solid #374151;font-weight:600;white-space:nowrap;">${col.label}</th>`)
+    .join('');
+
+  const dataRows = data.map((row, idx) => {
+    const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+    const cells = columns.map(col => {
+      let value = row[col.key] ?? '';
+      if (col.type === 'currency' && typeof value === 'number') {
+        value = `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      } else if (col.type === 'date' && value) {
+        value = new Date(value).toLocaleDateString('en-US');
+      } else if (col.type === 'number' && typeof value === 'number') {
+        value = value.toLocaleString('en-US');
+      }
+      return `<td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${value}</td>`;
+    }).join('');
+    return `<tr style="background:${bgColor};">${cells}</tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${reportTitle} - RailSync Report</title>
+<style>
+  @media print {
+    body { margin: 0; padding: 20px; }
+    .no-print { display: none; }
+    @page { margin: 0.5in; size: landscape; }
+  }
+  body { font-family: 'Segoe UI', Roboto, sans-serif; color: #111827; max-width: 1200px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  .meta { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .footer { margin-top: 24px; text-align: center; color: #9ca3af; font-size: 11px; }
+  .actions { margin-bottom: 16px; }
+  .actions button { padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .actions button:hover { background: #1d4ed8; }
+</style>
+</head>
+<body>
+<div class="actions no-print">
+  <button onclick="window.print()">Print / Save as PDF</button>
+</div>
+<h1>${reportTitle}</h1>
+<p class="meta">Generated: ${now} | Records: ${data.length} | RailSync Platform</p>
+<table>
+  <thead><tr>${headerRow}</tr></thead>
+  <tbody>${dataRows}</tbody>
+</table>
+<div class="footer">RailSync Platform &copy; 2026 AITX Fleet Operations</div>
+</body>
+</html>`;
+}
+
+// ============================================================================
 // SAVED REPORTS (DB-backed)
 // ============================================================================
 

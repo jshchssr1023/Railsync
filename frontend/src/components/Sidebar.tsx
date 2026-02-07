@@ -13,7 +13,7 @@ import {
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
-  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare
+  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +103,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
       { label: 'Cost Analytics', href: '/cost-analytics', icon: <TrendingUp className="w-4 h-4" /> },
       { label: 'Shop Performance', href: '/shop-performance', icon: <Award className="w-4 h-4" /> },
+      { label: 'Fleet Location', href: '/fleet-location', icon: <MapPin className="w-4 h-4" /> },
       { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },

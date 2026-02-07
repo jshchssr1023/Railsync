@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 11
+iteration: 12
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -96,4 +96,16 @@ Iteration 11: Sprint I — Integration health monitoring, estimate AI display, c
   - Sprint 12: ~58% → ~70% (estimate AI confidence display, integration stabilization)
   - Sprint 14: ~55% → ~70% (integration health monitoring, sync scheduler)
   - Sprint 13: ~65% → ~70% (commodity cleaning admin, SAP trigger wiring)
+  - Backend tsc + frontend next build: clean
+Iteration 12: Sprint J — Test suite expansion, CI enhancement, route fixes, fleet location.
+  - Backend tests: 9 new files (badOrder, budget, dashboard, demand, e2e-workflow, masterPlan, report-builder, scope-of-work, transition-log) — total 21 backend test files
+  - Frontend tests: 8 new files (Analytics, BadOrders, Budget, Plans, Projects, Reports, Rules, Settings) — total 21 frontend test files
+  - E2E workflow test: shopping event lifecycle (12 states), invoice case workflow (10 states), cross-process integration
+  - CI pipeline: added coverage reporting with artifact upload, frontend test step
+  - Route fixes: report export toCSV/toHTML signature mismatch, added report HTML/CSV export endpoints
+  - New alert-engine service: consolidated alert processing
+  - New /fleet-location page: CLM-based car location tracking map
+  - Test type fixes: DemandStatus, EventType enums, pool.query mock pattern
+  - 42 total test files (21 backend + 21 frontend) covering all major services and pages
+  - Testing sprint completion: ~55% → ~80% (42 test files, E2E workflow, CI coverage)
   - Backend tsc + frontend next build: clean

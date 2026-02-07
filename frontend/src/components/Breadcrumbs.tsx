@@ -36,6 +36,7 @@ const ROUTE_LABELS: Record<string, string> = {
   qualifications: 'Qualifications',
   billing: 'Billing',
   integrations: 'Integrations',
+  'fleet-location': 'Fleet Location',
   monitoring: 'System Monitoring',
   'commodity-cleaning': 'Commodity Cleaning',
   releases: 'Release Management',
