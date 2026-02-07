@@ -99,7 +99,10 @@ export default function EstimatesPage() {
 
   async function handleGeneratePacket(estId: string) {
     try {
-      await generateApprovalPacket(estId);
+      await generateApprovalPacket(estId, {
+        overall_decision: 'approved',
+        line_decisions: [],
+      });
       alert('Approval packet generated successfully.');
     } catch { /* silent */ }
   }
