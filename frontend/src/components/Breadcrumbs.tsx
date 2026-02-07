@@ -36,6 +36,8 @@ const ROUTE_LABELS: Record<string, string> = {
   qualifications: 'Qualifications',
   billing: 'Billing',
   integrations: 'Integrations',
+  monitoring: 'System Monitoring',
+  'sap-validation': 'SAP Validation',
   'components-registry': 'Components',
   new: 'New Shopping Request',
 };

@@ -4616,6 +4616,80 @@ router.get('/integrations/dead-letters', authenticate, authorize('admin'), async
     res.status(500).json({ success: false, error: error.message || 'Failed to get dead letters' });
   }
 });
+
+// Sync job schedules
+router.get('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getScheduledJobs } = await import('../services/sync-scheduler.service');
+    const data = await getScheduledJobs();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get sync schedules' });
+  }
+});
+router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getJobsDueForExecution } = await import('../services/sync-scheduler.service');
+    const data = await getJobsDueForExecution();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get due schedules' });
+  }
+});
+router.post('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { createScheduledJob } = await import('../services/sync-scheduler.service');
+    const data = await createScheduledJob(req.body);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to create sync schedule' });
+  }
+});
+router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { updateScheduledJob } = await import('../services/sync-scheduler.service');
+    const data = await updateScheduledJob(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to update sync schedule' });
+  }
+});
+router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { toggleJobEnabled } = await import('../services/sync-scheduler.service');
+    const data = await toggleJobEnabled(req.params.id, req.body.enabled);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to toggle sync schedule' });
+  }
+});
+
+// Integration monitoring
+router.get('/integrations/health-dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getIntegrationHealthDashboard } = await import('../services/integration-monitor.service');
+    const data = await getIntegrationHealthDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/integrations/error-trends', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getErrorTrends } = await import('../services/integration-monitor.service');
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await getErrorTrends(days);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/integrations/batch-retry', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { batchRetryByCategory } = await import('../services/integration-monitor.service');
+    const { category, system_name } = req.body;
+    if (!category) { res.status(400).json({ success: false, error: 'category required' }); return; }
+    const data = await batchRetryByCategory(category, system_name);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 // CIPROTS Migration Pipeline
 router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
   try {

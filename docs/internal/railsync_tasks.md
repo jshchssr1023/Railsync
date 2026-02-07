@@ -33,6 +33,10 @@
 | **Invoice Processing Workflow** | InvoiceCase state machine, validation engine, attachments, audit events | `031_invoice_processing_workflow.sql`, `invoice-case.service.ts`, `invoice-validation.service.ts` | `84d1369` |
 | **Invoice Case Queue UI** | Full case creation modal (SHOP/MRU), edit mode, auto-validation, type-specific info cards, validation context display, server-side attachment validation, audit trail filtering with expandable context | `invoice-cases/page.tsx`, `invoice-cases/[id]/page.tsx` | `6416c12` |
 | **UI/UX Polish** | Security (sanitized errors, hidden creds), dark mode retrofit, accessibility (ARIA dialogs, keyboard nav, screen reader labels), native dialog replacement (alert/confirm -> Toast/ConfirmDialog), mobile responsiveness (responsive grids, touch targets) | 24 files across components and pages | `efe9602` |
+| **Sprint B: Billing + Cost Allocation** | Month-end billing orchestration stepper, preflight validation, billing run approve/complete workflow, cost allocation entries (SPV split: lessee/owner shares), distribution config, delivery log. 5 new API endpoints, migration 057, 3 new backend functions. Frontend: billing page with orchestration stepper + Cost Allocation tab. | `billing.service.ts`, `057_cost_allocation.sql`, `billing/page.tsx`, `api.ts` | `22259fc` |
+| **Sprint C: SAP + Salesforce Integration** | Dual-mode SAP service (mock/real OData+REST), OAuth2 client credentials, CSRF tokens, configurable field mapping engine (59 seeded mappings), SAP error parsing, document tracking, batch processing. Dual-mode Salesforce service (mock/real REST API), OAuth2 username-password flow, SOQL pagination, conflict resolution, sync map, customer/contact/deal pull, billing push. 7 new API endpoints, migration 059. | `sap-integration.service.ts`, `salesforce-sync.service.ts`, `059_sap_salesforce_integration.sql`, `.env.example` | `5bb007b` |
+| **Sprint D: Migration + Parallel Run** | 8 entity CSV importers (customers, cars, contracts, allocations, shopping, qualifications, invoices, mileage), orchestration engine, rollback, dry-run validation. 5 parallel-run comparators (invoices, car_status, billing, mileage, allocations), go-live checklist (8 checks), health scoring. 11 new API endpoints. Frontend: 8 upload cards, dry-run toggle, rollback, 5 comparison types, Go-Live Checklist tab. | `migration-pipeline.service.ts`, `parallel-run.service.ts`, `058_ciprots_migration.sql`, `migration/page.tsx`, `parallel-run/page.tsx` | `5378f37`, `c0a7f47` |
+| **Sprint E: Go-Live Tooling** | System mode service (parallel/cutover/live with validated transitions), incident tracking (CRUD, severity P1-P3, stats), system health dashboard (DB metrics, data counts, integration status), performance monitoring (table sizes, index usage, slow queries, DB stats), user feedback (CRUD, admin review workflow). Migrations 060-061. Frontend: Go-Live Command Center (readiness, incidents, mode control). | `system-mode.service.ts`, `go-live-incidents.service.ts`, `system-health.service.ts`, `performance-monitor.service.ts`, `feedback.service.ts`, `go-live/page.tsx` | `c0a7f47` |
 | Contracts Hierarchy Schema | Customer → Lease → Rider → Cars data model | `010_fleet_hierarchy.sql`, `011_amendment_tracking.sql` | `b1d369e` |
 | Contracts Hierarchy API | REST endpoints for hierarchy navigation | `contracts.controller.ts`, `contracts.service.ts` | `b1d369e` |
 | Contracts Hierarchy UI | Drill-down navigation with breadcrumbs | `contracts/page.tsx`, `contracts/*` components | `b1d369e` |
@@ -289,6 +293,70 @@ POST /api/allocations/:id/revert          - Revert last allocation transition
 POST /api/demands/:id/revert             - Revert last demand transition
 POST /api/projects/:pid/assignments/:id/unlock - Unlock project assignment (Locked -> Planned)
 GET  /api/transitions/:processType/:entityId/revert-eligibility - Check revert eligibility
+
+# Billing & Cost Allocation (Sprint B)
+POST /api/billing/runs/:id/approve       - Approve billing run
+POST /api/billing/runs/:id/complete      - Complete billing run
+POST /api/cost-allocation                - Create cost allocation entry
+GET  /api/cost-allocation/summary        - Cost allocation summary
+GET  /api/cost-allocation                - List cost allocation entries
+
+# SAP & Salesforce Integration (Sprint C)
+GET  /api/sap/field-mappings             - Get SAP field mappings
+POST /api/sap/validate-payload           - Validate SAP payload
+GET  /api/salesforce/sync-map            - Get Salesforce sync map
+POST /api/salesforce/pull-deals          - Pull deal stages from Salesforce
+POST /api/salesforce/push-billing-status - Push billing status to Salesforce
+
+# Data Migration (Sprint D)
+GET  /api/migration/runs                 - List migration runs
+GET  /api/migration/reconciliation       - Reconciliation summary
+POST /api/migration/import/customers     - Import customers CSV
+POST /api/migration/import/contracts     - Import contracts CSV
+POST /api/migration/import/cars          - Import cars CSV
+POST /api/migration/import/allocations   - Import allocations CSV
+POST /api/migration/import/shopping      - Import shopping events CSV
+POST /api/migration/import/qualifications - Import qualifications CSV
+POST /api/migration/import/invoices      - Import invoices CSV
+POST /api/migration/import/mileage       - Import mileage records CSV
+POST /api/migration/orchestrate          - Run full orchestrated migration
+POST /api/migration/validate             - Validate CSV (dry-run)
+POST /api/migration/runs/:id/rollback    - Rollback migration run
+GET  /api/migration/runs/:id/errors      - Get run error details
+
+# Parallel Run (Sprint D)
+GET  /api/parallel-run/results           - List parallel run results
+GET  /api/parallel-run/discrepancies/:id - Get run discrepancies
+PUT  /api/parallel-run/discrepancies/:id/resolve - Resolve discrepancy
+GET  /api/parallel-run/daily-report      - Daily comparison report
+GET  /api/parallel-run/health-score      - Overall health score
+POST /api/parallel-run/compare-invoices  - Compare invoices
+POST /api/parallel-run/compare-car-status - Compare car statuses
+POST /api/parallel-run/compare-billing   - Compare billing totals
+POST /api/parallel-run/compare-mileage   - Compare mileage records
+POST /api/parallel-run/compare-allocations - Compare allocations
+GET  /api/parallel-run/go-live-checklist - Go-live readiness checklist
+
+# Go-Live & System (Sprint E)
+GET  /api/go-live/readiness              - Go-live readiness check
+GET  /api/go-live/incidents              - List incidents
+GET  /api/go-live/incidents/stats        - Incident statistics
+GET  /api/go-live/incidents/:id          - Get incident details
+POST /api/go-live/incidents              - Create incident
+PUT  /api/go-live/incidents/:id          - Update incident
+GET  /api/system/mode                    - Get current system mode
+PUT  /api/system/mode                    - Change system mode (parallel/cutover/live)
+GET  /api/system/health-dashboard        - Full system health dashboard
+GET  /api/system/performance/tables      - Table sizes
+GET  /api/system/performance/indexes     - Index usage stats
+GET  /api/system/performance/stats       - Database statistics
+GET  /api/system/performance/slow-queries - Slow queries
+
+# User Feedback (Sprint E)
+POST /api/feedback                       - Submit feedback
+GET  /api/feedback                       - List feedback (admin)
+GET  /api/feedback/stats                 - Feedback statistics
+PUT  /api/feedback/:id                   - Update feedback status
 ```
 
 ---
@@ -338,7 +406,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 
 ---
 
-## Database Migrations (49 total)
+## Database Migrations (61 total)
 
 | Range | Area |
 |-------|------|
@@ -358,6 +426,13 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | 047 | Demo historical data for dashboard widgets and analytics |
 | 048 | Demand plan unification (master plan demand linking) |
 | 049 | **State transition log**: unified `state_transition_log` table with partial immutability, `is_reversible` on `invoice_state_transitions`, backward transitions in shopping event JSONB trigger + invoice state table |
+| 055 | **Integration sync log**: integration_sync_log, integration_connection_status, salesforce_sync_map |
+| 056 | **Car locations**: car_locations with CLM source tracking |
+| 057 | **Cost allocation**: cost_allocation_entries (SPV split: lessee/owner shares), distribution config, billing_runs step tracking |
+| 058 | **CIPROTS migration**: migration_runs, migration_row_errors, parallel_run_results, parallel_run_discrepancies |
+| 059 | **SAP/Salesforce integration**: sap_field_mappings, sap_documents, salesforce_field_mappings, customer_contacts, pipeline_deals, auth columns |
+| 060 | **System mode + incidents**: system_settings, go_live_incidents |
+| 061 | **User feedback**: user_feedback table with status workflow |
 
 ---
 
@@ -384,6 +459,14 @@ All features are complete.
 - http://localhost:3000/ccm - Care & Compliance Manuals with hierarchy instructions
 - http://localhost:3000/scope-library - SOW Library
 - http://localhost:3000/bad-orders - Bad order reporting and resolution
+- http://localhost:3000/billing - Billing dashboard with month-end orchestration + cost allocation
+- http://localhost:3000/integrations - SAP/Salesforce/CLM/EDI integration status
+- http://localhost:3000/migration - CIPROTS data migration (8 entity importers, dry-run, rollback)
+- http://localhost:3000/parallel-run - Parallel run comparisons (5 types) + go-live checklist
+- http://localhost:3000/go-live - Go-Live Command Center (readiness, incidents, system mode)
+- http://localhost:3000/shop-performance - Shop performance scoring + trends
+- http://localhost:3000/cost-analytics - Cost analytics dashboard
+- http://localhost:3000/admin/monitoring - System health, performance, feedback management
 - http://localhost:3000/admin - Admin panel (users, rules, shop designations)
 - http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search

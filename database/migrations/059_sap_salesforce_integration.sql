@@ -227,3 +227,34 @@ CREATE TABLE IF NOT EXISTS pipeline_deals (
 CREATE INDEX IF NOT EXISTS idx_pipeline_deals_customer ON pipeline_deals(customer_id);
 CREATE INDEX IF NOT EXISTS idx_pipeline_deals_stage ON pipeline_deals(stage);
 CREATE INDEX IF NOT EXISTS idx_pipeline_deals_sf ON pipeline_deals(salesforce_id) WHERE salesforce_id IS NOT NULL;
+
+-- ============================================================================
+-- 8. SYNC JOB SCHEDULES (scheduled integration sync jobs)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS sync_job_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_name VARCHAR(100) UNIQUE NOT NULL,
+    system_name VARCHAR(50) NOT NULL,          -- 'sap', 'salesforce', 'system'
+    operation VARCHAR(100) NOT NULL,           -- 'batch_push', 'full_sync', 'pull_customers', etc.
+    cron_expression VARCHAR(50) NOT NULL DEFAULT '0 */6 * * *',
+    is_enabled BOOLEAN DEFAULT TRUE,
+    last_run_at TIMESTAMP WITH TIME ZONE,
+    last_status VARCHAR(20),                   -- 'success', 'failed', 'running'
+    next_run_at TIMESTAMP WITH TIME ZONE,
+    config JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_schedules_system ON sync_job_schedules(system_name);
+CREATE INDEX IF NOT EXISTS idx_sync_schedules_enabled ON sync_job_schedules(is_enabled, next_run_at) WHERE is_enabled = TRUE;
+
+-- Seed default sync schedules
+INSERT INTO sync_job_schedules (job_name, system_name, operation, cron_expression, config) VALUES
+    ('SAP Batch Push',             'sap',        'batch_push',           '0 */6 * * *',   '{"batch_limit": 100, "document_types": ["AP_INVOICE", "AR_INVOICE", "SPV_COST"]}'),
+    ('Salesforce Full Sync',       'salesforce',  'full_sync',           '0 */12 * * *',  '{"objects": ["Account", "Contact", "Opportunity"]}'),
+    ('Salesforce Pull Customers',  'salesforce',  'pull_customers',      '0 2 * * *',     '{"upsert_strategy": "update_existing", "conflict_winner": "salesforce"}'),
+    ('Salesforce Pull Deals',      'salesforce',  'pull_deals',          '0 3 * * *',     '{"stages": ["Prospecting", "Qualification", "Proposal", "Negotiation", "Closed Won"]}'),
+    ('Retry Queue Process',        'system',      'process_retry_queue', '*/30 * * * *',  '{"max_retries": 5, "batch_limit": 50}')
+ON CONFLICT (job_name) DO NOTHING;

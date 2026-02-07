@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   Loader2,
   DollarSign,
@@ -1040,8 +1040,8 @@ export default function BillingPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {billingRuns.map((run) => (
-                      <>
-                        <tr key={run.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer" onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}>
+                      <Fragment key={run.id}>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer" onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}>
                           <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{formatDate(run.run_date)}</td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{capitalize(run.type)}</td>
                           <td className="px-4 py-3 text-center">
@@ -1246,7 +1246,7 @@ export default function BillingPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {invoices.map((invoice) => (
-                      <>
+                      <Fragment key={invoice.id}>
                         <tr
                           key={invoice.id}
                           className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
@@ -1583,8 +1583,8 @@ export default function BillingPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {chargebacks.map((cb) => (
-                      <>
-                        <tr key={cb.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <Fragment key={cb.id}>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-4 py-3 font-medium font-mono text-gray-900 dark:text-gray-100">
                             {cb.car_number}
                           </td>

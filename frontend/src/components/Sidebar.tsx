@@ -125,6 +125,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
       { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
+      { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },
       { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },

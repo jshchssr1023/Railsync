@@ -1815,6 +1815,41 @@ const api = {
   revertDemand,
   unlockProjectAssignment,
   checkRevertEligibility,
+  // Go-Live Readiness & Incidents
+  getGoLiveReadiness,
+  listIncidents,
+  getIncidentStats,
+  createIncident,
+  updateIncident,
+  // System Mode & Health
+  getSystemMode,
+  setSystemMode,
+  getHealthDashboard,
+  // Performance Monitoring
+  getTableSizes,
+  getIndexUsage,
+  getDatabaseStats,
+  getSlowQueries,
+  // User Feedback
+  submitFeedback,
+  listFeedback,
+  getFeedbackStats,
+  updateFeedbackStatus,
+  // Migration
+  getMigrationRuns,
+  getMigrationReconciliation,
+  importMigrationEntity,
+  validateMigration,
+  rollbackMigrationRun,
+  getMigrationRunErrors,
+  // Parallel Run
+  runParallelComparison,
+  getParallelRunResults,
+  getParallelRunDiscrepancies,
+  resolveDiscrepancy,
+  getParallelRunDailyReport,
+  getParallelRunHealthScore,
+  getGoLiveChecklist,
 };
 
 export default api;
@@ -2771,5 +2806,285 @@ export async function validateSAPPayload(documentType: string, sourceData: Recor
     method: 'POST',
     body: JSON.stringify({ documentType, sourceData }),
   });
+  return response.data;
+}
+
+// Sync schedules
+export async function getSyncSchedules() {
+  const response = await fetchApi('/integrations/sync-schedules');
+  return response.data;
+}
+
+export async function createSyncSchedule(data: { job_name: string; system_name: string; operation: string; cron_expression: string; config?: Record<string, unknown> }) {
+  const response = await fetchApi('/integrations/sync-schedules', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function updateSyncSchedule(id: string, data: Partial<{ job_name: string; cron_expression: string; config: Record<string, unknown> }>) {
+  const response = await fetchApi(`/integrations/sync-schedules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function toggleSyncSchedule(id: string, enabled: boolean) {
+  const response = await fetchApi(`/integrations/sync-schedules/${id}/toggle`, {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  });
+  return response.data;
+}
+
+// Integration monitoring
+export async function getIntegrationHealthDashboard() {
+  const response = await fetchApi('/integrations/health-dashboard');
+  return response.data;
+}
+
+export async function getIntegrationErrorTrends(days?: number) {
+  const params = days ? `?days=${days}` : '';
+  const response = await fetchApi(`/integrations/error-trends${params}`);
+  return response.data;
+}
+
+export async function batchRetryIntegration(category: string, systemName?: string) {
+  const response = await fetchApi('/integrations/batch-retry', {
+    method: 'POST',
+    body: JSON.stringify({ category, system_name: systemName }),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// GO-LIVE READINESS & INCIDENTS
+// ============================================================================
+
+export async function getGoLiveReadiness(): Promise<any> {
+  const response = await fetchApi<any>('/go-live/readiness');
+  return response.data;
+}
+
+export async function listIncidents(filters?: { status?: string; severity?: string }): Promise<any[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.severity) params.set('severity', filters.severity);
+  const qs = params.toString();
+  const response = await fetchApi<any[]>(`/go-live/incidents${qs ? `?${qs}` : ''}`);
+  return response.data || [];
+}
+
+export async function getIncidentStats(): Promise<any> {
+  const response = await fetchApi<any>('/go-live/incidents/stats');
+  return response.data;
+}
+
+export async function createIncident(data: {
+  title: string;
+  description?: string;
+  severity: string;
+  category?: string;
+}): Promise<any> {
+  const response = await fetchApi<any>('/go-live/incidents', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function updateIncident(id: string, data: {
+  status?: string;
+  severity?: string;
+  resolution_notes?: string;
+  assigned_to?: string;
+}): Promise<any> {
+  const response = await fetchApi<any>(`/go-live/incidents/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// SYSTEM MODE & HEALTH
+// ============================================================================
+
+export async function getSystemMode(): Promise<any> {
+  const response = await fetchApi<any>('/system/mode');
+  return response.data;
+}
+
+export async function setSystemMode(mode: string): Promise<any> {
+  const response = await fetchApi<any>('/system/mode', {
+    method: 'PUT',
+    body: JSON.stringify({ mode }),
+  });
+  return response.data;
+}
+
+export async function getHealthDashboard(): Promise<any> {
+  const response = await fetchApi<any>('/system/health-dashboard');
+  return response.data;
+}
+
+// ============================================================================
+// PERFORMANCE MONITORING
+// ============================================================================
+
+export async function getTableSizes(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/system/performance/tables');
+  return response.data || [];
+}
+
+export async function getIndexUsage(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/system/performance/indexes');
+  return response.data || [];
+}
+
+export async function getDatabaseStats(): Promise<any> {
+  const response = await fetchApi<any>('/system/performance/stats');
+  return response.data;
+}
+
+export async function getSlowQueries(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/system/performance/slow-queries');
+  return response.data || [];
+}
+
+// ============================================================================
+// USER FEEDBACK
+// ============================================================================
+
+export async function submitFeedback(data: {
+  page?: string;
+  category: string;
+  severity?: string;
+  title: string;
+  description?: string;
+}): Promise<any> {
+  const response = await fetchApi<any>('/feedback', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function listFeedback(filters?: { status?: string; category?: string }): Promise<any[]> {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.category) params.set('category', filters.category);
+  const qs = params.toString();
+  const response = await fetchApi<any[]>(`/feedback${qs ? `?${qs}` : ''}`);
+  return response.data || [];
+}
+
+export async function getFeedbackStats(): Promise<any> {
+  const response = await fetchApi<any>('/feedback/stats');
+  return response.data;
+}
+
+export async function updateFeedbackStatus(id: string, data: {
+  status?: string;
+  admin_notes?: string;
+}): Promise<any> {
+  const response = await fetchApi<any>(`/feedback/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// MIGRATION
+// ============================================================================
+
+export async function getMigrationRuns(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/migration/runs');
+  return response.data || [];
+}
+
+export async function getMigrationReconciliation(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/migration/reconciliation');
+  return response.data || [];
+}
+
+export async function importMigrationEntity(entity: string, content: string): Promise<any> {
+  const response = await fetchApi<any>(`/migration/import/${encodeURIComponent(entity)}`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+  return response.data;
+}
+
+export async function validateMigration(entity_type: string, content: string): Promise<any> {
+  const response = await fetchApi<any>('/migration/validate', {
+    method: 'POST',
+    body: JSON.stringify({ entity_type, content }),
+  });
+  return response.data;
+}
+
+export async function rollbackMigrationRun(runId: string): Promise<any> {
+  const response = await fetchApi<any>(`/migration/runs/${encodeURIComponent(runId)}/rollback`, {
+    method: 'POST',
+  });
+  return response.data;
+}
+
+export async function getMigrationRunErrors(runId: string): Promise<any[]> {
+  const response = await fetchApi<any[]>(`/migration/runs/${encodeURIComponent(runId)}/errors`);
+  return response.data || [];
+}
+
+// ============================================================================
+// PARALLEL RUN
+// ============================================================================
+
+export async function runParallelComparison(type: string, data: any): Promise<any> {
+  const response = await fetchApi<any>(`/parallel-run/${encodeURIComponent(type)}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function getParallelRunResults(filters?: { comparison_type?: string }): Promise<any[]> {
+  const params = new URLSearchParams();
+  if (filters?.comparison_type) params.set('comparison_type', filters.comparison_type);
+  const qs = params.toString();
+  const response = await fetchApi<any[]>(`/parallel-run/results${qs ? `?${qs}` : ''}`);
+  return response.data || [];
+}
+
+export async function getParallelRunDiscrepancies(runId: string): Promise<any[]> {
+  const response = await fetchApi<any[]>(`/parallel-run/discrepancies/${encodeURIComponent(runId)}`);
+  return response.data || [];
+}
+
+export async function resolveDiscrepancy(id: string, resolution: string, notes?: string): Promise<any> {
+  const response = await fetchApi<any>(`/parallel-run/discrepancies/${encodeURIComponent(id)}/resolve`, {
+    method: 'PUT',
+    body: JSON.stringify({ resolution, notes }),
+  });
+  return response.data;
+}
+
+export async function getParallelRunDailyReport(date: string): Promise<any> {
+  const params = new URLSearchParams();
+  params.set('date', date);
+  const response = await fetchApi<any>(`/parallel-run/daily-report?${params}`);
+  return response.data;
+}
+
+export async function getParallelRunHealthScore(): Promise<any> {
+  const response = await fetchApi<any>('/parallel-run/health-score');
+  return response.data;
+}
+
+export async function getGoLiveChecklist(): Promise<any> {
+  const response = await fetchApi<any>('/parallel-run/go-live-checklist');
   return response.data;
 }

@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 7
+iteration: 8
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -54,3 +54,13 @@ Iteration 7: Sprint D — Data migration pipeline + parallel run enhancement.
   - Sprint 17: 7% → ~55% (8 entity importers, orchestration, rollback, validation)
   - Sprint 18: 10% → ~45% (5 comparators, health scoring, go-live checklist)
   - Backend tsc + frontend next build: clean
+Iteration 8: Sprint F — API consolidation, admin monitoring, testing, documentation.
+  - Frontend api.ts: 30+ new API functions covering go-live, incidents, system mode, health dashboard, performance, feedback, migration, parallel run
+  - New admin monitoring page (/admin/monitoring): 3-tab view (System Health, Performance, User Feedback) with real-time DB stats, table sizes, index usage, slow queries, feedback management
+  - Backend test suite: 6 test files (shopping-event, invoice-case, migration-pipeline, parallel-run, system-mode, invoice-validation) with Jest mocks
+  - Sidebar: added Monitoring link under Admin
+  - Breadcrumbs: added monitoring label
+  - Documentation: updated railsync_tasks.md with Sprints B-E (completed features, 61 migrations, 70+ new API endpoints, 8 new access points)
+  - Sprint 15: 0% → ~35% (6 test files, Jest infrastructure)
+  - Sprint 19-20: ~45% → ~65% (admin monitoring, go-live tooling complete)
+  - Backend tsc + frontend next build: clean (40 pages)
