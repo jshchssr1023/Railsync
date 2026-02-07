@@ -52,6 +52,11 @@ const ROUTE_LABELS: Record<string, string> = {
   commodities: 'Commodities',
   'billable-items': 'Billable Items',
   notifications: 'Notifications',
+  'shop-designations': 'Shop Designations',
+  users: 'User Management',
+  'shopping-types': 'Shopping Types',
+  'shopping-reasons': 'Shopping Reasons',
+  'service-plans': 'Service Plans',
   new: 'New Shopping Request',
 };
 

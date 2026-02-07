@@ -84,7 +84,8 @@ services:
       - ./database/migrations/060_system_mode_incidents.sql:/docker-entrypoint-initdb.d/67-system-mode-incidents.sql
       - ./database/migrations/061_user_feedback.sql:/docker-entrypoint-initdb.d/68-user-feedback.sql
       - ./database/migrations/062_report_builder.sql:/docker-entrypoint-initdb.d/69-report-builder.sql
-      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/70-seed-test-data.sql
+      - ./database/migrations/063_training_progress.sql:/docker-entrypoint-initdb.d/70-training-progress.sql
+      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/71-seed-test-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
