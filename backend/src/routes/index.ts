@@ -916,14 +916,14 @@ router.post('/demands/import', authenticate, authorize('admin'), csvUpload.singl
       res.status(400).json({ success: false, error: 'CSV content required. Upload a file or provide content in the request body.' });
       return;
     }
-    const result = await demandService.importDemandsFromCSV(content, (req as any).user?.id);
+    const result = await demandService.importDemandsFromCSV(content, req.user?.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
 router.post('/demands/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await demandService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    const result = await demandService.revertLastTransition(req.params.id, req.user.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -956,7 +956,7 @@ router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator
 router.post('/allocations/:id/assign', authenticate, authorize('admin', 'operator'), planningController.assignAllocation);
 router.post('/allocations/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await allocationService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    const result = await allocationService.revertLastTransition(req.params.id, req.user.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -2179,7 +2179,7 @@ router.post('/capacity/reservations', authenticate, authorize('admin', 'operator
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const result = await query(`
       INSERT INTO capacity_reservations (shop_code, lessee_code, lessee_name, start_year, start_month, end_year, end_month, reserved_slots, notes, created_by)
@@ -2234,7 +2234,7 @@ router.put('/capacity/reservations/:id', authenticate, authorize('admin', 'opera
  */
 router.post('/capacity/reservations/:id/confirm', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Check capacity before confirming
     const reservation = await query('SELECT * FROM capacity_reservations WHERE id = $1', [req.params.id]);
@@ -2349,7 +2349,7 @@ router.post('/capacity/reservations/:id/allocate', authenticate, authorize('admi
     }
 
     // Create allocations for each car
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const targetMonth = `${r.start_year}-${String(r.start_month).padStart(2, '0')}`;
 
     for (const carNumber of car_numbers) {
@@ -2490,7 +2490,7 @@ router.post('/ccm-documents', authenticate, authorize('admin', 'operator'), asyn
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Mark previous versions as not current
     await query(`
@@ -2705,7 +2705,7 @@ router.post('/billable-items', authenticate, authorize('admin', 'operator'), asy
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const result = await query(`
       INSERT INTO billable_items (lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible, billing_notes, created_by)
@@ -2903,7 +2903,7 @@ router.post('/shopping-packets', authenticate, authorize('admin', 'operator'), a
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await query('SELECT create_shopping_packet($1, $2) AS id', [allocation_id, userId]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
@@ -2955,7 +2955,7 @@ router.put('/shopping-packets/:id', authenticate, authorize('admin', 'operator')
 router.post('/shopping-packets/:id/issue', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { email_to } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     await query(`
       UPDATE shopping_packets SET
@@ -2989,7 +2989,7 @@ router.post('/shopping-packets/:id/reissue', authenticate, authorize('admin', 'o
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await query('SELECT reissue_shopping_packet($1, $2, $3) AS id', [req.params.id, userId, reason]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
@@ -3119,7 +3119,7 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Get shopping reason details if provided
     let reasonCode = null, reasonName = null;
@@ -3216,7 +3216,7 @@ router.post('/projects/:id/activate', authenticate, authorize('admin', 'operator
 router.post('/projects/:id/complete', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { completion_notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     await query(`
       UPDATE projects SET
@@ -3259,7 +3259,7 @@ router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), 
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     let added = 0;
 
     for (const carNumber of car_numbers) {
@@ -3306,7 +3306,7 @@ router.delete('/projects/:projectId/cars/:carNumber', authenticate, authorize('a
 router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { status, completion_notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!['pending', 'in_progress', 'completed', 'excluded'].includes(status)) {
       res.status(400).json({ success: false, error: 'Invalid status' });
@@ -3341,7 +3341,7 @@ router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authoriz
  */
 router.post('/projects/:projectId/cars/:carNumber/brc-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     await query(`
       UPDATE project_cars SET
@@ -3388,8 +3388,8 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
  */
 router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { cars } = req.body;
 
     if (!cars || !Array.isArray(cars) || cars.length === 0) {
@@ -3418,8 +3418,8 @@ router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { assignment_ids } = req.body;
 
     if (!assignment_ids || !Array.isArray(assignment_ids) || assignment_ids.length === 0) {
@@ -3448,8 +3448,8 @@ router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { project_assignment_id, new_shop_code, new_target_month, new_target_date, new_estimated_cost, reason } = req.body;
 
     if (!project_assignment_id || !new_shop_code || !new_target_month || !reason) {
@@ -3483,8 +3483,8 @@ router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operat
  */
 router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { project_assignment_id, reason } = req.body;
 
     if (!project_assignment_id || !reason) {
@@ -3517,7 +3517,7 @@ router.post('/projects/:projectId/assignments/:id/unlock', authenticate, authori
     const result = await projectPlanningService.unlockPlan(
       req.params.projectId,
       req.params.id,
-      (req as any).user.id,
+      req.user.id,
       req.body.notes
     );
     res.json({ success: true, data: result });
@@ -3542,7 +3542,7 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const demand = await demandService.createDemand(
       { ...req.body, project_id: projectId },
       userId
@@ -3552,7 +3552,7 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
     await projectAuditService.writeAuditEvent({
       project_id: projectId,
       actor_id: userId,
-      actor_email: (req as any).user?.email,
+      actor_email: req.user?.email,
       action: 'demand_created',
       notes: `Demand "${demand.name}" created for allocation engine (${demand.car_count} cars, ${demand.target_month})`,
     });
@@ -3625,8 +3625,8 @@ router.get('/projects/:id/plan-history/:carNumber', authenticate, async (req, re
  */
 router.post('/projects/:id/communications', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { communication_type, communicated_to, communication_method, subject, notes } = req.body;
 
     if (!communication_type) {
@@ -3674,8 +3674,8 @@ router.get('/projects/:id/communications', authenticate, async (req, res) => {
  */
 router.post('/shopping-events/:id/bundle-project-work', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const { project_id, project_car_id, car_number, shop_code, target_month } = req.body;
 
     if (!project_id || !project_car_id || !car_number || !shop_code || !target_month) {
@@ -4064,7 +4064,7 @@ router.post('/ccm-instructions', authenticate, authorize('admin', 'operator'), a
       return res.status(400).json({ success: false, error: 'Invalid scope_type' });
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const instruction = await ccmInstructionsService.createCCMInstruction(
       { type: scope_type, id: scope_id },
       data,
@@ -4254,7 +4254,7 @@ router.get('/shopping-events/:id/state-history', optionalAuth, shoppingEventCont
 // Shopping Event Revert
 router.post('/shopping-events/:id/revert', authenticate, async (req, res, next) => {
   try {
-    const result = await shoppingEventService.revertLastTransition(req.params.id, (req as any).user.id);
+    const result = await shoppingEventService.revertLastTransition(req.params.id, req.user.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -4283,7 +4283,7 @@ router.post('/estimates/:id/pre-review', authenticate, authorize('admin', 'opera
     const result = await preReviewEstimate(req.params.id);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Pre-review failed' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
@@ -4292,7 +4292,7 @@ router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
     const result = await getJobCodeStats(req.params.code);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to fetch stats' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4623,7 +4623,7 @@ router.get('/integrations/retry-queue', authenticate, authorize('admin'), async 
     const result = await getRetryQueueEntries(limit);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get retry queue' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('admin'), async (req, res) => {
@@ -4632,7 +4632,7 @@ router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('ad
     const result = await dismissRetryEntry(req.params.id);
     res.json({ success: true, data: { dismissed: result } });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to dismiss retry entry' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/retry-queue/process', authenticate, authorize('admin'), async (req, res) => {
@@ -4641,7 +4641,7 @@ router.post('/integrations/retry-queue/process', authenticate, authorize('admin'
     const result = await processRetryQueue();
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to process retry queue' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4650,7 +4650,7 @@ router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), 
     const result = await getRetryQueueStats();
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get retry stats' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/dead-letters', authenticate, authorize('admin'), async (req, res) => {
@@ -4660,7 +4660,7 @@ router.get('/integrations/dead-letters', authenticate, authorize('admin'), async
     const result = await getDeadLetterEntries(limit);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get dead letters' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4671,7 +4671,7 @@ router.get('/integrations/sync-schedules', authenticate, authorize('admin'), asy
     const data = await getScheduledJobs();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get sync schedules' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'), async (req, res) => {
@@ -4680,7 +4680,7 @@ router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'),
     const data = await getJobsDueForExecution();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get due schedules' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
@@ -4689,7 +4689,7 @@ router.post('/integrations/sync-schedules', authenticate, authorize('admin'), as
     const data = await createScheduledJob(req.body);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to create sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'), async (req, res) => {
@@ -4698,7 +4698,7 @@ router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'),
     const data = await updateScheduledJob(req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to update sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('admin'), async (req, res) => {
@@ -4707,7 +4707,7 @@ router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('a
     const data = await toggleJobEnabled(req.params.id, req.body.enabled);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to toggle sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4717,7 +4717,7 @@ router.get('/integrations/health-dashboard', authenticate, authorize('admin'), a
     const { getIntegrationHealthDashboard } = await import('../services/integration-monitor.service');
     const data = await getIntegrationHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/integrations/error-trends', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4725,7 +4725,7 @@ router.get('/integrations/error-trends', authenticate, authorize('admin'), async
     const days = parseInt(req.query.days as string) || 7;
     const data = await getErrorTrends(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/integrations/batch-retry', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4734,41 +4734,41 @@ router.post('/integrations/batch-retry', authenticate, authorize('admin'), async
     if (!category) { res.status(400).json({ success: false, error: 'category required' }); return; }
     const data = await batchRetryByCategory(category, system_name);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CIPROTS Migration Pipeline
 router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCars } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importContracts } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importContracts(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importShoppingEvents } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importShoppingEvents(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importQualifications } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importQualifications(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4776,68 +4776,68 @@ router.get('/migration/runs', authenticate, authorize('admin'), async (req, res)
     const limit = parseInt(req.query.limit as string) || 50;
     const data = await getMigrationRuns(limit);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationRun } = await import('../services/migration-pipeline.service');
     const data = await getMigrationRun(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id/errors', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationErrors } = await import('../services/migration-pipeline.service');
     const data = await getMigrationErrors(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/reconciliation', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getReconciliationSummary } = await import('../services/migration-pipeline.service');
     const data = await getReconciliationSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCustomers } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importCustomers(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importInvoices } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importInvoices(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importAllocations } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importAllocations(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importMileageRecords } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await importMileageRecords(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { runOrchestration } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await runOrchestration(req.body.files || {}, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/validate', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4846,15 +4846,15 @@ router.post('/migration/validate', authenticate, authorize('admin'), async (req,
     if (!entity_type || !content) { res.status(400).json({ success: false, error: 'entity_type and content required' }); return; }
     const result = await validateOnly(entity_type, content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { rollbackRun } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await rollbackRun(req.params.id, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System health dashboard
@@ -4863,17 +4863,17 @@ router.get('/system/health-dashboard', authenticate, authorize('admin'), async (
     const { getHealthDashboard } = await import('../services/system-health.service');
     const data = await getHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // User feedback
 router.post('/feedback', authenticate, async (req, res) => {
   try {
     const { createFeedback } = await import('../services/feedback.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const data = await createFeedback({ ...req.body, user_id: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
@@ -4885,7 +4885,7 @@ router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4893,16 +4893,16 @@ router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res)
     const { getFeedbackStats } = await import('../services/feedback.service');
     const data = await getFeedbackStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { updateFeedback } = await import('../services/feedback.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Performance monitoring
@@ -4911,7 +4911,7 @@ router.get('/system/performance/tables', authenticate, authorize('admin'), async
     const { getTableSizes } = await import('../services/performance-monitor.service');
     const data = await getTableSizes(parseInt(req.query.limit as string) || 30);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/indexes', authenticate, authorize('admin'), async (req, res) => {
@@ -4919,7 +4919,7 @@ router.get('/system/performance/indexes', authenticate, authorize('admin'), asyn
     const { getIndexUsage } = await import('../services/performance-monitor.service');
     const data = await getIndexUsage(parseInt(req.query.limit as string) || 50);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4927,7 +4927,7 @@ router.get('/system/performance/stats', authenticate, authorize('admin'), async 
     const { getDatabaseStats } = await import('../services/performance-monitor.service');
     const data = await getDatabaseStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/slow-queries', authenticate, authorize('admin'), async (req, res) => {
@@ -4935,7 +4935,7 @@ router.get('/system/performance/slow-queries', authenticate, authorize('admin'),
     const { getSlowQueries } = await import('../services/performance-monitor.service');
     const data = await getSlowQueries(parseInt(req.query.limit as string) || 20);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System mode
@@ -4944,13 +4944,13 @@ router.get('/system/mode', authenticate, async (req, res) => {
     const { getSystemMode } = await import('../services/system-mode.service');
     const data = await getSystemMode();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { setSystemMode } = await import('../services/system-mode.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { mode } = req.body;
     if (!mode) { res.status(400).json({ success: false, error: 'mode is required' }); return; }
     const data = await setSystemMode(mode, userId);
@@ -4962,10 +4962,10 @@ router.put('/system/mode', authenticate, authorize('admin'), async (req, res) =>
 router.post('/migration/delta/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { deltaMigrateCars } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await deltaMigrateCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/delta/summary', authenticate, authorize('admin'), async (req, res) => {
@@ -4973,7 +4973,7 @@ router.get('/migration/delta/summary', authenticate, authorize('admin'), async (
     const { getDeltaSummary } = await import('../services/migration-pipeline.service');
     const data = await getDeltaSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel Run Comparison
@@ -4984,7 +4984,7 @@ router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), 
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareInvoices(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4993,14 +4993,14 @@ router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), 
     if (!content) { res.status(400).json({ success: false, error: 'content required' }); return; }
     const result = await compareCarStatuses(content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getParallelRunResults } = await import('../services/parallel-run.service');
     const data = await getParallelRunResults();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5008,15 +5008,15 @@ router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('a
     const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
     const data = await getDiscrepancies(req.params.id, resolved);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/parallel-run.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
     res.json({ success: true, data: { resolved: result } });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel run — daily report and health score
@@ -5026,7 +5026,7 @@ router.get('/parallel-run/daily-report', authenticate, authorize('admin', 'opera
     const days = parseInt(req.query.days as string) || 30;
     const data = await getDailyReport(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/parallel-run/health-score', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5034,7 +5034,7 @@ router.get('/parallel-run/health-score', authenticate, authorize('admin', 'opera
     const { getHealthScore } = await import('../services/parallel-run.service');
     const data = await getHealthScore();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5043,7 +5043,7 @@ router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), a
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareBillingTotals(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5052,7 +5052,7 @@ router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), a
     if (!content || !reporting_period) { res.status(400).json({ success: false, error: 'content and reporting_period required' }); return; }
     const result = await compareMileage(content, reporting_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5061,14 +5061,14 @@ router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'
     if (!content || !target_month) { res.status(400).json({ success: false, error: 'content and target_month required' }); return; }
     const result = await compareAllocations(content, target_month);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/go-live-checklist', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getGoLiveChecklist } = await import('../services/parallel-run.service');
     const data = await getGoLiveChecklist();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live readiness check
@@ -5077,7 +5077,7 @@ router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, r
     const { getGoLiveReadiness } = await import('../services/go-live-check.service');
     const data = await getGoLiveReadiness();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live incidents
@@ -5090,7 +5090,7 @@ router.get('/go-live/incidents', authenticate, async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
@@ -5098,7 +5098,7 @@ router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
     const { getIncidentStats } = await import('../services/go-live-incidents.service');
     const data = await getIncidentStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
@@ -5107,16 +5107,16 @@ router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
     const data = await getIncident(req.params.id);
     if (!data) { res.status(404).json({ success: false, error: 'Incident not found' }); return; }
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { createIncident } = await import('../services/go-live-incidents.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const data = await createIncident({ ...req.body, reported_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5124,7 +5124,7 @@ router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'
     const { updateIncident } = await import('../services/go-live-incidents.service');
     const data = await updateIncident(req.params.id, req.body);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('admin'), async (req, res) => {
@@ -5133,7 +5133,7 @@ router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('adm
     const result = await resetDeadLetter(req.params.id);
     res.json({ success: true, data: { reset: result } });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to reset dead letter' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5146,7 +5146,7 @@ router.post('/alerts/generate', authenticate, authorize('admin'), async (req, re
     const { runAlertGeneration } = await import('../services/alert-engine.service');
     const data = await runAlertGeneration();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -5154,26 +5154,26 @@ router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) =
     const { getAlertStats } = await import('../services/alert-engine.service');
     const data = await getAlertStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts', authenticate, async (req, res) => {
   try {
     const { getActiveAlerts } = await import('../services/alert-engine.service');
-    const userId = (req as any).user?.id;
-    const role = (req as any).user?.role;
+    const userId = req.user?.id;
+    const role = req.user?.role;
     const data = await getActiveAlerts(userId, role);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
   try {
     const { dismissAlert } = await import('../services/alert-engine.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     await dismissAlert(req.params.id, userId);
     res.json({ success: true });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // ============================================================================
@@ -5187,7 +5187,7 @@ router.get('/forecast/maintenance', authenticate, async (req, res) => {
     const data = await getMaintenanceForecast(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get maintenance forecast' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5198,7 +5198,7 @@ router.get('/forecast/trends', authenticate, async (req, res) => {
     const data = await getForecastTrends(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast trends' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5209,7 +5209,7 @@ router.get('/forecast/dashboard-summary', authenticate, async (req, res) => {
     const data = await getDashboardSummary(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast dashboard' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5225,7 +5225,7 @@ router.get('/freight/rates', authenticate, async (req, res) => {
       res.json({ success: true, data: defaultRate });
     }
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get freight rates' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5236,7 +5236,7 @@ router.post('/freight/calculate', authenticate, async (req, res) => {
     const data = await calculateFreightCost(origin_code, shop_code);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to calculate freight cost' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5246,7 +5246,7 @@ router.get('/freight/origins', authenticate, async (req, res) => {
     const data = await listOriginLocations();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to list origins' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5262,7 +5262,7 @@ router.get('/work-hours/factors', authenticate, async (req, res) => {
     const data = await getWorkHoursFactors(factorType, factorValue);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get work hours factors' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5273,7 +5273,7 @@ router.post('/work-hours/calculate', authenticate, async (req, res) => {
     const data = await calculateWorkHours(car, overrides || {});
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to calculate work hours' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5290,7 +5290,7 @@ router.get('/projects/:id/audit', authenticate, async (req, res) => {
     const data = await getProjectAuditEvents(req.params.id, carNumber, limit, offset);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get project audit' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5303,7 +5303,7 @@ router.get('/report-builder/templates', authenticate, async (req, res) => {
     const { listTemplates } = await import('../services/report-builder.service');
     res.json({ success: true, data: listTemplates() });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5314,7 +5314,7 @@ router.get('/report-builder/templates/:id', authenticate, async (req, res) => {
     if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
     res.json({ success: true, data: template });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5326,7 +5326,7 @@ router.post('/report-builder/run', authenticate, async (req, res) => {
     const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit, offset });
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5341,42 +5341,42 @@ router.post('/report-builder/export-csv', authenticate, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
     res.send(csv);
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.get('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { listSavedReports } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user.id;
     const data = await listSavedReports(userId);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.post('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { saveReport } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user.id;
     const { template_id, name, description, columns, filters, sort_by, sort_dir } = req.body;
     if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
     const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
   try {
     const { deleteSavedReport } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user.id;
     await deleteSavedReport(req.params.id, userId);
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5388,7 +5388,7 @@ router.put('/report-builder/saved/:id/schedule', authenticate, authorize('admin'
     const data = await setSchedule(req.params.id, cron, recipients);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5398,7 +5398,7 @@ router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('adm
     const data = await removeSchedule(req.params.id);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5408,7 +5408,7 @@ router.get('/reports/templates', authenticate, async (req, res) => {
     const { listTemplates } = await import('../services/report-builder.service');
     const data = listTemplates();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/reports/run', authenticate, async (req, res) => {
   try {
@@ -5417,7 +5417,7 @@ router.post('/reports/run', authenticate, async (req, res) => {
     if (!templateId) { res.status(400).json({ success: false, error: 'templateId required' }); return; }
     const data = await runReport(templateId, filters || {});
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/reports/export/:templateId', authenticate, async (req, res) => {
   try {
@@ -5434,7 +5434,7 @@ router.get('/reports/export/:templateId', authenticate, async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/\s/g, '_')}_report.csv"`);
       res.send(toCSV(data));
     }
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CLM single car on-demand lookup
@@ -5444,7 +5444,7 @@ router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
     const data = await syncSingleCar(req.params.carNumber);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5513,7 +5513,7 @@ router.get('/admin/data-validation', authenticate, authorize('admin'), async (re
     const data = await runFullValidation();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Data validation failed' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5523,7 +5523,7 @@ router.get('/migration/reconciliation/dashboard', authenticate, authorize('admin
     const { getReconciliationDashboard } = await import('../services/data-reconciliation.service');
     const data = await getReconciliationDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/discrepancies', authenticate, authorize('admin'), async (req, res) => {
@@ -5531,24 +5531,24 @@ router.get('/migration/reconciliation/discrepancies', authenticate, authorize('a
     const { listDiscrepancies } = await import('../services/data-reconciliation.service');
     const data = await listDiscrepancies(req.query as any);
     res.json({ success: true, ...data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
-    const data = await resolveDiscrepancy(req.params.id, req.body, (req as any).user?.id);
+    const data = await resolveDiscrepancy(req.params.id, req.body, req.user?.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { bulkResolveDiscrepancies } = await import('../services/data-reconciliation.service');
     const { ids, ...resolution } = req.body;
-    const data = await bulkResolveDiscrepancies(ids, resolution, (req as any).user?.id);
+    const data = await bulkResolveDiscrepancies(ids, resolution, req.user?.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
@@ -5556,7 +5556,7 @@ router.get('/migration/reconciliation/duplicates', authenticate, authorize('admi
     const { detectDuplicates } = await import('../services/data-reconciliation.service');
     const data = await detectDuplicates(req.query.entity_type as any);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Training Progress
@@ -5565,55 +5565,55 @@ router.get('/training/modules', authenticate, async (req, res) => {
     const { listModules } = await import('../services/training-progress.service');
     const data = await listModules();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/progress', authenticate, async (req, res) => {
   try {
     const { getUserProgress } = await import('../services/training-progress.service');
-    const data = await getUserProgress((req as any).user?.id);
+    const data = await getUserProgress(req.user?.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
   try {
     const { startModule } = await import('../services/training-progress.service');
-    const data = await startModule((req as any).user?.id, req.params.moduleId);
+    const data = await startModule(req.user?.id, req.params.moduleId);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
   try {
     const { completeModule } = await import('../services/training-progress.service');
-    const data = await completeModule((req as any).user?.id, req.params.moduleId, req.body.score);
+    const data = await completeModule(req.user?.id, req.params.moduleId, req.body.score);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
   try {
     const { updateProgress } = await import('../services/training-progress.service');
-    const data = await updateProgress((req as any).user?.id, req.params.moduleId, req.body.timeSpent);
+    const data = await updateProgress(req.user?.id, req.params.moduleId, req.body.timeSpent);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/certifications', authenticate, async (req, res) => {
   try {
     const { getUserCertifications } = await import('../services/training-progress.service');
-    const data = await getUserCertifications((req as any).user?.id);
+    const data = await getUserCertifications(req.user?.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { grantCertification } = await import('../services/training-progress.service');
-    const data = await grantCertification(req.body.userId, req.body.certType, (req as any).user?.id, req.body.notes);
+    const data = await grantCertification(req.body.userId, req.body.certType, req.user?.id, req.body.notes);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/organization', authenticate, authorize('admin'), async (req, res) => {
@@ -5621,7 +5621,7 @@ router.get('/training/organization', authenticate, authorize('admin'), async (re
     const { getOrganizationProgress } = await import('../services/training-progress.service');
     const data = await getOrganizationProgress();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/readiness', authenticate, authorize('admin'), async (req, res) => {
@@ -5629,7 +5629,7 @@ router.get('/training/readiness', authenticate, authorize('admin'), async (req, 
     const { getReadinessAssessment } = await import('../services/training-progress.service');
     const data = await getReadinessAssessment();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 export default router;

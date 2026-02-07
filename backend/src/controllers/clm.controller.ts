@@ -3,7 +3,7 @@ import * as clmService from '../services/clm-integration.service';
 
 export async function syncLocations(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await clmService.syncCarLocations(userId);
     res.json({ success: true, data: result });
   } catch (error: any) {

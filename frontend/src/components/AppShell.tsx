@@ -25,9 +25,6 @@ export default function AppShell({ children, dashboardWrapper }: AppShellProps) 
         Skip to main content
       </a>
 
-      {/* Global Command Bar (Ctrl+K) */}
-      <GlobalCommandBar />
-
       {/* Sidebar Navigation */}
       <Sidebar />
 
@@ -37,6 +34,11 @@ export default function AppShell({ children, dashboardWrapper }: AppShellProps) 
       }`}>
         {/* Mobile top spacer */}
         <div className="h-14 md:hidden flex-shrink-0" />
+
+        {/* Top bar with search trigger */}
+        <div className="hidden md:flex items-center justify-end h-12 px-4 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto flex-shrink-0">
+          <GlobalCommandBar />
+        </div>
 
         <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <Breadcrumbs />

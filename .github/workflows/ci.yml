@@ -133,7 +133,6 @@ jobs:
           else
             echo "No coverage report generated — skipping threshold check"
           fi
-        continue-on-error: true
 
       - name: Upload frontend coverage
         if: always()

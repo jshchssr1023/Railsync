@@ -15,7 +15,7 @@ import { query } from '../config/database';
 // POST /api/shopping-events
 export async function createShoppingEvent(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const event = await createShoppingEventService(req.body, userId);
 
     // Auto-detect project car and flag the shopping event
@@ -52,7 +52,7 @@ export async function createShoppingEvent(req: Request, res: Response): Promise<
 // POST /api/shopping-events/batch
 export async function createBatchShoppingEvents(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await createBatchShoppingEventsService(req.body, userId);
     res.status(201).json(result);
   } catch (error: any) {
@@ -99,7 +99,7 @@ export async function getShoppingEvent(req: Request, res: Response): Promise<voi
 // PUT /api/shopping-events/:id/state
 export async function transitionState(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { state, to_state, notes } = req.body;
     const targetState = to_state || state;
     if (!targetState) {

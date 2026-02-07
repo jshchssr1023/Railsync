@@ -575,10 +575,10 @@ export async function recordInspection(
   const updated = await queryOne<Component>(
     `UPDATE components SET
       last_inspection_date = CURRENT_DATE,
-      next_inspection_due = CURRENT_DATE + INTERVAL '${DEFAULT_INSPECTION_INTERVAL_DAYS} days',
+      next_inspection_due = CURRENT_DATE + make_interval(days => $2),
       updated_at = NOW()
      WHERE id = $1 RETURNING *`,
-    [id]
+    [id, DEFAULT_INSPECTION_INTERVAL_DAYS]
   );
 
   await queryOne<ComponentHistory>(

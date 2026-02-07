@@ -31,7 +31,7 @@ export async function getScenario(req: Request, res: Response): Promise<void> {
 
 export async function createScenario(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { name, sliders } = req.body;
 
     if (!name || !sliders) {
@@ -49,7 +49,7 @@ export async function createScenario(req: Request, res: Response): Promise<void>
 
 export async function updateScenario(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { name, sliders } = req.body;
 
     const scenario = await budgetScenarioService.updateCustomScenario(req.params.id, { name, sliders }, userId);

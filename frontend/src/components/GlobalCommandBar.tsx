@@ -139,12 +139,12 @@ export default function GlobalCommandBar() {
       {/* Trigger Button */}
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors min-w-[200px]"
       >
-        <Search className="w-4 h-4" />
-        <span className="hidden sm:inline">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-600 rounded">
-          <span className="text-xs">⌘</span>K
+        <Search className="w-4 h-4 flex-shrink-0" />
+        <span className="flex-1 text-left">Search...</span>
+        <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-mono text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">
+          Ctrl+K
         </kbd>
       </button>
 

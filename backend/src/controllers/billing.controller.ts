@@ -31,7 +31,7 @@ export async function runPreflight(req: Request, res: Response): Promise<void> {
 export async function createBillingRun(req: Request, res: Response): Promise<void> {
   try {
     const { fiscalYear, fiscalMonth, runType } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!fiscalYear || !fiscalMonth || !runType) {
       res.status(400).json({ success: false, error: 'fiscalYear, fiscalMonth, and runType are required' });
       return;
@@ -82,7 +82,7 @@ export async function getBillingRun(req: Request, res: Response): Promise<void> 
 export async function generateInvoices(req: Request, res: Response): Promise<void> {
   try {
     const { fiscalYear, fiscalMonth } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!fiscalYear || !fiscalMonth) {
       res.status(400).json({ success: false, error: 'fiscalYear and fiscalMonth are required' });
       return;
@@ -133,7 +133,7 @@ export async function getInvoice(req: Request, res: Response): Promise<void> {
 // PUT /api/billing/invoices/:id/approve
 export async function approveInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.approveOutboundInvoice(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Invoice not found or not in approvable state' });
@@ -185,7 +185,7 @@ export async function getRateHistory(req: Request, res: Response): Promise<void>
 export async function updateRate(req: Request, res: Response): Promise<void> {
   try {
     const { newRate, effectiveDate, changeType, reason } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!newRate || !effectiveDate || !changeType) {
       res.status(400).json({ success: false, error: 'newRate, effectiveDate, and changeType are required' });
       return;
@@ -208,7 +208,7 @@ export async function updateRate(req: Request, res: Response): Promise<void> {
 export async function registerMileageFile(req: Request, res: Response): Promise<void> {
   try {
     const { filename, fileType, reportingPeriod } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!filename || !reportingPeriod) {
       res.status(400).json({ success: false, error: 'filename and reportingPeriod are required' });
       return;
@@ -259,7 +259,7 @@ export async function getMileageSummary(req: Request, res: Response): Promise<vo
 // PUT /api/billing/mileage/records/:id/verify
 export async function verifyMileageRecord(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.verifyMileageRecord(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Mileage record not found' });
@@ -279,7 +279,7 @@ export async function verifyMileageRecord(req: Request, res: Response): Promise<
 // POST /api/billing/chargebacks
 export async function createChargeback(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.createChargeback({
       ...req.body,
       customer_id: req.body.customerId || req.body.customer_id,
@@ -315,7 +315,7 @@ export async function listChargebacks(req: Request, res: Response): Promise<void
 // PUT /api/billing/chargebacks/:id/review
 export async function reviewChargeback(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const { approved, notes } = req.body;
     if (typeof approved !== 'boolean') {
       res.status(400).json({ success: false, error: 'approved (boolean) is required' });
@@ -337,7 +337,7 @@ export async function reviewChargeback(req: Request, res: Response): Promise<voi
 export async function generateChargebackInvoice(req: Request, res: Response): Promise<void> {
   try {
     const { customerId, fiscalYear, fiscalMonth } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!customerId || !fiscalYear || !fiscalMonth) {
       res.status(400).json({ success: false, error: 'customerId, fiscalYear, and fiscalMonth are required' });
       return;
@@ -363,7 +363,7 @@ export async function generateChargebackInvoice(req: Request, res: Response): Pr
 // POST /api/billing/adjustments
 export async function createAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.createAdjustment({
       ...req.body,
       customer_id: req.body.customerId || req.body.customer_id,
@@ -396,7 +396,7 @@ export async function listPendingAdjustments(req: Request, res: Response): Promi
 // PUT /api/billing/adjustments/:id/approve
 export async function approveAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.approveAdjustment(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Adjustment not found or not pending' });
@@ -412,7 +412,7 @@ export async function approveAdjustment(req: Request, res: Response): Promise<vo
 // PUT /api/billing/adjustments/:id/reject
 export async function rejectAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const { reason } = req.body;
     if (!reason) {
       res.status(400).json({ success: false, error: 'Reason is required' });
@@ -471,7 +471,7 @@ export async function getCustomerInvoiceHistory(req: Request, res: Response): Pr
 // PUT /api/billing/runs/:id/approve
 export async function approveBillingRun(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const { notes } = req.body;
     const result = await billingService.approveBillingRun(req.params.id, userId, notes);
     if (!result) {
@@ -507,7 +507,7 @@ export async function completeBillingRun(req: Request, res: Response): Promise<v
 // POST /api/billing/cost-allocations
 export async function createCostAllocation(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     const result = await billingService.createCostAllocationEntry({
       ...req.body,
       allocated_by: userId,

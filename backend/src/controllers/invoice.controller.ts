@@ -14,7 +14,7 @@ import * as invoiceMatching from '../services/invoice-matching.service';
 
 export async function createInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const invoice = await invoiceService.createInvoice({
       ...req.body,
       created_by: userId,
@@ -31,7 +31,7 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
  */
 export async function uploadInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
 
     if (!file) {
@@ -148,7 +148,7 @@ export async function updateInvoiceStatus(req: Request, res: Response): Promise<
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const invoice = await invoiceService.updateInvoiceStatus(id, status, userId, notes);
     if (!invoice) {
@@ -203,7 +203,7 @@ export async function updateLineItemMatch(req: Request, res: Response): Promise<
 export async function verifyLineItem(req: Request, res: Response): Promise<void> {
   try {
     const { id, lineId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({ error: 'User not authenticated' });
@@ -249,7 +249,7 @@ export async function approveInvoice(req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Update status to approved
     const invoice = await invoiceService.updateInvoiceStatus(id, 'approved', userId, notes);
@@ -283,7 +283,7 @@ export async function rejectInvoice(req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!notes) {
       res.status(400).json({ error: 'Rejection reason is required' });

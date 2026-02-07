@@ -112,6 +112,16 @@ export default function EstimatesPage() {
   // Count by status
   const counts = estimates.reduce((acc, e) => { acc[e.status] = (acc[e.status] || 0) + 1; return acc; }, {} as Record<string, number>);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          Please sign in to view estimates
+        </h2>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>

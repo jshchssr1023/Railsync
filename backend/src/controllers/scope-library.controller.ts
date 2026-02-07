@@ -62,7 +62,7 @@ export async function getScopeTemplateHandler(req: Request, res: Response): Prom
 
 export async function createScopeTemplateHandler(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { name, car_type, shopping_type_code, shopping_reason_code, description } = req.body;
 
     if (!name) {

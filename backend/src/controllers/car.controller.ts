@@ -96,7 +96,7 @@ export async function getCarUmler(req: Request, res: Response): Promise<void> {
 export async function updateCarUmler(req: Request, res: Response): Promise<void> {
   try {
     const { carNumber } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const data = await carUmlerService.upsert(carNumber, req.body, userId);
     if (!data) {
@@ -123,7 +123,7 @@ export async function importUmlerCSV(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await carUmlerService.importCSV(content, userId);
 
     res.json({ success: true, data: result });

@@ -6,7 +6,7 @@ import * as releaseService from '../services/release.service';
  */
 export async function initiateRelease(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await releaseService.initiateRelease(req.body, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
@@ -71,7 +71,7 @@ export async function getRelease(req: Request, res: Response): Promise<void> {
  */
 export async function approveRelease(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await releaseService.approveRelease(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -85,7 +85,7 @@ export async function approveRelease(req: Request, res: Response): Promise<void>
  */
 export async function executeRelease(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await releaseService.executeRelease(req.params.id, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -99,7 +99,7 @@ export async function executeRelease(req: Request, res: Response): Promise<void>
  */
 export async function completeRelease(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await releaseService.completeRelease(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -113,7 +113,7 @@ export async function completeRelease(req: Request, res: Response): Promise<void
  */
 export async function cancelRelease(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { reason } = req.body;
     if (!reason) {
       res.status(400).json({ success: false, error: 'Cancellation reason is required' });

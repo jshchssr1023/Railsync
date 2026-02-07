@@ -14,6 +14,7 @@ import CarCard from '@/components/contracts/CarCard';
 import AmendmentModal from '@/components/contracts/AmendmentModal';
 import ContractsHealthDashboard from '@/components/ContractsHealthDashboard';
 import FacetedSidebar, { FilterState } from '@/components/FacetedSidebar';
+import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -114,7 +115,31 @@ const fetcher = async (url: string) => {
 // Navigation levels
 type NavigationLevel = 'customers' | 'leases' | 'riders' | 'cars';
 
-export default function ContractsPage() {
+export default function ContractsPageWrapper() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          Please sign in to view contracts
+        </h2>
+      </div>
+    );
+  }
+
+  return <ContractsPage />;
+}
+
+function ContractsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

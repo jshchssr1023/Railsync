@@ -128,8 +128,9 @@ describe('InvoicesPage', () => {
   it('renders empty state when no invoices', async () => {
     render(<InvoicesPage />);
     await waitFor(() => {
-      expect(screen.getByText('No invoices found. Upload one to get started.')).toBeInTheDocument();
+      expect(screen.getByText('No invoices found')).toBeInTheDocument();
     });
+    expect(screen.getByText('Upload an invoice to get started.')).toBeInTheDocument();
   });
 
   it('renders invoice table with data', async () => {

@@ -8,7 +8,7 @@ import * as packetService from '../services/shopping-packet.service';
 
 export async function createPacket(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const packet = await packetService.createPacket(req.body, userId);
     res.status(201).json({ success: true, data: packet });
   } catch (error) {
@@ -53,7 +53,7 @@ export async function listPackets(req: Request, res: Response): Promise<void> {
 export async function addDocument(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
 
     if (!file) {
@@ -79,7 +79,7 @@ export async function addDocument(req: Request, res: Response): Promise<void> {
 export async function linkMFilesDocument(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { document_type, document_name, mfiles_id, mfiles_url } = req.body;
 
     if (!mfiles_id || !document_name) {
@@ -104,7 +104,7 @@ export async function linkMFilesDocument(req: Request, res: Response): Promise<v
 export async function sendPacket(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const packet = await packetService.sendPacket(id, userId);
     if (!packet) {
       res.status(404).json({ success: false, error: 'Packet not found or not in draft/ready status' });

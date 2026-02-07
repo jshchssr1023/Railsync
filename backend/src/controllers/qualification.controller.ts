@@ -56,7 +56,7 @@ export async function getAlerts(req: Request, res: Response): Promise<void> {
 // POST /api/qualifications/alerts/:id/acknowledge
 export async function acknowledgeAlert(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const success = await qualificationService.acknowledgeAlert(req.params.id, userId);
     if (!success) {
       res.status(404).json({ success: false, error: 'Alert not found or already acknowledged' });
@@ -146,7 +146,7 @@ export async function createQualification(req: Request, res: Response): Promise<
       res.status(400).json({ success: false, error: 'car_id and qualification_type_id are required' });
       return;
     }
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const qual = await qualificationService.createQualification(req.body, userId);
     res.status(201).json({ success: true, data: qual });
   } catch (error: any) {
@@ -166,7 +166,7 @@ export async function createQualification(req: Request, res: Response): Promise<
 // PUT /api/qualifications/:id
 export async function updateQualification(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const qual = await qualificationService.updateQualification(req.params.id, req.body, userId);
     if (!qual) {
       res.status(404).json({ success: false, error: 'Qualification not found' });
@@ -187,7 +187,7 @@ export async function completeQualification(req: Request, res: Response): Promis
       res.status(400).json({ success: false, error: 'completed_date is required' });
       return;
     }
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const qual = await qualificationService.completeQualification(req.params.id, req.body, userId);
     if (!qual) {
       res.status(404).json({ success: false, error: 'Qualification not found' });
@@ -212,7 +212,7 @@ export async function bulkUpdate(req: Request, res: Response): Promise<void> {
       res.status(400).json({ success: false, error: 'ids array is required' });
       return;
     }
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await qualificationService.bulkUpdateQualifications(ids, { status, next_due_date, notes }, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {

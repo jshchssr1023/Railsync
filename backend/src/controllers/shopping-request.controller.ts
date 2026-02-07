@@ -19,7 +19,7 @@ import {
 // POST /api/shopping-requests
 export async function create(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!req.body.car_number) {
       res.status(400).json({ error: 'car_number is required' });
       return;
@@ -68,7 +68,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
 // PUT /api/shopping-requests/:id
 export async function update(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await updateService(req.params.id, req.body, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -81,7 +81,7 @@ export async function update(req: Request, res: Response): Promise<void> {
 // PUT /api/shopping-requests/:id/approve
 export async function approve(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { shop_code, notes } = req.body;
     if (!shop_code) {
       res.status(400).json({ error: 'shop_code is required for approval' });
@@ -99,7 +99,7 @@ export async function approve(req: Request, res: Response): Promise<void> {
 // PUT /api/shopping-requests/:id/reject
 export async function reject(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { notes } = req.body;
     if (!notes) {
       res.status(400).json({ error: 'notes are required for rejection' });
@@ -117,7 +117,7 @@ export async function reject(req: Request, res: Response): Promise<void> {
 // PUT /api/shopping-requests/:id/cancel
 export async function cancel(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await cancelService(req.params.id, userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -130,7 +130,7 @@ export async function cancel(req: Request, res: Response): Promise<void> {
 // POST /api/shopping-requests/:id/attachments
 export async function uploadAttachment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
     if (!file) {
       res.status(400).json({ error: 'No file provided' });
@@ -171,7 +171,7 @@ export async function deleteAttachment(req: Request, res: Response): Promise<voi
 // POST /api/shopping-requests/:id/duplicate
 export async function duplicate(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { car_number, overrides } = req.body;
     if (!car_number) {
       res.status(400).json({ error: 'car_number is required for duplicate' });
@@ -189,7 +189,7 @@ export async function duplicate(req: Request, res: Response): Promise<void> {
 // POST /api/shopping-requests/:id/revert
 export async function revert(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { notes } = req.body;
     const result = await revertService(req.params.id, userId, notes);
     res.json({ success: true, data: result });

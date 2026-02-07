@@ -8,6 +8,9 @@ import {
   FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList, Loader2
 } from 'lucide-react';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
+import MobileCarCard from '@/components/MobileCarCard';
+import EmptyState from '@/components/EmptyState';
+import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -631,6 +634,26 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
 // Main Page
 // ---------------------------------------------------------------------------
 export default function CarsPageWrapper() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          Please sign in to view the cars directory
+        </h2>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
@@ -672,6 +695,15 @@ function CarsPage() {
 
   // Drawer
   const [selectedCar, setSelectedCar] = useState<string | null>(null);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Distinct values for filter dropdowns
   const [filterOptions, setFilterOptions] = useState<{ statuses: string[]; regions: string[]; lessees: string[] }>({ statuses: [], regions: [], lessees: [] });
@@ -880,42 +912,55 @@ function CarsPage() {
           )}
         </div>
 
-        {/* Table */}
+        {/* Table / Mobile Cards */}
         <div className="flex-1 overflow-auto">
-          <table className="w-full">
-            <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
-              <tr>
-                {columns.map(col => (
-                  <th
-                    key={col.key}
-                    onClick={() => handleSort(col.key)}
-                    className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 select-none ${col.width}`}
-                  >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      {sortField === col.key && (
-                        sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
-              {carsLoading ? (
+          {carsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+            </div>
+          ) : cars.length === 0 ? (
+            <EmptyState
+              variant="search"
+              title="No cars match the current filters"
+              description="Try adjusting your search or filter criteria."
+              actionLabel="Clear Filters"
+              onAction={clearAllFilters}
+            />
+          ) : isMobile ? (
+            <div className="space-y-3 p-3">
+              {cars.map(car => (
+                <MobileCarCard
+                  key={car.car_number}
+                  carNumber={car.car_number}
+                  status={car.current_status || 'Unknown'}
+                  carType={car.car_type}
+                  customer={car.lessee_name}
+                  onClick={() => setSelectedCar(car.car_number)}
+                />
+              ))}
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
                 <tr>
-                  <td colSpan={columns.length} className="py-16 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary-500 inline-block" />
-                  </td>
+                  {columns.map(col => (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col.key)}
+                      className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 select-none ${col.width}`}
+                    >
+                      <div className="flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.key && (
+                          sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                        )}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
-              ) : cars.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No cars match the current filters.
-                  </td>
-                </tr>
-              ) : (
-                cars.map(car => (
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                {cars.map(car => (
                   <tr
                     key={car.car_number}
                     onClick={() => setSelectedCar(car.car_number)}
@@ -950,10 +995,10 @@ function CarsPage() {
                       {car.car_age ? `${car.car_age}y` : '-'}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination */}

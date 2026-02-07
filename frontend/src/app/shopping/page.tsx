@@ -6,6 +6,7 @@ import { Loader2, FileText, ChevronRight } from 'lucide-react';
 import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents } from '@/lib/api';
 import { ShoppingEvent, ShoppingEventState } from '@/types';
 import { useToast } from '@/components/Toast';
+import EmptyState from '@/components/EmptyState';
 
 // ---------------------------------------------------------------------------
 // State color mapping
@@ -196,6 +197,7 @@ function ShoppingContent() {
       setCreateReasonCode('');
       setShowCreateForm(false);
       fetchEvents();
+      toast.success('Shopping event created successfully');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create shopping event');
     } finally {
@@ -236,6 +238,7 @@ function ShoppingContent() {
       setBatchNotes('');
       setShowBatchForm(false);
       fetchEvents();
+      toast.success(`Batch shopping events created for ${carNumbers.length} cars`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create batch shopping events');
     } finally {
@@ -538,11 +541,13 @@ function ShoppingContent() {
       {/* Empty state                                                        */}
       {/* ----------------------------------------------------------------- */}
       {!loading && !error && events.length === 0 && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" strokeWidth={1.5} aria-hidden="true" />
-          <p>No shopping events found</p>
-          <p className="text-sm mt-1">Create one using the button above, or adjust your filters</p>
-        </div>
+        <EmptyState
+          variant={stateFilter || shopCodeFilter || carNumberFilter ? 'search' : 'neutral'}
+          title="No shopping events found"
+          description="Create one using the button above, or adjust your filters."
+          actionLabel="New Shopping Request"
+          onAction={() => router.push('/shopping/new')}
+        />
       )}
 
       {/* ----------------------------------------------------------------- */}

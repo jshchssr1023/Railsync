@@ -8,6 +8,7 @@ import {
   Loader2, Search, X, FileText, ChevronRight, Plus,
   AlertOctagon, Inbox, UserCheck, AlertTriangle,
 } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
 
 // ---------------------------------------------------------------------------
 // Debounce hook
@@ -508,10 +509,15 @@ function InvoiceCasesContent() {
               Loading cases...
             </div>
           ) : cases.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" strokeWidth={1.5} aria-hidden="true" />
-              {hasFilters ? 'No cases match your filters.' : 'No invoice cases yet. Create one to get started.'}
-            </div>
+            <EmptyState
+              variant={hasFilters ? 'search' : 'neutral'}
+              title={hasFilters ? 'No cases match your filters' : 'No invoice cases yet'}
+              description={hasFilters
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Create one to get started.'}
+              actionLabel={hasFilters ? undefined : 'Create Case'}
+              onAction={hasFilters ? undefined : openCreateModal}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

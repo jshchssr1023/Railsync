@@ -51,10 +51,10 @@ async function scanQualificationDue(): Promise<void> {
           owner_mark
         FROM cars
         WHERE qual_exp_date IS NOT NULL
-          AND qual_exp_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '${threshold.days} days'
+          AND qual_exp_date BETWEEN CURRENT_DATE AND CURRENT_DATE + make_interval(days => $1)
           AND is_active = TRUE
         ORDER BY qual_exp_date`,
-        []
+        [threshold.days]
       );
 
       console.log(`[Scheduler] Found ${cars.length} cars with qual due in ${threshold.days} days`);

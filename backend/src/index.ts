@@ -5,7 +5,18 @@ dotenv.config();
 
 import app from './app';
 import { pool } from './config/database';
+import logger from './config/logger';
 import { initScheduler } from './services/scheduler.service';
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.fatal({ reason, promise }, 'Unhandled promise rejection');
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.fatal({ err: error }, 'Uncaught exception');
+  process.exit(1);
+});
 
 const PORT = process.env.PORT || 3001;
 

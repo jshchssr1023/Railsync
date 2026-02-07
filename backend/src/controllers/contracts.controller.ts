@@ -192,7 +192,7 @@ export async function getRiderAmendments(req: Request, res: Response) {
 export async function resyncRiderSchedules(req: Request, res: Response) {
   try {
     const { riderId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const count = await contractsService.resyncSchedules(riderId, userId);
 

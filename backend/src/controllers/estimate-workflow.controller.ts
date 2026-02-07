@@ -14,7 +14,7 @@ import {
 // POST /api/shopping-events/:id/estimates
 export async function submitEstimate(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const input = {
       shopping_event_id: req.params.id,
       ...req.body,
@@ -56,7 +56,7 @@ export async function getEstimate(req: Request, res: Response): Promise<void> {
 // POST /api/estimates/:id/decisions
 export async function recordLineDecisions(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { decisions } = req.body;
 
     if (!Array.isArray(decisions) || decisions.length === 0) {
@@ -120,7 +120,7 @@ export async function updateEstimateStatus(req: Request, res: Response): Promise
 // POST /api/estimates/:id/approval-packet
 export async function generateApprovalPacket(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { overall_decision, line_decisions, notes } = req.body;
     const packet = await generateApprovalPacketService(
       req.params.id,
@@ -154,7 +154,7 @@ export async function getApprovalPacket(req: Request, res: Response): Promise<vo
 // POST /api/approval-packets/:id/release
 export async function releaseApprovalPacket(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const packet = await releaseApprovalPacketService(req.params.id, userId);
     res.json(packet);
   } catch (error: any) {

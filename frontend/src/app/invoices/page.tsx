@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { Loader2, Upload, Search, X, FileText, ChevronRight } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -192,6 +193,7 @@ function InvoicesContent() {
         // Refresh list and navigate to the new invoice
         fetchInvoices();
         fetchQueueStats();
+        toast.success('Invoice uploaded successfully');
         router.push(`/invoices/${data.invoice.id}`);
       } else {
         toast.error(data.error || 'Upload failed');
@@ -401,10 +403,15 @@ function InvoicesContent() {
               Loading invoices...
             </div>
           ) : invoices.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" strokeWidth={1.5} aria-hidden="true" />
-              No invoices found. Upload one to get started.
-            </div>
+            <EmptyState
+              variant={searchTerm || filters.status || filters.shop_code ? 'search' : 'neutral'}
+              title="No invoices found"
+              description={searchTerm || filters.status || filters.shop_code
+                ? 'No invoices match the current filters.'
+                : 'Upload an invoice to get started.'}
+              actionLabel="Upload Invoice"
+              onAction={() => fileInputRef.current?.click()}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

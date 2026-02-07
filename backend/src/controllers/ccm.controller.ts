@@ -59,7 +59,7 @@ export async function listCCMsByLessee(req: Request, res: Response): Promise<voi
 
 export async function addSection(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const ccmDocumentId = req.params.id;
     const { section_number, section_name, content, section_type, can_include_in_sow } = req.body;
 
@@ -135,7 +135,7 @@ export async function getSectionsForSOW(req: Request, res: Response): Promise<vo
 
 export async function createCCMForm(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const form = await createCCMFormService(req.body, userId);
     res.status(201).json({ success: true, data: form });
   } catch (error) {
@@ -271,7 +271,7 @@ export async function removeLiningSection(req: Request, res: Response): Promise<
 
 export async function addCCMFormAttachment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
 
     if (!file) {
