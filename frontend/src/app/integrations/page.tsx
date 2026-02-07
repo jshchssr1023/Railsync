@@ -445,9 +445,48 @@ function IntegrationsPageInner() {
         </div>
       )}
 
-      {/* Sync Log Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      {/* Tabs for Logs / Retry Queue / Scheduler */}
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'logs'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Sync Logs
+        </button>
+        <button
+          onClick={() => setActiveTab('retry-queue')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'retry-queue'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Retry Queue {retryQueue.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">
+              {retryQueue.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('scheduler')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'scheduler'
+              ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Sync Scheduler
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'logs' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">System</label>
@@ -600,12 +639,200 @@ function IntegrationsPageInner() {
           </table>
         </div>
 
-        {logTotal > 50 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
-            Showing {logEntries.length} of {logTotal} entries
+          {logTotal > 50 && (
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+              Showing {logEntries.length} of {logTotal} entries
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Retry Queue Tab */}
+      {activeTab === 'retry-queue' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Retry Queue</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Items pending automatic retry or manual intervention
+            </p>
           </div>
-        )}
-      </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">System</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Operation</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Entity</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700 dark:text-gray-300">Retries</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Next Retry</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Last Error</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {retryQueue.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                      {SYSTEM_LABELS[item.system_name] || item.system_name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">
+                      {item.operation}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-gray-900 dark:text-gray-100">{item.entity_ref || '--'}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{item.entity_type || ''}</div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                        {item.retry_count}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      {formatDate(item.next_retry_at)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-red-600 dark:text-red-400 max-w-xs truncate" title={item.last_error || ''}>
+                      {item.last_error || '--'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleRetry(item.id)}
+                          disabled={retryingId === item.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+                        >
+                          {retryingId === item.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RotateCcw className="w-3 h-3" />
+                          )}
+                          Retry Now
+                        </button>
+                        <button
+                          onClick={() => handleDismissRetry(item.id)}
+                          disabled={dismissingId === item.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                        >
+                          {dismissingId === item.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <X className="w-3 h-3" />
+                          )}
+                          Dismiss
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {retryQueue.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
+                      No items in retry queue.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sync Scheduler Tab */}
+      {activeTab === 'scheduler' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Scheduled Sync Jobs</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Manage automated sync schedules across integrations
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Job Name</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">System</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Schedule</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Last Run</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Next Run</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700 dark:text-gray-300">Status</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700 dark:text-gray-300">Enabled</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {scheduledJobs.map((job) => (
+                  <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{job.name}</div>
+                      {job.description && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{job.description}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      {job.system_name ? (SYSTEM_LABELS[job.system_name] || job.system_name) : 'All'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">
+                      {job.schedule}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(job.last_run_at)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(job.next_run_at)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {job.last_status && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          job.last_status === 'success'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {job.last_status === 'success' ? (
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                          ) : (
+                            <XCircle className="w-3 h-3 mr-1" />
+                          )}
+                          {job.last_status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleToggleJob(job.id, !job.enabled)}
+                        disabled={togglingJobId === job.id}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                          job.enabled
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        } disabled:opacity-50`}
+                      >
+                        {togglingJobId === job.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Power className="w-3 h-3" />
+                        )}
+                        {job.enabled ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {scheduledJobs.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
+                      No scheduled jobs configured.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 10
+iteration: 11
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -85,3 +85,15 @@ Iteration 10: Sprint H — Release management UI, contract transfers UI, trainin
   - Sprint 18: ~45% → ~55% (training center)
   - Sprint 19-20: ~65% → ~75% (training, go-live tooling)
   - Backend tsc + frontend next build: clean (43 pages)
+Iteration 11: Sprint I — Integration health monitoring, estimate AI display, commodity cleaning admin, TODO fixes.
+  - Enhanced integrations page: health status banner, error trend display, retry queue section, sync scheduler tab with enable/disable toggles
+  - Shopping event detail: AI confidence scoring section (overall score 0-100, individual rule results, cost variance analysis, suggested actions)
+  - New /admin/commodity-cleaning page: commodity cleaning matrix admin (filter by class, search, add/edit modal, class summary cards)
+  - Backend TODO fixes: invoice approval now triggers SAP push via pushInvoiceToSAP(), MRU validation now checks shop parent location
+  - Sidebar: added Commodity Cleaning under Admin
+  - Breadcrumbs: added commodity-cleaning label
+  - Documentation: updated access points + migration count
+  - Sprint 12: ~58% → ~70% (estimate AI confidence display, integration stabilization)
+  - Sprint 14: ~55% → ~70% (integration health monitoring, sync scheduler)
+  - Sprint 13: ~65% → ~70% (commodity cleaning admin, SAP trigger wiring)
+  - Backend tsc + frontend next build: clean
