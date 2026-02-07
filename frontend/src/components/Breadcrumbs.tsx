@@ -61,6 +61,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'work-hours': 'Work Hours',
   alerts: 'Alerts',
   customers: 'Customers',
+  freight: 'Freight Calculator',
   new: 'New Shopping Request',
 };
 

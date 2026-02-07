@@ -108,6 +108,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
       { label: 'Cost Analytics', href: '/cost-analytics', icon: <TrendingUp className="w-4 h-4" /> },
       { label: 'Shop Performance', href: '/shop-performance', icon: <Award className="w-4 h-4" /> },
+      { label: 'Freight Calculator', href: '/freight', icon: <Truck className="w-4 h-4" /> },
       { label: 'Fleet Location', href: '/fleet-location', icon: <MapPin className="w-4 h-4" /> },
       { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },
     ],
