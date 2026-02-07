@@ -1,495 +1,453 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-
-interface MetricCard {
-  label: string;
-  value: string | number;
-  change?: number;
-  changeLabel?: string;
-  color: 'green' | 'amber' | 'red' | 'blue' | 'gray';
-}
-
-interface ShopMetrics {
-  shop_code: string;
-  total_allocations: number;
-  completed: number;
-  in_progress: number;
-  avg_days_in_shop: number;
-  utilization_pct: number;
-}
-
-interface MonthlyTrend {
-  month: string;
-  allocations: number;
-  completed: number;
-  total_cost: number;
-}
+import { Loader2, Download, Play, Save, BookOpen, Trash2, Table2 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// ============================================================================
+// Types
+// ============================================================================
+
+interface ReportTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  available_columns: { key: string; label: string; type: string }[];
+  available_filters: { key: string; label: string; type: string; options?: string[] }[];
+  default_columns: string[];
+}
+
+interface ReportResult {
+  columns: { key: string; label: string; type: string }[];
+  rows: Record<string, unknown>[];
+  total: number;
+  generated_at: string;
+}
+
+interface SavedReport {
+  id: string;
+  template_id: string;
+  name: string;
+  description: string | null;
+  columns: string[];
+  filters: Record<string, unknown>;
+  sort_by: string | null;
+  sort_dir: string;
+  is_scheduled: boolean;
+  created_at: string;
+}
+
+// ============================================================================
+// Page
+// ============================================================================
+
 export default function ReportsPage() {
   const { isAuthenticated } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('6m');
-  const [metrics, setMetrics] = useState<MetricCard[]>([]);
-  const [shopMetrics, setShopMetrics] = useState<ShopMetrics[]>([]);
-  const [trends, setTrends] = useState<MonthlyTrend[]>([]);
-  const [qualDashboard, setQualDashboard] = useState<{
-    total_cars: number;
-    overdue_cars: number;
-    due_next_year: number;
-    current_cars: number;
-  } | null>(null);
-  const [qualByCsr, setQualByCsr] = useState<{ csr_name: string; total_cars: number; overdue: number; due_next_year: number; current: number }[]>([]);
-  const [qualByLessee, setQualByLessee] = useState<{ lessee_name: string; total_cars: number; overdue: number; due_next_year: number }[]>([]);
 
-  const getToken = () => localStorage.getItem('railsync_access_token');
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
+  const fetchApi = useCallback((endpoint: string, opts?: RequestInit) =>
+    fetch(`${API_URL}${endpoint}`, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    }).then(r => r.json()), []);
 
+  // State
+  const [tab, setTab] = useState<'builder' | 'saved'>('builder');
+  const [templates, setTemplates] = useState<ReportTemplate[]>([]);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sortBy, setSortBy] = useState('');
+  const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('ASC');
+  const [result, setResult] = useState<ReportResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [showSave, setShowSave] = useState(false);
+
+  // Load templates and saved reports
   useEffect(() => {
     if (!isAuthenticated) return;
+    setLoading(true);
+    Promise.all([
+      fetchApi('/report-builder/templates').then(r => setTemplates(r.data || [])),
+      fetchApi('/report-builder/saved').then(r => setSavedReports(r.data || [])),
+    ]).finally(() => setLoading(false));
+  }, [isAuthenticated, fetchApi]);
 
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch pipeline summary
-        const pipelineRes = await fetch(`${API_URL}/pipeline/summary`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const pipelineData = await pipelineRes.json();
+  // Select template
+  function selectTemplate(t: ReportTemplate) {
+    setSelectedTemplate(t);
+    setSelectedColumns([...t.default_columns]);
+    setFilters({});
+    setSortBy('');
+    setResult(null);
+  }
 
-        // Fetch budget summary
-        const budgetRes = await fetch(`${API_URL}/budget/summary?fiscal_year=2026`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const budgetData = await budgetRes.json();
-
-        // Fetch capacity
-        const capacityRes = await fetch(`${API_URL}/capacity?start_month=2026-01&end_month=2026-06`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const capacityData = await capacityRes.json();
-
-        // Build metrics
-        const pipeline = pipelineData.data || {};
-        const budget = budgetData.data || {};
-
-        setMetrics([
-          {
-            label: 'Active Allocations',
-            value: (pipeline.active || 0) + (pipeline.in_transit || 0),
-            color: 'blue',
-          },
-          {
-            label: 'Completed YTD',
-            value: pipeline.completed || 0,
-            color: 'green',
-          },
-          {
-            label: 'Bad Orders',
-            value: pipeline.bad_order || 0,
-            color: pipeline.bad_order > 10 ? 'red' : 'amber',
-          },
-          {
-            label: 'Budget Utilization',
-            value: `${Math.round((budget.total_spent || 0) / (budget.total_budget || 1) * 100)}%`,
-            color: 'gray',
-          },
-        ]);
-
-        // Fetch real shop performance from analytics
-        try {
-          const shopRes = await fetch(`${API_URL}/analytics/capacity/bottlenecks`, {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          });
-          const shopData = await shopRes.json();
-          if (shopData.data && shopData.data.length > 0) {
-            setShopMetrics(shopData.data.map((s: any) => ({
-              shop_code: s.shop_code,
-              total_allocations: s.current_load + (s.cars_backlog || 0),
-              completed: 0,
-              in_progress: s.current_load,
-              avg_days_in_shop: 0,
-              utilization_pct: s.utilization_pct,
-            })));
-          }
-        } catch { /* shop metrics unavailable */ }
-
-        // Fetch real throughput trends from analytics
-        try {
-          const trendRes = await fetch(`${API_URL}/analytics/operations/throughput`, {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          });
-          const trendData = await trendRes.json();
-          if (trendData.data && trendData.data.length > 0) {
-            setTrends(trendData.data.map((t: any) => ({
-              month: t.month,
-              allocations: t.cars_in,
-              completed: t.cars_out,
-              total_cost: 0,
-            })));
-          }
-        } catch { /* trend data unavailable */ }
-
-        // Fetch qualification data
-        const qualDashRes = await fetch(`${API_URL}/reports/qual-dashboard`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const qualDashData = await qualDashRes.json();
-        if (qualDashData.data) setQualDashboard(qualDashData.data);
-
-        const qualCsrRes = await fetch(`${API_URL}/reports/qual-by-csr`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const qualCsrData = await qualCsrRes.json();
-        if (qualCsrData.data) setQualByCsr(qualCsrData.data.slice(0, 10));
-
-        const qualLesseeRes = await fetch(`${API_URL}/reports/qual-by-lessee`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const qualLesseeData = await qualLesseeRes.json();
-        if (qualLesseeData.data) setQualByLessee(qualLesseeData.data.slice(0, 10));
-
-      } catch (err) {
-        console.error('Failed to fetch report data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [isAuthenticated, timeRange]);
-
-  const formatCurrency = (val: number) => `$${(val / 1000000).toFixed(1)}M`;
-
-  const formatMonth = (month: string) => {
-    const [year, m] = month.split('-');
-    return new Date(parseInt(year), parseInt(m) - 1).toLocaleDateString('en-US', { month: 'short' });
-  };
-
-  const getColorClass = (color: string) => {
-    const colors: Record<string, string> = {
-      green: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-      red: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-      blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      gray: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-    };
-    return colors[color] || colors.gray;
-  };
-
-  const getUtilizationColor = (pct: number) => {
-    if (pct >= 90) return 'text-red-600 dark:text-red-400';
-    if (pct >= 75) return 'text-amber-600 dark:text-amber-400';
-    return 'text-green-600 dark:text-green-400';
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-500">Please sign in to view reports.</p>
-      </div>
+  // Toggle column
+  function toggleColumn(key: string) {
+    setSelectedColumns(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
     );
   }
 
+  // Run report
+  async function runReport() {
+    if (!selectedTemplate) return;
+    setRunning(true);
+    try {
+      const r = await fetchApi('/report-builder/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          template_id: selectedTemplate.id,
+          columns: selectedColumns,
+          filters,
+          sort_by: sortBy || undefined,
+          sort_dir: sortDir,
+          limit: 500,
+        }),
+      });
+      setResult(r.data || null);
+    } catch (err) {
+      console.error('Report run failed:', err);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  // Export CSV
+  async function exportCSV() {
+    if (!selectedTemplate) return;
+    try {
+      const resp = await fetch(`${API_URL}/report-builder/export-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          template_id: selectedTemplate.id,
+          columns: selectedColumns,
+          filters,
+          sort_by: sortBy || undefined,
+          sort_dir: sortDir,
+        }),
+      });
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedTemplate.name.replace(/\s+/g, '_')}_report.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  }
+
+  // Save report
+  async function handleSave() {
+    if (!selectedTemplate || !saveName.trim()) return;
+    await fetchApi('/report-builder/saved', {
+      method: 'POST',
+      body: JSON.stringify({
+        template_id: selectedTemplate.id,
+        name: saveName,
+        columns: selectedColumns,
+        filters,
+        sort_by: sortBy || undefined,
+        sort_dir: sortDir,
+      }),
+    });
+    const r = await fetchApi('/report-builder/saved');
+    setSavedReports(r.data || []);
+    setSaveName('');
+    setShowSave(false);
+  }
+
+  // Load saved report
+  async function loadSaved(saved: SavedReport) {
+    const t = templates.find(tt => tt.id === saved.template_id);
+    if (!t) return;
+    setSelectedTemplate(t);
+    setSelectedColumns(saved.columns || t.default_columns);
+    setFilters((saved.filters || {}) as Record<string, string>);
+    setSortBy(saved.sort_by || '');
+    setSortDir((saved.sort_dir as 'ASC' | 'DESC') || 'ASC');
+    setResult(null);
+    setTab('builder');
+  }
+
+  // Delete saved report
+  async function deleteSaved(id: string) {
+    await fetchApi(`/report-builder/saved/${id}`, { method: 'DELETE' });
+    setSavedReports(prev => prev.filter(s => s.id !== id));
+  }
+
+  // Format cell value
+  function formatCell(val: unknown, type: string): string {
+    if (val === null || val === undefined) return '-';
+    if (type === 'currency') return `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (type === 'date' && typeof val === 'string') return new Date(val).toLocaleDateString();
+    return String(val);
+  }
+
+  const categoryColors: Record<string, string> = {
+    fleet: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    operations: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    billing: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+    compliance: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    finance: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Performance metrics and trends
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-            >
-              <option value="1m">Last Month</option>
-              <option value="3m">Last 3 Months</option>
-              <option value="6m">Last 6 Months</option>
-              <option value="ytd">Year to Date</option>
-            </select>
-            <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
-              Export PDF
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Report Builder</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Build, run, and export custom reports from your data</p>
         </div>
+        <div className="flex gap-2">
+          {['builder', 'saved'].map(t => (
+            <button key={t} onClick={() => setTab(t as 'builder' | 'saved')}
+              className={`px-4 py-2 text-sm rounded-md ${tab === t ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
+              {t === 'builder' ? 'Build Report' : `Saved (${savedReports.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 animate-pulse">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {metrics.map((metric, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{metric.label}</span>
-                    <span className={`px-2 py-0.5 text-xs rounded ${getColorClass(metric.color)}`}>
-                      {metric.color === 'green' ? '↑' : metric.color === 'red' ? '↓' : '●'}
-                    </span>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {metric.value}
-                  </div>
-                  {metric.change !== undefined && (
-                    <div className={`text-xs mt-1 ${metric.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {metric.change >= 0 ? '+' : ''}{metric.change}% {metric.changeLabel}
-                    </div>
-                  )}
+      {/* Saved reports tab */}
+      {tab === 'saved' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+          {savedReports.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No saved reports yet</p>
+          ) : savedReports.map(s => (
+            <div key={s.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30">
+              <div className="cursor-pointer flex-1" onClick={() => loadSaved(s)}>
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{s.name}</div>
+                <div className="text-xs text-gray-500">
+                  Template: {templates.find(t => t.id === s.template_id)?.name || s.template_id}
+                  {' '}| {s.columns?.length || 0} columns
+                  {s.is_scheduled && ' | Scheduled'}
+                  {' '}| {new Date(s.created_at).toLocaleDateString()}
                 </div>
-              ))}
+              </div>
+              <button onClick={() => deleteSaved(s.id)} className="p-1 text-gray-400 hover:text-red-500">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Monthly Trend Chart */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Monthly Trend
-                </h2>
-                <div className="h-64 flex items-end gap-2">
-                  {trends.map((t) => {
-                    const maxAlloc = Math.max(...trends.map(tr => tr.allocations));
-                    const height = (t.allocations / maxAlloc) * 100;
-                    const completedHeight = (t.completed / maxAlloc) * 100;
-                    return (
-                      <div key={t.month} className="flex-1 flex flex-col items-center">
-                        <div className="w-full flex gap-1 justify-center" style={{ height: '200px' }}>
-                          <div
-                            className="w-4 bg-blue-200 dark:bg-blue-900/50 rounded-t"
-                            style={{ height: `${height}%`, marginTop: 'auto' }}
-                            title={`${t.allocations} allocations`}
-                          />
-                          <div
-                            className="w-4 bg-green-400 dark:bg-green-600 rounded-t"
-                            style={{ height: `${completedHeight}%`, marginTop: 'auto' }}
-                            title={`${t.completed} completed`}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          {formatMonth(t.month)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-center gap-4 mt-4 text-xs">
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 bg-blue-200 dark:bg-blue-900/50 rounded"></span>
-                    Allocations
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 bg-green-400 dark:bg-green-600 rounded"></span>
-                    Completed
-                  </span>
-                </div>
-              </div>
-
-              {/* Cost Trend */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Cost Trend
-                </h2>
-                <div className="h-64 flex items-end gap-2">
-                  {trends.map((t) => {
-                    const maxCost = Math.max(...trends.map(tr => tr.total_cost));
-                    const height = (t.total_cost / maxCost) * 100;
-                    return (
-                      <div key={t.month} className="flex-1 flex flex-col items-center">
-                        <div className="w-full flex justify-center" style={{ height: '200px' }}>
-                          <div
-                            className="w-8 bg-primary-400 dark:bg-primary-600 rounded-t"
-                            style={{ height: `${height}%`, marginTop: 'auto' }}
-                            title={formatCurrency(t.total_cost)}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          {formatMonth(t.month)}
-                        </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {formatCurrency(t.total_cost)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+      {/* Builder tab */}
+      {tab === 'builder' && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left: Template picker + config */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Template picker */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                <BookOpen className="w-4 h-4" /> Templates
+              </h3>
+              <div className="space-y-2">
+                {templates.map(t => (
+                  <button key={t.id} onClick={() => selectTemplate(t)}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm ${selectedTemplate?.id === t.id
+                      ? 'bg-primary-50 border border-primary-300 dark:bg-primary-900/20 dark:border-primary-700'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/30 border border-transparent'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{t.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded capitalize ${categoryColors[t.category] || 'bg-gray-100 text-gray-600'}`}>{t.category}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">{t.description}</div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Shop Performance Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Shop Performance
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Shop</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Total</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Completed</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">In Progress</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Avg Days</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Utilization</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {shopMetrics.map((shop) => (
-                      <tr key={shop.shop_code} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-                          {shop.shop_code}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
-                          {shop.total_allocations}
-                        </td>
-                        <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">
-                          {shop.completed}
-                        </td>
-                        <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">
-                          {shop.in_progress}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
-                          {shop.avg_days_in_shop}d
-                        </td>
-                        <td className={`px-4 py-3 text-right font-medium ${getUtilizationColor(shop.utilization_pct)}`}>
-                          {shop.utilization_pct}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Qualification Metrics Section */}
-            {qualDashboard && (
-              <div className="mt-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                  Tank Qualification Status
-                </h2>
-
-                {/* Qual Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Cars</div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {qualDashboard.total_cars?.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-red-500">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Overdue</div>
-                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                      {qualDashboard.overdue_cars?.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {((qualDashboard.overdue_cars / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-amber-500">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Due Next Year</div>
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                      {qualDashboard.due_next_year?.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {((qualDashboard.due_next_year / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Current</div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {qualDashboard.current_cars?.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {((qualDashboard.current_cars / qualDashboard.total_cars) * 100).toFixed(1)}% of fleet
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Qual by CSR */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        Qualification by CSR
-                      </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">CSR</th>
-                            <th className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Total</th>
-                            <th className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">Overdue</th>
-                            <th className="px-4 py-2 text-right font-medium text-amber-600 dark:text-amber-400">Next Yr</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {qualByCsr.map((row) => (
-                            <tr key={row.csr_name} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                              <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{row.csr_name || 'Unassigned'}</td>
-                              <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.total_cars}</td>
-                              <td className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">{row.overdue}</td>
-                              <td className="px-4 py-2 text-right text-amber-600 dark:text-amber-400">{row.due_next_year}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Qual by Lessee */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        Qualification by Lessee
-                      </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Lessee</th>
-                            <th className="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Total</th>
-                            <th className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">Overdue</th>
-                            <th className="px-4 py-2 text-right font-medium text-amber-600 dark:text-amber-400">Next Yr</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {qualByLessee.map((row, i) => (
-                            <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                              <td className="px-4 py-2 text-gray-900 dark:text-gray-100 truncate max-w-[200px]" title={row.lessee_name}>
-                                {row.lessee_name || 'Unassigned'}
-                              </td>
-                              <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{row.total_cars}</td>
-                              <td className="px-4 py-2 text-right font-medium text-red-600 dark:text-red-400">{row.overdue}</td>
-                              <td className="px-4 py-2 text-right text-amber-600 dark:text-amber-400">{row.due_next_year}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+            {/* Column selector */}
+            {selectedTemplate && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <Table2 className="w-4 h-4" /> Columns
+                </h3>
+                <div className="space-y-1">
+                  {selectedTemplate.available_columns.map(col => (
+                    <label key={col.key} className="flex items-center gap-2 text-sm cursor-pointer py-1">
+                      <input type="checkbox" checked={selectedColumns.includes(col.key)}
+                        onChange={() => toggleColumn(col.key)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                      <span className="text-gray-700 dark:text-gray-300">{col.label}</span>
+                      <span className="text-xs text-gray-400 ml-auto">{col.type}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             )}
-          </>
-        )}
-      </div>
+
+            {/* Filters */}
+            {selectedTemplate && selectedTemplate.available_filters.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Filters</h3>
+                <div className="space-y-3">
+                  {selectedTemplate.available_filters.map(f => (
+                    <div key={f.key}>
+                      <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
+                      {f.type === 'select' && f.options ? (
+                        <select value={filters[f.key] || ''} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
+                          <option value="">All</option>
+                          {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <input value={filters[f.key] || ''} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
+                          placeholder={`Filter by ${f.label.toLowerCase()}`}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sort */}
+            {selectedTemplate && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Sort</h3>
+                <div className="flex gap-2">
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
+                    <option value="">Default</option>
+                    {selectedTemplate.available_columns.filter(c => selectedColumns.includes(c.key)).map(c =>
+                      <option key={c.key} value={c.key}>{c.label}</option>
+                    )}
+                  </select>
+                  <select value={sortDir} onChange={e => setSortDir(e.target.value as 'ASC' | 'DESC')}
+                    className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
+                    <option value="ASC">Asc</option>
+                    <option value="DESC">Desc</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            {selectedTemplate && (
+              <div className="flex flex-col gap-2">
+                <button onClick={runReport} disabled={running || selectedColumns.length === 0}
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50">
+                  {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  {running ? 'Running...' : 'Run Report'}
+                </button>
+                {result && (
+                  <>
+                    <button onClick={exportCSV}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <Download className="w-4 h-4" /> Export CSV
+                    </button>
+                    <button onClick={() => setShowSave(!showSave)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <Save className="w-4 h-4" /> Save Report
+                    </button>
+                    {showSave && (
+                      <div className="flex gap-2">
+                        <input value={saveName} onChange={e => setSaveName(e.target.value)}
+                          placeholder="Report name" className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800" />
+                        <button onClick={handleSave} disabled={!saveName.trim()}
+                          className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">Save</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Results */}
+          <div className="lg:col-span-3">
+            {!selectedTemplate && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <BookOpen className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">Select a template to start building a report</p>
+              </div>
+            )}
+
+            {selectedTemplate && !result && !running && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <Play className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">
+                  Configure columns and filters, then click Run Report
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{selectedColumns.length} columns selected</p>
+              </div>
+            )}
+
+            {running && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">Generating report...</p>
+              </div>
+            )}
+
+            {result && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {selectedTemplate?.name}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-3">
+                      {result.total.toLocaleString()} rows | Generated {new Date(result.generated_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr>
+                        {result.columns.map(col => (
+                          <th key={col.key}
+                            className={`px-4 py-2.5 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap ${col.type === 'number' || col.type === 'currency' ? 'text-right' : 'text-left'}`}>
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {result.rows.map((row, ri) => (
+                        <tr key={ri} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                          {result.columns.map(col => (
+                            <td key={col.key}
+                              className={`px-4 py-2 whitespace-nowrap text-gray-600 dark:text-gray-400 ${col.type === 'number' || col.type === 'currency' ? 'text-right' : ''}`}>
+                              {formatCell(row[col.key], col.type)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {result.rows.length === 0 && (
+                        <tr>
+                          <td colSpan={result.columns.length} className="px-4 py-8 text-center text-gray-400">No data matches the selected filters</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {result.total > result.rows.length && (
+                  <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 text-center">
+                    Showing {result.rows.length} of {result.total.toLocaleString()} total rows. Export CSV for full data.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -52,6 +52,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Shopping Events', href: '/shopping', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Quick Shop', href: '/planning', icon: <Zap className="w-4 h-4" /> },
       { label: 'Bad Orders', href: '/bad-orders', icon: <AlertTriangle className="w-4 h-4" /> },
+      { label: 'Releases', href: '/releases', icon: <Package className="w-4 h-4" /> },
       { label: 'Shop Finder', href: '/shops', icon: <Factory className="w-4 h-4" /> },
     ],
   },
@@ -72,6 +73,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     icon: <FileText className="w-5 h-5" />,
     children: [
       { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
+      { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
       { label: 'Projects', href: '/projects', icon: <Package className="w-4 h-4" /> },
     ],
   },
@@ -124,6 +126,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Migration', href: '/migration', icon: <Database className="w-4 h-4" /> },
       { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
       { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
+      { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
       { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },

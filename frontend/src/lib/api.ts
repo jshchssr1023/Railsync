@@ -3088,3 +3088,68 @@ export async function getGoLiveChecklist(): Promise<any> {
   const response = await fetchApi<any>('/parallel-run/go-live-checklist');
   return response.data;
 }
+
+// ============================================================================
+// Forecast & Freight
+// ============================================================================
+
+export async function getMaintenanceForecast(fiscalYear?: number): Promise<any> {
+  const year = fiscalYear || new Date().getFullYear();
+  const response = await fetchApi<any>(`/forecast/maintenance?fiscal_year=${year}`);
+  return response.data;
+}
+
+export async function getForecastTrends(fiscalYear?: number): Promise<any> {
+  const year = fiscalYear || new Date().getFullYear();
+  const response = await fetchApi<any>(`/forecast/trends?fiscal_year=${year}`);
+  return response.data;
+}
+
+export async function getForecastDashboardSummary(fiscalYear?: number): Promise<any> {
+  const year = fiscalYear || new Date().getFullYear();
+  const response = await fetchApi<any>(`/forecast/dashboard-summary?fiscal_year=${year}`);
+  return response.data;
+}
+
+export async function getFreightRate(origin: string, destination: string): Promise<any> {
+  const response = await fetchApi<any>(`/freight/rates?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`);
+  return response.data;
+}
+
+export async function calculateFreightCost(originCode: string, shopCode: string): Promise<any> {
+  const response = await fetchApi<any>('/freight/calculate', { method: 'POST', body: JSON.stringify({ origin_code: originCode, shop_code: shopCode }) });
+  return response.data;
+}
+
+export async function listOriginLocations(): Promise<any[]> {
+  const response = await fetchApi<any>('/freight/origins');
+  return response.data;
+}
+
+// ============================================================================
+// Work Hours
+// ============================================================================
+
+export async function getWorkHoursFactors(factorType: string, factorValue: string): Promise<any[]> {
+  const response = await fetchApi<any>(`/work-hours/factors?factor_type=${encodeURIComponent(factorType)}&factor_value=${encodeURIComponent(factorValue)}`);
+  return response.data;
+}
+
+export async function calculateWorkHours(car: any, overrides: any): Promise<any> {
+  const response = await fetchApi<any>('/work-hours/calculate', { method: 'POST', body: JSON.stringify({ car, overrides }) });
+  return response.data;
+}
+
+// ============================================================================
+// Project Audit
+// ============================================================================
+
+export async function getProjectAuditEvents(projectId: string, carNumber?: string, limit?: number, offset?: number): Promise<any> {
+  const params = new URLSearchParams();
+  if (carNumber) params.set('car_number', carNumber);
+  if (limit) params.set('limit', String(limit));
+  if (offset) params.set('offset', String(offset));
+  const qs = params.toString();
+  const response = await fetchApi<any>(`/projects/${encodeURIComponent(projectId)}/audit${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
