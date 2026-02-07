@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
@@ -255,6 +255,74 @@ export default function CommodityCleaningPage() {
     }
   };
 
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast.error('CSV must have a header row and at least one data row');
+        return;
+      }
+
+      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
+      const codeIdx = headers.findIndex((h) => h.includes('code'));
+      const nameIdx = headers.findIndex((h) => h.includes('name') && !h.includes('class'));
+      const classIdx = headers.findIndex((h) => h.includes('class'));
+
+      if (codeIdx === -1 || nameIdx === -1) {
+        toast.error('CSV must have "commodity_code" and "commodity_name" columns');
+        return;
+      }
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c) => c.trim().replace(/^["']|["']$/g, ''));
+        const code = cols[codeIdx];
+        const name = cols[nameIdx];
+        if (!code || !name) { skipped++; continue; }
+
+        const payload = {
+          commodity_code: code,
+          commodity_name: name,
+          cleaning_class: classIdx !== -1 && cols[classIdx] ? cols[classIdx] : 'D',
+          requires_interior_blast: false,
+          requires_exterior_paint: false,
+          requires_new_lining: false,
+          requires_kosher_cleaning: false,
+          special_instructions: null,
+        };
+
+        try {
+          const result = await fetchApi('/commodities', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+          if (result.success) imported++;
+          else skipped++;
+        } catch {
+          skipped++;
+        }
+      }
+
+      toast.success(`Imported ${imported} commodities${skipped > 0 ? `, ${skipped} skipped` : ''}`);
+      loadData();
+    } catch {
+      toast.error('Failed to parse CSV file');
+    } finally {
+      setImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
+
   if (!isAuthenticated || user?.role !== 'admin') {
     return (
       <div className="text-center py-12">
@@ -282,12 +350,20 @@ export default function CommodityCleaningPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleCsvImport}
+          />
           <button
-            onClick={() => toast.info('CSV import coming soon')}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+            onClick={() => csvInputRef.current?.click()}
+            disabled={importing}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
-            <FileUp className="w-4 h-4" aria-hidden="true" />
-            Import CSV
+            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" aria-hidden="true" />}
+            {importing ? 'Importing...' : 'Import CSV'}
           </button>
           <button
             onClick={openCreateModal}

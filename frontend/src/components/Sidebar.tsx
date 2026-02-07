@@ -13,7 +13,7 @@ import {
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
-  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin, Bell
+  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin, Bell, Tag
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -134,6 +134,9 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
       { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
+      { label: 'Shopping Types', href: '/admin/shopping-types', icon: <Tag className="w-4 h-4" /> },
+      { label: 'Shopping Reasons', href: '/admin/shopping-reasons', icon: <Tag className="w-4 h-4" /> },
+      { label: 'Service Plans', href: '/admin/service-plans', icon: <FileText className="w-4 h-4" /> },
       { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
       { label: 'Data Validation', href: '/admin/data-validation', icon: <Shield className="w-4 h-4" /> },
       { label: 'Data Reconciliation', href: '/admin/data-reconciliation', icon: <GitCompare className="w-4 h-4" /> },
