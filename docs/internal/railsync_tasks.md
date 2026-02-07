@@ -357,6 +357,24 @@ POST /api/feedback                       - Submit feedback
 GET  /api/feedback                       - List feedback (admin)
 GET  /api/feedback/stats                 - Feedback statistics
 PUT  /api/feedback/:id                   - Update feedback status
+
+# Data Reconciliation (Sprint L)
+GET  /api/migration/reconciliation/dashboard       - Reconciliation summary dashboard
+GET  /api/migration/reconciliation/discrepancies   - List discrepancies with filters
+POST /api/migration/reconciliation/discrepancies/:id/resolve - Resolve single discrepancy
+POST /api/migration/reconciliation/discrepancies/bulk-resolve - Bulk resolve discrepancies
+GET  /api/migration/reconciliation/duplicates      - Detect duplicate entities
+
+# Training Progress (Sprint L)
+GET  /api/training/modules                         - List training modules
+GET  /api/training/progress                        - Get user's training progress
+POST /api/training/modules/:id/start               - Start a training module
+POST /api/training/modules/:id/complete            - Complete a training module
+PUT  /api/training/modules/:id/progress            - Update time spent on module
+GET  /api/training/certifications                  - Get user's certifications
+POST /api/training/certifications                  - Grant certification (admin)
+GET  /api/training/organization                    - Organization-wide training stats (admin)
+GET  /api/training/readiness                       - Go-live training readiness (admin)
 ```
 
 ---
@@ -406,7 +424,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 
 ---
 
-## Database Migrations (62+ total)
+## Database Migrations (63+ total)
 
 | Range | Area |
 |-------|------|
@@ -435,6 +453,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | 061 | **User feedback**: user_feedback table with status workflow |
 
 | 062 | **Report builder**: report_configs, saved_reports, report_schedules |
+| 063 | **Training progress**: training_modules, user_training_progress, training_certifications, v_training_dashboard |
 
 ---
 
@@ -485,6 +504,7 @@ All features are complete.
 - http://localhost:3000/admin/monitoring - System health, performance, feedback management
 - http://localhost:3000/admin/commodity-cleaning - Commodity cleaning matrix (admin)
 - http://localhost:3000/admin/data-validation - Cross-module data integrity checks (admin)
+- http://localhost:3000/admin/data-reconciliation - Migration discrepancy resolution (admin)
 - http://localhost:3000/fleet-location - CLM-based car location tracking
 - http://localhost:3000/admin - Admin panel (users, rules, shop designations)
 - http://localhost:3000/settings - Notification preferences

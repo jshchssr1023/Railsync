@@ -5484,7 +5484,7 @@ router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate
 router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { detectDuplicates } = await import('../services/data-reconciliation.service');
-    const data = await detectDuplicates(req.query.entity_type as string);
+    const data = await detectDuplicates(req.query.entity_type as any);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });

@@ -3419,3 +3419,54 @@ export async function detectDuplicates(entityType: string): Promise<any[]> {
   );
   return response.data || [];
 }
+
+// Training Progress
+export async function listTrainingModules(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/training/modules');
+  return response.data || [];
+}
+
+export async function getUserTrainingProgress(): Promise<{ modules: any[]; completionPct: number }> {
+  const response = await fetchApi<{ modules: any[]; completionPct: number }>('/training/progress');
+  return response.data || { modules: [], completionPct: 0 };
+}
+
+export async function startTrainingModule(moduleId: string): Promise<any> {
+  return fetchApi(`/training/modules/${moduleId}/start`, { method: 'POST' });
+}
+
+export async function completeTrainingModule(moduleId: string, score?: number): Promise<any> {
+  return fetchApi(`/training/modules/${moduleId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ score }),
+  });
+}
+
+export async function updateTrainingProgress(moduleId: string, timeSpent: number): Promise<any> {
+  return fetchApi(`/training/modules/${moduleId}/progress`, {
+    method: 'PUT',
+    body: JSON.stringify({ timeSpent }),
+  });
+}
+
+export async function getUserCertifications(): Promise<any[]> {
+  const response = await fetchApi<any[]>('/training/certifications');
+  return response.data || [];
+}
+
+export async function grantCertification(userId: string, certType: string, notes?: string): Promise<any> {
+  return fetchApi('/training/certifications', {
+    method: 'POST',
+    body: JSON.stringify({ userId, certType, notes }),
+  });
+}
+
+export async function getOrganizationTrainingProgress(): Promise<any> {
+  const response = await fetchApi<any>('/training/organization');
+  return response.data || {};
+}
+
+export async function getTrainingReadiness(): Promise<any> {
+  const response = await fetchApi<any>('/training/readiness');
+  return response.data || {};
+}
