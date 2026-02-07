@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, ChevronDown, ChevronRight, Train, FileText, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { listRiders, getRider, updateRider } from '@/lib/api';
@@ -145,8 +145,8 @@ export default function RidersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {filtered.map(rider => (
-                <>
-                  <tr key={rider.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(rider.id)}>
+                <React.Fragment key={rider.id}>
+                  <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(rider.id)}>
                     <td className="px-3 py-2 text-gray-400">
                       {expandedId === rider.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </td>
@@ -215,7 +215,7 @@ export default function RidersPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

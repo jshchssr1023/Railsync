@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, Plus, X, Pencil, Save, ChevronDown, ChevronRight, Droplets } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -189,8 +189,8 @@ export default function CommoditiesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {filtered.map(c => (
-                <>
-                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(c.commodity_code)}>
+                <React.Fragment key={c.id}>
+                  <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(c.commodity_code)}>
                     <td className="px-3 py-2 text-gray-400">
                       {expandedCode === c.commodity_code ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </td>
@@ -244,7 +244,7 @@ export default function CommoditiesPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

@@ -26,10 +26,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    defaults:
-      run:
-        working-directory: ./backend
-
     steps:
       - uses: actions/checkout@v4
 
@@ -38,32 +34,33 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: './backend/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint --if-present
+        working-directory: ./backend
 
       - name: Type check
         run: npx tsc --noEmit
+        working-directory: ./backend
 
       - name: Apply database schema
         run: |
-          PGPASSWORD=railsync_password psql -h localhost -U railsync -d railsync_test -f ../database/schema.sql
-        env:
-          PGHOST: localhost
-          PGPORT: 5432
+          PGPASSWORD=railsync_password psql -h localhost -U railsync -d railsync_test -f database/schema.sql
 
       - name: Run tests
         run: npm test -- --ci --forceExit --coverage
+        working-directory: ./backend
         env:
           DATABASE_URL: postgresql://railsync:railsync_password@localhost:5432/railsync_test
           JWT_SECRET: ci-test-secret
           NODE_ENV: test
 
       - name: Check coverage thresholds
+        working-directory: ./backend
         run: |
           node -e "
             const coverage = require('./coverage/coverage-summary.json');
@@ -92,10 +89,6 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ./frontend
-
     steps:
       - uses: actions/checkout@v4
 
@@ -104,20 +97,23 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint --if-present
+        working-directory: ./frontend
 
       - name: Run tests
         run: npm test -- --ci --passWithNoTests
+        working-directory: ./frontend
         continue-on-error: true
 
       - name: Build
         run: npm run build
+        working-directory: ./frontend
 
   # Database Schema Validation
   database:
@@ -164,6 +160,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Backend dependency audit
         working-directory: ./backend
@@ -231,3 +232,5 @@ jobs:
           context: ./frontend
           push: false
           tags: railsync-frontend:test
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, ChevronDown, ChevronRight, DollarSign, FileCheck, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getEstimate, getEstimateDecisions, updateEstimateStatus, generateApprovalPacket, runEstimatePreReview } from '@/lib/api';
@@ -160,8 +160,8 @@ export default function EstimatesPage() {
               {filtered.map(est => {
                 const nextStatuses = getNextStatuses(est.status);
                 return (
-                  <>
-                    <tr key={est.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(est.id)}>
+                  <React.Fragment key={est.id}>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => toggleExpand(est.id)}>
                       <td className="px-3 py-2 text-gray-400">
                         {expandedId === est.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </td>
@@ -275,7 +275,7 @@ export default function EstimatesPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
