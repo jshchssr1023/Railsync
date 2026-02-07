@@ -30,6 +30,7 @@ import * as estimateController from '../controllers/estimate-workflow.controller
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import * as shoppingRequestController from '../controllers/shopping-request.controller';
 import * as budgetScenarioController from '../controllers/budgetScenario.controller';
+import * as qualificationController from '../controllers/qualification.controller';
 import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
@@ -3840,11 +3841,17 @@ router.get('/analytics/capacity/bottlenecks', authenticate, analyticsController.
 router.get('/analytics/cost/trends', authenticate, analyticsController.getCostTrends);
 router.get('/analytics/cost/budget-comparison', authenticate, analyticsController.getBudgetComparison);
 router.get('/analytics/cost/by-shop', authenticate, analyticsController.getShopCostComparison);
+router.get('/analytics/cost/variance', authenticate, analyticsController.getCostVarianceReport);
+router.get('/analytics/cost/by-customer', authenticate, analyticsController.getCustomerCostBreakdown);
 
 // Operations KPIs
 router.get('/analytics/operations/kpis', authenticate, analyticsController.getOperationsKPIs);
 router.get('/analytics/operations/dwell-time', authenticate, analyticsController.getDwellTimeByShop);
 router.get('/analytics/operations/throughput', authenticate, analyticsController.getThroughputTrends);
+
+// Shop Performance
+router.get('/analytics/shop-performance/scores', authenticate, analyticsController.getShopPerformanceScores);
+router.get('/analytics/shop-performance/:shopCode/trend', authenticate, analyticsController.getShopPerformanceTrend);
 
 // Demand Forecasting
 router.get('/analytics/demand/forecast', authenticate, analyticsController.getDemandForecast);
@@ -4241,6 +4248,26 @@ router.get('/estimates/:id/decisions', optionalAuth, estimateController.getEstim
 router.put('/estimates/:id/status', authenticate, authorize('admin', 'operator'), estimateController.updateEstimateStatus);
 router.post('/estimates/:id/approval-packet', authenticate, authorize('admin', 'operator'), estimateController.generateApprovalPacket);
 
+// AI Pre-Review
+router.post('/estimates/:id/pre-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { preReviewEstimate } = await import('../services/estimate-ai.service');
+    const result = await preReviewEstimate(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Pre-review failed' });
+  }
+});
+router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
+  try {
+    const { getJobCodeStats } = await import('../services/estimate-ai.service');
+    const result = await getJobCodeStats(req.params.code);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch stats' });
+  }
+});
+
 router.get('/approval-packets/:id', optionalAuth, estimateController.getApprovalPacket);
 router.post('/approval-packets/:id/release', authenticate, authorize('admin', 'operator'), estimateController.releaseApprovalPacket);
 
@@ -4347,6 +4374,7 @@ router.put('/shopping-requests/:id/approve', authenticate, authorize('admin', 'o
 router.put('/shopping-requests/:id/reject', authenticate, authorize('admin', 'operator'), shoppingRequestController.reject);
 router.put('/shopping-requests/:id/cancel', authenticate, shoppingRequestController.cancel);
 router.post('/shopping-requests/:id/revert', authenticate, authorize('admin', 'operator'), shoppingRequestController.revert);
+router.post('/shopping-requests/:id/duplicate', authenticate, authorize('admin', 'operator'), shoppingRequestController.duplicate);
 router.post('/shopping-requests/:id/attachments', authenticate, shoppingRequestUpload.single('file'), shoppingRequestController.uploadAttachment);
 router.get('/shopping-requests/:id/attachments', authenticate, shoppingRequestController.listAttachments);
 router.delete('/shopping-requests/:id/attachments/:attachmentId', authenticate, shoppingRequestController.deleteAttachment);
@@ -4363,6 +4391,1035 @@ router.get('/transitions/:processType/:entityId/revert-eligibility', authenticat
   } catch (err) { next(err); }
 });
 
+// ============================================================================
+// QUALIFICATION ROUTES
+// ============================================================================
+
+// Static routes MUST come before parameterized routes
+router.get('/qualifications/types', authenticate, qualificationController.listTypes);
+router.get('/qualifications/stats', authenticate, qualificationController.getStats);
+router.get('/qualifications/due-by-month', authenticate, qualificationController.getDueByMonth);
+router.get('/qualifications/alerts', authenticate, qualificationController.getAlerts);
+router.post('/qualifications/alerts/:id/acknowledge', authenticate, qualificationController.acknowledgeAlert);
+router.post('/qualifications/recalculate', authenticate, authorize('admin', 'operator'), qualificationController.recalculate);
+router.post('/qualifications/generate-alerts', authenticate, authorize('admin', 'operator'), qualificationController.generateAlerts);
+router.post('/qualifications/bulk-update', authenticate, authorize('admin', 'operator'), qualificationController.bulkUpdate);
+
+// CRUD routes
+router.get('/qualifications', authenticate, qualificationController.listQualifications);
+router.post('/qualifications', authenticate, authorize('admin', 'operator'), qualificationController.createQualification);
+router.get('/qualifications/:id', authenticate, qualificationController.getQualification);
+router.put('/qualifications/:id', authenticate, authorize('admin', 'operator'), qualificationController.updateQualification);
+router.post('/qualifications/:id/complete', authenticate, authorize('admin', 'operator'), qualificationController.completeQualification);
+router.get('/qualifications/:id/history', authenticate, qualificationController.getHistory);
+
+// Per-car qualifications
+router.get('/cars/:carId/qualifications', authenticate, qualificationController.getCarQualifications);
+
+// ============================================================================
+// BILLING ENGINE
+// ============================================================================
+import * as billingController from '../controllers/billing.controller';
+
+// Billing Runs
+router.post('/billing/runs/preflight', authenticate, authorize('admin', 'operator'), billingController.runPreflight);
+router.post('/billing/runs', authenticate, authorize('admin'), billingController.createBillingRun);
+router.get('/billing/runs', authenticate, billingController.listBillingRuns);
+router.get('/billing/runs/:id', authenticate, billingController.getBillingRun);
+router.put('/billing/runs/:id/approve', authenticate, authorize('admin'), billingController.approveBillingRun);
+router.put('/billing/runs/:id/complete', authenticate, authorize('admin'), billingController.completeBillingRun);
+
+// Outbound Invoices
+router.post('/billing/invoices/generate', authenticate, authorize('admin'), billingController.generateInvoices);
+router.get('/billing/invoices', authenticate, billingController.listInvoices);
+router.get('/billing/invoices/:id', authenticate, billingController.getInvoice);
+router.put('/billing/invoices/:id/approve', authenticate, authorize('admin'), billingController.approveInvoice);
+router.put('/billing/invoices/:id/void', authenticate, authorize('admin'), billingController.voidInvoice);
+
+// Rate Management
+router.get('/billing/rates/:riderId/history', authenticate, billingController.getRateHistory);
+router.put('/billing/rates/:riderId', authenticate, authorize('admin', 'operator'), billingController.updateRate);
+
+// Mileage
+router.post('/billing/mileage/files', authenticate, authorize('admin', 'operator'), billingController.registerMileageFile);
+router.post('/billing/mileage/files/:fileId/import', authenticate, authorize('admin', 'operator'), billingController.importMileageRecords);
+router.get('/billing/mileage/summary', authenticate, billingController.getMileageSummary);
+router.put('/billing/mileage/records/:id/verify', authenticate, authorize('admin', 'operator'), billingController.verifyMileageRecord);
+
+// Chargebacks
+router.post('/billing/chargebacks', authenticate, authorize('admin', 'operator'), billingController.createChargeback);
+router.get('/billing/chargebacks', authenticate, billingController.listChargebacks);
+router.put('/billing/chargebacks/:id/review', authenticate, authorize('admin'), billingController.reviewChargeback);
+router.post('/billing/chargebacks/generate-invoice', authenticate, authorize('admin'), billingController.generateChargebackInvoice);
+
+// Adjustments
+router.post('/billing/adjustments', authenticate, authorize('admin', 'operator'), billingController.createAdjustment);
+router.get('/billing/adjustments/pending', authenticate, billingController.listPendingAdjustments);
+router.put('/billing/adjustments/:id/approve', authenticate, authorize('admin'), billingController.approveAdjustment);
+router.put('/billing/adjustments/:id/reject', authenticate, authorize('admin'), billingController.rejectAdjustment);
+
+// Billing Summary
+router.get('/billing/summary', authenticate, billingController.getBillingSummary);
+router.get('/billing/customers/:customerId/history', authenticate, billingController.getCustomerInvoiceHistory);
+
+// Cost Allocation
+router.post('/billing/cost-allocations', authenticate, authorize('admin', 'operator'), billingController.createCostAllocation);
+router.get('/billing/cost-allocations/summary', authenticate, billingController.getCostAllocationSummary);
+router.get('/billing/cost-allocations', authenticate, billingController.listCostAllocations);
+
+// Invoice Distribution
+import * as distributionController from '../controllers/invoiceDistribution.controller';
+
+router.get('/billing/distribution/configs', authenticate, distributionController.listConfigs);
+router.get('/billing/distribution/configs/:customerId', authenticate, distributionController.getConfig);
+router.put('/billing/distribution/configs/:customerId', authenticate, authorize('admin'), distributionController.upsertConfig);
+router.delete('/billing/distribution/configs/:id', authenticate, authorize('admin'), distributionController.deleteConfig);
+router.post('/billing/distribution/queue/:invoiceId', authenticate, authorize('admin'), distributionController.queueDelivery);
+router.post('/billing/distribution/process', authenticate, authorize('admin'), distributionController.processDeliveries);
+router.get('/billing/distribution/invoices/:invoiceId/history', authenticate, distributionController.getDeliveryHistory);
+router.get('/billing/distribution/stats', authenticate, distributionController.getDeliveryStats);
+router.get('/billing/distribution/pending', authenticate, distributionController.getPendingDeliveries);
+
+// ============================================================================
+// COMPONENT REGISTRY
+// ============================================================================
+import * as componentController from '../controllers/component.controller';
+
+router.get('/components', authenticate, componentController.listComponents);
+router.get('/components/stats', authenticate, componentController.getComponentStats);
+router.get('/components/:id', authenticate, componentController.getComponent);
+router.post('/components', authenticate, authorize('admin', 'operator'), componentController.createComponent);
+router.put('/components/:id', authenticate, authorize('admin', 'operator'), componentController.updateComponent);
+router.post('/components/:id/replace', authenticate, authorize('admin', 'operator'), componentController.replaceComponent);
+router.delete('/components/:id', authenticate, authorize('admin', 'operator'), componentController.removeComponent);
+router.post('/components/:id/inspect', authenticate, authorize('admin', 'operator'), componentController.recordInspection);
+router.get('/components/:id/history', authenticate, componentController.getComponentHistory);
+router.get('/cars/:carNumber/components', authenticate, componentController.getCarComponents);
+
+// ============================================================================
+// COMMODITY / CLEANING MATRIX
+// ============================================================================
+import * as commodityController from '../controllers/commodity.controller';
+
+router.get('/commodities', authenticate, commodityController.listCommodities);
+router.get('/commodities/:code', authenticate, commodityController.getCommodityByCode);
+router.get('/commodities/:code/cleaning', authenticate, commodityController.getCommodityCleaningRequirements);
+router.post('/commodities', authenticate, authorize('admin'), commodityController.createCommodity);
+router.put('/commodities/:id', authenticate, authorize('admin'), commodityController.updateCommodity);
+router.get('/cars/:carNumber/cleaning-requirements', authenticate, commodityController.getCarCleaningRequirements);
+
+// ============================================================================
+// CAR RELEASES (Release Management)
+// ============================================================================
+import * as releaseController from '../controllers/release.controller';
+
+router.get('/releases', authenticate, releaseController.listReleases);
+router.get('/releases/active', authenticate, releaseController.getActiveReleases);
+router.get('/releases/:id', authenticate, releaseController.getRelease);
+router.post('/releases', authenticate, authorize('admin', 'operator'), releaseController.initiateRelease);
+router.post('/releases/:id/approve', authenticate, authorize('admin'), releaseController.approveRelease);
+router.post('/releases/:id/execute', authenticate, authorize('admin', 'operator'), releaseController.executeRelease);
+router.post('/releases/:id/complete', authenticate, authorize('admin', 'operator'), releaseController.completeRelease);
+router.post('/releases/:id/cancel', authenticate, authorize('admin', 'operator'), releaseController.cancelRelease);
+
+// ============================================================================
+// CAR TRANSFERS (Contract Transfers)
+// ============================================================================
+import * as transferController from '../controllers/transfer.controller';
+
+router.get('/transfers', authenticate, transferController.listTransfers);
+router.get('/transfers/overview', authenticate, transferController.getTransferOverview);
+router.get('/transfers/:id', authenticate, transferController.getTransfer);
+router.post('/transfers/validate', authenticate, transferController.validatePrerequisites);
+router.post('/transfers', authenticate, authorize('admin', 'operator'), transferController.initiateTransfer);
+router.post('/transfers/:id/confirm', authenticate, authorize('admin', 'operator'), transferController.confirmTransfer);
+router.post('/transfers/:id/complete', authenticate, authorize('admin', 'operator'), transferController.completeTransfer);
+router.post('/transfers/:id/cancel', authenticate, authorize('admin', 'operator'), transferController.cancelTransfer);
+router.get('/riders/:riderId/transfers', authenticate, transferController.getRiderTransfers);
+
+// ============================================================================
+
+// ============================================================================
+// INTEGRATIONS (SAP, Salesforce, sync log)
+// ============================================================================
+import * as integrationController from '../controllers/integration.controller';
+
+// Connection status
+router.get('/integrations/status', authenticate, authorize('admin'), integrationController.getConnectionStatuses);
+router.get('/integrations/sync-log', authenticate, authorize('admin'), integrationController.getSyncLog);
+router.get('/integrations/sync-stats', authenticate, authorize('admin'), integrationController.getSyncStats);
+router.post('/integrations/sync-log/:id/retry', authenticate, authorize('admin'), integrationController.retrySyncEntry);
+
+// SAP pushes
+router.post('/integrations/sap/push-costs', authenticate, authorize('admin', 'operator'), integrationController.pushApprovedCosts);
+router.post('/integrations/sap/push-billing', authenticate, authorize('admin', 'operator'), integrationController.pushBillingTrigger);
+router.post('/integrations/sap/push-mileage', authenticate, authorize('admin', 'operator'), integrationController.pushMileage);
+router.post('/integrations/sap/push-invoice', authenticate, authorize('admin', 'operator'), integrationController.pushInvoiceToSAP);
+router.post('/integrations/sap/batch-push', authenticate, authorize('admin'), integrationController.batchPushToSAP);
+router.get('/integrations/sap/check', authenticate, authorize('admin'), integrationController.checkSAPConnection);
+
+// CLM (Car Location)
+import * as clmController from '../controllers/clm.controller';
+
+router.post('/integrations/clm/sync', authenticate, authorize('admin'), clmController.syncLocations);
+router.get('/integrations/clm/check', authenticate, authorize('admin'), clmController.checkConnection);
+router.get('/car-locations', authenticate, clmController.listCarLocations);
+router.get('/car-locations/:carNumber', authenticate, clmController.getCarLocation);
+router.get('/car-locations/:carNumber/history', authenticate, clmController.getLocationHistory);
+
+// Railinc EDI
+import * as railincController from '../controllers/railinc.controller';
+
+router.post('/integrations/railinc/import', authenticate, authorize('admin', 'operator'), railincController.importEDIFile);
+router.post('/integrations/railinc/preview', authenticate, authorize('admin', 'operator'), railincController.parseEDIPreview);
+router.get('/integrations/railinc/check', authenticate, authorize('admin'), railincController.checkConnection);
+
+// Salesforce sync
+router.post('/integrations/salesforce/pull-customers', authenticate, authorize('admin'), integrationController.sfPullCustomers);
+router.post('/integrations/salesforce/pull-contacts', authenticate, authorize('admin'), integrationController.sfPullContacts);
+router.post('/integrations/salesforce/full-sync', authenticate, authorize('admin'), integrationController.sfFullSync);
+router.get('/integrations/salesforce/check', authenticate, authorize('admin'), integrationController.checkSFConnection);
+router.post('/integrations/salesforce/pull-deals', authenticate, authorize('admin'), integrationController.sfPullDealStages);
+router.post('/integrations/salesforce/push-billing-status', authenticate, authorize('admin'), integrationController.sfPushBillingStatus);
+router.get('/integrations/salesforce/sync-map', authenticate, authorize('admin'), integrationController.getSFSyncMap);
+
+// SAP field mappings & payload validation
+router.get('/integrations/sap/field-mappings', authenticate, authorize('admin'), integrationController.getSAPFieldMappings);
+router.post('/integrations/sap/validate-payload', authenticate, authorize('admin'), integrationController.validateSAPPayload);
+
+// Retry Queue + Circuit Breaker
+router.get('/integrations/retry-queue', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getRetryQueueEntries } = await import('../services/retry-queue.service');
+    const limit = parseInt(req.query.limit as string) || 100;
+    const result = await getRetryQueueEntries(limit);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get retry queue' });
+  }
+});
+router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { dismissRetryEntry } = await import('../services/retry-queue.service');
+    const result = await dismissRetryEntry(req.params.id);
+    res.json({ success: true, data: { dismissed: result } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to dismiss retry entry' });
+  }
+});
+router.post('/integrations/retry-queue/process', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { processRetryQueue } = await import('../services/retry-queue.service');
+    const result = await processRetryQueue();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to process retry queue' });
+  }
+});
+router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getRetryQueueStats } = await import('../services/retry-queue.service');
+    const result = await getRetryQueueStats();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get retry stats' });
+  }
+});
+router.get('/integrations/dead-letters', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDeadLetterEntries } = await import('../services/retry-queue.service');
+    const limit = parseInt(req.query.limit as string) || 50;
+    const result = await getDeadLetterEntries(limit);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get dead letters' });
+  }
+});
+
+// Sync job schedules
+router.get('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getScheduledJobs } = await import('../services/sync-scheduler.service');
+    const data = await getScheduledJobs();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get sync schedules' });
+  }
+});
+router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getJobsDueForExecution } = await import('../services/sync-scheduler.service');
+    const data = await getJobsDueForExecution();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get due schedules' });
+  }
+});
+router.post('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { createScheduledJob } = await import('../services/sync-scheduler.service');
+    const data = await createScheduledJob(req.body);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to create sync schedule' });
+  }
+});
+router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { updateScheduledJob } = await import('../services/sync-scheduler.service');
+    const data = await updateScheduledJob(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to update sync schedule' });
+  }
+});
+router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { toggleJobEnabled } = await import('../services/sync-scheduler.service');
+    const data = await toggleJobEnabled(req.params.id, req.body.enabled);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to toggle sync schedule' });
+  }
+});
+
+// Integration monitoring
+router.get('/integrations/health-dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getIntegrationHealthDashboard } = await import('../services/integration-monitor.service');
+    const data = await getIntegrationHealthDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/integrations/error-trends', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getErrorTrends } = await import('../services/integration-monitor.service');
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await getErrorTrends(days);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/integrations/batch-retry', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { batchRetryByCategory } = await import('../services/integration-monitor.service');
+    const { category, system_name } = req.body;
+    if (!category) { res.status(400).json({ success: false, error: 'category required' }); return; }
+    const data = await batchRetryByCategory(category, system_name);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// CIPROTS Migration Pipeline
+router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importCars } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importCars(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importContracts } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importContracts(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importShoppingEvents } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importShoppingEvents(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importQualifications } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importQualifications(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationRuns } = await import('../services/migration-pipeline.service');
+    const limit = parseInt(req.query.limit as string) || 50;
+    const data = await getMigrationRuns(limit);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationRun } = await import('../services/migration-pipeline.service');
+    const data = await getMigrationRun(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/runs/:id/errors', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getMigrationErrors } = await import('../services/migration-pipeline.service');
+    const data = await getMigrationErrors(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/migration/reconciliation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReconciliationSummary } = await import('../services/migration-pipeline.service');
+    const data = await getReconciliationSummary();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importCustomers } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importCustomers(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importInvoices } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importInvoices(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importAllocations } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importAllocations(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { importMileageRecords } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await importMileageRecords(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runOrchestration } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await runOrchestration(req.body.files || {}, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/validate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { validateOnly } = await import('../services/migration-pipeline.service');
+    const { entity_type, content } = req.body;
+    if (!entity_type || !content) { res.status(400).json({ success: false, error: 'entity_type and content required' }); return; }
+    const result = await validateOnly(entity_type, content);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { rollbackRun } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await rollbackRun(req.params.id, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// System health dashboard
+router.get('/system/health-dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getHealthDashboard } = await import('../services/system-health.service');
+    const data = await getHealthDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// User feedback
+router.post('/feedback', authenticate, async (req, res) => {
+  try {
+    const { createFeedback } = await import('../services/feedback.service');
+    const userId = (req as any).user?.id;
+    const data = await createFeedback({ ...req.body, user_id: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { listFeedback } = await import('../services/feedback.service');
+    const data = await listFeedback({
+      status: req.query.status as string,
+      category: req.query.category as string,
+      limit: parseInt(req.query.limit as string) || 100,
+    });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getFeedbackStats } = await import('../services/feedback.service');
+    const data = await getFeedbackStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { updateFeedback } = await import('../services/feedback.service');
+    const userId = (req as any).user?.id;
+    const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Performance monitoring
+router.get('/system/performance/tables', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getTableSizes } = await import('../services/performance-monitor.service');
+    const data = await getTableSizes(parseInt(req.query.limit as string) || 30);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/indexes', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getIndexUsage } = await import('../services/performance-monitor.service');
+    const data = await getIndexUsage(parseInt(req.query.limit as string) || 50);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDatabaseStats } = await import('../services/performance-monitor.service');
+    const data = await getDatabaseStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/system/performance/slow-queries', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getSlowQueries } = await import('../services/performance-monitor.service');
+    const data = await getSlowQueries(parseInt(req.query.limit as string) || 20);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// System mode
+router.get('/system/mode', authenticate, async (req, res) => {
+  try {
+    const { getSystemMode } = await import('../services/system-mode.service');
+    const data = await getSystemMode();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { setSystemMode } = await import('../services/system-mode.service');
+    const userId = (req as any).user?.id;
+    const { mode } = req.body;
+    if (!mode) { res.status(400).json({ success: false, error: 'mode is required' }); return; }
+    const data = await setSystemMode(mode, userId);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(400).json({ success: false, error: error.message }); }
+});
+
+// Delta migration
+router.post('/migration/delta/cars', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { deltaMigrateCars } = await import('../services/migration-pipeline.service');
+    const userId = (req as any).user?.id;
+    const result = await deltaMigrateCars(req.body.content, userId);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/delta/summary', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDeltaSummary } = await import('../services/migration-pipeline.service');
+    const data = await getDeltaSummary();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Parallel Run Comparison
+router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareInvoices } = await import('../services/parallel-run.service');
+    const { content, billing_period } = req.body;
+    if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
+    const result = await compareInvoices(content, billing_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareCarStatuses } = await import('../services/parallel-run.service');
+    const { content } = req.body;
+    if (!content) { res.status(400).json({ success: false, error: 'content required' }); return; }
+    const result = await compareCarStatuses(content);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/results', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getParallelRunResults } = await import('../services/parallel-run.service');
+    const data = await getParallelRunResults();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getDiscrepancies } = await import('../services/parallel-run.service');
+    const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
+    const data = await getDiscrepancies(req.params.id, resolved);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resolveDiscrepancy } = await import('../services/parallel-run.service');
+    const userId = (req as any).user?.id;
+    const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
+    res.json({ success: true, data: { resolved: result } });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Parallel run — daily report and health score
+router.get('/parallel-run/daily-report', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { getDailyReport } = await import('../services/parallel-run.service');
+    const days = parseInt(req.query.days as string) || 30;
+    const data = await getDailyReport(days);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/parallel-run/health-score', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { getHealthScore } = await import('../services/parallel-run.service');
+    const data = await getHealthScore();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareBillingTotals } = await import('../services/parallel-run.service');
+    const { content, billing_period } = req.body;
+    if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
+    const result = await compareBillingTotals(content, billing_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareMileage } = await import('../services/parallel-run.service');
+    const { content, reporting_period } = req.body;
+    if (!content || !reporting_period) { res.status(400).json({ success: false, error: 'content and reporting_period required' }); return; }
+    const result = await compareMileage(content, reporting_period);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { compareAllocations } = await import('../services/parallel-run.service');
+    const { content, target_month } = req.body;
+    if (!content || !target_month) { res.status(400).json({ success: false, error: 'content and target_month required' }); return; }
+    const result = await compareAllocations(content, target_month);
+    res.json({ success: true, data: result });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/parallel-run/go-live-checklist', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getGoLiveChecklist } = await import('../services/parallel-run.service');
+    const data = await getGoLiveChecklist();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Go-live readiness check
+router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getGoLiveReadiness } = await import('../services/go-live-check.service');
+    const data = await getGoLiveReadiness();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Go-live incidents
+router.get('/go-live/incidents', authenticate, async (req, res) => {
+  try {
+    const { listIncidents } = await import('../services/go-live-incidents.service');
+    const data = await listIncidents({
+      status: req.query.status as string,
+      severity: req.query.severity as string,
+      limit: parseInt(req.query.limit as string) || 100,
+    });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
+  try {
+    const { getIncidentStats } = await import('../services/go-live-incidents.service');
+    const data = await getIncidentStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
+  try {
+    const { getIncident } = await import('../services/go-live-incidents.service');
+    const data = await getIncident(req.params.id);
+    if (!data) { res.status(404).json({ success: false, error: 'Incident not found' }); return; }
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { createIncident } = await import('../services/go-live-incidents.service');
+    const userId = (req as any).user?.id;
+    const data = await createIncident({ ...req.body, reported_by: userId });
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { updateIncident } = await import('../services/go-live-incidents.service');
+    const data = await updateIncident(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resetDeadLetter } = await import('../services/retry-queue.service');
+    const result = await resetDeadLetter(req.params.id);
+    res.json({ success: true, data: { reset: result } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to reset dead letter' });
+  }
+});
+
+// ============================================================================
+// Alert Engine Routes
+// ============================================================================
+
+router.post('/alerts/generate', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runAlertGeneration } = await import('../services/alert-engine.service');
+    const data = await runAlertGeneration();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getAlertStats } = await import('../services/alert-engine.service');
+    const data = await getAlertStats();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/alerts', authenticate, async (req, res) => {
+  try {
+    const { getActiveAlerts } = await import('../services/alert-engine.service');
+    const userId = (req as any).user?.id;
+    const role = (req as any).user?.role;
+    const data = await getActiveAlerts(userId, role);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
+  try {
+    const { dismissAlert } = await import('../services/alert-engine.service');
+    const userId = (req as any).user?.id;
+    await dismissAlert(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ============================================================================
+// Forecast & Freight Routes
+// ============================================================================
+
+router.get('/forecast/maintenance', authenticate, async (req, res) => {
+  try {
+    const { getMaintenanceForecast } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getMaintenanceForecast(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get maintenance forecast' });
+  }
+});
+
+router.get('/forecast/trends', authenticate, async (req, res) => {
+  try {
+    const { getForecastTrends } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getForecastTrends(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast trends' });
+  }
+});
+
+router.get('/forecast/dashboard-summary', authenticate, async (req, res) => {
+  try {
+    const { getDashboardSummary } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getDashboardSummary(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast dashboard' });
+  }
+});
+
+router.get('/freight/rates', authenticate, async (req, res) => {
+  try {
+    const { getFreightRate, getDefaultFreightRate, listOriginLocations } = await import('../services/freight.service');
+    const { origin, destination } = req.query as Record<string, string>;
+    if (origin && destination) {
+      const data = await getFreightRate(origin, destination);
+      res.json({ success: true, data });
+    } else {
+      const defaultRate = await getDefaultFreightRate();
+      res.json({ success: true, data: defaultRate });
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get freight rates' });
+  }
+});
+
+router.post('/freight/calculate', authenticate, async (req, res) => {
+  try {
+    const { calculateFreightCost } = await import('../services/freight.service');
+    const { origin_code, shop_code } = req.body;
+    const data = await calculateFreightCost(origin_code, shop_code);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to calculate freight cost' });
+  }
+});
+
+router.get('/freight/origins', authenticate, async (req, res) => {
+  try {
+    const { listOriginLocations } = await import('../services/freight.service');
+    const data = await listOriginLocations();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to list origins' });
+  }
+});
+
+// ============================================================================
+// Work Hours Routes
+// ============================================================================
+
+router.get('/work-hours/factors', authenticate, async (req, res) => {
+  try {
+    const { getWorkHoursFactors } = await import('../services/workhours.service');
+    const factorType = (req.query.factor_type as string) || 'car_type';
+    const factorValue = (req.query.factor_value as string) || 'Tank';
+    const data = await getWorkHoursFactors(factorType, factorValue);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get work hours factors' });
+  }
+});
+
+router.post('/work-hours/calculate', authenticate, async (req, res) => {
+  try {
+    const { calculateWorkHours } = await import('../services/workhours.service');
+    const { car, overrides } = req.body;
+    const data = await calculateWorkHours(car, overrides || {});
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to calculate work hours' });
+  }
+});
+
+// ============================================================================
+// Project Audit Routes
+// ============================================================================
+
+router.get('/projects/:id/audit', authenticate, async (req, res) => {
+  try {
+    const { getProjectAuditEvents } = await import('../services/project-audit.service');
+    const carNumber = req.query.car_number as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const data = await getProjectAuditEvents(req.params.id, carNumber, limit, offset);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get project audit' });
+  }
+});
+
+// ============================================================================
+// Report Builder Routes
+// ============================================================================
+
+router.get('/report-builder/templates', authenticate, async (req, res) => {
+  try {
+    const { listTemplates } = await import('../services/report-builder.service');
+    res.json({ success: true, data: listTemplates() });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/report-builder/templates/:id', authenticate, async (req, res) => {
+  try {
+    const { getTemplate } = await import('../services/report-builder.service');
+    const template = getTemplate(req.params.id);
+    if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
+    res.json({ success: true, data: template });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/run', authenticate, async (req, res) => {
+  try {
+    const { runReport } = await import('../services/report-builder.service');
+    const { template_id, columns, filters, sort_by, sort_dir, limit, offset } = req.body;
+    if (!template_id) { res.status(400).json({ success: false, error: 'template_id required' }); return; }
+    const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit, offset });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/export-csv', authenticate, async (req, res) => {
+  try {
+    const { runReport, toCSV } = await import('../services/report-builder.service');
+    const { template_id, columns, filters, sort_by, sort_dir } = req.body;
+    if (!template_id) { res.status(400).json({ success: false, error: 'template_id required' }); return; }
+    const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit: 5000 });
+    const csv = toCSV(result);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
+    res.send(csv);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/report-builder/saved', authenticate, async (req, res) => {
+  try {
+    const { listSavedReports } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    const data = await listSavedReports(userId);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/saved', authenticate, async (req, res) => {
+  try {
+    const { saveReport } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    const { template_id, name, description, columns, filters, sort_by, sort_dir } = req.body;
+    if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
+    const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
+  try {
+    const { deleteSavedReport } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    await deleteSavedReport(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.put('/report-builder/saved/:id/schedule', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { setSchedule } = await import('../services/report-builder.service');
+    const { cron, recipients } = req.body;
+    if (!cron || !recipients) { res.status(400).json({ success: false, error: 'cron and recipients required' }); return; }
+    const data = await setSchedule(req.params.id, cron, recipients);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { removeSchedule } = await import('../services/report-builder.service');
+    const data = await removeSchedule(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Report export (HTML + CSV)
+router.get('/reports/templates', authenticate, async (req, res) => {
+  try {
+    const { listTemplates } = await import('../services/report-builder.service');
+    const data = listTemplates();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.post('/reports/run', authenticate, async (req, res) => {
+  try {
+    const { runReport } = await import('../services/report-builder.service');
+    const { templateId, filters } = req.body;
+    if (!templateId) { res.status(400).json({ success: false, error: 'templateId required' }); return; }
+    const data = await runReport(templateId, filters || {});
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+router.get('/reports/export/:templateId', authenticate, async (req, res) => {
+  try {
+    const { runReport, getTemplate, toCSV, toHTML } = await import('../services/report-builder.service');
+    const format = (req.query.format as string) || 'csv';
+    const template = getTemplate(req.params.templateId);
+    if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
+    const data = await runReport(req.params.templateId, req.query as any);
+    if (format === 'html') {
+      res.setHeader('Content-Type', 'text/html');
+      res.send(toHTML(template, data.rows));
+    } else {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/\s/g, '_')}_report.csv"`);
+      res.send(toCSV(data));
+    }
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// CLM single car on-demand lookup
+router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
+  try {
+    const { syncSingleCar } = await import('../services/clm-integration.service');
+    const data = await syncSingleCar(req.params.carNumber);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /**
  * @route   GET /api/health
  * @desc    Health check endpoint
@@ -4377,6 +5434,132 @@ router.get('/health', (req, res) => {
       version: '1.0.0',
     },
   });
+});
+
+// Data Validation (admin)
+router.get('/admin/data-validation', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runFullValidation } = await import('../services/data-validation.service');
+    const data = await runFullValidation();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Data validation failed' });
+  }
+});
+
+// Data Reconciliation (admin)
+router.get('/migration/reconciliation/dashboard', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReconciliationDashboard } = await import('../services/data-reconciliation.service');
+    const data = await getReconciliationDashboard();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/reconciliation/discrepancies', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { listDiscrepancies } = await import('../services/data-reconciliation.service');
+    const data = await listDiscrepancies(req.query as any);
+    res.json({ success: true, ...data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
+    const data = await resolveDiscrepancy(req.params.id, req.body, (req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { bulkResolveDiscrepancies } = await import('../services/data-reconciliation.service');
+    const { ids, ...resolution } = req.body;
+    const data = await bulkResolveDiscrepancies(ids, resolution, (req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { detectDuplicates } = await import('../services/data-reconciliation.service');
+    const data = await detectDuplicates(req.query.entity_type as any);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// Training Progress
+router.get('/training/modules', authenticate, async (req, res) => {
+  try {
+    const { listModules } = await import('../services/training-progress.service');
+    const data = await listModules();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/progress', authenticate, async (req, res) => {
+  try {
+    const { getUserProgress } = await import('../services/training-progress.service');
+    const data = await getUserProgress((req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
+  try {
+    const { startModule } = await import('../services/training-progress.service');
+    const data = await startModule((req as any).user?.id, req.params.moduleId);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
+  try {
+    const { completeModule } = await import('../services/training-progress.service');
+    const data = await completeModule((req as any).user?.id, req.params.moduleId, req.body.score);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
+  try {
+    const { updateProgress } = await import('../services/training-progress.service');
+    const data = await updateProgress((req as any).user?.id, req.params.moduleId, req.body.timeSpent);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/certifications', authenticate, async (req, res) => {
+  try {
+    const { getUserCertifications } = await import('../services/training-progress.service');
+    const data = await getUserCertifications((req as any).user?.id);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { grantCertification } = await import('../services/training-progress.service');
+    const data = await grantCertification(req.body.userId, req.body.certType, (req as any).user?.id, req.body.notes);
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/organization', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getOrganizationProgress } = await import('../services/training-progress.service');
+    const data = await getOrganizationProgress();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+router.get('/training/readiness', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { getReadinessAssessment } = await import('../services/training-progress.service');
+    const data = await getReadinessAssessment();
+    res.json({ success: true, data });
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 export default router;

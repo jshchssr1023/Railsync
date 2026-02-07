@@ -12,7 +12,15 @@ export type AlertType =
   | 'bad_order_critical'
   | 'assignment_expedited'
   | 'assignment_conflict'
-  | 'project_car_at_shop';
+  | 'project_car_at_shop'
+  | 'car_released'
+  | 'car_transferred'
+  | 'qual_overdue_escalation'
+  | 'sla_breach'
+  | 'billing_exception'
+  | 'invoice_overdue'
+  | 'inspection_overdue'
+  | 'component_due';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
@@ -219,4 +227,128 @@ export async function cleanupExpiredAlerts(): Promise<number> {
     []
   );
   return parseInt(result[0]?.count || '0', 10);
+}
+
+// ============================================================================
+// ALERT GENERATORS — scan for conditions and create alerts
+// ============================================================================
+
+/**
+ * Scan for overdue qualifications that haven't had an escalation alert yet.
+ */
+export async function generateQualOverdueEscalations(): Promise<number> {
+  const overdue = await query<{ id: string; car_number: string; qualification_type: string; next_due_date: string }>(
+    `SELECT q.id, c.car_number, qt.name as qualification_type, q.next_due_date
+     FROM qualifications q
+     JOIN cars c ON c.id = q.car_id
+     JOIN qualification_types qt ON qt.id = q.qualification_type_id
+     WHERE q.status = 'overdue'
+       AND q.next_due_date < CURRENT_DATE - INTERVAL '30 days'
+       AND NOT EXISTS (
+         SELECT 1 FROM alerts a
+         WHERE a.alert_type = 'qual_overdue_escalation'
+           AND a.entity_id = q.id::text
+           AND a.is_dismissed = FALSE
+       )`
+  );
+
+  let created = 0;
+  for (const q of overdue) {
+    await createAlertIfNotExists({
+      alert_type: 'qual_overdue_escalation',
+      severity: 'critical',
+      title: `CRITICAL: ${q.qualification_type} overdue 30+ days on ${q.car_number}`,
+      message: `Car ${q.car_number} has been overdue for ${q.qualification_type} since ${q.next_due_date}. Immediate action required.`,
+      entity_type: 'qualification',
+      entity_id: q.id,
+      target_role: 'admin',
+    });
+    created++;
+  }
+  return created;
+}
+
+/**
+ * Scan for overdue invoices (sent but unpaid past due date).
+ */
+export async function generateInvoiceOverdueAlerts(): Promise<number> {
+  const overdue = await query<{ id: string; invoice_number: string; customer_name: string; due_date: string; total_amount: number }>(
+    `SELECT oi.id, oi.invoice_number, c.customer_name, oi.due_date, oi.total_amount
+     FROM outbound_invoices oi
+     JOIN customers c ON c.id = oi.customer_id
+     WHERE oi.status = 'sent'
+       AND oi.due_date < CURRENT_DATE
+       AND NOT EXISTS (
+         SELECT 1 FROM alerts a
+         WHERE a.alert_type = 'invoice_overdue'
+           AND a.entity_id = oi.id::text
+           AND a.is_dismissed = FALSE
+       )`
+  );
+
+  let created = 0;
+  for (const inv of overdue) {
+    await createAlertIfNotExists({
+      alert_type: 'invoice_overdue',
+      severity: 'warning',
+      title: `Invoice ${inv.invoice_number} overdue — ${inv.customer_name}`,
+      message: `Invoice ${inv.invoice_number} for $${inv.total_amount.toFixed(2)} was due ${inv.due_date} and remains unpaid.`,
+      entity_type: 'outbound_invoice',
+      entity_id: inv.id,
+      target_role: 'operator',
+    });
+    created++;
+  }
+  return created;
+}
+
+/**
+ * Scan for components with overdue inspections.
+ */
+export async function generateInspectionOverdueAlerts(): Promise<number> {
+  const overdue = await query<{ id: string; car_number: string; component_type: string; serial_number: string; next_inspection_due: string }>(
+    `SELECT id, car_number, component_type, serial_number, next_inspection_due
+     FROM components
+     WHERE status = 'active'
+       AND next_inspection_due < CURRENT_DATE
+       AND NOT EXISTS (
+         SELECT 1 FROM alerts a
+         WHERE a.alert_type = 'inspection_overdue'
+           AND a.entity_id = id::text
+           AND a.is_dismissed = FALSE
+       )`
+  );
+
+  let created = 0;
+  for (const comp of overdue) {
+    await createAlertIfNotExists({
+      alert_type: 'inspection_overdue',
+      severity: 'warning',
+      title: `Inspection overdue: ${comp.component_type} on ${comp.car_number}`,
+      message: `Component ${comp.serial_number} (${comp.component_type}) on car ${comp.car_number} was due for inspection on ${comp.next_inspection_due}.`,
+      entity_type: 'component',
+      entity_id: comp.id,
+      target_role: 'operator',
+    });
+    created++;
+  }
+  return created;
+}
+
+/**
+ * Run all alert generators. Called by a scheduled job.
+ */
+export async function runAlertGenerators(): Promise<{
+  qual_escalations: number;
+  invoice_overdue: number;
+  inspection_overdue: number;
+  expired_cleaned: number;
+}> {
+  const [qual_escalations, invoice_overdue, inspection_overdue, expired_cleaned] = await Promise.all([
+    generateQualOverdueEscalations(),
+    generateInvoiceOverdueAlerts(),
+    generateInspectionOverdueAlerts(),
+    cleanupExpiredAlerts(),
+  ]);
+  return { qual_escalations, invoice_overdue, inspection_overdue, expired_cleaned };
 }

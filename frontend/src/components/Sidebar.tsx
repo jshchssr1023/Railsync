@@ -12,7 +12,8 @@ import {
   Settings, ChevronRight, ChevronDown, Menu, X, LogOut, User,
   AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
-  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft
+  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
+  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin, Bell, Tag
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,8 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Shopping Events', href: '/shopping', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Quick Shop', href: '/planning', icon: <Zap className="w-4 h-4" /> },
       { label: 'Bad Orders', href: '/bad-orders', icon: <AlertTriangle className="w-4 h-4" /> },
+      { label: 'Service Events', href: '/service-events', icon: <Calendar className="w-4 h-4" /> },
+      { label: 'Releases', href: '/releases', icon: <Package className="w-4 h-4" /> },
       { label: 'Shop Finder', href: '/shops', icon: <Factory className="w-4 h-4" /> },
     ],
   },
@@ -70,7 +73,10 @@ const NAV_CATEGORIES: NavCategory[] = [
     label: 'Contracts',
     icon: <FileText className="w-5 h-5" />,
     children: [
+      { label: 'Customers', href: '/customers', icon: <User className="w-4 h-4" /> },
       { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
+      { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
+      { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
       { label: 'Projects', href: '/projects', icon: <Package className="w-4 h-4" /> },
     ],
   },
@@ -80,6 +86,8 @@ const NAV_CATEGORIES: NavCategory[] = [
     icon: <Train className="w-5 h-5" />,
     children: [
       { label: 'All Cars', href: '/cars', icon: <Train className="w-4 h-4" /> },
+      { label: 'Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Components', href: '/components-registry', icon: <Settings className="w-4 h-4" /> },
       { label: 'In Shop', href: '/cars?status=Arrived', icon: <Wrench className="w-4 h-4" /> },
       { label: 'Enroute', href: '/cars?status=Enroute', icon: <Truck className="w-4 h-4" /> },
       { label: 'Overdue', href: '/cars?status=Overdue', icon: <AlertCircle className="w-4 h-4" /> },
@@ -93,8 +101,15 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'Case Queue', href: '/invoice-cases', icon: <ClipboardList className="w-4 h-4" /> },
       { label: 'Invoices', href: '/invoices', icon: <FileText className="w-4 h-4" /> },
+      { label: 'Estimates', href: '/estimates', icon: <DollarSign className="w-4 h-4" /> },
+      { label: 'Billable Items', href: '/billable-items', icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
       { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
+      { label: 'Cost Analytics', href: '/cost-analytics', icon: <TrendingUp className="w-4 h-4" /> },
+      { label: 'Shop Performance', href: '/shop-performance', icon: <Award className="w-4 h-4" /> },
+      { label: 'Freight Calculator', href: '/freight', icon: <Truck className="w-4 h-4" /> },
+      { label: 'Fleet Location', href: '/fleet-location', icon: <MapPin className="w-4 h-4" /> },
       { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },
@@ -105,6 +120,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     children: [
       { label: 'SOW Library', href: '/scope-library', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
+      { label: 'Commodities', href: '/commodities', icon: <Layers className="w-4 h-4" /> },
     ],
   },
   {
@@ -114,8 +130,26 @@ const NAV_CATEGORIES: NavCategory[] = [
     adminOnly: true,
     children: [
       { label: 'Rules', href: '/rules', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Integrations', href: '/integrations', icon: <Wifi className="w-4 h-4" /> },
+      { label: 'Migration', href: '/migration', icon: <Database className="w-4 h-4" /> },
+      { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
+      { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
+      { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
+      { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
+      { label: 'Shopping Types', href: '/admin/shopping-types', icon: <Tag className="w-4 h-4" /> },
+      { label: 'Shopping Reasons', href: '/admin/shopping-reasons', icon: <Tag className="w-4 h-4" /> },
+      { label: 'Service Plans', href: '/admin/service-plans', icon: <FileText className="w-4 h-4" /> },
+      { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
+      { label: 'Data Validation', href: '/admin/data-validation', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Data Reconciliation', href: '/admin/data-reconciliation', icon: <GitCompare className="w-4 h-4" /> },
+      { label: 'Storage Commodities', href: '/admin/storage-commodities', icon: <Package className="w-4 h-4" /> },
+      { label: 'Work Hours', href: '/admin/work-hours', icon: <Clock className="w-4 h-4" /> },
+      { label: 'Alerts', href: '/admin/alerts', icon: <AlertCircle className="w-4 h-4" /> },
+      { label: 'Shop Designations', href: '/admin/shop-designations', icon: <Factory className="w-4 h-4" /> },
+      { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
-      { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },
+      { label: 'Users', href: '/admin/users', icon: <User className="w-4 h-4" /> },
+      { label: 'Notifications', href: '/notifications', icon: <Bell className="w-4 h-4" /> },
       { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },
     ],
   },

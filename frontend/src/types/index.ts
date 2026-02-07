@@ -441,6 +441,219 @@ export interface DashboardConfig {
 }
 
 // ============================================================================
+// COMPONENT REGISTRY TYPES
+// ============================================================================
+
+export type ComponentType = 'valve' | 'bov' | 'fitting' | 'gauge' | 'relief_device' | 'lining' | 'coating' | 'heater' | 'other';
+export type ComponentStatus = 'active' | 'removed' | 'failed' | 'replaced';
+export type ComponentHistoryAction = 'installed' | 'inspected' | 'repaired' | 'replaced' | 'removed' | 'failed';
+
+export interface RailcarComponent {
+  id: string;
+  car_number: string;
+  component_type: ComponentType;
+  serial_number: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  install_date: string | null;
+  last_inspection_date: string | null;
+  next_inspection_due: string | null;
+  status: ComponentStatus;
+  specification: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComponentHistory {
+  id: string;
+  component_id: string;
+  action: ComponentHistoryAction;
+  performed_by: string | null;
+  performed_at: string;
+  shop_code: string | null;
+  old_serial_number: string | null;
+  new_serial_number: string | null;
+  work_order_reference: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ComponentWithHistory extends RailcarComponent {
+  history: ComponentHistory[];
+}
+
+export interface ComponentStats {
+  by_type: { component_type: string; count: number }[];
+  by_status: { status: string; count: number }[];
+  total: number;
+  overdue_inspections: number;
+  due_soon_inspections: number;
+}
+
+// ============================================================================
+// COMMODITY CLEANING TYPES
+// ============================================================================
+
+export type CleaningClass = 'A' | 'B' | 'C' | 'D' | 'E' | 'kosher' | 'hazmat' | 'none';
+
+export interface CommodityCleaning {
+  id: string;
+  commodity_code: string;
+  commodity_name: string;
+  cleaning_class: CleaningClass;
+  requires_interior_blast: boolean;
+  requires_exterior_paint: boolean;
+  requires_new_lining: boolean;
+  requires_kosher_cleaning: boolean;
+  special_instructions: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CleaningRequirements {
+  commodity_code: string;
+  commodity_name: string;
+  cleaning_class: CleaningClass;
+  requires_interior_blast: boolean;
+  requires_exterior_paint: boolean;
+  requires_new_lining: boolean;
+  requires_kosher_cleaning: boolean;
+  special_instructions: string | null;
+  cleaning_description: string;
+}
+
+// ============================================================================
+// INVOICE DISTRIBUTION TYPES
+// ============================================================================
+
+export interface InvoiceDistributionConfig {
+  id: string;
+  customer_id: string;
+  delivery_method: 'email' | 'portal' | 'mail' | 'edi';
+  email_recipients: string[];
+  cc_recipients: string[];
+  template_name: string;
+  include_line_detail: boolean;
+  include_pdf: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceDelivery {
+  id: string;
+  invoice_id: string;
+  customer_id: string;
+  delivery_method: string;
+  status: 'pending' | 'sent' | 'failed' | 'bounced';
+  sent_at: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+// ============================================================================
+// QUALIFICATION TYPES
+// ============================================================================
+
+export type QualificationStatus = 'current' | 'due_soon' | 'due' | 'overdue' | 'exempt' | 'unknown';
+
+export interface QualificationType {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  regulatory_body: string;
+  default_interval_months: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Qualification {
+  id: string;
+  car_id: string;
+  qualification_type_id: string;
+  status: QualificationStatus;
+  last_completed_date: string | null;
+  next_due_date: string | null;
+  expiry_date: string | null;
+  interval_months: number | null;
+  completed_by: string | null;
+  completion_shop_code: string | null;
+  certificate_number: string | null;
+  notes: string | null;
+  is_exempt: boolean;
+  exempt_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  type_code?: string;
+  type_name?: string;
+  regulatory_body?: string;
+  car_number?: string;
+  car_mark?: string;
+  lessee_name?: string;
+  lessee_code?: string;
+  current_region?: string;
+}
+
+export interface QualificationHistory {
+  id: string;
+  qualification_id: string;
+  action: string;
+  performed_by: string | null;
+  performed_date: string;
+  old_status: string | null;
+  new_status: string | null;
+  old_due_date: string | null;
+  new_due_date: string | null;
+  notes: string | null;
+}
+
+export interface QualificationAlert {
+  id: string;
+  qualification_id: string;
+  car_id: string;
+  qualification_type_id: string;
+  alert_type: string;
+  alert_date: string;
+  due_date: string;
+  days_until_due: number | null;
+  is_acknowledged: boolean;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+  created_at: string;
+  // Joined fields
+  car_number?: string;
+  car_mark?: string;
+  type_name?: string;
+  type_code?: string;
+  lessee_name?: string;
+}
+
+export interface QualificationStats {
+  total_cars: number;
+  overdue_count: number;
+  due_count: number;
+  due_soon_count: number;
+  current_count: number;
+  exempt_count: number;
+  unknown_count: number;
+  overdue_cars: number;
+  due_cars: number;
+  unacked_alerts: number;
+}
+
+export interface DueByMonth {
+  month: string;
+  count: number;
+  by_type: { type_code: string; type_name: string; count: number }[];
+}
+
+// ============================================================================
 // SHOPPING WORKFLOW TYPES
 // ============================================================================
 
@@ -698,6 +911,43 @@ export interface EstimateLineDecision {
   decided_at: string;
 }
 
+export interface AIRuleResult {
+  rule: string;
+  passed: boolean;
+  confidence: number;
+  note: string;
+}
+
+export interface AILinePreReview {
+  estimate_line_id: string;
+  line_number: number;
+  decision: 'approve' | 'review' | 'reject';
+  confidence_score: number;
+  rule_results: AIRuleResult[];
+  basis_type: string;
+  basis_reference: string;
+}
+
+export interface AIPreReviewResult {
+  submission_id: string;
+  lines_reviewed: number;
+  auto_approved: number;
+  needs_review: number;
+  auto_rejected: number;
+  overall_confidence: number;
+  line_reviews: AILinePreReview[];
+}
+
+export interface JobCodeHistoricalStats {
+  job_code: string;
+  avg_total_cost: number;
+  stddev_total_cost: number;
+  avg_labor_hours: number;
+  stddev_labor_hours: number;
+  avg_material_cost: number;
+  sample_count: number;
+}
+
 export interface CCMForm {
   id: string;
   company_name: string;
@@ -952,4 +1202,90 @@ export interface ProjectPlanSummary {
   last_communicated_at?: string;
   assignments: ProjectAssignment[];
   assignments_by_shop: Record<string, ProjectAssignment[]>;
+}
+
+// ============================================================================
+// INTEGRATION TYPES
+// ============================================================================
+
+export interface IntegrationConnectionStatus {
+  system_name: string;
+  is_connected: boolean;
+  mode: 'mock' | 'live' | 'disabled';
+  last_check_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface IntegrationSyncLogEntry {
+  id: string;
+  system_name: string;
+  operation: string;
+  direction: 'push' | 'pull';
+  entity_type: string | null;
+  entity_id: string | null;
+  entity_ref: string | null;
+  status: 'pending' | 'in_progress' | 'success' | 'failed' | 'retrying';
+  payload: unknown;
+  response: unknown;
+  error_message: string | null;
+  external_id: string | null;
+  retry_count: number;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface IntegrationSyncStats {
+  total: number;
+  pending: number;
+  success: number;
+  failed: number;
+  by_system: { system_name: string; total: number; success: number; failed: number }[];
+}
+
+export interface IntegrationHealthStatus {
+  overall_status: 'healthy' | 'degraded' | 'critical';
+  systems: {
+    system_name: string;
+    status: 'healthy' | 'degraded' | 'critical';
+    error_count_24h: number;
+    last_error?: string;
+    uptime_percentage?: number;
+  }[];
+  total_errors_24h: number;
+  active_alerts: number;
+}
+
+export interface ErrorTrendPoint {
+  date: string;
+  error_count: number;
+}
+
+export interface SystemErrorTrends {
+  system_name: string;
+  trends: ErrorTrendPoint[];
+}
+
+export interface RetryQueueItem {
+  id: string;
+  system_name: string;
+  operation: string;
+  entity_type: string | null;
+  entity_ref: string | null;
+  retry_count: number;
+  next_retry_at: string;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface ScheduledJob {
+  id: string;
+  name: string;
+  description: string | null;
+  schedule: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_status: 'success' | 'failed' | null;
+  system_name: string | null;
 }

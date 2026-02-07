@@ -71,7 +71,21 @@ services:
       - ./database/migrations/047_demo_historical_data.sql:/docker-entrypoint-initdb.d/54-demo-historical-data.sql
       - ./database/migrations/048_demand_plan_unification.sql:/docker-entrypoint-initdb.d/55-demand-plan-unification.sql
       - ./database/migrations/049_state_transition_log.sql:/docker-entrypoint-initdb.d/56-state-transition-log.sql
-      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/57-seed-test-data.sql
+      - ./database/migrations/050_qualifications_engine.sql:/docker-entrypoint-initdb.d/57-qualifications-engine.sql
+      - ./database/migrations/051_billing_engine.sql:/docker-entrypoint-initdb.d/58-billing-engine.sql
+      - ./database/migrations/052_component_registry.sql:/docker-entrypoint-initdb.d/59-component-registry.sql
+      - ./database/migrations/053_release_transfer_management.sql:/docker-entrypoint-initdb.d/60-release-transfer.sql
+      - ./database/migrations/054_performance_indexes.sql:/docker-entrypoint-initdb.d/61-performance-indexes.sql
+      - ./database/migrations/055_integration_sync_log.sql:/docker-entrypoint-initdb.d/62-integration-sync.sql
+      - ./database/migrations/056_car_locations.sql:/docker-entrypoint-initdb.d/63-car-locations.sql
+      - ./database/migrations/057_cost_allocation_billing.sql:/docker-entrypoint-initdb.d/64-cost-allocation-billing.sql
+      - ./database/migrations/058_ciprots_migration.sql:/docker-entrypoint-initdb.d/65-ciprots-migration.sql
+      - ./database/migrations/059_sap_salesforce_integration.sql:/docker-entrypoint-initdb.d/66-sap-salesforce-integration.sql
+      - ./database/migrations/060_system_mode_incidents.sql:/docker-entrypoint-initdb.d/67-system-mode-incidents.sql
+      - ./database/migrations/061_user_feedback.sql:/docker-entrypoint-initdb.d/68-user-feedback.sql
+      - ./database/migrations/062_report_builder.sql:/docker-entrypoint-initdb.d/69-report-builder.sql
+      - ./database/migrations/063_training_progress.sql:/docker-entrypoint-initdb.d/70-training-progress.sql
+      - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/71-seed-test-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -91,14 +105,10 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3001}
       DATABASE_URL: ${DATABASE_URL}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       REFRESH_TOKEN_EXPIRES_DAYS: ${REFRESH_TOKEN_EXPIRES_DAYS:-7}
-    # API is only accessible via nginx reverse proxy in production.
-    # For local dev without nginx, uncomment:
-    # ports:
-    #   - "3001:3001"
     expose:
       - "3001"
     depends_on:
@@ -111,20 +121,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api
     container_name: railsync-ui
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
-    # Frontend is only accessible via nginx reverse proxy in production.
-    # For local dev without nginx, uncomment:
-    # ports:
-    #   - "3000:3000"
     expose:
       - "3000"
     depends_on:
       - backend
     restart: unless-stopped
 
-  # Nginx Reverse Proxy with TLS termination
+  # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: railsync-proxy

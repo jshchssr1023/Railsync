@@ -322,4 +322,56 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
+-- 16. INTEGRATION SYNC LOG TEST DATA
+-- ============================================================================
+
+INSERT INTO integration_sync_log (id, system_name, operation, direction, entity_type, entity_ref, status, payload, response, error_message, retry_count, max_retries, started_at, completed_at)
+VALUES
+  ('90000001-0000-0000-0000-000000000001', 'sap', 'push_approved_costs', 'push', 'allocation', 'ALLOC-2026-001', 'success',
+    '{"allocation_id":"test","amount":4500}', '{"sap_doc":"4900012345"}', NULL, 0, 3, NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours'),
+  ('90000001-0000-0000-0000-000000000002', 'sap', 'push_billing_trigger', 'push', 'outbound_invoice', 'INV-2026-0023', 'success',
+    '{"invoice_id":"test","total":12500}', '{"sap_doc":"4900012346"}', NULL, 0, 3, NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour'),
+  ('90000001-0000-0000-0000-000000000003', 'sap', 'push_mileage', 'push', 'mileage_record', 'GATX 23456 2026-01', 'failed',
+    '{"car_number":"GATX 23456","period":"2026-01"}', NULL, 'Connection timeout after 30s', 3, 3, NOW() - INTERVAL '30 minutes', NULL),
+  ('90000001-0000-0000-0000-000000000004', 'salesforce', 'pull_customers', 'pull', 'customer', NULL, 'success',
+    '{}', '{"records_synced":47}', NULL, 0, 3, NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours'),
+  ('90000001-0000-0000-0000-000000000005', 'salesforce', 'pull_contacts', 'pull', 'contact', NULL, 'retrying',
+    '{}', NULL, 'API rate limit exceeded', 1, 3, NOW() - INTERVAL '20 minutes', NULL),
+  ('90000001-0000-0000-0000-000000000006', 'clm', 'sync_car_locations', 'pull', 'car_location', NULL, 'success',
+    '{}', '{"locations_updated":156}', NULL, 0, 3, NOW() - INTERVAL '3 hours', NOW() - INTERVAL '3 hours'),
+  ('90000001-0000-0000-0000-000000000007', 'railinc', 'import_edi_file', 'pull', 'mileage_record', 'EDI-20260128', 'success',
+    '{"file":"mileage_jan_2026.edi"}', '{"records_imported":234,"records_skipped":12}', NULL, 0, 3, NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours'),
+  ('90000001-0000-0000-0000-000000000008', 'sap', 'push_approved_costs', 'push', 'allocation', 'ALLOC-2026-042', 'retrying',
+    '{"allocation_id":"test2","amount":8200}', NULL, 'SAP system unavailable (503)', 2, 3, NOW() - INTERVAL '15 minutes', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Update next_retry_at for retrying entries
+UPDATE integration_sync_log SET next_retry_at = NOW() + INTERVAL '5 minutes'
+WHERE id IN ('90000001-0000-0000-0000-000000000005', '90000001-0000-0000-0000-000000000008');
+
+-- ============================================================================
+-- 17. CAR LOCATIONS TEST DATA (CLM)
+-- ============================================================================
+
+INSERT INTO car_locations (car_number, railroad, city, state, location_type, latitude, longitude, reported_at)
+SELECT
+  c.car_number,
+  (ARRAY['BNSF', 'UP', 'CSX', 'NS', 'CN', 'CP', 'KCS'])[floor(random() * 7 + 1)],
+  (ARRAY['Houston', 'Chicago', 'Kansas City', 'Memphis', 'Atlanta', 'Los Angeles', 'Dallas', 'St. Louis', 'New Orleans', 'Denver'])[floor(random() * 10 + 1)],
+  (ARRAY['TX', 'IL', 'MO', 'TN', 'GA', 'CA', 'TX', 'MO', 'LA', 'CO'])[floor(random() * 10 + 1)],
+  (ARRAY['at_yard', 'storage', 'in_transit', 'at_shop', 'at_customer'])[floor(random() * 5 + 1)],
+  29.7 + random() * 12,
+  -120 + random() * 30,
+  NOW() - (random() * INTERVAL '7 days')
+FROM cars c
+WHERE c.car_number IN (
+  SELECT car_number FROM cars ORDER BY car_number LIMIT 50
+)
+ON CONFLICT (car_number) DO UPDATE SET
+  railroad = EXCLUDED.railroad,
+  city = EXCLUDED.city,
+  state = EXCLUDED.state,
+  reported_at = EXCLUDED.reported_at;
+
+-- ============================================================================
 DO $$ BEGIN RAISE NOTICE 'Comprehensive test data seed completed successfully.'; END $$;

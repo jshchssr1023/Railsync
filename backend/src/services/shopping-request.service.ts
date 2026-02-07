@@ -560,3 +560,69 @@ export async function revertLastTransition(
 
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Duplicate / Copy
+// ---------------------------------------------------------------------------
+
+export interface DuplicateShoppingRequestInput {
+  /** Override the car number on the copy (required — each request must target a specific car) */
+  car_number: string;
+  /** Optional overrides for any other fields */
+  overrides?: Partial<CreateShoppingRequestInput>;
+}
+
+/**
+ * Create a new shopping request by duplicating an existing one.
+ * Copies all scope/detail fields, generates a new request number,
+ * and resets status to 'submitted'. The caller must provide a car_number
+ * because each request must target a specific car.
+ */
+export async function duplicateShoppingRequest(
+  sourceId: string,
+  input: DuplicateShoppingRequestInput,
+  userId: string
+): Promise<ShoppingRequest> {
+  const source = await getShoppingRequest(sourceId);
+  if (!source) throw new Error('Source shopping request not found');
+
+  const merged: CreateShoppingRequestInput = {
+    customer_company: source.customer_company,
+    customer_first_name: source.customer_first_name || undefined,
+    customer_last_name: source.customer_last_name || undefined,
+    customer_email: source.customer_email || undefined,
+    customer_phone: source.customer_phone || undefined,
+    car_number: input.car_number,
+    current_railroad: source.current_railroad || undefined,
+    current_location_city: source.current_location_city || undefined,
+    current_location_state: source.current_location_state || undefined,
+    next_railroad: source.next_railroad || undefined,
+    next_location_city: source.next_location_city || undefined,
+    next_location_state: source.next_location_state || undefined,
+    stcc_or_un_number: source.stcc_or_un_number || undefined,
+    residue_clean: source.residue_clean || undefined,
+    gasket: source.gasket || undefined,
+    o_rings: source.o_rings || undefined,
+    last_known_commodity: source.last_known_commodity || undefined,
+    lining_current: source.lining_current || undefined,
+    lining_alternative: source.lining_alternative || undefined,
+    preferred_shop_code: source.preferred_shop_code || undefined,
+    mobile_repair_unit: source.mobile_repair_unit,
+    shopping_type_code: source.shopping_type_code || undefined,
+    shopping_reason_code: source.shopping_reason_code || undefined,
+    clean_grade: source.clean_grade || undefined,
+    is_kosher: source.is_kosher,
+    is_food_grade: source.is_food_grade,
+    dry_grade: source.dry_grade || undefined,
+    disposition_city: source.disposition_city || undefined,
+    disposition_state: source.disposition_state || undefined,
+    disposition_route: source.disposition_route || undefined,
+    disposition_payer_of_freight: source.disposition_payer_of_freight || undefined,
+    disposition_comment: source.disposition_comment || undefined,
+    one_time_movement_approval: source.one_time_movement_approval,
+    comments: source.comments ? `[Copied from ${source.request_number}] ${source.comments}` : `[Copied from ${source.request_number}]`,
+    ...input.overrides,
+  };
+
+  return createShoppingRequest(merged, userId);
+}

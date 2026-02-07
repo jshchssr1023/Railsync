@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
-  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList
+  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList, Loader2
 } from 'lucide-react';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 
@@ -229,6 +229,30 @@ function TypeTree({
 // ---------------------------------------------------------------------------
 // Side Drawer Component
 // ---------------------------------------------------------------------------
+interface QualRecord {
+  id: string;
+  type_name: string;
+  type_code: string;
+  status: string;
+  next_due_date: string | null;
+  last_completed_date: string | null;
+  regulatory_body: string;
+  is_exempt: boolean;
+}
+
+function QualStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { bg: string; text: string; label: string }> = {
+    overdue:  { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', label: 'Overdue' },
+    due:      { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', label: 'Due' },
+    due_soon: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', label: 'Due Soon' },
+    current:  { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', label: 'Current' },
+    exempt:   { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', label: 'Exempt' },
+    unknown:  { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-500 dark:text-gray-500', label: 'Unknown' },
+  };
+  const c = config[status] || config.unknown;
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
+}
+
 function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => void }) {
   const [detail, setDetail] = useState<CarDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,14 +262,34 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
   const [umlerData, setUmlerData] = useState<Record<string, any> | null>(null);
   const [umlerLoading, setUmlerLoading] = useState(false);
   const [umlerLoaded, setUmlerLoaded] = useState(false);
+  const [qualRecords, setQualRecords] = useState<QualRecord[]>([]);
+  const [qualRecordsLoading, setQualRecordsLoading] = useState(false);
+  const [qualRecordsLoaded, setQualRecordsLoaded] = useState(false);
+  const [clmLocation, setClmLocation] = useState<Record<string, any> | null>(null);
+  const [clmLocationLoading, setClmLocationLoading] = useState(false);
+  const [clmLocationLoaded, setClmLocationLoaded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
     setUmlerData(null);
     setUmlerLoaded(false);
+    setQualRecords([]);
+    setQualRecordsLoaded(false);
+    setClmLocation(null);
+    setClmLocationLoaded(false);
     apiFetch<{ data: CarDetail }>(`/contracts-browse/car/${carNumber}`)
-      .then(res => setDetail(res.data))
+      .then(res => {
+        setDetail(res.data);
+        // Auto-load qualification records if section is expanded
+        if (res.data?.car?.car_id && expandedSections.has('qualifications')) {
+          setQualRecordsLoading(true);
+          apiFetch<{ data: QualRecord[] }>(`/cars/${res.data.car.car_id}/qualifications`)
+            .then(qRes => { setQualRecords(qRes.data || []); setQualRecordsLoaded(true); })
+            .catch(() => { setQualRecords([]); setQualRecordsLoaded(true); })
+            .finally(() => setQualRecordsLoading(false));
+        }
+      })
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
   }, [carNumber]);
@@ -257,6 +301,8 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  const car = detail?.car;
 
   const toggleSection = (s: string) => {
     setExpandedSections(prev => {
@@ -272,9 +318,23 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
         .catch(() => { setUmlerData(null); setUmlerLoaded(true); })
         .finally(() => setUmlerLoading(false));
     }
+    // Lazy-load qualification records on first expand
+    if (s === 'qualifications' && !qualRecordsLoaded && car?.car_id) {
+      setQualRecordsLoading(true);
+      apiFetch<{ data: QualRecord[] }>(`/cars/${car.car_id}/qualifications`)
+        .then(res => { setQualRecords(res.data || []); setQualRecordsLoaded(true); })
+        .catch(() => { setQualRecords([]); setQualRecordsLoaded(true); })
+        .finally(() => setQualRecordsLoading(false));
+    }
+    // Lazy-load CLM location data on first expand
+    if (s === 'location' && !clmLocationLoaded) {
+      setClmLocationLoading(true);
+      apiFetch<{ data: Record<string, any> | null }>(`/car-locations/${carNumber}`)
+        .then(res => { setClmLocation(res.data); setClmLocationLoaded(true); })
+        .catch(() => { setClmLocation(null); setClmLocationLoaded(true); })
+        .finally(() => setClmLocationLoading(false));
+    }
   };
-
-  const car = detail?.car;
 
   const Section = ({ id, title, icon: Icon, children }: {
     id: string; title: string; icon: typeof Train; children: React.ReactNode;
@@ -373,7 +433,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
             </div>
           ) : !car ? (
             <div className="p-4 text-center text-gray-500 dark:text-gray-400">Car not found</div>
@@ -433,6 +493,36 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
                   <Field label="Perform Tank Qual" value={car.perform_tank_qual ? 'Yes' : 'No'} />
                   <Field label="Qual Expiration" value={car.qual_exp_date?.slice(0, 10)} />
                 </div>
+                {/* Qualification Records from qualifications table */}
+                {qualRecordsLoading ? (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-center py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-500 inline-block" />
+                  </div>
+                ) : qualRecords.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] uppercase font-semibold text-gray-400 dark:text-gray-500 mb-1 tracking-wider">Compliance Records</p>
+                    {qualRecords.map(qr => (
+                      <div key={qr.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                        <div>
+                          <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{qr.type_name}</span>
+                          <span className="text-[10px] text-gray-400 ml-1">({qr.regulatory_body})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {qr.next_due_date && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{qr.next_due_date}</span>
+                          )}
+                          <QualStatusBadge status={qr.status} />
+                        </div>
+                      </div>
+                    ))}
+                    <a
+                      href="/qualifications"
+                      className="block text-center text-[10px] text-primary-600 dark:text-primary-400 hover:underline mt-2"
+                    >
+                      View All Qualifications
+                    </a>
+                  </div>
+                )}
               </Section>
 
               {/* Maintenance / Status */}
@@ -468,6 +558,26 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
               <Section id="location" title="Location" icon={MapPin}>
                 <Field label="Current Region" value={car.current_region} />
                 <Field label="Past Region" value={car.past_region} />
+                {clmLocationLoading && (
+                  <div className="flex items-center justify-center py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
+                  </div>
+                )}
+                {clmLocationLoaded && clmLocation && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">CLM Location Data</div>
+                    <Field label="Railroad" value={clmLocation.railroad} />
+                    <Field label="City" value={clmLocation.city} />
+                    <Field label="State" value={clmLocation.state} />
+                    <Field label="Location Type" value={clmLocation.location_type} />
+                    <Field label="Last Reported" value={clmLocation.reported_at?.slice(0, 16)?.replace('T', ' ')} />
+                  </div>
+                )}
+                {clmLocationLoaded && !clmLocation && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">No CLM location data available</p>
+                  </div>
+                )}
               </Section>
 
               {/* Lease / Contract */}
@@ -524,7 +634,7 @@ export default function CarsPageWrapper() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
       </div>
     }>
       <CarsPage />
@@ -657,7 +767,7 @@ function CarsPage() {
       <div className="hidden md:block">
         {treeLoading ? (
           <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center h-full">
-            <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
           </div>
         ) : (
           <TypeTree
@@ -795,7 +905,7 @@ function CarsPage() {
               {carsLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="py-16 text-center">
-                    <div className="inline-block animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-500 inline-block" />
                   </td>
                 </tr>
               ) : cars.length === 0 ? (

@@ -257,6 +257,51 @@ export async function sendPacket(id: string, userId: string): Promise<ShoppingPa
      RETURNING *`,
     [id, userId]
   );
+
+  // Queue email to shop contact if packet was successfully issued
+  if (result) {
+    try {
+      const { queueEmail } = await import('./email.service');
+      // Look up shop contact email
+      const shopContact = await queryOne<{ email: string; contact_name: string }>(
+        `SELECT email, contact_name FROM shop_contacts WHERE shop_code = $1 AND is_primary = TRUE LIMIT 1`,
+        [result.shop_code]
+      );
+      if (shopContact?.email) {
+        const appUrl = process.env.APP_URL || 'http://localhost:3000';
+        await queueEmail(shopContact.email, shopContact.contact_name, {
+          subject: `Shopping Packet ${result.packet_number} — Car ${result.car_number}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: #2563eb; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">Shopping Packet Issued</h1>
+              </div>
+              <div style="padding: 20px; background: #f9fafb;">
+                <p><strong>Packet:</strong> ${result.packet_number}</p>
+                <p><strong>Car:</strong> ${result.car_number}</p>
+                <p><strong>Shop:</strong> ${result.shop_code}${result.shop_name ? ` — ${result.shop_name}` : ''}</p>
+                ${result.special_instructions ? `<p><strong>Instructions:</strong> ${result.special_instructions}</p>` : ''}
+                <p style="margin-top: 20px;">
+                  <a href="${appUrl}/shopping"
+                     style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    View in RailSync
+                  </a>
+                </p>
+              </div>
+            </div>
+          `,
+          text: `Shopping Packet Issued\n\nPacket: ${result.packet_number}\nCar: ${result.car_number}\nShop: ${result.shop_code}\n${result.special_instructions ? `Instructions: ${result.special_instructions}\n` : ''}`,
+        });
+        console.log(`[Packet] Email queued to ${shopContact.email} for packet ${result.packet_number}`);
+      } else {
+        console.log(`[Packet] No primary contact email for shop ${result.shop_code}, skipping email`);
+      }
+    } catch (err) {
+      // Email failure should not block packet issuance
+      console.error(`[Packet] Failed to queue email for packet ${id}:`, (err as Error).message);
+    }
+  }
+
   return result;
 }
 

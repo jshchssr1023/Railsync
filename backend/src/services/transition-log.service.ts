@@ -181,6 +181,8 @@ async function getCurrentEntityState(
     demand: { table: 'demands', column: 'status', idColumn: 'id' },
     project_assignment: { table: 'project_assignments', column: 'plan_state', idColumn: 'id' },
     car_assignment: { table: 'car_assignments', column: 'status', idColumn: 'id' },
+    car_release: { table: 'car_releases', column: 'status', idColumn: 'id' },
+    car_lease_transition: { table: 'car_lease_transitions', column: 'status', idColumn: 'id' },
     scope_of_work: { table: 'scope_of_work', column: 'status', idColumn: 'id' },
   };
 

@@ -106,7 +106,29 @@
       "Bash(else echo \"✗ /$dir\")",
       "Bash(fi)",
       "Bash(done)",
-      "Bash(^d \")"
+      "Bash(^d \")",
+      "Bash(test:*)",
+      "Bash(\"C:\\\\Users\\\\jshch\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\ralph-loop\\\\27d2b86d72da/scripts/setup-ralph-loop.sh\" \"Redesign the Shop Page with grouped cards, network hierarchy, tier color-coding, side drawer, cost filters, and load indicators per the spec provided\")",
+      "Bash(find:*)",
+      "Bash(cd:*)",
+      "Bash(dir:*)",
+      "Bash(git diff:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZTY5OTIwZi1jZGNiLTQ2NjgtOWYyMS05YzRkYmNjZmI4YzkiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDMzMzA2MiwiZXhwIjoxNzcwMzMzOTYyfQ.DbLC2jgrt3hYDKK-VyQEtccta3hoBYcPqSuJdd9aibc\":*)",
+      "Bash(timeout:*)",
+      "Bash(\"C:\\\\Users\\\\jshch\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\ralph-loop\\\\27d2b86d72da/scripts/setup-ralph-loop.sh\" \"Redesign the Shopping Request form to match the users specification\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZTY5OTIwZi1jZGNiLTQ2NjgtOWYyMS05YzRkYmNjZmI4YzkiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDM0OTAxMSwiZXhwIjoxNzcwMzQ5OTExfQ.yoLJGa6kdaqER3ajfyiTKpEJdWR1zwbi0-Yqh1UWHDo\")",
+      "Bash(TK=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZTY5OTIwZi1jZGNiLTQ2NjgtOWYyMS05YzRkYmNjZmI4YzkiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDM0OTEyNCwiZXhwIjoxNzcwMzUwMDI0fQ.UOSaJCwxNNszzMn5OtTeAQYk5TJn5wmKc6z_OCxIKAo\")",
+      "Bash(PLAN_ID=\"5dde0bcc-4f95-4754-9006-64e7a7de25dc\")",
+      "Bash($TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkZTY5OTIwZi1jZGNiLTQ2NjgtOWYyMS05YzRkYmNjZmI4YzkiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDM3ODU5NywiZXhwIjoxNzcwMzc5NDk3fQ.bhLFGfnU3eb_DQQNNLid9eJxb2z2RvYgYtrqWLsn1bU\")",
+      "Bash(ping:*)",
+      "Bash(docker start:*)",
+      "Bash(docker events:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJlM2Q0MWI2Mi1lNmVkLTQ1ZGEtYjk1YS0wMzhhMTZiNWI1YzgiLCJlbWFpbCI6ImFkbWluQHJhaWxzeW5jLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDM4MTYyNywiZXhwIjoxNzcwMzgyNTI3fQ.SFhiUKEX2AvZUHL_isyLnaAWPcEpaNi6Jc5g85pgcoo\")",
+      "Bash(docker cp:*)",
+      "Bash(git tag:*)",
+      "Bash(xargs:*)",
+      "Bash(pip install:*)",
+      "Bash(git log:*)"
     ]
   }
 }

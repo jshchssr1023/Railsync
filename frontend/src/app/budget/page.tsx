@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
-import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart3 } from 'lucide-react';
+import { Edit2, Save, X, Plus, Trash2, RefreshCw, TrendingUp, Settings, BarChart3, Loader2 } from 'lucide-react';
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -56,7 +56,7 @@ export default function BudgetPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
     }>
       <BudgetContent />

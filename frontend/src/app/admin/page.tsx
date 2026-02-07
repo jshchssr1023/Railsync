@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
 import BRCHistoryList from '@/components/BRCHistoryList';
-import { Lock, AlertTriangle, Building2, ClipboardList, Bell, Search, FileText, Database } from 'lucide-react';
+import { Lock, AlertTriangle, Building2, ClipboardList, Bell, Search, FileText, Database, Loader2 } from 'lucide-react';
 
 type AdminTab = 'rules' | 'users' | 'audit' | 'import';
 
@@ -16,7 +16,7 @@ export default function AdminPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
       </div>
     );
   }
@@ -218,7 +218,7 @@ function UserManagement() {
   if (loading) {
     return (
       <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+        <Loader2 className="w-6 h-6 animate-spin text-primary-600 mx-auto" />
       </div>
     );
   }
@@ -402,7 +402,7 @@ function AuditLogs() {
   if (loading) {
     return (
       <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+        <Loader2 className="w-6 h-6 animate-spin text-primary-600 mx-auto" />
       </div>
     );
   }

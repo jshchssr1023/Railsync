@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -123,7 +123,7 @@ export default function PipelinePage() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
     );
   }

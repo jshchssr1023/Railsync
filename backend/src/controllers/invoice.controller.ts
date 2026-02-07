@@ -97,6 +97,13 @@ export async function rematchInvoice(req: Request, res: Response): Promise<void>
 export async function getInvoice(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
+    // Validate UUID format to prevent PostgreSQL type errors when
+    // non-UUID strings (e.g. "pending") match the :id wildcard route
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
     const invoice = await invoiceService.getInvoice(id);
     if (!invoice) {
       res.status(404).json({ error: 'Invoice not found' });
@@ -251,11 +258,21 @@ export async function approveInvoice(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // TODO: Trigger SAP push when integration is ready
-    // For now, log the approval
-    console.log(`Invoice ${id} approved by ${userId}. SAP push pending.`);
+    // Trigger SAP push if integration is configured
+    let sapResult: { pushed: boolean; document_number?: string } = { pushed: false };
+    try {
+      const { pushInvoiceToSAP } = await import('../services/sap-integration.service');
+      const pushResponse = await pushInvoiceToSAP(id, userId);
+      if (pushResponse.success) {
+        sapResult = { pushed: true, document_number: pushResponse.sap_document_id };
+        console.log(`Invoice ${id} approved by ${userId} and pushed to SAP (doc ${pushResponse.sap_document_id}).`);
+      }
+    } catch (sapErr) {
+      // SAP push is non-blocking; log and continue
+      console.warn(`Invoice ${id} approved but SAP push failed:`, sapErr);
+    }
 
-    res.json({ ...invoice, message: 'Invoice approved. SAP integration pending.' });
+    res.json({ ...invoice, sap: sapResult, message: sapResult.pushed ? 'Invoice approved and pushed to SAP.' : 'Invoice approved.' });
   } catch (error) {
     console.error('Error approving invoice:', error);
     res.status(500).json({ error: 'Failed to approve invoice' });

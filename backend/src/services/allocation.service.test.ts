@@ -117,6 +117,7 @@ describe('Allocation Service', () => {
           month: '2026-02',
           total_capacity: 50,
           confirmed_railcars: 55, // 5 over, which is exactly 10%
+          planned_railcars: 0,
           remaining_capacity: 0,
         }],
       });

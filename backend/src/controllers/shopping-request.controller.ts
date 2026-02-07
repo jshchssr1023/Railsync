@@ -8,6 +8,7 @@ import {
   rejectShoppingRequest as rejectService,
   cancelShoppingRequest as cancelService,
   revertLastTransition as revertService,
+  duplicateShoppingRequest as duplicateService,
 } from '../services/shopping-request.service';
 import {
   uploadAttachment as uploadService,
@@ -162,6 +163,24 @@ export async function deleteAttachment(req: Request, res: Response): Promise<voi
     res.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting attachment:', error);
+    const status = error.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ error: error.message });
+  }
+}
+
+// POST /api/shopping-requests/:id/duplicate
+export async function duplicate(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user?.id;
+    const { car_number, overrides } = req.body;
+    if (!car_number) {
+      res.status(400).json({ error: 'car_number is required for duplicate' });
+      return;
+    }
+    const result = await duplicateService(req.params.id, { car_number, overrides }, userId);
+    res.status(201).json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('Error duplicating shopping request:', error);
     const status = error.message.includes('not found') ? 404 : 500;
     res.status(status).json({ error: error.message });
   }
