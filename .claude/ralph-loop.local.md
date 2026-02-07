@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 8
+iteration: 10
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -64,3 +64,24 @@ Iteration 8: Sprint F — API consolidation, admin monitoring, testing, document
   - Sprint 15: 0% → ~35% (6 test files, Jest infrastructure)
   - Sprint 19-20: ~45% → ~65% (admin monitoring, go-live tooling complete)
   - Backend tsc + frontend next build: clean (40 pages)
+Iteration 9: Sprint G — Test suite expansion, service wiring, CI pipeline.
+  - Backend tests: 6 new test files (allocation, billing, contracts, qualification, sap-integration, go-live-incidents) — total 12 backend test files
+  - Frontend tests: 4 new test files (ContractsPage, InvoiceCasesPage, InvoicesPage, PipelinePage) — total 12 frontend test files
+  - Service wiring: forecast (3 endpoints), freight (3 endpoints), work-hours (2 endpoints), project audit (1 endpoint) — 9 previously unwired services now accessible
+  - Report builder: new report-builder.service.ts + migration 062 (report configs, saved reports, schedules)
+  - CI pipeline: GitHub Actions workflow (Node 20, PostgreSQL, backend tsc+jest, frontend build)
+  - Sprint 15: ~35% → ~55% (12 backend tests, 12 frontend tests, CI pipeline)
+  - Sprint 16: 0% → ~30% (CI workflow, quality gates)
+  - Backend tsc + frontend next build: clean
+Iteration 10: Sprint H — Release management UI, contract transfers UI, training center, API completion.
+  - New /releases page: status filter tabs, stats cards, release list table, initiate form, approve/execute/complete/cancel actions
+  - New /transfers page: transfer list with validation, initiate form, status tracking, approve/reject/execute/cancel actions
+  - New /training page: 7 training modules with localStorage completion tracking, progress indicators, category tabs
+  - Sidebar: added Releases under Shopping, Transfers under Contracts, Training under Admin
+  - Breadcrumbs: added releases, transfers, training labels
+  - Loading states: releases, transfers, training (ListSkeleton/DashboardSkeleton)
+  - Frontend api.ts: forecast (3), freight (3), work-hours (2), project audit (1) — 9 new API functions
+  - Sprint 5: ~70% → ~85% (release + transfer UI now complete end-to-end)
+  - Sprint 18: ~45% → ~55% (training center)
+  - Sprint 19-20: ~65% → ~75% (training, go-live tooling)
+  - Backend tsc + frontend next build: clean (43 pages)
