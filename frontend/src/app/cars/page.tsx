@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
-  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList
+  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList, Loader2
 } from 'lucide-react';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 
@@ -433,7 +433,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
             </div>
           ) : !car ? (
             <div className="p-4 text-center text-gray-500 dark:text-gray-400">Car not found</div>
@@ -496,7 +496,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
                 {/* Qualification Records from qualifications table */}
                 {qualRecordsLoading ? (
                   <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-center py-2">
-                    <div className="animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full inline-block" />
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-500 inline-block" />
                   </div>
                 ) : qualRecords.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -560,7 +560,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
                 <Field label="Past Region" value={car.past_region} />
                 {clmLocationLoading && (
                   <div className="flex items-center justify-center py-3">
-                    <div className="animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full" />
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
                   </div>
                 )}
                 {clmLocationLoaded && clmLocation && (
@@ -634,7 +634,7 @@ export default function CarsPageWrapper() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
       </div>
     }>
       <CarsPage />
@@ -767,7 +767,7 @@ function CarsPage() {
       <div className="hidden md:block">
         {treeLoading ? (
           <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center h-full">
-            <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+            <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
           </div>
         ) : (
           <TypeTree
@@ -905,7 +905,7 @@ function CarsPage() {
               {carsLoading ? (
                 <tr>
                   <td colSpan={columns.length} className="py-16 text-center">
-                    <div className="inline-block animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-500 inline-block" />
                   </td>
                 </tr>
               ) : cars.length === 0 ? (

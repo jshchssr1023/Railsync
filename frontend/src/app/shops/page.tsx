@@ -5,7 +5,7 @@ import {
   Wrench, Warehouse, Trash2, ChevronDown, ChevronRight, ChevronUp,
   Search, Filter, X, MapPin, DollarSign, Activity, Building2,
   Shield, Clock, Factory, Users, Gauge, ExternalLink, Truck,
-  Award, AlertCircle, CheckCircle
+  Award, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -345,7 +345,7 @@ function ShopDrawer({ shopCode, onClose }: { shopCode: string; onClose: () => vo
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin h-6 w-6 border-2 border-primary-500 border-t-transparent rounded-full" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
             </div>
           ) : !shop ? (
             <div className="p-4 text-center text-gray-500">Shop not found</div>
@@ -715,7 +715,7 @@ export default function ShopsPage() {
       {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-2 border-primary-500 border-t-transparent rounded-full" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
         </div>
       ) : (
         <div className="space-y-6">

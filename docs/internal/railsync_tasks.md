@@ -462,7 +462,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 | Area | Files | Coverage |
 |------|-------|----------|
 | **Backend unit tests** | 21 files in `backend/src/tests/` | allocation, badOrder, billing, budget, contracts, dashboard, demand, go-live-incidents, invoice-case, invoice-validation, masterPlan, migration-pipeline, parallel-run, qualification, report-builder, sap-integration, scope-of-work, shopping-event, system-mode, transition-log |
-| **Backend E2E test** | 1 file (`e2e-workflow.test.ts`) | Shopping lifecycle (12 states), Invoice case workflow (10 states), Cross-process integration |
+| **Backend E2E tests** | 5 files in `backend/src/tests/` | e2e-workflow (shopping + invoice lifecycle), billing-workflow (billing run lifecycle), migration-workflow (import/orchestrate/rollback), training-progress (module lifecycle + certification), data-reconciliation (dashboard/resolve/bulk-resolve) |
 | **Frontend component tests** | 21 files in `frontend/src/__tests__/` | Analytics, BadOrders, Billing, Budget, Cars, ComponentRegistry, ConfirmDialog, Contracts, Dashboard, ErrorBoundary, InvoiceCases, Invoices, PageSkeleton, Pipeline, Plans, Projects, Qualifications, Reports, Rules, Settings, Shopping |
 | **CI/CD** | `.github/workflows/ci.yml` | Backend (tsc + jest + coverage), Frontend (jest + build), Database schema validation, Docker build |
 

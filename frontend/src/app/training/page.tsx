@@ -20,6 +20,12 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import {
+  getUserTrainingProgress,
+  startTrainingModule,
+  completeTrainingModule,
+  getUserCertifications,
+} from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -290,14 +296,14 @@ const COMMON_WORKFLOWS = [
 ];
 
 // ---------------------------------------------------------------------------
-// localStorage key
+// localStorage fallback key
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = 'railsync_training_progress';
 
 type ProgressMap = Record<string, boolean>;
 
-function loadProgress(): ProgressMap {
+function loadLocalProgress(): ProgressMap {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -307,10 +313,21 @@ function loadProgress(): ProgressMap {
   }
 }
 
-function saveProgress(map: ProgressMap) {
+function saveLocalProgress(map: ProgressMap) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
+
+// Module ID mapping (frontend static IDs → backend module titles for matching)
+const MODULE_ID_MAP: Record<string, string> = {
+  'getting-started': 'System Navigation',
+  'shopping-workflow': 'Shopping Workflow',
+  'invoice-processing': 'Invoice Processing',
+  'planning-allocation': 'Planning & Allocations',
+  'contracts-cars': 'Car & Fleet Management',
+  'billing-reporting': 'Contracts & Billing',
+  'admin-operations': 'Admin & Configuration',
+};
 
 // ===========================================================================
 // Page Component
@@ -319,34 +336,83 @@ function saveProgress(map: ProgressMap) {
 export default function TrainingPage() {
   const { isAuthenticated } = useAuth();
 
-  // Completion progress stored in localStorage
+  // Completion progress — synced with backend, localStorage fallback
   const [progress, setProgress] = useState<ProgressMap>({});
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const [certifications, setCertifications] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
-  // Load progress on mount
+  // Load progress from backend on mount, fall back to localStorage
   useEffect(() => {
-    setProgress(loadProgress());
-  }, []);
+    if (!isAuthenticated) {
+      setProgress(loadLocalProgress());
+      return;
+    }
+    setSyncing(true);
+    getUserTrainingProgress()
+      .then(data => {
+        if (data?.modules?.length > 0) {
+          const map: ProgressMap = {};
+          data.modules.forEach((m: any) => {
+            // Match backend module to frontend module by title
+            const frontendId = Object.entries(MODULE_ID_MAP).find(
+              ([, title]) => m.title?.includes(title.split(' ')[0])
+            )?.[0];
+            if (frontendId && m.status === 'completed') {
+              map[frontendId] = true;
+            }
+          });
+          setProgress(map);
+          saveLocalProgress(map);
+        } else {
+          setProgress(loadLocalProgress());
+        }
+      })
+      .catch(() => setProgress(loadLocalProgress()))
+      .finally(() => setSyncing(false));
+
+    getUserCertifications()
+      .then(setCertifications)
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   // Toggle module expansion
   const toggleModule = useCallback((id: string) => {
     setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  // Toggle module completion
-  const toggleComplete = useCallback((id: string) => {
-    setProgress(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      saveProgress(next);
-      return next;
-    });
-  }, []);
+  // Toggle module completion — sync with backend
+  const toggleComplete = useCallback(async (id: string) => {
+    const wasComplete = !!progress[id];
+    const next = { ...progress, [id]: !wasComplete };
+    setProgress(next);
+    saveLocalProgress(next);
+
+    if (isAuthenticated) {
+      try {
+        const title = MODULE_ID_MAP[id];
+        if (title && !wasComplete) {
+          // Find backend module ID by searching
+          const backendProgress = await getUserTrainingProgress();
+          const backendModule = backendProgress?.modules?.find(
+            (m: any) => m.title?.includes(title.split(' ')[0])
+          );
+          if (backendModule?.module_id) {
+            await startTrainingModule(backendModule.module_id);
+            await completeTrainingModule(backendModule.module_id);
+          }
+        }
+      } catch {
+        // Backend sync failed, localStorage still saved
+      }
+    }
+  }, [progress, isAuthenticated]);
 
   // Reset all progress
   const resetProgress = useCallback(() => {
     if (!confirm('Are you sure you want to reset all training progress? This cannot be undone.')) return;
     const empty: ProgressMap = {};
-    saveProgress(empty);
+    saveLocalProgress(empty);
     setProgress(empty);
   }, []);
 
@@ -401,6 +467,24 @@ export default function TrainingPage() {
           </p>
         )}
       </div>
+
+      {/* ============ Certifications ============ */}
+      {certifications.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-primary-500" />
+            Earned Certifications
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {certifications.map((cert: any, i: number) => (
+              <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                <CheckCircle className="w-3.5 h-3.5" />
+                {cert.certification_type?.replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ============ Training Modules ============ */}
       <div className="space-y-3">

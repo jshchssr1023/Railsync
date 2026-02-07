@@ -15,7 +15,7 @@ import {
   runEstimatePreReview,
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, CleaningRequirements, AIPreReviewResult } from '@/types';
-import { Info, AlertTriangle, ChevronDown, Zap, Droplets, Brain, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { Info, AlertTriangle, ChevronDown, Zap, Droplets, Brain, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
@@ -566,7 +566,7 @@ export default function ShoppingEventDetailPage() {
             >
               {runningAiAnalysis ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                   Analyzing...
                 </>
               ) : (

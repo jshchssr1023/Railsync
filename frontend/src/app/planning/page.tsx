@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Calendar, BarChart3, ChevronRight, ChevronDown } from 'lucide-react';
+import { Calendar, BarChart3, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import ForecastSummary from '@/components/ForecastSummary';
 import CapacityGrid from '@/components/CapacityGrid';
@@ -19,7 +19,7 @@ export default function PlanningPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
     }>
       <PlanningContent />
@@ -48,7 +48,7 @@ function PlanningContent() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
     );
   }

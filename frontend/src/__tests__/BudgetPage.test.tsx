@@ -23,9 +23,22 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+const defaultSummary = {
+  data: {
+    fiscal_year: new Date().getFullYear(),
+    running_repairs: { total_budget: 500000, actual_spend: 200000, remaining: 300000 },
+    service_events: { total_budget: 300000, planned_cost: 100000, actual_cost: 50000, remaining: 250000 },
+    total: { budget: 800000, planned: 100000, shop_committed: 200000, committed: 300000, remaining: 500000, consumed_pct: 37.5 },
+  },
+};
 jest.mock('swr', () => ({
   __esModule: true,
-  default: jest.fn(() => ({ data: null, mutate: jest.fn() })),
+  default: jest.fn((url: string) => {
+    if (url && url.includes('/budget/summary')) {
+      return { data: defaultSummary, mutate: jest.fn() };
+    }
+    return { data: null, mutate: jest.fn() };
+  }),
   mutate: jest.fn(),
 }));
 

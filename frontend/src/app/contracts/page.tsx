@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import {
   Search, ChevronLeft, ChevronRight, Car, Wrench, CheckCircle, AlertCircle,
-  Building2, FileText, ArrowLeft, Bell, AlertTriangle, RefreshCw, X, Filter
+  Building2, FileText, ArrowLeft, Bell, AlertTriangle, RefreshCw, X, Filter, Loader2
 } from 'lucide-react';
 import CustomerCard from '@/components/contracts/CustomerCard';
 import LeaseCard from '@/components/contracts/LeaseCard';
@@ -554,7 +554,7 @@ export default function ContractsPage() {
         <div className="p-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+              <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
             </div>
           ) : (
             <>

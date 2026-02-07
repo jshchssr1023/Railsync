@@ -147,7 +147,7 @@ export default function InvoiceCasesPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       </div>
     }>
       <InvoiceCasesContent />

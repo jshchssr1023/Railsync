@@ -1,6 +1,6 @@
 ---
 active: false
-iteration: 13
+iteration: 14
 max_iterations: 0
 completion_promise: null
 started_at: "2026-02-06T15:24:00Z"
@@ -122,4 +122,11 @@ Iteration 13: Sprint L — Data reconciliation, training progress tracking, CI q
   - Sprint 16: ~75% → ~85% (coverage gates, security scanning, dependency audit)
   - Sprint 17: ~85% → ~95% (reconciliation dashboard, discrepancy resolution, duplicate detection)
   - Sprint 18: ~80% → ~88% (training progress backend, certification tracking, readiness assessment)
+  - Backend tsc + frontend next build: clean
+Iteration 14: Sprint M — Training page backend integration, E2E test expansion.
+  - Training page: replaced localStorage-only progress with backend API sync (getUserTrainingProgress, startTrainingModule, completeTrainingModule), localStorage fallback for offline, certification display section
+  - 4 new E2E-style test files: billing-workflow (billing run lifecycle), migration-workflow (import/orchestrate/rollback), training-progress (module lifecycle + auto-certification), data-reconciliation (dashboard/resolve/bulk-resolve/duplicates)
+  - Total: 25 backend test files + 21 frontend test files = 46 total
+  - Sprint 15: ~80% → ~85% (46 test files, 5 E2E workflow tests)
+  - Sprint 18: ~88% → ~92% (training page syncs with backend, certification display)
   - Backend tsc + frontend next build: clean

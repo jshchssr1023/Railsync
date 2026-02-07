@@ -12,7 +12,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 
 type ValidationCategory = 'cars' | 'qualifications' | 'contracts' | 'allocations' | 'shopping' | 'invoices' | 'cross_module';
@@ -136,7 +137,7 @@ export default function DataValidationPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
       </div>
     );
   }
