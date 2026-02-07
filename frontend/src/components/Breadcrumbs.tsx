@@ -60,6 +60,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'storage-commodities': 'Storage Commodities',
   'work-hours': 'Work Hours',
   alerts: 'Alerts',
+  customers: 'Customers',
   new: 'New Shopping Request',
 };
 

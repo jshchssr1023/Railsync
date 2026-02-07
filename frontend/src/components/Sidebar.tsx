@@ -73,6 +73,7 @@ const NAV_CATEGORIES: NavCategory[] = [
     label: 'Contracts',
     icon: <FileText className="w-5 h-5" />,
     children: [
+      { label: 'Customers', href: '/customers', icon: <User className="w-4 h-4" /> },
       { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
       { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
       { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
