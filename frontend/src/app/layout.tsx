@@ -5,6 +5,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { SidebarProvider } from '@/context/SidebarContext';
+import { DensityProvider } from '@/context/DensityContext';
 import { ToastProvider } from '@/components/Toast';
 import AppShell from '@/components/AppShell';
 
@@ -43,11 +44,13 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SidebarProvider>
-              <ToastProvider>
-                <AppShell dashboardWrapper={<DashboardWithWrapper />}>
-                  {children}
-                </AppShell>
-              </ToastProvider>
+              <DensityProvider>
+                <ToastProvider>
+                  <AppShell dashboardWrapper={<DashboardWithWrapper />}>
+                    {children}
+                  </AppShell>
+                </ToastProvider>
+              </DensityProvider>
             </SidebarProvider>
           </AuthProvider>
         </ThemeProvider>

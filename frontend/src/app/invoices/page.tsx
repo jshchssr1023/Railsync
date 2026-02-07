@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { Loader2, Upload, Search, X, FileText, ChevronRight } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { useURLFilters } from '@/hooks/useURLFilters';
+import { useFilterPresets } from '@/hooks/useFilterPresets';
+import FilterPresetsBar from '@/components/FilterPresetsBar';
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -79,30 +82,47 @@ export default function InvoicesPage() {
   );
 }
 
+// Default filter values for the invoices page
+const INVOICES_FILTER_DEFAULTS: Record<string, string> = {
+  status: '',
+  shop_code: '',
+  start_date: '',
+  end_date: '',
+  search: '',
+};
+
 function InvoicesContent() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+
+  // --- URL-driven filter state ---
+  const { filters: urlFilters, setFilter: setURLFilter, setFilters: setURLFilters, clearFilters } = useURLFilters(INVOICES_FILTER_DEFAULTS);
+
+  // --- Filter presets ---
+  const { presets, savePreset, deletePreset, applyPreset } = useFilterPresets(
+    'invoices',
+    (presetFilters) => setURLFilters(presetFilters),
+  );
+
+  // Convenience aliases
+  const statusFilter = urlFilters.status;
+  const shopCodeFilter = urlFilters.shop_code;
+  const startDateFilter = urlFilters.start_date;
+  const endDateFilter = urlFilters.end_date;
+  const searchTerm = urlFilters.search;
+
+  // Debounce search term for API calls
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    status: searchParams.get('status') || '',
-    shop_code: '',
-    start_date: '',
-    end_date: '',
-  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [queueStats, setQueueStats] = useState<{ status: string; count: number; total_amount: number }[]>([]);
   const pageSize = 25;
-
-  // Debounce search term
-  const debouncedSearch = useDebounce(searchTerm, 300);
 
   const getToken = () => localStorage.getItem('railsync_access_token');
 
@@ -114,10 +134,10 @@ function InvoicesContent() {
         offset: ((page - 1) * pageSize).toString(),
       });
 
-      if (filters.status) params.append('status', filters.status);
-      if (filters.shop_code) params.append('shop_code', filters.shop_code);
-      if (filters.start_date) params.append('start_date', filters.start_date);
-      if (filters.end_date) params.append('end_date', filters.end_date);
+      if (statusFilter) params.append('status', statusFilter);
+      if (shopCodeFilter) params.append('shop_code', shopCodeFilter);
+      if (startDateFilter) params.append('start_date', startDateFilter);
+      if (endDateFilter) params.append('end_date', endDateFilter);
       if (debouncedSearch) params.append('search', debouncedSearch);
 
       const res = await fetch(`${API_URL}/invoices?${params}`, {
@@ -145,7 +165,7 @@ function InvoicesContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, filters, debouncedSearch]);
+  }, [page, statusFilter, shopCodeFilter, startDateFilter, endDateFilter, debouncedSearch]);
 
   const fetchQueueStats = async () => {
     try {
@@ -171,7 +191,7 @@ function InvoicesContent() {
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filters.status, filters.shop_code, filters.start_date, filters.end_date]);
+  }, [debouncedSearch, statusFilter, shopCodeFilter, startDateFilter, endDateFilter]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -241,7 +261,7 @@ function InvoicesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-full mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -287,7 +307,7 @@ function InvoicesContent() {
             {queueStats.map(stat => (
               <div
                 key={stat.status}
-                onClick={() => setFilters(f => ({ ...f, status: stat.status }))}
+                onClick={() => setURLFilter('status', stat.status)}
                 className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
               >
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -304,6 +324,18 @@ function InvoicesContent() {
           </div>
         )}
 
+        {/* Filter Presets */}
+        <div className="mb-6">
+          <FilterPresetsBar
+            presets={presets}
+            onApply={applyPreset}
+            onDelete={deletePreset}
+            onSave={(name) => savePreset(name, urlFilters)}
+            currentFilters={urlFilters}
+            defaults={INVOICES_FILTER_DEFAULTS}
+          />
+        </div>
+
         {/* Search and Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
           {/* Search Bar */}
@@ -312,7 +344,7 @@ function InvoicesContent() {
               <input
                 type="text"
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => setURLFilter('search', e.target.value)}
                 placeholder="Search invoices, vendors, shops..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -322,7 +354,7 @@ function InvoicesContent() {
               />
               {searchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => setURLFilter('search', '')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" aria-hidden="true" />
@@ -336,8 +368,8 @@ function InvoicesContent() {
             <div>
               <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Status</label>
               <select
-                value={filters.status}
-                onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                value={statusFilter}
+                onChange={e => setURLFilter('status', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Statuses</option>
@@ -354,8 +386,8 @@ function InvoicesContent() {
               <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Shop</label>
               <input
                 type="text"
-                value={filters.shop_code}
-                onChange={e => setFilters(f => ({ ...f, shop_code: e.target.value }))}
+                value={shopCodeFilter}
+                onChange={e => setURLFilter('shop_code', e.target.value)}
                 placeholder="Shop code..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
@@ -365,8 +397,8 @@ function InvoicesContent() {
               <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">From Date</label>
               <input
                 type="date"
-                value={filters.start_date}
-                onChange={e => setFilters(f => ({ ...f, start_date: e.target.value }))}
+                value={startDateFilter}
+                onChange={e => setURLFilter('start_date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
@@ -375,19 +407,16 @@ function InvoicesContent() {
               <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">To Date</label>
               <input
                 type="date"
-                value={filters.end_date}
-                onChange={e => setFilters(f => ({ ...f, end_date: e.target.value }))}
+                value={endDateFilter}
+                onChange={e => setURLFilter('end_date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
           </div>
 
-          {(searchTerm || filters.status || filters.shop_code || filters.start_date || filters.end_date) && (
+          {(searchTerm || statusFilter || shopCodeFilter || startDateFilter || endDateFilter) && (
             <button
-              onClick={() => {
-                setSearchTerm('');
-                setFilters({ status: '', shop_code: '', start_date: '', end_date: '' });
-              }}
+              onClick={clearFilters}
               className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
               Clear All Filters
@@ -404,9 +433,9 @@ function InvoicesContent() {
             </div>
           ) : invoices.length === 0 ? (
             <EmptyState
-              variant={searchTerm || filters.status || filters.shop_code ? 'search' : 'neutral'}
+              variant={searchTerm || statusFilter || shopCodeFilter ? 'search' : 'neutral'}
               title="No invoices found"
-              description={searchTerm || filters.status || filters.shop_code
+              description={searchTerm || statusFilter || shopCodeFilter
                 ? 'No invoices match the current filters.'
                 : 'Upload an invoice to get started.'}
               actionLabel="Upload Invoice"

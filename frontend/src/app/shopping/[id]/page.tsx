@@ -471,7 +471,7 @@ export default function ShoppingEventDetailPage() {
       {/* State Transition Actions                                          */}
       {/* ----------------------------------------------------------------- */}
       {(transitions.length > 0 || canCancel) && (
-        <div className="card p-4">
+        <div className="card p-4 sticky bottom-0 z-10 backdrop-blur-sm bg-white/90 dark:bg-gray-900/90 border-t border-gray-200 dark:border-gray-700 shadow-lg">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h2>
 
           {/* Optional notes for forward transitions */}

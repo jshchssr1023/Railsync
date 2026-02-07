@@ -7,10 +7,18 @@ import userEvent from '@testing-library/user-event';
 // ---------------------------------------------------------------------------
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
+let currentSearchParams = new URLSearchParams();
+mockReplace.mockImplementation((url: string) => {
+  const qsIndex = url.indexOf('?');
+  currentSearchParams = qsIndex >= 0
+    ? new URLSearchParams(url.slice(qsIndex))
+    : new URLSearchParams();
+});
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), prefetch: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn(), prefetch: jest.fn() }),
   usePathname: () => '/shopping',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => currentSearchParams,
 }));
 
 const mockToast = { success: jest.fn(), error: jest.fn(), warning: jest.fn(), info: jest.fn() };
@@ -26,6 +34,14 @@ jest.mock('@/lib/api', () => ({
   createShoppingEvent: (...args: unknown[]) => mockCreateShoppingEvent(...args),
   createBatchShoppingEvents: (...args: unknown[]) => mockCreateBatchShoppingEvents(...args),
 }));
+
+// Mock ShoppingDetailPanel — the detail panel opens on row click instead of
+// navigating. Rendering the real component would require additional API mocks.
+jest.mock('@/components/ShoppingDetailPanel', () => {
+  return function MockShoppingDetailPanel({ eventId }: { eventId: string }) {
+    return <div data-testid="detail-panel">Detail Panel: {eventId}</div>;
+  };
+});
 
 import ShoppingPage from '@/app/shopping/page';
 
@@ -55,6 +71,13 @@ function makeEvent(overrides: Partial<{
 
 beforeEach(() => {
   jest.clearAllMocks();
+  currentSearchParams = new URLSearchParams();
+  mockReplace.mockImplementation((url: string) => {
+    const qsIndex = url.indexOf('?');
+    currentSearchParams = qsIndex >= 0
+      ? new URLSearchParams(url.slice(qsIndex))
+      : new URLSearchParams();
+  });
   mockListShoppingEvents.mockResolvedValue({ events: [], total: 0 });
 });
 
@@ -112,7 +135,7 @@ describe('ShoppingPage', () => {
     expect(screen.getAllByText('In Repair').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('navigates to event detail on row click', async () => {
+  it('opens detail panel on row click', async () => {
     mockListShoppingEvents.mockResolvedValue({
       events: [makeEvent({ id: '42', event_number: 'SE-0042' })],
       total: 1,
@@ -122,8 +145,16 @@ describe('ShoppingPage', () => {
     await waitFor(() => {
       expect(screen.getByText('SE-0042')).toBeInTheDocument();
     });
+
+    // Detail panel should not be visible before click
+    expect(screen.queryByTestId('detail-panel')).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByText('SE-0042'));
-    expect(mockPush).toHaveBeenCalledWith('/shopping/42');
+
+    // The page now opens a detail panel instead of navigating
+    expect(screen.getByTestId('detail-panel')).toBeInTheDocument();
+    expect(screen.getByText('Detail Panel: 42')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('navigates to new shopping on button click', async () => {
@@ -200,13 +231,11 @@ describe('ShoppingPage', () => {
   });
 
   it('calls API with correct filter params', async () => {
-    render(<ShoppingPage />);
-    await waitFor(() => {
-      expect(mockListShoppingEvents).toHaveBeenCalled();
-    });
+    // Pre-populate URL with the CANCELLED state filter so the component reads
+    // it from search params on mount (useURLFilters is URL-driven).
+    currentSearchParams = new URLSearchParams('state=CANCELLED');
 
-    // Click the "Cancelled" filter pill (unique text — only appears in filter pills)
-    fireEvent.click(screen.getByText('Cancelled'));
+    render(<ShoppingPage />);
     await waitFor(() => {
       expect(mockListShoppingEvents).toHaveBeenCalledWith(
         expect.objectContaining({ state: 'CANCELLED' })

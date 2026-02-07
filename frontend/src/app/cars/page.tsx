@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
@@ -11,6 +10,9 @@ import UmlerSpecSection from '@/components/UmlerSpecSection';
 import MobileCarCard from '@/components/MobileCarCard';
 import EmptyState from '@/components/EmptyState';
 import { useAuth } from '@/context/AuthContext';
+import { useURLFilters } from '@/hooks/useURLFilters';
+import { useFilterPresets } from '@/hooks/useFilterPresets';
+import FilterPresetsBar from '@/components/FilterPresetsBar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -665,22 +667,38 @@ export default function CarsPageWrapper() {
   );
 }
 
+// Default filter values for the cars page
+const CARS_FILTER_DEFAULTS: Record<string, string> = {
+  type: '',
+  commodity: '',
+  search: '',
+  status: '',
+  region: '',
+  lessee: '',
+};
+
 function CarsPage() {
-  const searchParams = useSearchParams();
+  // --- URL-driven filter state ---
+  const { filters, setFilter, setFilters, clearFilters } = useURLFilters(CARS_FILTER_DEFAULTS);
+  const selectedType = filters.type || null;
+  const selectedCommodity = filters.commodity || null;
+  const search = filters.search;
+  const statusFilter = filters.status;
+  const regionFilter = filters.region;
+  const lesseeFilter = filters.lessee;
+
+  // --- Filter presets ---
+  const { presets, savePreset, deletePreset, applyPreset } = useFilterPresets(
+    'cars',
+    (presetFilters) => setFilters(presetFilters),
+  );
 
   // Tree data
   const [tree, setTree] = useState<TypeTreeNode[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
-  // Initialize filters from URL query params
-  const [selectedType, setSelectedType] = useState<string | null>(searchParams.get('type'));
-  const [selectedCommodity, setSelectedCommodity] = useState<string | null>(searchParams.get('commodity'));
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
-  const [regionFilter, setRegionFilter] = useState(searchParams.get('region') || '');
-  const [lesseeFilter, setLesseeFilter] = useState(searchParams.get('lessee') || '');
-  const [showFilters, setShowFilters] = useState(!!(searchParams.get('status') || searchParams.get('region') || searchParams.get('lessee')));
+  const [showFilters, setShowFilters] = useState(!!(statusFilter || regionFilter || lesseeFilter));
 
   // Sort & pagination
   const [sortField, setSortField] = useState('car_number');
@@ -745,7 +763,9 @@ function CarsPage() {
   }, [page, pageSize, sortField, sortDir, selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
 
   // Reset page on filter change
-  const handleFilterChange = useCallback(() => setPage(1), []);
+  useEffect(() => {
+    setPage(1);
+  }, [selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
 
   const handleSort = useCallback((field: string) => {
     if (sortField === field) {
@@ -757,29 +777,25 @@ function CarsPage() {
     setPage(1);
   }, [sortField]);
 
-  const handleTypeSelect = (t: string | null) => { setSelectedType(t); setPage(1); };
-  const handleCommoditySelect = (c: string | null) => { setSelectedCommodity(c); setPage(1); };
-  const handleClearTree = () => { setSelectedType(null); setSelectedCommodity(null); setPage(1); };
+  const handleTypeSelect = (t: string | null) => { setFilter('type', t || ''); };
+  const handleCommoditySelect = (c: string | null) => { setFilter('commodity', c || ''); };
+  const handleClearTree = () => { setFilters({ type: '', commodity: '' }); };
 
   const activeFilterCount = [statusFilter, regionFilter, lesseeFilter, search].filter(Boolean).length
     + (selectedType ? 1 : 0) + (selectedCommodity ? 1 : 0);
 
   const clearAllFilters = () => {
-    setSearch('');
-    setStatusFilter('');
-    setRegionFilter('');
-    setLesseeFilter('');
-    setSelectedType(null);
-    setSelectedCommodity(null);
+    clearFilters();
     setPage(1);
   };
 
   // Debounced search
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
-    setSearch(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => setPage(1), 300);
+    searchTimeoutRef.current = setTimeout(() => {
+      setFilter('search', value);
+    }, 300);
   };
 
   const columns = [
@@ -840,13 +856,25 @@ function CarsPage() {
             </div>
           </div>
 
+          {/* Filter Presets */}
+          <div className="mb-2">
+            <FilterPresetsBar
+              presets={presets}
+              onApply={applyPreset}
+              onDelete={deletePreset}
+              onSave={(name) => savePreset(name, filters)}
+              currentFilters={filters}
+              defaults={CARS_FILTER_DEFAULTS}
+            />
+          </div>
+
           <div className="flex gap-3">
             {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={search}
+                defaultValue={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Search car number..."
                 className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
@@ -879,7 +907,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
                 <select
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('status', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
@@ -890,7 +918,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Region</label>
                 <select
                   value={regionFilter}
-                  onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('region', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
@@ -901,7 +929,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Lessee</label>
                 <select
                   value={lesseeFilter}
-                  onChange={(e) => { setLesseeFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('lessee', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
