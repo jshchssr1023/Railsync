@@ -1,13 +1,29 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
+import pinoHttp from 'pino-http';
 import rateLimit from 'express-rate-limit';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestId } from './middleware/auth';
+import logger from './config/logger';
 
 const app: Application = express();
+
+// Sentry — initialize before routes (no-op if SENTRY_DSN is not set)
+if (process.env.SENTRY_DSN) {
+  try {
+    const Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    });
+    logger.info('Sentry initialized');
+  } catch (err) {
+    logger.warn({ err }, 'Failed to initialize Sentry — continuing without error tracking');
+  }
+}
 
 // Trust proxy (required behind nginx reverse proxy for correct IP detection)
 app.set('trust proxy', 1);
@@ -57,8 +73,19 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Request logging
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// Structured request logging (pino-http)
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    ignore: (req) => {
+      // Don't log health check probes
+      return req.url === '/api/health/live' || req.url === '/api/health/ready';
+    },
+  },
+  customProps: (req) => ({
+    requestId: (req as any).id,
+  }),
+}));
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -109,6 +136,16 @@ app.get('/', (req, res) => {
     },
   });
 });
+
+// Sentry error handler — must be before other error handlers
+if (process.env.SENTRY_DSN) {
+  try {
+    const Sentry = require('@sentry/node');
+    Sentry.setupExpressErrorHandler(app);
+  } catch {
+    // Sentry not available — skip
+  }
+}
 
 // Error handling
 app.use(notFoundHandler);

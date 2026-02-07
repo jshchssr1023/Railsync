@@ -38,6 +38,21 @@ import * as allocationService from '../services/allocation.service';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
+// Configure multer for CSV / BRC file uploads (memory storage)
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.csv', '.txt', '.brc', '.dat', '.tsv'];
+    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    if (allowedTypes.includes(ext) || file.mimetype === 'text/csv' || file.mimetype === 'text/plain') {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Allowed: CSV, TXT, BRC, DAT, TSV'));
+    }
+  },
+});
+
 // Configure multer for invoice file uploads (memory storage)
 const invoiceUpload = multer({
   storage: multer.memoryStorage(),
@@ -881,7 +896,7 @@ router.get('/budget/summary', optionalAuth, planningController.getBudgetSummary)
 router.get('/cars-master', optionalAuth, planningController.listCars);
 router.get('/cars-master/:carId', optionalAuth, planningController.getCarById);
 router.get('/cars/active-count', optionalAuth, planningController.getActiveCarCount);
-router.post('/cars/import', authenticate, authorize('admin'), planningController.importCars);
+router.post('/cars/import', authenticate, authorize('admin'), csvUpload.single('file'), planningController.importCars);
 
 // ============================================================================
 // PHASE 9 - DEMAND ROUTES
@@ -893,6 +908,19 @@ router.post('/demands', authenticate, authorize('admin', 'operator'), planningCo
 router.put('/demands/:id', authenticate, authorize('admin', 'operator'), planningController.updateDemand);
 router.put('/demands/:id/status', authenticate, authorize('admin', 'operator'), planningController.updateDemandStatus);
 router.delete('/demands/:id', authenticate, authorize('admin'), planningController.deleteDemand);
+router.post('/demands/import', authenticate, authorize('admin'), csvUpload.single('file'), async (req, res, next) => {
+  try {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    const content = file ? file.buffer.toString('utf-8') : req.body.content;
+    if (!content) {
+      res.status(400).json({ success: false, error: 'CSV content required. Upload a file or provide content in the request body.' });
+      return;
+    }
+    const result = await demandService.importDemandsFromCSV(content, (req as any).user?.id);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
 router.post('/demands/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
     const result = await demandService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
@@ -940,7 +968,7 @@ router.get('/shops/:shopCode/monthly-capacity', optionalAuth, planningController
 // PHASE 9 - BRC IMPORT ROUTES
 // ============================================================================
 
-router.post('/brc/import', authenticate, authorize('admin', 'operator'), planningController.importBRC);
+router.post('/brc/import', authenticate, authorize('admin', 'operator'), csvUpload.single('file'), planningController.importBRC);
 router.get('/brc/history', authenticate, planningController.getBRCHistory);
 
 // ============================================================================
@@ -5422,18 +5450,60 @@ router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
 
 /**
  * @route   GET /api/health
- * @desc    Health check endpoint
+ * @desc    Full health check with DB connectivity, uptime, memory
  * @access  Public
  */
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  let dbLatencyMs: number | null = null;
+  try {
+    const start = Date.now();
+    await query('SELECT 1');
+    dbLatencyMs = Date.now() - start;
+    dbStatus = 'connected';
+  } catch {
+    dbStatus = 'disconnected';
+  }
+
+  const mem = process.memoryUsage();
   res.json({
     success: true,
     data: {
-      status: 'healthy',
+      status: dbStatus === 'connected' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0',
+      uptime_seconds: Math.floor(process.uptime()),
+      database: { status: dbStatus, latency_ms: dbLatencyMs },
+      memory: {
+        rss_mb: Math.round(mem.rss / 1024 / 1024),
+        heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
+        heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
+      },
     },
   });
+});
+
+/**
+ * @route   GET /api/health/live
+ * @desc    Liveness probe — process is alive
+ * @access  Public
+ */
+router.get('/health/live', (req, res) => {
+  res.json({ success: true, data: { status: 'alive' } });
+});
+
+/**
+ * @route   GET /api/health/ready
+ * @desc    Readiness probe — DB is connected, returns 503 if not
+ * @access  Public
+ */
+router.get('/health/ready', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ success: true, data: { status: 'ready' } });
+  } catch {
+    res.status(503).json({ success: false, data: { status: 'not_ready' }, error: 'Database connection failed' });
+  }
 });
 
 // Data Validation (admin)

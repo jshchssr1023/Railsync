@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
 import BRCHistoryList from '@/components/BRCHistoryList';
+import CSVImportModal from '@/components/CSVImportModal';
+import { importCarFleet, importDemands } from '@/lib/api';
 import { Lock, AlertTriangle, Building2, ClipboardList, Bell, Search, FileText, Database, Loader2 } from 'lucide-react';
 
 type AdminTab = 'rules' | 'users' | 'audit' | 'import';
@@ -521,10 +523,22 @@ function AuditLogs() {
 
 function DataImport() {
   const [showBRCModal, setShowBRCModal] = useState(false);
+  const [showCarFleetModal, setShowCarFleetModal] = useState(false);
+  const [showDemandModal, setShowDemandModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleBRCSuccess = () => {
     setShowBRCModal(false);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleCarFleetSuccess = () => {
+    setShowCarFleetModal(false);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleDemandSuccess = () => {
+    setShowDemandModal(false);
     setRefreshKey((k) => k + 1);
   };
 
@@ -563,37 +577,43 @@ function DataImport() {
           </div>
 
           {/* Car Fleet Import Card */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <Database className="w-6 h-6 text-gray-500" aria-hidden="true" />
+              <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                <Database className="w-6 h-6 text-primary-600 dark:text-primary-400" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">Car Fleet Import</h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Import car master data from CSV files (Qual Planner Master format).
                 </p>
-                <span className="inline-block mt-3 text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                  Coming Soon
-                </span>
+                <button
+                  onClick={() => setShowCarFleetModal(true)}
+                  className="mt-3 btn btn-primary text-sm py-1.5"
+                >
+                  Import Car Fleet
+                </button>
               </div>
             </div>
           </div>
 
           {/* Demand Import Card */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 opacity-60">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <ClipboardList className="w-6 h-6 text-gray-500" aria-hidden="true" />
+              <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                <ClipboardList className="w-6 h-6 text-primary-600 dark:text-primary-400" aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 dark:text-gray-100">Demand Import</h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Bulk import demand forecasts from S&OP planning spreadsheets.
                 </p>
-                <span className="inline-block mt-3 text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                  Coming Soon
-                </span>
+                <button
+                  onClick={() => setShowDemandModal(true)}
+                  className="mt-3 btn btn-primary text-sm py-1.5"
+                >
+                  Import Demands
+                </button>
               </div>
             </div>
           </div>
@@ -615,6 +635,30 @@ function DataImport() {
         <BRCImportModal
           onClose={() => setShowBRCModal(false)}
           onSuccess={handleBRCSuccess}
+        />
+      )}
+
+      {/* Car Fleet Import Modal */}
+      {showCarFleetModal && (
+        <CSVImportModal
+          title="Import Car Fleet"
+          description="Drag and drop a CSV file with car master data (Qual Planner Master format)"
+          acceptedFileTypes=".csv,.txt,.tsv"
+          onClose={() => setShowCarFleetModal(false)}
+          onImport={importCarFleet}
+          onSuccess={handleCarFleetSuccess}
+        />
+      )}
+
+      {/* Demand Import Modal */}
+      {showDemandModal && (
+        <CSVImportModal
+          title="Import Demands"
+          description="Drag and drop a CSV with columns: name, fiscal_year, target_month, car_count, event_type"
+          acceptedFileTypes=".csv,.txt,.tsv"
+          onClose={() => setShowDemandModal(false)}
+          onImport={importDemands}
+          onSuccess={handleDemandSuccess}
         />
       )}
     </div>

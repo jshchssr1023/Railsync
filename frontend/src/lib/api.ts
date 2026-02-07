@@ -683,9 +683,14 @@ export async function getBRCHistory(
 export async function importBRC(file: File): Promise<BRCImportResult> {
   const formData = new FormData();
   formData.append('file', file);
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const response = await fetch(`${API_URL}/brc/import`, {
     method: 'POST',
+    headers,
     body: formData,
   });
 
@@ -693,6 +698,52 @@ export async function importBRC(file: File): Promise<BRCImportResult> {
 
   if (!response.ok) {
     throw new Error(data.error || 'Failed to import BRC file');
+  }
+
+  return data.data;
+}
+
+export async function importCarFleet(file: File): Promise<{ imported: number; updated: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}/cars/import`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to import car fleet data');
+  }
+
+  return data.data;
+}
+
+export async function importDemands(file: File): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}/demands/import`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to import demand data');
   }
 
   return data.data;

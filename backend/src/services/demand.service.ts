@@ -348,6 +348,76 @@ export async function revertLastTransition(id: string, userId: string, notes?: s
   return result.rows[0];
 }
 
+/**
+ * Import demands from CSV content.
+ * Expected columns: name, fiscal_year, target_month, car_count, event_type
+ * Optional columns: description, car_type, default_lessee_code, priority
+ */
+export async function importDemandsFromCSV(
+  content: string,
+  userId?: string
+): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const { parse } = await import('csv-parse/sync');
+  const records: Record<string, string>[] = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  });
+
+  const validEventTypes: EventType[] = ['Qualification', 'Assignment', 'Return', 'Running Repair'];
+  const result = { imported: 0, skipped: 0, errors: [] as string[] };
+
+  for (let i = 0; i < records.length; i++) {
+    const row = records[i];
+    const rowNum = i + 2; // 1-indexed + header row
+
+    if (!row.name || !row.fiscal_year || !row.target_month || !row.car_count || !row.event_type) {
+      result.errors.push(`Row ${rowNum}: Missing required field (name, fiscal_year, target_month, car_count, event_type)`);
+      result.skipped++;
+      continue;
+    }
+
+    const fiscalYear = parseInt(row.fiscal_year, 10);
+    const carCount = parseInt(row.car_count, 10);
+
+    if (isNaN(fiscalYear) || isNaN(carCount) || carCount <= 0) {
+      result.errors.push(`Row ${rowNum}: Invalid fiscal_year or car_count`);
+      result.skipped++;
+      continue;
+    }
+
+    const eventType = row.event_type as EventType;
+    if (!validEventTypes.includes(eventType)) {
+      result.errors.push(`Row ${rowNum}: Invalid event_type "${row.event_type}". Must be one of: ${validEventTypes.join(', ')}`);
+      result.skipped++;
+      continue;
+    }
+
+    try {
+      await createDemand(
+        {
+          name: row.name,
+          description: row.description || undefined,
+          fiscal_year: fiscalYear,
+          target_month: row.target_month,
+          car_count: carCount,
+          event_type: eventType,
+          car_type: row.car_type || undefined,
+          default_lessee_code: row.default_lessee_code || undefined,
+          priority: (row.priority as DemandPriority) || undefined,
+        },
+        userId
+      );
+      result.imported++;
+    } catch (err: any) {
+      result.errors.push(`Row ${rowNum}: ${err.message || 'Database error'}`);
+      result.skipped++;
+    }
+  }
+
+  return result;
+}
+
 export default {
   listDemands,
   getDemandById,
@@ -357,4 +427,5 @@ export default {
   deleteDemand,
   getDemandSummaryByMonth,
   revertLastTransition,
+  importDemandsFromCSV,
 };

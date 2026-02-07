@@ -32,6 +32,14 @@ const config: Config.InitialOptions = {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
   ],
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 60,
+      lines: 60,
+      statements: 60,
+    },
+  },
 };
 
 export default config;

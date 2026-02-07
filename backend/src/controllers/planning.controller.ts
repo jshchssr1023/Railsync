@@ -180,9 +180,11 @@ export async function getActiveCarCount(req: Request, res: Response): Promise<vo
 
 export async function importCars(req: Request, res: Response): Promise<void> {
   try {
-    const { content } = req.body;
+    const file = (req as any).file as Express.Multer.File | undefined;
+    const content = file ? file.buffer.toString('utf-8') : req.body.content;
+
     if (!content) {
-      res.status(400).json({ success: false, error: 'CSV content required' });
+      res.status(400).json({ success: false, error: 'CSV content required. Upload a file or provide content in the request body.' });
       return;
     }
 
@@ -597,13 +599,16 @@ export async function getShopMonthlyCapacity(req: Request, res: Response): Promi
 
 export async function importBRC(req: Request, res: Response): Promise<void> {
   try {
-    const { content, filename } = req.body;
+    const file = (req as any).file as Express.Multer.File | undefined;
+    const content = file ? file.buffer : req.body.content;
+    const filename = file ? file.originalname : (req.body.filename || 'upload.brc');
+
     if (!content) {
-      res.status(400).json({ success: false, error: 'BRC content required' });
+      res.status(400).json({ success: false, error: 'BRC content required. Upload a file or provide content in the request body.' });
       return;
     }
 
-    const result = await brcService.importBRCFile(content, filename || 'upload.brc', req.user?.id);
+    const result = await brcService.importBRCFile(content, filename, req.user?.id);
     await logFromRequest(req, 'create', 'brc_import', result.id, undefined, {
       matched: result.matched_to_allocation,
       running_repairs: result.created_running_repair,

@@ -51,7 +51,7 @@ jobs:
         run: |
           PGPASSWORD=railsync_password psql -h localhost -U railsync -d railsync_test -f database/schema.sql
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: npm test -- --ci --forceExit --coverage
         working-directory: ./backend
         env:
@@ -70,14 +70,15 @@ jobs:
             const functions = total.functions.pct;
             const lines = total.lines.pct;
             console.log('Coverage: statements=' + stmts + '%, branches=' + branches + '%, functions=' + functions + '%, lines=' + lines + '%');
-            if (stmts < 40 || lines < 40) {
-              console.error('Coverage below minimum threshold (40%)');
+            if (stmts < 70 || lines < 70 || functions < 70 || branches < 60) {
+              console.error('Coverage below minimum threshold');
+              console.error('Required: statements>=70%, lines>=70%, functions>=70%, branches>=60%');
               process.exit(1);
             }
+            console.log('Coverage thresholds passed');
           "
-        continue-on-error: true
 
-      - name: Upload coverage
+      - name: Upload backend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -85,7 +86,7 @@ jobs:
           path: ./backend/coverage/
           retention-days: 7
 
-  # Frontend: lint and build
+  # Frontend: lint, test with coverage, and build
   frontend:
     runs-on: ubuntu-latest
 
@@ -106,10 +107,41 @@ jobs:
         run: npm run lint --if-present
         working-directory: ./frontend
 
-      - name: Run tests
-        run: npm test -- --ci --passWithNoTests
+      - name: Run tests with coverage
+        run: npm test -- --ci --coverage --passWithNoTests
         working-directory: ./frontend
+
+      - name: Check frontend coverage thresholds
+        working-directory: ./frontend
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+              const coverage = require('./coverage/coverage-summary.json');
+              const total = coverage.total;
+              const stmts = total.statements.pct;
+              const branches = total.branches.pct;
+              const functions = total.functions.pct;
+              const lines = total.lines.pct;
+              console.log('Frontend Coverage: statements=' + stmts + '%, branches=' + branches + '%, functions=' + functions + '%, lines=' + lines + '%');
+              if (stmts < 60 || lines < 60 || functions < 60 || branches < 50) {
+                console.error('Frontend coverage below minimum threshold');
+                console.error('Required: statements>=60%, lines>=60%, functions>=60%, branches>=50%');
+                process.exit(1);
+              }
+              console.log('Frontend coverage thresholds passed');
+            "
+          else
+            echo "No coverage report generated — skipping threshold check"
+          fi
         continue-on-error: true
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: ./frontend/coverage/
+          retention-days: 7
 
       - name: Build
         run: npm run build
