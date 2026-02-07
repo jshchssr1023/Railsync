@@ -57,13 +57,18 @@ function makeSavedReport(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const mockEndpoints: Record<string, any> = {};
+
 function mockFetchSuccess(endpoint: string, data: any) {
+  mockEndpoints[endpoint] = data;
   (global.fetch as jest.Mock).mockImplementation((url: string) => {
-    if (url.includes(endpoint)) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ success: true, data }),
-      });
+    for (const [ep, d] of Object.entries(mockEndpoints)) {
+      if (url.includes(ep)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: d }),
+        });
+      }
     }
     return Promise.resolve({
       ok: true,
@@ -75,6 +80,8 @@ function mockFetchSuccess(endpoint: string, data: any) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsAuthenticated = true;
+  // Clear endpoint map and set defaults
+  Object.keys(mockEndpoints).forEach(k => delete mockEndpoints[k]);
   mockFetchSuccess('templates', []);
   mockFetchSuccess('saved', []);
 });
@@ -141,9 +148,10 @@ describe('ReportsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Columns')).toBeInTheDocument();
     });
-    expect(screen.getByText('Car Number')).toBeInTheDocument();
-    expect(screen.getByText('Status')).toBeInTheDocument();
-    expect(screen.getByText('Cost')).toBeInTheDocument();
+    // Column labels also appear in the sort dropdown options
+    expect(screen.getAllByText('Car Number').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Status').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Cost').length).toBeGreaterThanOrEqual(1);
   });
 
   it('displays filters section when template has filters', async () => {

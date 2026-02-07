@@ -33,6 +33,31 @@ jest.mock('@/components/ConfirmDialog', () => {
   };
 });
 
+jest.mock('@/components/TypeaheadSearch', () => {
+  return function MockTypeaheadSearch() {
+    return <div data-testid="typeahead-search" />;
+  };
+});
+
+const mockGetPlanStats = jest.fn();
+const mockListPlanAllocations = jest.fn();
+const mockListPlanDemands = jest.fn();
+
+jest.mock('@/lib/api', () => ({
+  searchCars: jest.fn().mockResolvedValue([]),
+  getPlanStats: (...args: unknown[]) => mockGetPlanStats(...args),
+  listPlanAllocations: (...args: unknown[]) => mockListPlanAllocations(...args),
+  addCarsToPlan: jest.fn(),
+  importDemandsIntoPlan: jest.fn(),
+  removeAllocationFromPlan: jest.fn(),
+  assignShopToPlanAllocation: jest.fn(),
+  evaluateShops: jest.fn().mockResolvedValue([]),
+  listDemands: jest.fn().mockResolvedValue([]),
+  listScenarios: jest.fn().mockResolvedValue([]),
+  listPlanDemands: (...args: unknown[]) => mockListPlanDemands(...args),
+  createDemandForPlan: jest.fn(),
+}));
+
 global.fetch = jest.fn();
 
 import MasterPlansPage from '@/app/plans/page';
@@ -70,6 +95,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIsAuthenticated = true;
   mockFetchSuccess([]);
+  mockGetPlanStats.mockResolvedValue({
+    total_allocations: 150,
+    assigned: 100,
+    unassigned: 50,
+    total_estimated_cost: 500000,
+    planned_cost: 200000,
+    committed_cost: 300000,
+    by_status: [],
+    by_shop: [],
+  });
+  mockListPlanAllocations.mockResolvedValue([]);
+  mockListPlanDemands.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------

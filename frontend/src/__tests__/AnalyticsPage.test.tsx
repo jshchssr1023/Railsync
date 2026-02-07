@@ -110,10 +110,27 @@ describe('AnalyticsPage', () => {
   });
 
   it('displays cost trends chart on cost tab', async () => {
-    mockFetchSuccess([
-      { month: '2026-01', total_cost: 150000, car_count: 50 },
-      { month: '2026-02', total_cost: 175000, car_count: 60 },
-    ]);
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/cost/trends')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [
+            { month: '2026-01', total_cost: 150000, car_count: 50 },
+            { month: '2026-02', total_cost: 175000, car_count: 60 },
+          ] }),
+        });
+      }
+      if (url.includes('/cost/budget-comparison')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
+      });
+    });
 
     render(<AnalyticsPage />);
     fireEvent.click(screen.getByText('Cost Analytics'));
@@ -124,16 +141,26 @@ describe('AnalyticsPage', () => {
   });
 
   it('displays shop cost comparison table', async () => {
-    mockFetchSuccess([
-      {
-        shop_code: 'SHP1',
-        shop_name: 'Test Shop 1',
-        total_cost: 50000,
-        car_count: 20,
-        avg_cost_per_car: 2500,
-        labor_rate: 85,
-      },
-    ]);
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/cost/by-shop')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [
+            { shop_code: 'SHP1', shop_name: 'Test Shop 1', total_cost: 50000, car_count: 20, avg_cost_per_car: 2500, labor_rate: 85 },
+          ] }),
+        });
+      }
+      if (url.includes('/cost/budget-comparison')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
+      });
+    });
 
     render(<AnalyticsPage />);
     fireEvent.click(screen.getByText('Cost Analytics'));

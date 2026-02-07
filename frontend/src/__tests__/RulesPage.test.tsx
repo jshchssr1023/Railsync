@@ -73,7 +73,7 @@ describe('RulesPage', () => {
   it('renders show inactive checkbox', async () => {
     render(<RulesPage />);
     await waitFor(() => {
-      expect(screen.getByText('Show inactive rules')).toBeInTheDocument();
+      expect(screen.getByText('Show inactive')).toBeInTheDocument();
     });
   });
 
@@ -82,7 +82,7 @@ describe('RulesPage', () => {
     render(<RulesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Loading rules...')).toBeInTheDocument();
+      expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     });
   });
 
@@ -161,7 +161,7 @@ describe('RulesPage', () => {
       expect(screen.getByText('Tank Car Certification')).toBeInTheDocument();
     });
 
-    const toggles = document.querySelectorAll('button[style*="backgroundColor"]');
+    const toggles = document.querySelectorAll('button[style*="background-color"]');
     fireEvent.click(toggles[0]);
 
     await waitFor(() => {
@@ -193,7 +193,10 @@ describe('RulesPage', () => {
     ]);
 
     render(<RulesPage />);
-    fireEvent.click(screen.getByText('Show inactive rules'));
+    await waitFor(() => {
+      expect(screen.getByText('Show inactive')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Show inactive'));
 
     await waitFor(() => {
       expect(screen.getByText('RULE_001')).toBeInTheDocument();
@@ -209,7 +212,7 @@ describe('RulesPage', () => {
 
   it('fetches all rules when show inactive checked', async () => {
     render(<RulesPage />);
-    const checkbox = await screen.findByText('Show inactive rules');
+    const checkbox = await screen.findByText('Show inactive');
     fireEvent.click(checkbox);
 
     await waitFor(() => {
@@ -222,7 +225,7 @@ describe('RulesPage', () => {
 
     render(<RulesPage />);
     await waitFor(() => {
-      expect(screen.getByText('Failed to load rules')).toBeInTheDocument();
+      expect(screen.getByText('Network error')).toBeInTheDocument();
     });
   });
 
@@ -234,7 +237,9 @@ describe('RulesPage', () => {
 
     render(<RulesPage />);
     await waitFor(() => {
-      expect(screen.getByText('Active')).toBeInTheDocument();
+      // "Active" appears in both the table header and the read-only badge
+      const activeElements = screen.getAllByText('Active');
+      expect(activeElements.length).toBeGreaterThanOrEqual(2);
     });
   });
 });
