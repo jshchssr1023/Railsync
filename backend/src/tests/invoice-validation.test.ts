@@ -22,8 +22,124 @@ import { pool } from '../config/database';
 const mockQuery = pool.query as jest.MockedFunction<typeof pool.query>;
 
 // ==============================================================================
-// Test Helpers
+// Test Helpers — SQL-routing mock approach
 // ==============================================================================
+//
+// pool.query is used for ALL database queries in the validation service.
+// Rather than using a fragile mockResolvedValueOnce FIFO chain (which breaks
+// when internal queries like getSpecialLessees fire in unexpected positions),
+// we use a routing implementation that matches queries by SQL content.
+// ==============================================================================
+
+interface MockConfig {
+  caseData?: ReturnType<typeof createMockCaseData> | null;
+  stateTransition?: { allowed: boolean; requiredRole?: string } | null;
+  attachments?: { attachment_type: string; filename_original: string }[];
+  specialLessees?: { lessee_name: string }[];
+  shoppingState?: string | null;
+  estimateTotal?: number | null;
+  cutoffDates?: { entry_cutoff_date: string; approval_cutoff_date: string; is_locked?: boolean } | null;
+  cars?: Record<string, { exists: boolean; priorStencil?: string; remarkTo?: string | null }>;
+  shopLocation?: { parent_company: string; city: string } | null;
+}
+
+function setupQueryRouter(config: MockConfig) {
+  mockQuery.mockImplementation(async (sql: string, params?: any[]) => {
+    const s = typeof sql === 'string' ? sql : '';
+
+    // 1. Case data query
+    if (s.includes('FROM invoice_cases')) {
+      if (config.caseData) {
+        return { rows: [config.caseData] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 2. State transition query
+    if (s.includes('invoice_state_transitions')) {
+      if (config.stateTransition === null || config.stateTransition === undefined) {
+        return { rows: [] } as never;
+      }
+      if (config.stateTransition.allowed) {
+        return {
+          rows: [{ is_allowed: true, required_role: config.stateTransition.requiredRole, notes: '' }],
+        } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 3. Attachments query
+    if (s.includes('invoice_attachments')) {
+      return { rows: config.attachments || [] } as never;
+    }
+
+    // 4. Special lessees query (fired by getSpecialLessees cache miss)
+    if (s.includes('special_lessees')) {
+      return {
+        rows: config.specialLessees ?? [
+          { lessee_name: 'EXXON' },
+          { lessee_name: 'IMPOIL' },
+          { lessee_name: 'MARATHON' },
+        ],
+      } as never;
+    }
+
+    // 5. Estimate total query (check BEFORE shopping_events since estimate SQL joins shopping_events)
+    if (s.includes('estimate_submissions')) {
+      if (config.estimateTotal !== undefined && config.estimateTotal !== null) {
+        return { rows: [{ total_cost: config.estimateTotal }] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 6. Shopping event state query
+    if (s.includes('shopping_events')) {
+      if (config.shoppingState !== undefined && config.shoppingState !== null) {
+        return { rows: [{ state: config.shoppingState }] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 7. Shop location query (MRU validation)
+    if (s.includes('FROM shops WHERE shop_code')) {
+      if (config.shopLocation) {
+        return { rows: [config.shopLocation] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 8. Cutoff dates query
+    if (s.includes('invoice_cutoff_dates')) {
+      if (config.cutoffDates) {
+        return { rows: [config.cutoffDates] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 9. Car lookup (by car_number)
+    if (s.includes('FROM cars WHERE car_number')) {
+      const carMark = params?.[0];
+      const carConfig = config.cars?.[carMark];
+      if (carConfig?.exists) {
+        return { rows: [{ car_number: carMark, prior_stencil: carConfig.priorStencil }] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // 10. Car remark lookup (by prior_stencil)
+    if (s.includes('FROM cars WHERE prior_stencil')) {
+      const oldMark = params?.[0];
+      const carConfig = config.cars?.[oldMark];
+      if (carConfig?.remarkTo) {
+        return { rows: [{ car_number: carConfig.remarkTo }] } as never;
+      }
+      return { rows: [] } as never;
+    }
+
+    // Default fallback
+    return { rows: [] } as never;
+  });
+}
 
 function createMockCaseData(overrides: Partial<{
   id: string;
@@ -52,66 +168,6 @@ function createMockCaseData(overrides: Partial<{
   };
 }
 
-function mockCaseQuery(caseData: ReturnType<typeof createMockCaseData>) {
-  mockQuery.mockResolvedValueOnce({ rows: [caseData] } as never);
-}
-
-function mockStateTransition(allowed: boolean, requiredRole?: string) {
-  mockQuery.mockResolvedValueOnce({
-    rows: allowed ? [{ is_allowed: true, required_role: requiredRole, notes: '' }] : [],
-  } as never);
-}
-
-function mockAttachments(attachments: { attachment_type: string; filename_original: string }[]) {
-  mockQuery.mockResolvedValueOnce({ rows: attachments } as never);
-}
-
-function mockCarExists(carNumber: string, exists: boolean, priorStencil?: string) {
-  if (exists) {
-    mockQuery.mockResolvedValueOnce({ rows: [{ car_number: carNumber, prior_stencil: priorStencil }] } as never);
-  } else {
-    mockQuery.mockResolvedValueOnce({ rows: [] } as never);
-  }
-}
-
-function mockRemarkQuery(oldMark: string, newMark: string | null) {
-  if (newMark) {
-    mockQuery.mockResolvedValueOnce({ rows: [{ car_number: newMark }] } as never);
-  } else {
-    mockQuery.mockResolvedValueOnce({ rows: [] } as never);
-  }
-}
-
-function mockCutoffDates(entryCutoff: string, approvalCutoff: string, isLocked: boolean = false) {
-  mockQuery.mockResolvedValueOnce({
-    rows: [{
-      entry_cutoff_date: entryCutoff,
-      approval_cutoff_date: approvalCutoff,
-      is_locked: isLocked,
-    }],
-  } as never);
-}
-
-function mockNoCutoffDates() {
-  mockQuery.mockResolvedValueOnce({ rows: [] } as never);
-}
-
-function mockShoppingEvent(state: string) {
-  mockQuery.mockResolvedValueOnce({ rows: [{ state }] } as never);
-}
-
-function mockNoShoppingEvent() {
-  mockQuery.mockResolvedValueOnce({ rows: [] } as never);
-}
-
-function mockEstimate(totalCost: number | null) {
-  if (totalCost !== null) {
-    mockQuery.mockResolvedValueOnce({ rows: [{ total_cost: totalCost }] } as never);
-  } else {
-    mockQuery.mockResolvedValueOnce({ rows: [] } as never);
-  }
-}
-
 // ==============================================================================
 // Test Suites
 // ==============================================================================
@@ -127,11 +183,12 @@ describe('Invoice Validation Engine', () => {
   describe('File Validation', () => {
     test('BLOCK when PDF is missing', async () => {
       const caseData = createMockCaseData();
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([{ attachment_type: 'TXT', filename_original: 'data.txt' }]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [{ attachment_type: 'TXT', filename_original: 'data.txt' }],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -147,11 +204,12 @@ describe('Invoice Validation Engine', () => {
 
     test('BLOCK when TXT is missing', async () => {
       const caseData = createMockCaseData();
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([{ attachment_type: 'PDF', filename_original: 'invoice.pdf' }]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [{ attachment_type: 'PDF', filename_original: 'invoice.pdf' }],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -167,14 +225,15 @@ describe('Invoice Validation Engine', () => {
 
     test('PASS when both PDF and TXT are present', async () => {
       const caseData = createMockCaseData();
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -184,15 +243,16 @@ describe('Invoice Validation Engine', () => {
 
     test('BRC files are ignored (not required)', async () => {
       const caseData = createMockCaseData();
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-        { attachment_type: 'BRC', filename_original: 'billing.brc' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+          { attachment_type: 'BRC', filename_original: 'billing.brc' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -216,14 +276,15 @@ describe('Invoice Validation Engine', () => {
           lessee,
           special_lessee_approval_confirmed: false,
         });
-        mockCaseQuery(caseData);
-        mockStateTransition(true);
-        mockAttachments([
-          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-          { attachment_type: 'TXT', filename_original: 'data.txt' },
-        ]);
-        mockNoCutoffDates();
-        mockCarExists('UTLX123456', true);
+        setupQueryRouter({
+          caseData,
+          stateTransition: { allowed: true },
+          attachments: [
+            { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+            { attachment_type: 'TXT', filename_original: 'data.txt' },
+          ],
+          cars: { 'UTLX123456': { exists: true } },
+        });
 
         const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -245,14 +306,15 @@ describe('Invoice Validation Engine', () => {
           lessee,
           special_lessee_approval_confirmed: true,
         });
-        mockCaseQuery(caseData);
-        mockStateTransition(true);
-        mockAttachments([
-          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-          { attachment_type: 'TXT', filename_original: 'data.txt' },
-        ]);
-        mockNoCutoffDates();
-        mockCarExists('UTLX123456', true);
+        setupQueryRouter({
+          caseData,
+          stateTransition: { allowed: true },
+          attachments: [
+            { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+            { attachment_type: 'TXT', filename_original: 'data.txt' },
+          ],
+          cars: { 'UTLX123456': { exists: true } },
+        });
 
         const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -265,14 +327,15 @@ describe('Invoice Validation Engine', () => {
         lessee: 'REGULAR_CUSTOMER',
         special_lessee_approval_confirmed: false,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -292,14 +355,15 @@ describe('Invoice Validation Engine', () => {
         invoice_type: 'SHOP',
         fms_shopping_id: null,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -317,16 +381,17 @@ describe('Invoice Validation Engine', () => {
         invoice_type: 'SHOP',
         fms_shopping_id: 'shopping-123',
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockShoppingEvent('ESTIMATE_SUBMITTED'); // Not yet approved
-      mockEstimate(1000); // Estimate mismatch check still runs
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shoppingState: 'ESTIMATE_SUBMITTED',
+        estimateTotal: 1000,
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -345,16 +410,17 @@ describe('Invoice Validation Engine', () => {
         fms_shopping_id: 'shopping-123',
         total_amount: 1000,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockShoppingEvent('RELEASED'); // Approved state
-      mockEstimate(1000); // Exact match
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shoppingState: 'RELEASED',
+        estimateTotal: 1000,
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -370,18 +436,19 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_type: 'SHOP',
         fms_shopping_id: 'shopping-123',
-        total_amount: 900, // Invoice is less than estimate
+        total_amount: 900,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockShoppingEvent('RELEASED');
-      mockEstimate(1000); // Estimate is higher
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shoppingState: 'RELEASED',
+        estimateTotal: 1000,
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -392,18 +459,19 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_type: 'SHOP',
         fms_shopping_id: 'shopping-123',
-        total_amount: 1050, // $50 over estimate
+        total_amount: 1050,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockShoppingEvent('RELEASED');
-      mockEstimate(1000);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shoppingState: 'RELEASED',
+        estimateTotal: 1000,
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -420,18 +488,19 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_type: 'SHOP',
         fms_shopping_id: 'shopping-123',
-        total_amount: 1200, // $200 over estimate
+        total_amount: 1200,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockShoppingEvent('RELEASED');
-      mockEstimate(1000);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shoppingState: 'RELEASED',
+        estimateTotal: 1000,
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -456,16 +525,20 @@ describe('Invoice Validation Engine', () => {
         car_marks: ['CAR001', 'CAR002', 'CAR003'],
         total_amount: 1000,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('CAR001', true);
-      mockCarExists('CAR002', true);
-      mockCarExists('CAR003', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shopLocation: { parent_company: 'Test Corp', city: 'Houston' },
+        cars: {
+          'CAR001': { exists: true },
+          'CAR002': { exists: true },
+          'CAR003': { exists: true },
+        },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -478,14 +551,16 @@ describe('Invoice Validation Engine', () => {
         invoice_type: 'MRU',
         total_amount: 1500,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shopLocation: { parent_company: 'Test Corp', city: 'Houston' },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -498,14 +573,16 @@ describe('Invoice Validation Engine', () => {
         invoice_type: 'MRU',
         total_amount: 2000,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shopLocation: { parent_company: 'Test Corp', city: 'Houston' },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -525,14 +602,16 @@ describe('Invoice Validation Engine', () => {
         fms_shopping_id: 'shopping-123',
         total_amount: 1000,
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        shopLocation: { parent_company: 'Test Corp', city: 'Houston' },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -554,17 +633,21 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_date: new Date('2026-01-15'),
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      // Set entry cutoff to yesterday
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      mockCutoffDates(yesterday.toISOString().split('T')[0], '2026-02-15');
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cutoffDates: {
+          entry_cutoff_date: yesterday.toISOString().split('T')[0],
+          approval_cutoff_date: '2026-02-15',
+        },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -581,17 +664,21 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_date: new Date('2026-01-15'),
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      // Set approval cutoff to yesterday
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      mockCutoffDates('2026-02-28', yesterday.toISOString().split('T')[0]);
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cutoffDates: {
+          entry_cutoff_date: '2026-02-28',
+          approval_cutoff_date: yesterday.toISOString().split('T')[0],
+        },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'APPROVER_REVIEW');
 
@@ -608,17 +695,21 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         invoice_date: new Date('2026-01-15'),
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      // Set cutoffs in the future
       const future = new Date();
       future.setMonth(future.getMonth() + 1);
-      mockCutoffDates(future.toISOString().split('T')[0], future.toISOString().split('T')[0]);
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cutoffDates: {
+          entry_cutoff_date: future.toISOString().split('T')[0],
+          approval_cutoff_date: future.toISOString().split('T')[0],
+        },
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'READY_FOR_IMPORT');
 
@@ -634,15 +725,15 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         car_marks: ['UNKNOWN123'],
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UNKNOWN123', false);
-      mockRemarkQuery('UNKNOWN123', null); // Not a remark either
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UNKNOWN123': { exists: false, remarkTo: null } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -660,15 +751,15 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         car_marks: ['OLDMARK123'],
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('OLDMARK123', false);
-      mockRemarkQuery('OLDMARK123', 'NEWMARK456'); // Found as remarked
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'OLDMARK123': { exists: false, remarkTo: 'NEWMARK456' } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -684,14 +775,15 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         car_marks: ['UTLX123456'],
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -707,10 +799,11 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         workflow_state: 'RECEIVED',
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(false); // Not allowed
+      setupQueryRouter({
+        caseData,
+        stateTransition: null,
+      });
 
-      // Try to skip to APPROVED (not a valid transition from RECEIVED)
       const result = await validateInvoice('test-case-id', 'APPROVED');
 
       expect(result.canTransition).toBe(false);
@@ -727,14 +820,15 @@ describe('Invoice Validation Engine', () => {
       const caseData = createMockCaseData({
         workflow_state: 'RECEIVED',
       });
-      mockCaseQuery(caseData);
-      mockStateTransition(true);
-      mockAttachments([
-        { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
-        { attachment_type: 'TXT', filename_original: 'data.txt' },
-      ]);
-      mockNoCutoffDates();
-      mockCarExists('UTLX123456', true);
+      setupQueryRouter({
+        caseData,
+        stateTransition: { allowed: true },
+        attachments: [
+          { attachment_type: 'PDF', filename_original: 'invoice.pdf' },
+          { attachment_type: 'TXT', filename_original: 'data.txt' },
+        ],
+        cars: { 'UTLX123456': { exists: true } },
+      });
 
       const result = await validateInvoice('test-case-id', 'ASSIGNED');
 
@@ -779,7 +873,9 @@ describe('Invoice Validation Engine', () => {
   // ============================================================================
   describe('Case Not Found', () => {
     test('BLOCK when case does not exist', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [] } as never); // No case found
+      setupQueryRouter({
+        caseData: null,
+      });
 
       const result = await validateInvoice('nonexistent-id', 'ASSIGNED');
 

@@ -15,6 +15,7 @@ jest.mock('@/context/AuthContext', () => ({
 }));
 
 // The releases page uses direct fetch, not @/lib/api functions
+const originalFetch = global.fetch;
 global.fetch = jest.fn();
 
 import ReleasesPage from '@/app/releases/page';
@@ -81,6 +82,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+afterAll(() => {
+  global.fetch = originalFetch;
+});
 
 describe('ReleasesPage', () => {
   it('renders header and subheader', async () => {

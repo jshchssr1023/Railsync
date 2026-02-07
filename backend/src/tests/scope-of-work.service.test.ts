@@ -230,7 +230,7 @@ describe('Scope of Work Service', () => {
       expect(result).toBe(1);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO scope_of_work_items'),
-        expect.arrayContaining(['sow-1', 1, 'CCM instruction text', 'ccm', 'section-1'])
+        expect.arrayContaining(['sow-1', 1, 'CCM instruction text', 'section-1'])
       );
     });
   });

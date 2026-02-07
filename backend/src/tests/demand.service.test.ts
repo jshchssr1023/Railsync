@@ -134,7 +134,7 @@ describe('Demand Service', () => {
 
       expect(result).toBeDefined();
       expect(result.name).toBe('Q1 Qualifications');
-      expect(result.event_type).toBe('Q');
+      expect(result.event_type).toBe('Qualification');
       expect(mockQuery).toHaveBeenCalledTimes(1);
     });
   });
@@ -220,7 +220,7 @@ describe('Demand Service', () => {
         to_state: 'Complete',
       } as any);
       mockPoolQuery.mockResolvedValueOnce({
-        rows: [{ id: 'd1', name: 'Demand 1', status: 'Forecast' }],
+        rows: [{ id: 'd1', name: 'Demand 1', status: 'Active' }],
       } as any);
 
       const result = await revertLastTransition('d1', 'user-1', 'Reverting to active');

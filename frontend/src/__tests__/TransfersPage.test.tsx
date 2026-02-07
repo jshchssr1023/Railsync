@@ -15,6 +15,7 @@ jest.mock('@/context/AuthContext', () => ({
 }));
 
 // The transfers page uses direct fetch
+const originalFetch = global.fetch;
 global.fetch = jest.fn();
 
 import ContractTransfersPage from '@/app/transfers/page';
@@ -80,6 +81,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+afterAll(() => {
+  global.fetch = originalFetch;
+});
 
 describe('ContractTransfersPage', () => {
   it('renders header and subheader', async () => {
