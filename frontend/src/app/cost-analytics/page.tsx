@@ -59,7 +59,7 @@ export default function CostAnalyticsPage() {
   const [customers, setCustomers] = useState<CustomerCostBreakdown[]>([]);
   const [trends, setTrends] = useState<CostTrend[]>([]);
   const [shopCosts, setShopCosts] = useState<ShopCostComparison[]>([]);
-  const [tab, setTab] = useState<'variance' | 'customers' | 'shops'>('variance');
+  const [tab, setTab] = useState<'variance' | 'customers' | 'shops' | 'trends'>('variance');
 
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
 
@@ -97,6 +97,10 @@ export default function CostAnalyticsPage() {
 
   // Bar chart max for scaling
   const maxMonthly = Math.max(...variance.map(v => Math.max(v.budgeted, v.actual)), 1);
+
+  // Trend chart scaling
+  const maxTrendCost = Math.max(...trends.map(t => t.total_cost), 1);
+  const maxTrendAvg = Math.max(...trends.map(t => t.avg_cost_per_car), 1);
 
   return (
     <div className="space-y-6">
@@ -152,7 +156,7 @@ export default function CostAnalyticsPage() {
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex gap-6">
-          {(['variance', 'customers', 'shops'] as const).map(t => (
+          {(['variance', 'customers', 'shops', 'trends'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -162,7 +166,7 @@ export default function CostAnalyticsPage() {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              {t === 'variance' ? 'Budget vs Actual' : t === 'customers' ? 'By Customer' : 'By Shop'}
+              {t === 'variance' ? 'Budget vs Actual' : t === 'customers' ? 'By Customer' : t === 'shops' ? 'By Shop' : 'Cost Trends'}
             </button>
           ))}
         </nav>
@@ -283,6 +287,93 @@ export default function CostAnalyticsPage() {
               {shopCosts.length === 0 && (
                 <p className="text-sm text-gray-400 text-center py-8">No shop cost data available</p>
               )}
+            </div>
+          )}
+
+          {/* Cost Trends Tab */}
+          {tab === 'trends' && (
+            <div className="space-y-6">
+              {/* Total Cost Trend */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Monthly Total Cost (12-Month Trend)</h3>
+                </div>
+                <div className="p-4">
+                  {trends.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {trends.map((t, i) => {
+                        const prevCost = i > 0 ? trends[i - 1].total_cost : t.total_cost;
+                        const changePct = prevCost > 0 ? ((t.total_cost - prevCost) / prevCost) * 100 : 0;
+                        return (
+                          <div key={t.month} className="grid grid-cols-[80px_1fr_100px_80px] gap-2 items-center text-xs">
+                            <span className="text-gray-500 dark:text-gray-400 font-medium">{t.month}</span>
+                            <div className="relative h-5 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+                              <div
+                                className="absolute inset-y-0 left-0 bg-primary-400 dark:bg-primary-600 rounded"
+                                style={{ width: `${(t.total_cost / maxTrendCost) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-right font-medium text-gray-900 dark:text-gray-100">{fmt(t.total_cost)}</span>
+                            <span className={`text-right ${changePct > 0 ? 'text-red-500' : changePct < 0 ? 'text-green-500' : 'text-gray-400'}`}>
+                              {i > 0 ? pct(changePct) : '-'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center py-8">No trend data available</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Avg Cost Per Car + Volume */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Avg Cost Per Car</h3>
+                  </div>
+                  <div className="p-4 space-y-1.5">
+                    {trends.map(t => (
+                      <div key={t.month} className="grid grid-cols-[80px_1fr_80px] gap-2 items-center text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">{t.month}</span>
+                        <div className="relative h-4 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+                          <div
+                            className="absolute inset-y-0 left-0 bg-amber-400 dark:bg-amber-600 rounded"
+                            style={{ width: `${(t.avg_cost_per_car / maxTrendAvg) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-right text-gray-700 dark:text-gray-300">{fmt(t.avg_cost_per_car)}</span>
+                      </div>
+                    ))}
+                    {trends.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No data</p>}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Cars Serviced Per Month</h3>
+                  </div>
+                  <div className="p-4 space-y-1.5">
+                    {trends.map(t => {
+                      const maxCars = Math.max(...trends.map(tr => tr.car_count), 1);
+                      return (
+                        <div key={t.month} className="grid grid-cols-[80px_1fr_50px] gap-2 items-center text-xs">
+                          <span className="text-gray-500 dark:text-gray-400">{t.month}</span>
+                          <div className="relative h-4 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+                            <div
+                              className="absolute inset-y-0 left-0 bg-emerald-400 dark:bg-emerald-600 rounded"
+                              style={{ width: `${(t.car_count / maxCars) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-right text-gray-700 dark:text-gray-300">{t.car_count}</span>
+                        </div>
+                      );
+                    })}
+                    {trends.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No data</p>}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </>

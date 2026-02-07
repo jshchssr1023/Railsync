@@ -32,6 +32,8 @@ import {
   SOWItem,
   EstimateSubmission,
   EstimateLineDecision,
+  AIPreReviewResult,
+  JobCodeHistoricalStats,
   CCMForm,
   CCMFormSOWSection,
   // CCM Instructions (Hierarchy)
@@ -1276,6 +1278,25 @@ export async function generateApprovalPacket(
   );
   if (!response.data) return response as unknown as { id: string; overall_decision: string; estimate_submission_id: string };
   return response.data;
+}
+
+// AI Pre-Review
+export async function runEstimatePreReview(estimateId: string): Promise<AIPreReviewResult> {
+  const response = await fetchApi<AIPreReviewResult>(
+    `/estimates/${encodeURIComponent(estimateId)}/pre-review`,
+    {
+      method: 'POST',
+    }
+  );
+  if (!response.data) return response as unknown as AIPreReviewResult;
+  return response.data;
+}
+
+export async function getJobCodeHistoricalStats(jobCode: string): Promise<JobCodeHistoricalStats | null> {
+  const response = await fetchApi<JobCodeHistoricalStats | null>(
+    `/job-codes/${encodeURIComponent(jobCode)}/stats`
+  );
+  return response.data || null;
 }
 
 // CCM Forms
@@ -2855,6 +2876,31 @@ export async function batchRetryIntegration(category: string, systemName?: strin
   const response = await fetchApi('/integrations/batch-retry', {
     method: 'POST',
     body: JSON.stringify({ category, system_name: systemName }),
+  });
+  return response.data;
+}
+
+export async function getRetryQueue() {
+  const response = await fetchApi('/integrations/retry-queue');
+  return response.data;
+}
+
+export async function dismissRetryItem(id: string) {
+  const response = await fetchApi(`/integrations/retry-queue/${encodeURIComponent(id)}/dismiss`, {
+    method: 'POST',
+  });
+  return response.data;
+}
+
+export async function getScheduledJobs() {
+  const response = await fetchApi('/admin/scheduled-jobs');
+  return response.data;
+}
+
+export async function toggleScheduledJob(id: string, enabled: boolean) {
+  const response = await fetchApi(`/admin/scheduled-jobs/${encodeURIComponent(id)}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
   });
   return response.data;
 }

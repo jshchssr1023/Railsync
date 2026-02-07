@@ -12,9 +12,10 @@ import {
   bundleProjectWork,
   revertShoppingEvent,
   getCarCleaningRequirements,
+  runEstimatePreReview,
 } from '@/lib/api';
-import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, CleaningRequirements } from '@/types';
-import { Info, AlertTriangle, ChevronDown, Zap, Droplets } from 'lucide-react';
+import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, CleaningRequirements, AIPreReviewResult } from '@/types';
+import { Info, AlertTriangle, ChevronDown, Zap, Droplets, Brain, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
@@ -138,6 +139,11 @@ export default function ShoppingEventDetailPage() {
   // Commodity & cleaning requirements
   const [cleaningReqs, setCleaningReqs] = useState<CleaningRequirements | null>(null);
 
+  // AI Analysis
+  const [aiAnalysis, setAiAnalysis] = useState<AIPreReviewResult | null>(null);
+  const [runningAiAnalysis, setRunningAiAnalysis] = useState(false);
+  const [aiAnalysisError, setAiAnalysisError] = useState<string | null>(null);
+
   // Estimate decisions moved to EstimateReviewPanel component
 
   // -----------------------------------------------------------------------
@@ -189,6 +195,26 @@ export default function ShoppingEventDetailPage() {
   }, [event?.car_number]);
 
   // Estimate approval moved to EstimateReviewPanel component
+
+  const handleRunAiAnalysis = async () => {
+    if (!estimates.length) {
+      setAiAnalysisError('No estimates available to analyze');
+      return;
+    }
+
+    const latestEstimate = estimates[0];
+    setRunningAiAnalysis(true);
+    setAiAnalysisError(null);
+
+    try {
+      const result = await runEstimatePreReview(latestEstimate.id);
+      setAiAnalysis(result);
+    } catch (err) {
+      setAiAnalysisError(err instanceof Error ? err.message : 'Failed to run AI analysis');
+    } finally {
+      setRunningAiAnalysis(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) return;
@@ -516,6 +542,220 @@ export default function ShoppingEventDetailPage() {
                   Dismiss
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------- */}
+      {/* AI Analysis Section                                               */}
+      {/* ----------------------------------------------------------------- */}
+      {estimates.length > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                AI Estimate Analysis
+              </h2>
+            </div>
+            <button
+              onClick={handleRunAiAnalysis}
+              disabled={runningAiAnalysis}
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {runningAiAnalysis ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Brain className="w-4 h-4" />
+                  Run AI Analysis
+                </>
+              )}
+            </button>
+          </div>
+
+          {aiAnalysisError && (
+            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
+              {aiAnalysisError}
+            </div>
+          )}
+
+          {aiAnalysis ? (
+            <div className="space-y-4">
+              {/* Overall Confidence Score */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                  <div className="text-sm text-purple-600 dark:text-purple-400 font-medium mb-1">Overall Confidence</div>
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className={`text-3xl font-bold ${
+                        aiAnalysis.overall_confidence >= 0.8
+                          ? 'text-green-600 dark:text-green-400'
+                          : aiAnalysis.overall_confidence >= 0.6
+                          ? 'text-yellow-600 dark:text-yellow-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      {Math.round(aiAnalysis.overall_confidence * 100)}%
+                    </span>
+                    {aiAnalysis.overall_confidence >= 0.8 ? (
+                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    ) : aiAnalysis.overall_confidence < 0.6 ? (
+                      <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                  <div className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">Auto-Approved</div>
+                  <div className="text-3xl font-bold text-green-700 dark:text-green-300">
+                    {aiAnalysis.auto_approved}
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400">of {aiAnalysis.lines_reviewed} lines</div>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                  <div className="text-sm text-yellow-600 dark:text-yellow-400 font-medium mb-1">Needs Review</div>
+                  <div className="text-3xl font-bold text-yellow-700 dark:text-yellow-300">
+                    {aiAnalysis.needs_review}
+                  </div>
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">of {aiAnalysis.lines_reviewed} lines</div>
+                </div>
+
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                  <div className="text-sm text-red-600 dark:text-red-400 font-medium mb-1">Auto-Rejected</div>
+                  <div className="text-3xl font-bold text-red-700 dark:text-red-300">
+                    {aiAnalysis.auto_rejected}
+                  </div>
+                  <div className="text-xs text-red-600 dark:text-red-400">of {aiAnalysis.lines_reviewed} lines</div>
+                </div>
+              </div>
+
+              {/* Suggested Actions */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Suggested Actions
+                </h3>
+                <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+                  {aiAnalysis.auto_approved > 0 && (
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                      <span>
+                        {aiAnalysis.auto_approved} line{aiAnalysis.auto_approved > 1 ? 's' : ''} can be auto-approved based on historical data and policy compliance
+                      </span>
+                    </li>
+                  )}
+                  {aiAnalysis.needs_review > 0 && (
+                    <li className="flex items-start gap-2">
+                      <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <span>
+                        {aiAnalysis.needs_review} line{aiAnalysis.needs_review > 1 ? 's require' : ' requires'} manual review due to moderate confidence scores
+                      </span>
+                    </li>
+                  )}
+                  {aiAnalysis.auto_rejected > 0 && (
+                    <li className="flex items-start gap-2">
+                      <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                      <span>
+                        {aiAnalysis.auto_rejected} line{aiAnalysis.auto_rejected > 1 ? 's' : ''} flagged for rejection due to policy violations or significant cost variances
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Line-by-Line Analysis */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Line-by-Line Analysis</h3>
+                <div className="space-y-2">
+                  {aiAnalysis.line_reviews.map((lineReview) => (
+                    <div
+                      key={lineReview.estimate_line_id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                            Line {lineReview.line_number}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                              lineReview.decision === 'approve'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : lineReview.decision === 'review'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`}
+                          >
+                            {lineReview.decision.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className={`text-sm font-bold ${
+                              lineReview.confidence_score >= 0.8
+                                ? 'text-green-600 dark:text-green-400'
+                                : lineReview.confidence_score >= 0.6
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}
+                          >
+                            {Math.round(lineReview.confidence_score * 100)}% confidence
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {lineReview.basis_reference}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Rule Results */}
+                      <div className="space-y-1">
+                        {lineReview.rule_results.map((rule, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-2 text-xs"
+                          >
+                            {rule.passed ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {rule.rule.replace(/_/g, ' ')}:
+                              </span>
+                              <span className="text-gray-600 dark:text-gray-400 ml-1">
+                                {rule.note}
+                              </span>
+                              <span
+                                className={`ml-2 ${
+                                  rule.confidence >= 0.8
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : rule.confidence >= 0.6
+                                    ? 'text-yellow-600 dark:text-yellow-400'
+                                    : 'text-red-600 dark:text-red-400'
+                                }`}
+                              >
+                                ({Math.round(rule.confidence * 100)}%)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Brain className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Click "Run AI Analysis" to analyze the latest estimate using rule-based AI evaluation</p>
             </div>
           )}
         </div>

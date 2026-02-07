@@ -14,6 +14,11 @@ import {
   ChevronUp,
   Eye,
   AlertTriangle,
+  Activity,
+  TrendingUp,
+  X,
+  Calendar,
+  Power,
 } from 'lucide-react';
 import {
   getIntegrationStatuses,
@@ -24,11 +29,21 @@ import {
   sfFullSync,
   checkSAPConnection,
   checkSFConnection,
+  getIntegrationHealthDashboard,
+  getIntegrationErrorTrends,
+  getRetryQueue,
+  dismissRetryItem,
+  getScheduledJobs,
+  toggleScheduledJob,
 } from '@/lib/api';
 import {
   IntegrationConnectionStatus,
   IntegrationSyncLogEntry,
   IntegrationSyncStats,
+  IntegrationHealthStatus,
+  SystemErrorTrends,
+  RetryQueueItem,
+  ScheduledJob,
 } from '@/types';
 import { useToast } from '@/components/Toast';
 
@@ -62,6 +77,35 @@ const formatDate = (d: string | null) => {
 };
 
 // ---------------------------------------------------------------------------
+// Mini Sparkline Component for Error Trends
+// ---------------------------------------------------------------------------
+const MiniSparkline = ({ data }: { data: { date: string; error_count: number }[] }) => {
+  if (!data || data.length === 0) return null;
+
+  const max = Math.max(...data.map(d => d.error_count), 1);
+  const width = 60;
+  const height = 20;
+  const points = data.map((d, i) => ({
+    x: (i / (data.length - 1)) * width,
+    y: height - (d.error_count / max) * height,
+  }));
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+
+  return (
+    <svg width={width} height={height} className="inline-block">
+      <path
+        d={pathD}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="text-red-500"
+      />
+    </svg>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 function IntegrationsPageInner() {
@@ -74,6 +118,13 @@ function IntegrationsPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // New: Health monitoring state
+  const [healthStatus, setHealthStatus] = useState<IntegrationHealthStatus | null>(null);
+  const [errorTrends, setErrorTrends] = useState<SystemErrorTrends[]>([]);
+  const [retryQueue, setRetryQueue] = useState<RetryQueueItem[]>([]);
+  const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
+  const [activeTab, setActiveTab] = useState<'logs' | 'retry-queue' | 'scheduler'>('logs');
+
   // Filters
   const [systemFilter, setSystemFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -85,12 +136,14 @@ function IntegrationsPageInner() {
   const [batchPushing, setBatchPushing] = useState(false);
   const [sfSyncing, setSfSyncing] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [togglingJobId, setTogglingJobId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [connData, statsData, logData] = await Promise.all([
+      const [connData, statsData, logData, healthData, trendsData, queueData, jobsData] = await Promise.all([
         getIntegrationStatuses().catch(() => []),
         getIntegrationSyncStats().catch(() => null),
         getIntegrationSyncLog({
@@ -98,11 +151,19 @@ function IntegrationsPageInner() {
           status: statusFilter || undefined,
           limit: 50,
         }).catch(() => ({ entries: [], total: 0 })),
+        getIntegrationHealthDashboard().catch(() => null),
+        getIntegrationErrorTrends(7).catch(() => []),
+        getRetryQueue().catch(() => []),
+        getScheduledJobs().catch(() => []),
       ]);
       setConnections(Array.isArray(connData) ? connData : []);
       setStats(statsData as IntegrationSyncStats | null);
       setLogEntries(Array.isArray(logData.entries) ? logData.entries : []);
       setLogTotal(logData.total || 0);
+      setHealthStatus(healthData as IntegrationHealthStatus | null);
+      setErrorTrends(Array.isArray(trendsData) ? trendsData : []);
+      setRetryQueue(Array.isArray(queueData) ? queueData : []);
+      setScheduledJobs(Array.isArray(jobsData) ? jobsData : []);
     } catch (err) {
       setError('Failed to load integration data.');
     } finally {
@@ -162,6 +223,31 @@ function IntegrationsPageInner() {
     finally { setRetryingId(null); }
   };
 
+  const handleDismissRetry = async (itemId: string) => {
+    setDismissingId(itemId);
+    try {
+      await dismissRetryItem(itemId);
+      toast.success('Retry item dismissed');
+      loadAll();
+    } catch { toast.error('Failed to dismiss retry item'); }
+    finally { setDismissingId(null); }
+  };
+
+  const handleToggleJob = async (jobId: string, enabled: boolean) => {
+    setTogglingJobId(jobId);
+    try {
+      await toggleScheduledJob(jobId, enabled);
+      toast.success(`Job ${enabled ? 'enabled' : 'disabled'}`);
+      loadAll();
+    } catch { toast.error('Failed to toggle job'); }
+    finally { setTogglingJobId(null); }
+  };
+
+  // Helper to get error trends for a specific system
+  const getTrendsForSystem = (systemName: string) => {
+    return errorTrends.find(t => t.system_name === systemName)?.trends || [];
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -182,46 +268,123 @@ function IntegrationsPageInner() {
         </div>
       )}
 
-      {/* Connection Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {connections.map((conn) => (
-          <div
-            key={conn.system_name}
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {SYSTEM_LABELS[conn.system_name] || conn.system_name}
-              </h3>
-              {conn.is_connected ? (
-                <Wifi className="w-4 h-4 text-green-500" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-red-500" />
-              )}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Mode</span>
-                <span className={`px-2 py-0.5 rounded-full font-medium ${MODE_COLORS[conn.mode] || MODE_COLORS.disabled}`}>
-                  {conn.mode.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Last Check</span>
-                <span className="text-gray-700 dark:text-gray-300">{formatDate(conn.last_check_at)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Last Success</span>
-                <span className="text-gray-700 dark:text-gray-300">{formatDate(conn.last_success_at)}</span>
-              </div>
-              {conn.last_error && (
-                <p className="text-xs text-red-600 dark:text-red-400 truncate" title={conn.last_error}>
-                  {conn.last_error}
+      {/* Health Status Banner */}
+      {healthStatus && (
+        <div className={`rounded-lg border p-4 ${
+          healthStatus.overall_status === 'healthy'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            : healthStatus.overall_status === 'degraded'
+            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className={`w-5 h-5 ${
+                healthStatus.overall_status === 'healthy'
+                  ? 'text-green-600 dark:text-green-400'
+                  : healthStatus.overall_status === 'degraded'
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`} />
+              <div>
+                <h3 className={`font-semibold ${
+                  healthStatus.overall_status === 'healthy'
+                    ? 'text-green-900 dark:text-green-100'
+                    : healthStatus.overall_status === 'degraded'
+                    ? 'text-yellow-900 dark:text-yellow-100'
+                    : 'text-red-900 dark:text-red-100'
+                }`}>
+                  Integration Health: {healthStatus.overall_status.toUpperCase()}
+                </h3>
+                <p className={`text-sm ${
+                  healthStatus.overall_status === 'healthy'
+                    ? 'text-green-700 dark:text-green-300'
+                    : healthStatus.overall_status === 'degraded'
+                    ? 'text-yellow-700 dark:text-yellow-300'
+                    : 'text-red-700 dark:text-red-300'
+                }`}>
+                  {healthStatus.total_errors_24h} errors in last 24h
+                  {healthStatus.active_alerts > 0 && ` • ${healthStatus.active_alerts} active alerts`}
                 </p>
-              )}
+              </div>
+            </div>
+            <div className="flex gap-2 text-xs">
+              {healthStatus.systems.map(sys => (
+                <div
+                  key={sys.system_name}
+                  className={`px-2 py-1 rounded-full font-medium ${
+                    sys.status === 'healthy'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                      : sys.status === 'degraded'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                  }`}
+                >
+                  {SYSTEM_LABELS[sys.system_name] || sys.system_name}: {sys.error_count_24h}
+                </div>
+              ))}
             </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* Connection Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {connections.map((conn) => {
+          const trends = getTrendsForSystem(conn.system_name);
+          return (
+            <div
+              key={conn.system_name}
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {SYSTEM_LABELS[conn.system_name] || conn.system_name}
+                </h3>
+                {conn.is_connected ? (
+                  <Wifi className="w-4 h-4 text-green-500" />
+                ) : (
+                  <WifiOff className="w-4 h-4 text-red-500" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Mode</span>
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${MODE_COLORS[conn.mode] || MODE_COLORS.disabled}`}>
+                    {conn.mode.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Last Check</span>
+                  <span className="text-gray-700 dark:text-gray-300">{formatDate(conn.last_check_at)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Last Success</span>
+                  <span className="text-gray-700 dark:text-gray-300">{formatDate(conn.last_success_at)}</span>
+                </div>
+                {trends.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" />
+                        7-day error trend
+                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {trends.reduce((sum, t) => sum + t.error_count, 0)} total
+                      </span>
+                    </div>
+                    <MiniSparkline data={trends} />
+                  </div>
+                )}
+                {conn.last_error && (
+                  <p className="text-xs text-red-600 dark:text-red-400 truncate" title={conn.last_error}>
+                    {conn.last_error}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Action buttons */}

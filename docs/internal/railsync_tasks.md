@@ -406,7 +406,7 @@ v_shopping_requests        - Shopping requests with shop name, user name, attach
 
 ---
 
-## Database Migrations (61 total)
+## Database Migrations (62+ total)
 
 | Range | Area |
 |-------|------|
@@ -466,7 +466,11 @@ All features are complete.
 - http://localhost:3000/go-live - Go-Live Command Center (readiness, incidents, system mode)
 - http://localhost:3000/shop-performance - Shop performance scoring + trends
 - http://localhost:3000/cost-analytics - Cost analytics dashboard
+- http://localhost:3000/releases - Release management (status, approval, execution)
+- http://localhost:3000/transfers - Contract transfers (validation, initiation, tracking)
+- http://localhost:3000/training - Training center (7 modules with progress tracking)
 - http://localhost:3000/admin/monitoring - System health, performance, feedback management
+- http://localhost:3000/admin/commodity-cleaning - Commodity cleaning matrix (admin)
 - http://localhost:3000/admin - Admin panel (users, rules, shop designations)
 - http://localhost:3000/settings - Notification preferences
 - Cmd+K anywhere - Global search

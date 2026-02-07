@@ -128,6 +128,7 @@ const NAV_CATEGORIES: NavCategory[] = [
       { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
       { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
+      { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
       { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
       { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
       { label: 'Users', href: '/admin', icon: <User className="w-4 h-4" /> },

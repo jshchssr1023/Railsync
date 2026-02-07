@@ -911,6 +911,43 @@ export interface EstimateLineDecision {
   decided_at: string;
 }
 
+export interface AIRuleResult {
+  rule: string;
+  passed: boolean;
+  confidence: number;
+  note: string;
+}
+
+export interface AILinePreReview {
+  estimate_line_id: string;
+  line_number: number;
+  decision: 'approve' | 'review' | 'reject';
+  confidence_score: number;
+  rule_results: AIRuleResult[];
+  basis_type: string;
+  basis_reference: string;
+}
+
+export interface AIPreReviewResult {
+  submission_id: string;
+  lines_reviewed: number;
+  auto_approved: number;
+  needs_review: number;
+  auto_rejected: number;
+  overall_confidence: number;
+  line_reviews: AILinePreReview[];
+}
+
+export interface JobCodeHistoricalStats {
+  job_code: string;
+  avg_total_cost: number;
+  stddev_total_cost: number;
+  avg_labor_hours: number;
+  stddev_labor_hours: number;
+  avg_material_cost: number;
+  sample_count: number;
+}
+
 export interface CCMForm {
   id: string;
   company_name: string;
@@ -1204,4 +1241,51 @@ export interface IntegrationSyncStats {
   success: number;
   failed: number;
   by_system: { system_name: string; total: number; success: number; failed: number }[];
+}
+
+export interface IntegrationHealthStatus {
+  overall_status: 'healthy' | 'degraded' | 'critical';
+  systems: {
+    system_name: string;
+    status: 'healthy' | 'degraded' | 'critical';
+    error_count_24h: number;
+    last_error?: string;
+    uptime_percentage?: number;
+  }[];
+  total_errors_24h: number;
+  active_alerts: number;
+}
+
+export interface ErrorTrendPoint {
+  date: string;
+  error_count: number;
+}
+
+export interface SystemErrorTrends {
+  system_name: string;
+  trends: ErrorTrendPoint[];
+}
+
+export interface RetryQueueItem {
+  id: string;
+  system_name: string;
+  operation: string;
+  entity_type: string | null;
+  entity_ref: string | null;
+  retry_count: number;
+  next_retry_at: string;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface ScheduledJob {
+  id: string;
+  name: string;
+  description: string | null;
+  schedule: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_status: 'success' | 'failed' | null;
+  system_name: string | null;
 }

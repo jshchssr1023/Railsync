@@ -438,8 +438,37 @@ async function validateMRUInvoice(
     context.carCount = caseData.car_marks.length;
   }
 
-  // Parent location required if site missing
-  // TODO: Check shop parent location
+  // Parent location check: MRU invoices need a valid shop with parent location
+  if (caseData.shop_code) {
+    try {
+      const shopResult = await pool.query(
+        'SELECT parent_company, city FROM shops WHERE shop_code = $1',
+        [caseData.shop_code]
+      );
+      if (shopResult.rows.length > 0) {
+        passed.push('MRU_SHOP_LOCATION_VERIFIED');
+        context.shopCity = shopResult.rows[0].city;
+      } else {
+        warnings.push({
+          code: 'MRU_SHOP_NOT_FOUND',
+          message: `Shop ${caseData.shop_code} not found in shop registry`,
+          decision: 'WARN',
+          owningRole: 'admin',
+          details: { shop_code: caseData.shop_code },
+        });
+      }
+    } catch {
+      // Non-blocking — location check is advisory
+    }
+  } else {
+    warnings.push({
+      code: 'MRU_NO_SHOP_LOCATION',
+      message: 'No shop code provided for MRU invoice — parent location cannot be verified',
+      decision: 'WARN',
+      owningRole: 'admin',
+      details: {},
+    });
+  }
 
   // Amount threshold rules
   if (caseData.total_amount !== undefined) {
