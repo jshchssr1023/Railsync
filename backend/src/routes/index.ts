@@ -5090,6 +5090,243 @@ router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('adm
   }
 });
 
+// ============================================================================
+// Forecast & Freight Routes
+// ============================================================================
+
+router.get('/forecast/maintenance', authenticate, async (req, res) => {
+  try {
+    const { getMaintenanceForecast } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getMaintenanceForecast(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get maintenance forecast' });
+  }
+});
+
+router.get('/forecast/trends', authenticate, async (req, res) => {
+  try {
+    const { getForecastTrends } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getForecastTrends(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast trends' });
+  }
+});
+
+router.get('/forecast/dashboard-summary', authenticate, async (req, res) => {
+  try {
+    const { getDashboardSummary } = await import('../services/forecast.service');
+    const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
+    const data = await getDashboardSummary(fiscalYear);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast dashboard' });
+  }
+});
+
+router.get('/freight/rates', authenticate, async (req, res) => {
+  try {
+    const { getFreightRate, getDefaultFreightRate, listOriginLocations } = await import('../services/freight.service');
+    const { origin, destination } = req.query as Record<string, string>;
+    if (origin && destination) {
+      const data = await getFreightRate(origin, destination);
+      res.json({ success: true, data });
+    } else {
+      const defaultRate = await getDefaultFreightRate();
+      res.json({ success: true, data: defaultRate });
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get freight rates' });
+  }
+});
+
+router.post('/freight/calculate', authenticate, async (req, res) => {
+  try {
+    const { calculateFreightCost } = await import('../services/freight.service');
+    const { origin_code, shop_code } = req.body;
+    const data = await calculateFreightCost(origin_code, shop_code);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to calculate freight cost' });
+  }
+});
+
+router.get('/freight/origins', authenticate, async (req, res) => {
+  try {
+    const { listOriginLocations } = await import('../services/freight.service');
+    const data = await listOriginLocations();
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to list origins' });
+  }
+});
+
+// ============================================================================
+// Work Hours Routes
+// ============================================================================
+
+router.get('/work-hours/factors', authenticate, async (req, res) => {
+  try {
+    const { getWorkHoursFactors } = await import('../services/workhours.service');
+    const factorType = (req.query.factor_type as string) || 'car_type';
+    const factorValue = (req.query.factor_value as string) || 'Tank';
+    const data = await getWorkHoursFactors(factorType, factorValue);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get work hours factors' });
+  }
+});
+
+router.post('/work-hours/calculate', authenticate, async (req, res) => {
+  try {
+    const { calculateWorkHours } = await import('../services/workhours.service');
+    const { car, overrides } = req.body;
+    const data = await calculateWorkHours(car, overrides || {});
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to calculate work hours' });
+  }
+});
+
+// ============================================================================
+// Project Audit Routes
+// ============================================================================
+
+router.get('/projects/:id/audit', authenticate, async (req, res) => {
+  try {
+    const { getProjectAuditEvents } = await import('../services/project-audit.service');
+    const carNumber = req.query.car_number as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const data = await getProjectAuditEvents(req.params.id, carNumber, limit, offset);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Failed to get project audit' });
+  }
+});
+
+// ============================================================================
+// Report Builder Routes
+// ============================================================================
+
+router.get('/report-builder/templates', authenticate, async (req, res) => {
+  try {
+    const { listTemplates } = await import('../services/report-builder.service');
+    res.json({ success: true, data: listTemplates() });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/report-builder/templates/:id', authenticate, async (req, res) => {
+  try {
+    const { getTemplate } = await import('../services/report-builder.service');
+    const template = getTemplate(req.params.id);
+    if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
+    res.json({ success: true, data: template });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/run', authenticate, async (req, res) => {
+  try {
+    const { runReport } = await import('../services/report-builder.service');
+    const { template_id, columns, filters, sort_by, sort_dir, limit, offset } = req.body;
+    if (!template_id) { res.status(400).json({ success: false, error: 'template_id required' }); return; }
+    const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit, offset });
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/export-csv', authenticate, async (req, res) => {
+  try {
+    const { runReport, toCSV } = await import('../services/report-builder.service');
+    const { template_id, columns, filters, sort_by, sort_dir } = req.body;
+    if (!template_id) { res.status(400).json({ success: false, error: 'template_id required' }); return; }
+    const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit: 5000 });
+    const csv = toCSV(result);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
+    res.send(csv);
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/report-builder/saved', authenticate, async (req, res) => {
+  try {
+    const { listSavedReports } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    const data = await listSavedReports(userId);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/report-builder/saved', authenticate, async (req, res) => {
+  try {
+    const { saveReport } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    const { template_id, name, description, columns, filters, sort_by, sort_dir } = req.body;
+    if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
+    const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
+  try {
+    const { deleteSavedReport } = await import('../services/report-builder.service');
+    const userId = (req as any).user.id;
+    await deleteSavedReport(req.params.id, userId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.put('/report-builder/saved/:id/schedule', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { setSchedule } = await import('../services/report-builder.service');
+    const { cron, recipients } = req.body;
+    if (!cron || !recipients) { res.status(400).json({ success: false, error: 'cron and recipients required' }); return; }
+    const data = await setSchedule(req.params.id, cron, recipients);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { removeSchedule } = await import('../services/report-builder.service');
+    const data = await removeSchedule(req.params.id);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CLM single car on-demand lookup
+router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
+  try {
+    const { syncSingleCar } = await import('../services/clm-integration.service');
+    const data = await syncSingleCar(req.params.carNumber);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /**
  * @route   GET /api/health
  * @desc    Health check endpoint

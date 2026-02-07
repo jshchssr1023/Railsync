@@ -1132,7 +1132,7 @@ export default function BillingPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                     {billingRuns.length === 0 && (
                       <tr>
@@ -1248,7 +1248,6 @@ export default function BillingPage() {
                     {invoices.map((invoice) => (
                       <Fragment key={invoice.id}>
                         <tr
-                          key={invoice.id}
                           className="hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
                           onClick={() =>
                             setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)
@@ -1479,7 +1478,7 @@ export default function BillingPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                     {invoices.length === 0 && (
                       <tr>
@@ -1667,7 +1666,7 @@ export default function BillingPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                     {chargebacks.length === 0 && (
                       <tr>

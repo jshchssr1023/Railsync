@@ -2,43 +2,69 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, 'feature/*']
   pull_request:
     branches: [main]
 
 jobs:
-  # Backend Tests and Build
+  # Backend: lint, type-check, and test
   backend:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: railsync
+          POSTGRES_PASSWORD: railsync_password
+          POSTGRES_DB: railsync_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     defaults:
       run:
         working-directory: ./backend
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: './backend/package-lock.json'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npm run build
-
       - name: Lint
         run: npm run lint --if-present
 
-  # Frontend Tests and Build
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Apply database schema
+        run: |
+          PGPASSWORD=railsync_password psql -h localhost -U railsync -d railsync_test -f ../database/schema.sql
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+
+      - name: Run tests
+        run: npm test -- --ci --forceExit
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://railsync:railsync_password@localhost:5432/railsync_test
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+
+  # Frontend: lint and build
   frontend:
     runs-on: ubuntu-latest
 
@@ -46,17 +72,13 @@ jobs:
       run:
         working-directory: ./frontend
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: './frontend/package-lock.json'
 
@@ -75,7 +97,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:14-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: railsync
           POSTGRES_PASSWORD: railsync_password

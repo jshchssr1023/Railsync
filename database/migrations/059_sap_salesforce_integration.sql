@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS salesforce_field_mappings (
     sf_field VARCHAR(100) NOT NULL,               -- e.g., 'Name', 'BillingStreet', 'Phone'
     railsync_table VARCHAR(50) NOT NULL,          -- e.g., 'customers', 'contacts'
     railsync_field VARCHAR(100) NOT NULL,         -- e.g., 'customer_name', 'billing_address'
-    sync_direction VARCHAR(10) DEFAULT 'pull',    -- 'pull', 'push', 'bidirectional'
+    sync_direction VARCHAR(20) DEFAULT 'pull',    -- 'pull', 'push', 'bidirectional'
     conflict_winner VARCHAR(20) DEFAULT 'salesforce', -- 'railsync' or 'salesforce'
     is_key_field BOOLEAN DEFAULT FALSE,           -- used for matching/upsert
     transform_rule VARCHAR(50) DEFAULT 'direct',  -- 'direct', 'date_format', 'lookup', 'concat', 'split'
