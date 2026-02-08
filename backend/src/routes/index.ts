@@ -27,6 +27,7 @@ import * as shoppingEventController from '../controllers/shopping-event.controll
 import * as shoppingEventService from '../services/shopping-event.service';
 import * as transitionLogService from '../services/transition-log.service';
 import * as shoppingPacketController from '../controllers/shopping-packet.controller';
+import * as workPackageController from '../controllers/work-package.controller';
 import * as estimateController from '../controllers/estimate-workflow.controller';
 import * as invoiceCaseController from '../controllers/invoice-case.controller';
 import * as shoppingRequestController from '../controllers/shopping-request.controller';
@@ -100,7 +101,7 @@ const shoppingRequestUpload = multer({
   fileFilter: safeDocFileFilter,
 });
 
-import { authenticate, authorize, optionalAuth } from '../middleware/auth';
+import { authenticate, authorize, authorizeShop, optionalAuth } from '../middleware/auth';
 import { query } from '../config/database';
 
 const router = Router();
@@ -2032,6 +2033,47 @@ router.get('/customers/:customerId', optionalAuth, contractsController.getCustom
 router.get('/customers/:customerId/leases', optionalAuth, contractsController.getCustomerLeases);
 
 // Leases
+router.get('/leases', optionalAuth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const offset = (page - 1) * limit;
+
+    const countResult = await query(`SELECT COUNT(*) AS total FROM master_leases`);
+    const total = parseInt(countResult[0]?.total || '0', 10);
+
+    const leases = await query(`
+      SELECT
+        ml.id,
+        ml.lease_id,
+        ml.customer_id,
+        c.customer_name,
+        ml.lease_name,
+        ml.start_date,
+        ml.end_date,
+        ml.status,
+        COUNT(DISTINCT lr.id) AS rider_count,
+        COUNT(DISTINCT rc.car_number) AS car_count,
+        COALESCE((
+          SELECT SUM(lr2.rate_per_car * lr2.car_count)
+          FROM lease_riders lr2
+          WHERE lr2.master_lease_id = ml.id AND lr2.status = 'Active'
+        ), 0) AS monthly_revenue
+      FROM master_leases ml
+      JOIN customers c ON c.id = ml.customer_id
+      LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
+      LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+      GROUP BY ml.id, ml.lease_id, ml.customer_id, c.customer_name, ml.lease_name, ml.start_date, ml.end_date, ml.status
+      ORDER BY ml.start_date DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    res.json({ success: true, data: leases, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  } catch (err) {
+    logger.error({ err }, 'List leases error');
+    res.status(500).json({ success: false, error: 'Failed to fetch leases' });
+  }
+});
 router.get('/leases/:leaseId', optionalAuth, contractsController.getLease);
 router.get('/leases/:leaseId/riders', optionalAuth, contractsController.getLeaseRiders);
 
@@ -2148,6 +2190,16 @@ router.put('/master-plans/:id/allocations/:allocationId/assign-shop', authentica
 // MASTER PLAN — DEMAND MANAGEMENT
 router.get('/master-plans/:id/demands', authenticate, masterPlanController.listPlanDemands);
 router.post('/master-plans/:id/demands', authenticate, authorize('admin', 'operator'), masterPlanController.createDemandForPlan);
+
+// MASTER PLAN — EXTENDED (Lifecycle, Capacity, Conflicts)
+router.post('/master-plans/:id/duplicate', authenticate, authorize('admin', 'operator'), masterPlanController.duplicatePlan);
+router.post('/master-plans/:id/transition', authenticate, authorize('admin', 'operator'), masterPlanController.transitionPlanStatus);
+router.get('/master-plans/:id/capacity-fit', authenticate, masterPlanController.getCapacityFit);
+router.get('/master-plans/:id/conflicts', authenticate, masterPlanController.getPlanConflicts);
+router.get('/master-plans/:id/allocation-groups', authenticate, masterPlanController.getAllocationGroups);
+router.get('/master-plans/:id/network-load', authenticate, masterPlanController.getNetworkLoad);
+router.post('/master-plans/:id/communicate', authenticate, authorize('admin', 'operator'), masterPlanController.communicatePlan);
+router.post('/master-plans/:id/allocations/bulk-assign', authenticate, authorize('admin', 'operator'), masterPlanController.bulkAssignShop);
 
 // CAR SEARCH (typeahead)
 router.get('/cars-search', authenticate, masterPlanController.searchCars);
@@ -4588,6 +4640,35 @@ router.get('/cars/:carId/qualifications', authenticate, qualificationController.
 // ============================================================================
 import * as billingController from '../controllers/billing.controller';
 
+// Top-level billing-runs alias (GET /api/billing-runs)
+router.get('/billing-runs', optionalAuth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const offset = (page - 1) * limit;
+
+    const countResult = await query(`SELECT COUNT(*) AS total FROM billing_runs`);
+    const total = parseInt(countResult[0]?.total || '0', 10);
+
+    const runs = await query(`
+      SELECT id, fiscal_year, fiscal_month, run_type,
+             preflight_passed, preflight_results,
+             status, invoices_generated, total_amount,
+             error_count, errors,
+             initiated_by, approved_by, approved_at,
+             completed_at, created_at
+      FROM billing_runs
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    res.json({ success: true, data: runs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  } catch (err) {
+    logger.error({ err }, 'List billing runs error');
+    res.status(500).json({ success: false, error: 'Failed to fetch billing runs' });
+  }
+});
+
 // Billing Runs
 router.post('/billing/runs/preflight', authenticate, authorize('admin', 'operator'), billingController.runPreflight);
 router.post('/billing/runs', authenticate, authorize('admin'), billingController.createBillingRun);
@@ -5780,5 +5861,38 @@ router.get('/training/readiness', authenticate, authorize('admin'), async (req, 
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
+
+// ============================================================================
+// WORK PACKAGE ROUTES
+// ============================================================================
+
+// Summary (must come before :id routes)
+router.get('/work-packages/summary', authenticate, workPackageController.getSummary);
+
+// Shop-filtered list (must come before :id routes)
+router.get('/work-packages/shop', authenticate, authorizeShop, workPackageController.listForShop);
+
+// CRUD
+router.get('/work-packages', authenticate, workPackageController.listWorkPackages);
+router.get('/work-packages/:id', authenticate, workPackageController.getWorkPackage);
+router.post('/work-packages', authenticate, authorize('admin', 'operator'), workPackageController.createWorkPackage);
+router.put('/work-packages/:id', authenticate, authorize('admin', 'operator'), workPackageController.updateWorkPackage);
+
+// Lifecycle
+router.post('/work-packages/:id/assemble', authenticate, authorize('admin', 'operator'), workPackageController.assembleWorkPackage);
+router.post('/work-packages/:id/issue', authenticate, authorize('admin', 'operator'), workPackageController.issueWorkPackage);
+router.post('/work-packages/:id/reissue', authenticate, authorize('admin', 'operator'), workPackageController.reissueWorkPackage);
+
+// Documents
+router.post('/work-packages/:id/documents', authenticate, authorize('admin', 'operator'), workPackageController.addDocument);
+router.post('/work-packages/:id/documents/mfiles', authenticate, authorize('admin', 'operator'), workPackageController.linkMFilesDocument);
+router.delete('/work-packages/:id/documents/:docId', authenticate, authorize('admin', 'operator'), workPackageController.removeDocument);
+
+// CCM Overrides
+router.post('/work-packages/:id/ccm-overrides', authenticate, authorize('admin', 'operator'), workPackageController.addCCMOverride);
+router.delete('/work-packages/:id/ccm-overrides/:field', authenticate, authorize('admin', 'operator'), workPackageController.removeCCMOverride);
+
+// Audit
+router.get('/work-packages/:id/audit', authenticate, workPackageController.getAuditHistory);
 
 export default router;

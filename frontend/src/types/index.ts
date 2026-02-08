@@ -7,7 +7,7 @@ export interface ApiResponse<T> {
 }
 
 // Auth Types
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export type UserRole = 'admin' | 'operator' | 'viewer' | 'shop';
 
 export interface User {
   id: string;
@@ -16,6 +16,7 @@ export interface User {
   last_name: string;
   role: UserRole;
   organization?: string;
+  shop_code?: string;
   is_active: boolean;
   last_login?: string;
 }
@@ -1202,6 +1203,131 @@ export interface ProjectPlanSummary {
   last_communicated_at?: string;
   assignments: ProjectAssignment[];
   assignments_by_shop: Record<string, ProjectAssignment[]>;
+}
+
+// ============================================================================
+// MASTER PLAN TYPES
+// ============================================================================
+
+export type PlanLifecycleStatus = 'draft' | 'soft_plan' | 'locked' | 'pending_commitment' | 'committed' | 'archived';
+
+export type CapacityFitLevel = 'green' | 'yellow' | 'red';
+
+export interface MasterPlan {
+  id: string;
+  name: string;
+  description?: string;
+  project_id?: string;
+  project_name?: string;
+  project_number?: string;
+  fiscal_year: number;
+  planning_month: string;
+  status: PlanLifecycleStatus;
+  version_count?: number;
+  latest_version?: number;
+  current_allocation_count?: number;
+  current_estimated_cost?: number;
+  target_shops?: string[];
+  target_networks?: string[];
+  est_start_date?: string;
+  est_completion_date?: string;
+  capacity_fit_score?: number;
+  capacity_fit_level?: CapacityFitLevel;
+  locked_at?: string;
+  locked_by?: string;
+  committed_at?: string;
+  committed_by?: string;
+  created_by?: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanVersion {
+  id: string;
+  plan_id: string;
+  version_number: number;
+  label?: string;
+  notes?: string;
+  allocation_count: number;
+  total_estimated_cost: number;
+  allocation_delta?: number;
+  cost_delta?: number;
+  created_at: string;
+}
+
+export interface CapacityFitResult {
+  plan_id: string;
+  overall_score: number;
+  level: CapacityFitLevel;
+  shops: ShopCapacityFit[];
+  warnings: string[];
+  conflicts: PlanConflict[];
+}
+
+export interface ShopCapacityFit {
+  shop_code: string;
+  shop_name: string;
+  total_capacity: number;
+  allocated_from_plan: number;
+  allocated_from_other_plans: number;
+  current_backlog: number;
+  available_capacity: number;
+  utilization_pct: number;
+  score: number;
+  level: CapacityFitLevel;
+}
+
+export interface PlanConflict {
+  type: 'overlapping_window' | 'overloaded_shop' | 'competing_plan_same_project' | 'competing_plan_cross_project';
+  severity: 'warning' | 'critical';
+  message: string;
+  plan_id?: string;
+  plan_name?: string;
+  shop_code?: string;
+  shop_name?: string;
+  overlap_start?: string;
+  overlap_end?: string;
+}
+
+export interface AllocationGroup {
+  key: string;
+  car_type: string;
+  level2_car_type?: string;
+  classification?: string;
+  car_count: number;
+  proposed_shop?: string;
+  proposed_network?: string;
+  arrival_window_start?: string;
+  arrival_window_end?: string;
+  est_duration_days?: number;
+  est_completion?: string;
+  total_estimated_cost: number;
+  allocations: Allocation[];
+}
+
+export interface NetworkLoadForecast {
+  dates: string[];
+  arrivals_per_week: number[];
+  completions_per_week: number[];
+  backlog_trend: number[];
+  by_shop: {
+    shop_code: string;
+    shop_name: string;
+    capacity: number;
+    planned_load: number[];
+  }[];
+}
+
+export interface PlanCommunication {
+  id: string;
+  plan_id: string;
+  type: 'plan_shared' | 'commitment_notice' | 'status_update';
+  recipient?: string;
+  subject?: string;
+  summary_snapshot: Record<string, unknown>;
+  sent_at: string;
+  sent_by?: string;
 }
 
 // ============================================================================

@@ -30,7 +30,7 @@ export async function findById(id: string): Promise<User | null> {
  */
 export async function findByIdPublic(id: string): Promise<UserPublic | null> {
   return queryOne<UserPublic>(
-    `SELECT id, email, first_name, last_name, role, organization, is_active, last_login
+    `SELECT id, email, first_name, last_name, role, organization, shop_code, is_active, last_login
      FROM users WHERE id = $1`,
     [id]
   );
@@ -44,16 +44,17 @@ export async function createUser(
   password: string,
   firstName: string,
   lastName: string,
-  role: 'admin' | 'operator' | 'viewer' = 'viewer',
-  organization?: string
+  role: 'admin' | 'operator' | 'viewer' | 'shop' = 'viewer',
+  organization?: string,
+  shopCode?: string
 ): Promise<UserPublic> {
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
   const result = await queryOne<UserPublic>(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role, organization)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, email, first_name, last_name, role, organization, is_active, last_login`,
-    [email.toLowerCase(), passwordHash, firstName, lastName, role, organization]
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, organization, shop_code)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, email, first_name, last_name, role, organization, shop_code, is_active, last_login`,
+    [email.toLowerCase(), passwordHash, firstName, lastName, role, organization, shopCode || null]
   );
 
   if (!result) {
@@ -99,7 +100,7 @@ export async function listUsers(
   offset: number = 0
 ): Promise<{ users: UserPublic[]; total: number }> {
   const users = await query<UserPublic>(
-    `SELECT id, email, first_name, last_name, role, organization, is_active, last_login, created_at
+    `SELECT id, email, first_name, last_name, role, organization, shop_code, is_active, last_login, created_at
      FROM users
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
@@ -117,12 +118,12 @@ export async function listUsers(
  */
 export async function updateUserRole(
   userId: string,
-  role: 'admin' | 'operator' | 'viewer'
+  role: 'admin' | 'operator' | 'viewer' | 'shop'
 ): Promise<UserPublic | null> {
   return queryOne<UserPublic>(
     `UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, email, first_name, last_name, role, organization, is_active, last_login`,
+     RETURNING id, email, first_name, last_name, role, organization, shop_code, is_active, last_login`,
     [role, userId]
   );
 }

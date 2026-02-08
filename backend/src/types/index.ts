@@ -15,7 +15,7 @@ export interface User {
   updated_at: Date;
 }
 
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export type UserRole = 'admin' | 'operator' | 'viewer' | 'shop';
 
 export interface UserPublic {
   id: string;
@@ -24,6 +24,7 @@ export interface UserPublic {
   last_name: string;
   role: UserRole;
   organization?: string;
+  shop_code?: string;
   is_active: boolean;
   last_login?: Date;
 }

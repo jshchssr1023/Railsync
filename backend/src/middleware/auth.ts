@@ -187,6 +187,42 @@ export function authorize(...allowedRoles: UserRole[]) {
 }
 
 /**
+ * Shop-scoped authorization middleware
+ * For shop-role users, attaches their shop_code for downstream query filtering.
+ * Non-shop users pass through unmodified.
+ */
+export function authorizeShop(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      message: 'You must be logged in to access this resource',
+    });
+    return;
+  }
+
+  // Non-shop users pass through — they can see all data
+  if (req.user.role !== 'shop') {
+    next();
+    return;
+  }
+
+  // Shop users must have an assigned shop_code
+  if (!req.user.shop_code) {
+    res.status(403).json({
+      success: false,
+      error: 'No shop assigned',
+      message: 'Your account does not have an assigned shop. Contact an administrator.',
+    });
+    return;
+  }
+
+  // Attach shop_code filter for downstream service calls
+  (req as any).shopCodeFilter = req.user.shop_code;
+  next();
+}
+
+/**
  * Request ID middleware - adds unique request ID for tracing
  */
 export function requestId(req: Request, res: Response, next: NextFunction): void {
