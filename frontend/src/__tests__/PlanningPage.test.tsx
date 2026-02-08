@@ -60,7 +60,7 @@ jest.mock('@/components/ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-import PlanningPage from '@/app/planning/page';
+import PlanningPage from '@/app/(assets)/planning/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

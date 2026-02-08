@@ -22,7 +22,7 @@ jest.mock('next/navigation', () => ({
 // Feedback page uses direct fetch
 global.fetch = jest.fn();
 
-import FeedbackPage from '@/app/feedback/page';
+import FeedbackPage from '@/app/(operations)/feedback/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

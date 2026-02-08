@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Billable items page uses direct fetch
 global.fetch = jest.fn();
 
-import BillableItemsPage from '@/app/billable-items/page';
+import BillableItemsPage from '@/app/(operations)/billable-items/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

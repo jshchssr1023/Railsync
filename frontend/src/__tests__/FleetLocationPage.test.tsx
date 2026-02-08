@@ -20,7 +20,7 @@ jest.mock('@/components/Toast', () => ({
   }),
 }));
 
-import FleetLocationPage from '@/app/fleet-location/page';
+import FleetLocationPage from '@/app/(assets)/fleet-location/page';
 
 // ---------------------------------------------------------------------------
 // Setup

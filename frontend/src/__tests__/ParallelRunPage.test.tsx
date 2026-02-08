@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Parallel run page uses direct fetch
 global.fetch = jest.fn();
 
-import ParallelRunPage from '@/app/parallel-run/page';
+import ParallelRunPage from '@/app/(operations)/parallel-run/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

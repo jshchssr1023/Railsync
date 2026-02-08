@@ -31,7 +31,7 @@ jest.mock('@/lib/api', () => ({
   updateRule: (...args: unknown[]) => mockUpdateRule(...args),
 }));
 
-import RulesPage from '@/app/rules/page';
+import RulesPage from '@/app/(operations)/rules/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

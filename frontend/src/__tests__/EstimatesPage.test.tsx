@@ -31,7 +31,7 @@ jest.mock('@/lib/api', () => ({
 // Also mock global fetch since the page uses direct fetch for shopping-events
 global.fetch = jest.fn();
 
-import EstimatesPage from '@/app/estimates/page';
+import EstimatesPage from '@/app/(operations)/estimates/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

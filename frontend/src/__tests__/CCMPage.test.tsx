@@ -35,7 +35,7 @@ jest.mock('@/components/ccm', () => ({
   CCMInstructionEditor: () => <div data-testid="ccm-editor" />,
 }));
 
-import CCMPage from '@/app/ccm/page';
+import CCMPage from '@/app/(documentation)/ccm/page';
 
 // ---------------------------------------------------------------------------
 // Setup

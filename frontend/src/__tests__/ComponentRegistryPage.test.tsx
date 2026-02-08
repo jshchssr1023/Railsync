@@ -35,7 +35,7 @@ jest.mock('@/lib/api', () => ({
   getCarComponents: (...args: unknown[]) => mockGetCarComponents(...args),
 }));
 
-import ComponentRegistryPage from '@/app/components-registry/page';
+import ComponentRegistryPage from '@/app/(assets)/components-registry/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

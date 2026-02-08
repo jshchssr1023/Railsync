@@ -60,7 +60,7 @@ jest.mock('@/lib/api', () => ({
 
 global.fetch = jest.fn();
 
-import MasterPlansPage from '@/app/plans/page';
+import MasterPlansPage from '@/app/(network)/plans/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

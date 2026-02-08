@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Notifications page uses direct fetch
 global.fetch = jest.fn();
 
-import NotificationsPage from '@/app/notifications/page';
+import NotificationsPage from '@/app/(operations)/notifications/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -82,7 +82,7 @@ jest.mock('@/lib/api', () => ({
   getCostAllocationSummary: (...args: unknown[]) => mockGetCostAllocationSummary(...args),
 }));
 
-import BillingPage from '@/app/billing/page';
+import BillingPage from '@/app/(operations)/billing/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

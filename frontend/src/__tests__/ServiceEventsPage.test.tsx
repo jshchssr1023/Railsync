@@ -24,7 +24,7 @@ jest.mock('@/lib/api', () => ({
   updateServiceEventStatus: (...args: unknown[]) => mockUpdateServiceEventStatus(...args),
 }));
 
-import ServiceEventsPage from '@/app/service-events/page';
+import ServiceEventsPage from '@/app/(assets)/service-events/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

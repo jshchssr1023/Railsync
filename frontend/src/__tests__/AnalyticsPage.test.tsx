@@ -16,7 +16,7 @@ jest.mock('@/context/AuthContext', () => ({
 
 global.fetch = jest.fn();
 
-import AnalyticsPage from '@/app/analytics/page';
+import AnalyticsPage from '@/app/(operations)/analytics/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

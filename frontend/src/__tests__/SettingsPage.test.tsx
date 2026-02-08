@@ -30,7 +30,7 @@ jest.mock('@/components/Toast', () => ({
 
 global.fetch = jest.fn();
 
-import SettingsPage from '@/app/settings/page';
+import SettingsPage from '@/app/(operations)/settings/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

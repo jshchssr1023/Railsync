@@ -29,7 +29,7 @@ global.fetch = jest.fn().mockResolvedValue({
   json: async () => ({ success: true, data: [] }),
 });
 
-import AdminPage from '@/app/admin/page';
+import AdminPage from '@/app/(operations)/admin/page';
 
 // ---------------------------------------------------------------------------
 // Setup

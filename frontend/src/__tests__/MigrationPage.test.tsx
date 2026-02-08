@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Migration page uses direct fetch
 global.fetch = jest.fn();
 
-import MigrationPage from '@/app/migration/page';
+import MigrationPage from '@/app/(operations)/migration/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

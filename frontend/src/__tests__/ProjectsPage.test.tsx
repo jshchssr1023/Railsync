@@ -81,7 +81,7 @@ jest.mock('@/lib/api', () => ({
 const mockFetch = jest.fn();
 (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
 
-import ProjectsPage from '@/app/projects/page';
+import ProjectsPage from '@/app/(documentation)/projects/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

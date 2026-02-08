@@ -30,7 +30,7 @@ global.fetch = jest.fn().mockResolvedValue({
   json: async () => ({ success: true, data: [] }),
 });
 
-import RidersPage from '@/app/riders/page';
+import RidersPage from '@/app/(assets)/riders/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

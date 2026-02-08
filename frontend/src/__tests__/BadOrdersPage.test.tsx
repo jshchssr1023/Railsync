@@ -50,7 +50,7 @@ jest.mock('@/hooks/useTransitionConfirm', () => ({
   }),
 }));
 
-import BadOrdersPage from '@/app/bad-orders/page';
+import BadOrdersPage from '@/app/(assets)/bad-orders/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

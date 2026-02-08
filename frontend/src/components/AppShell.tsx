@@ -31,7 +31,7 @@ export default function AppShell({ children, dashboardWrapper }: AppShellProps) 
 
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-200 ${
-        expanded ? 'md:ml-56' : 'md:ml-14'
+        expanded ? 'md:ml-64' : 'md:ml-14'
       }`}>
         {/* Mobile top spacer */}
         <div className="h-14 md:hidden flex-shrink-0" />

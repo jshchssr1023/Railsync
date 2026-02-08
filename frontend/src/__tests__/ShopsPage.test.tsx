@@ -16,7 +16,7 @@ jest.mock('@/context/AuthContext', () => ({
 const mockFetch = jest.fn();
 (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
 
-import ShopsPage from '@/app/shops/page';
+import ShopsPage from '@/app/(network)/shops/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

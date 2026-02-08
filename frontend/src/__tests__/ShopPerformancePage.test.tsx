@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Shop performance page uses direct fetch
 global.fetch = jest.fn();
 
-import ShopPerformancePage from '@/app/shop-performance/page';
+import ShopPerformancePage from '@/app/(network)/shop-performance/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

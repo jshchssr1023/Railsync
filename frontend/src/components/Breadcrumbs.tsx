@@ -3,72 +3,13 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Home } from 'lucide-react';
-
-// Route label mapping for human-readable breadcrumbs
-const ROUTE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  shopping: 'Shopping Events',
-  shops: 'Shop Finder',
-  cars: 'Cars',
-  planning: 'Quick Shop',
-  pipeline: 'Pipeline',
-  plans: 'Master Plans',
-  contracts: 'Contracts',
-  projects: 'Projects',
-  invoices: 'Invoices',
-  'invoice-cases': 'Case Queue',
-  budget: 'Budget & Forecasts',
-  analytics: 'Analytics',
-  'cost-analytics': 'Cost Analytics',
-  'shop-performance': 'Shop Performance',
-  migration: 'Data Migration',
-  'parallel-run': 'Parallel Run',
-  'go-live': 'Go-Live Command Center',
-  feedback: 'Feedback',
-  reports: 'Report Builder',
-  audit: 'Audit Log',
-  admin: 'Admin',
-  settings: 'Settings',
-  rules: 'Rules',
-  ccm: 'Care Manuals',
-  'scope-library': 'SOW Library',
-  'bad-orders': 'Bad Orders',
-  qualifications: 'Qualifications',
-  billing: 'Billing',
-  integrations: 'Integrations',
-  'fleet-location': 'Fleet Location',
-  monitoring: 'System Monitoring',
-  'commodity-cleaning': 'Commodity Cleaning',
-  'data-validation': 'Data Validation',
-  'data-reconciliation': 'Data Reconciliation',
-  releases: 'Release Management',
-  transfers: 'Contract Transfers',
-  training: 'Training Center',
-  'sap-validation': 'SAP Validation',
-  'components-registry': 'Components',
-  riders: 'Contract Riders',
-  'service-events': 'Service Events',
-  estimates: 'Estimate Review',
-  commodities: 'Commodities',
-  'billable-items': 'Billable Items',
-  notifications: 'Notifications',
-  'shop-designations': 'Shop Designations',
-  users: 'User Management',
-  'shopping-types': 'Shopping Types',
-  'shopping-reasons': 'Shopping Reasons',
-  'service-plans': 'Service Plans',
-  'storage-commodities': 'Storage Commodities',
-  'work-hours': 'Work Hours',
-  alerts: 'Alerts',
-  customers: 'Customers',
-  freight: 'Freight Calculator',
-  new: 'New Shopping Request',
-};
+import { NAV_CONTEXT_MAP, ROUTE_LABELS } from '@/config/navigation';
 
 interface BreadcrumbItem {
   label: string;
   href: string;
   current: boolean;
+  isContext?: boolean; // Non-clickable context segment (pillar / category)
 }
 
 export default function Breadcrumbs() {
@@ -78,13 +19,36 @@ export default function Breadcrumbs() {
     return null;
   }
 
-  const segments = pathname.split('/').filter(Boolean);
   const items: BreadcrumbItem[] = [];
 
   // Always start with Dashboard
   items.push({ label: 'Dashboard', href: '/dashboard', current: false });
 
-  // Build breadcrumb trail
+  // Try to get navigation context (pillar > category) from the config
+  const navContext = NAV_CONTEXT_MAP.get(pathname.split('?')[0]);
+
+  if (navContext) {
+    // Add pillar context (non-clickable)
+    items.push({
+      label: navContext.pillarLabel,
+      href: '#',
+      current: false,
+      isContext: true,
+    });
+
+    // Add category context (non-clickable) if it's different from the item
+    if (navContext.categoryLabel !== navContext.itemLabel) {
+      items.push({
+        label: navContext.categoryLabel,
+        href: '#',
+        current: false,
+        isContext: true,
+      });
+    }
+  }
+
+  // Build the URL-based breadcrumb trail
+  const segments = pathname.split('/').filter(Boolean);
   let currentPath = '';
   segments.forEach((segment, index) => {
     currentPath += `/${segment}`;
@@ -104,7 +68,7 @@ export default function Breadcrumbs() {
     <nav aria-label="Breadcrumb" className="mb-4">
       <ol className="flex items-center gap-1.5 text-sm" role="list">
         {items.map((item, index) => (
-          <li key={item.href} className="flex items-center gap-1.5">
+          <li key={`${item.href}-${index}`} className="flex items-center gap-1.5">
             {index > 0 && (
               <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" aria-hidden="true" />
             )}
@@ -116,6 +80,10 @@ export default function Breadcrumbs() {
                 className="text-gray-900 dark:text-gray-100 font-medium truncate max-w-[200px]"
                 aria-current="page"
               >
+                {item.label}
+              </span>
+            ) : item.isContext ? (
+              <span className="text-gray-400 dark:text-gray-500 truncate max-w-[200px]">
                 {item.label}
               </span>
             ) : (

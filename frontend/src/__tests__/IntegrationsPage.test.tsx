@@ -44,7 +44,7 @@ jest.mock('@/components/Toast', () => ({
   }),
 }));
 
-import IntegrationsPage from '@/app/integrations/page';
+import IntegrationsPage from '@/app/(operations)/integrations/page';
 
 // ---------------------------------------------------------------------------
 // Setup

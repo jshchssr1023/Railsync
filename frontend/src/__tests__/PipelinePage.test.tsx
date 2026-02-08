@@ -30,7 +30,7 @@ jest.mock('swr', () => ({
   }),
 }));
 
-import PipelinePage from '@/app/pipeline/page';
+import PipelinePage from '@/app/(network)/pipeline/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

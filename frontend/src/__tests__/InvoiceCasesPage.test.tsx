@@ -31,7 +31,7 @@ jest.mock('next/navigation', () => ({
 const mockFetch = jest.fn();
 (global as unknown as { fetch: jest.Mock }).fetch = mockFetch;
 
-import InvoiceCasesPage from '@/app/invoice-cases/page';
+import InvoiceCasesPage from '@/app/(operations)/invoice-cases/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

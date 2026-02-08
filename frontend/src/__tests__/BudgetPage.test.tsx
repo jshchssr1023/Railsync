@@ -72,7 +72,7 @@ jest.mock('@/components/ConfirmDialog', () => {
   };
 });
 
-import BudgetPage from '@/app/budget/page';
+import BudgetPage from '@/app/(operations)/budget/page';
 
 beforeEach(() => {
   jest.clearAllMocks();

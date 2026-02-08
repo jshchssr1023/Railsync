@@ -26,7 +26,7 @@ jest.mock('@/lib/api', () => ({
   getUserCertifications: (...args: unknown[]) => mockGetUserCertifications(...args),
 }));
 
-import TrainingPage from '@/app/training/page';
+import TrainingPage from '@/app/(documentation)/training/page';
 
 // ---------------------------------------------------------------------------
 // Setup

@@ -16,7 +16,7 @@ jest.mock('@/context/AuthContext', () => ({
 
 global.fetch = jest.fn();
 
-import ReportsPage from '@/app/reports/page';
+import ReportsPage from '@/app/(operations)/reports/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

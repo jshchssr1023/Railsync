@@ -9,50 +9,9 @@ import {
   Hash, ArrowRight,
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+import { ROUTE_LABELS } from '@/config/navigation';
 
-// ---------------------------------------------------------------------------
-// Route label mapping (mirrors Breadcrumbs.tsx for recently-visited titles)
-// ---------------------------------------------------------------------------
-const ROUTE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  shopping: 'Shopping Events',
-  shops: 'Shop Finder',
-  cars: 'Cars',
-  planning: 'Quick Shop',
-  pipeline: 'Pipeline',
-  plans: 'Master Plans',
-  contracts: 'Contracts',
-  projects: 'Projects',
-  invoices: 'Invoices',
-  'invoice-cases': 'Case Queue',
-  budget: 'Budget & Forecasts',
-  analytics: 'Analytics',
-  'cost-analytics': 'Cost Analytics',
-  'shop-performance': 'Shop Performance',
-  reports: 'Report Builder',
-  audit: 'Audit Log',
-  settings: 'Settings',
-  rules: 'Rules',
-  ccm: 'Care Manuals',
-  'scope-library': 'SOW Library',
-  'bad-orders': 'Bad Orders',
-  qualifications: 'Qualifications',
-  billing: 'Billing',
-  integrations: 'Integrations',
-  'fleet-location': 'Fleet Location',
-  releases: 'Release Management',
-  transfers: 'Contract Transfers',
-  estimates: 'Estimate Review',
-  commodities: 'Commodities',
-  'billable-items': 'Billable Items',
-  notifications: 'Notifications',
-  customers: 'Customers',
-  freight: 'Freight Calculator',
-  'service-events': 'Service Events',
-  'components-registry': 'Components',
-  riders: 'Contract Riders',
-};
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -52,7 +52,7 @@ jest.mock('@/lib/api', () => ({
   acknowledgeQualificationAlert: (...args: unknown[]) => mockAcknowledgeQualificationAlert(...args),
 }));
 
-import QualificationsPage from '@/app/qualifications/page';
+import QualificationsPage from '@/app/(assets)/qualifications/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

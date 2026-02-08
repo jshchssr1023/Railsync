@@ -43,7 +43,7 @@ jest.mock('@/components/ShoppingDetailPanel', () => {
   };
 });
 
-import ShoppingPage from '@/app/shopping/page';
+import ShoppingPage from '@/app/(assets)/shopping/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Audit page uses direct fetch
 global.fetch = jest.fn();
 
-import AuditLogPage from '@/app/audit/page';
+import AuditLogPage from '@/app/(operations)/audit/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

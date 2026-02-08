@@ -18,7 +18,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-import ScopeLibraryPage from '@/app/scope-library/page';
+import ScopeLibraryPage from '@/app/(documentation)/scope-library/page';
 
 // ---------------------------------------------------------------------------
 // Setup

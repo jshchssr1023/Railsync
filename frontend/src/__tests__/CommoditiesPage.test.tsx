@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Commodities page uses direct fetch
 global.fetch = jest.fn();
 
-import CommoditiesPage from '@/app/commodities/page';
+import CommoditiesPage from '@/app/(documentation)/commodities/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

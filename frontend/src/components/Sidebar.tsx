@@ -8,152 +8,16 @@ import { useSidebar } from '@/context/SidebarContext';
 import { ThemeToggle } from '@/components/ThemeProvider';
 import LoginForm from '@/components/LoginForm';
 import {
-  LayoutDashboard, ShoppingCart, Truck, FileText, Train, Wrench,
-  Settings, ChevronRight, ChevronDown, Menu, X, LogOut, User,
-  AlertTriangle, BarChart3, BookOpen, Shield, ClipboardList,
-  Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
-  History, Building2, ScrollText, Layers, PanelLeftClose, PanelLeft, DollarSign, Wifi,
-  TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare, MapPin, Bell, Tag
+  Menu, X, LogOut, PanelLeftClose, PanelLeft,
+  ChevronRight, ChevronDown, Train,
 } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface SubItem {
-  label: string;
-  href: string;
-  icon?: React.ReactNode;
-}
-
-interface NavCategory {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  href?: string;
-  children?: SubItem[];
-  adminOnly?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Navigation Config
-// ---------------------------------------------------------------------------
-const NAV_CATEGORIES: NavCategory[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: <LayoutDashboard className="w-5 h-5" />,
-    href: '/dashboard',
-  },
-  {
-    id: 'shopping',
-    label: 'Shopping',
-    icon: <ShoppingCart className="w-5 h-5" />,
-    children: [
-      { label: 'Shopping Events', href: '/shopping', icon: <ClipboardList className="w-4 h-4" /> },
-      { label: 'Quick Shop', href: '/planning', icon: <Zap className="w-4 h-4" /> },
-      { label: 'Bad Orders', href: '/bad-orders', icon: <AlertTriangle className="w-4 h-4" /> },
-      { label: 'Service Events', href: '/service-events', icon: <Calendar className="w-4 h-4" /> },
-      { label: 'Releases', href: '/releases', icon: <Package className="w-4 h-4" /> },
-      { label: 'Shop Finder', href: '/shops', icon: <Factory className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'pipeline',
-    label: 'Pipeline',
-    icon: <Truck className="w-5 h-5" />,
-    children: [
-      { label: 'Pipeline', href: '/pipeline', icon: <Truck className="w-4 h-4" /> },
-      { label: 'Monthly Load', href: '/planning?tab=monthly-load', icon: <Calendar className="w-4 h-4" /> },
-      { label: 'Network View', href: '/planning?tab=network-view', icon: <Network className="w-4 h-4" /> },
-      { label: 'Master Plans', href: '/plans', icon: <ScrollText className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'contracts',
-    label: 'Contracts',
-    icon: <FileText className="w-5 h-5" />,
-    children: [
-      { label: 'Customers', href: '/customers', icon: <User className="w-4 h-4" /> },
-      { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
-      { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
-      { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
-      { label: 'Projects', href: '/projects', icon: <Package className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'cars',
-    label: 'Cars',
-    icon: <Train className="w-5 h-5" />,
-    children: [
-      { label: 'All Cars', href: '/cars', icon: <Train className="w-4 h-4" /> },
-      { label: 'Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
-      { label: 'Components', href: '/components-registry', icon: <Settings className="w-4 h-4" /> },
-      { label: 'In Shop', href: '/cars?status=Arrived', icon: <Wrench className="w-4 h-4" /> },
-      { label: 'Enroute', href: '/cars?status=Enroute', icon: <Truck className="w-4 h-4" /> },
-      { label: 'Overdue', href: '/cars?status=Overdue', icon: <AlertCircle className="w-4 h-4" /> },
-      { label: 'Service Due', href: '/cars?status=To+Be+Routed', icon: <Clock className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'operations',
-    label: 'Operations',
-    icon: <BarChart3 className="w-5 h-5" />,
-    children: [
-      { label: 'Case Queue', href: '/invoice-cases', icon: <ClipboardList className="w-4 h-4" /> },
-      { label: 'Invoices', href: '/invoices', icon: <FileText className="w-4 h-4" /> },
-      { label: 'Estimates', href: '/estimates', icon: <DollarSign className="w-4 h-4" /> },
-      { label: 'Billable Items', href: '/billable-items', icon: <ClipboardList className="w-4 h-4" /> },
-      { label: 'Billing', href: '/billing', icon: <DollarSign className="w-4 h-4" /> },
-      { label: 'Budget & Forecasts', href: '/budget', icon: <BarChart3 className="w-4 h-4" /> },
-      { label: 'Analytics', href: '/analytics', icon: <Layers className="w-4 h-4" /> },
-      { label: 'Cost Analytics', href: '/cost-analytics', icon: <TrendingUp className="w-4 h-4" /> },
-      { label: 'Shop Performance', href: '/shop-performance', icon: <Award className="w-4 h-4" /> },
-      { label: 'Freight Calculator', href: '/freight', icon: <Truck className="w-4 h-4" /> },
-      { label: 'Fleet Location', href: '/fleet-location', icon: <MapPin className="w-4 h-4" /> },
-      { label: 'Reports', href: '/reports', icon: <ClipboardList className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'standards',
-    label: 'Standards',
-    icon: <BookOpen className="w-5 h-5" />,
-    children: [
-      { label: 'SOW Library', href: '/scope-library', icon: <BookOpen className="w-4 h-4" /> },
-      { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
-      { label: 'Commodities', href: '/commodities', icon: <Layers className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Admin',
-    icon: <Settings className="w-5 h-5" />,
-    adminOnly: true,
-    children: [
-      { label: 'Rules', href: '/rules', icon: <Shield className="w-4 h-4" /> },
-      { label: 'Integrations', href: '/integrations', icon: <Wifi className="w-4 h-4" /> },
-      { label: 'Migration', href: '/migration', icon: <Database className="w-4 h-4" /> },
-      { label: 'Parallel Run', href: '/parallel-run', icon: <GitCompare className="w-4 h-4" /> },
-      { label: 'Go-Live', href: '/go-live', icon: <Rocket className="w-4 h-4" /> },
-      { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
-      { label: 'Feedback', href: '/feedback', icon: <MessageSquare className="w-4 h-4" /> },
-      { label: 'Shopping Types', href: '/admin/shopping-types', icon: <Tag className="w-4 h-4" /> },
-      { label: 'Shopping Reasons', href: '/admin/shopping-reasons', icon: <Tag className="w-4 h-4" /> },
-      { label: 'Service Plans', href: '/admin/service-plans', icon: <FileText className="w-4 h-4" /> },
-      { label: 'Commodity Cleaning', href: '/admin/commodity-cleaning', icon: <Layers className="w-4 h-4" /> },
-      { label: 'Data Validation', href: '/admin/data-validation', icon: <Shield className="w-4 h-4" /> },
-      { label: 'Data Reconciliation', href: '/admin/data-reconciliation', icon: <GitCompare className="w-4 h-4" /> },
-      { label: 'Storage Commodities', href: '/admin/storage-commodities', icon: <Package className="w-4 h-4" /> },
-      { label: 'Work Hours', href: '/admin/work-hours', icon: <Clock className="w-4 h-4" /> },
-      { label: 'Alerts', href: '/admin/alerts', icon: <AlertCircle className="w-4 h-4" /> },
-      { label: 'Shop Designations', href: '/admin/shop-designations', icon: <Factory className="w-4 h-4" /> },
-      { label: 'Monitoring', href: '/admin/monitoring', icon: <BarChart3 className="w-4 h-4" /> },
-      { label: 'Audit Log', href: '/audit', icon: <History className="w-4 h-4" /> },
-      { label: 'Users', href: '/admin/users', icon: <User className="w-4 h-4" /> },
-      { label: 'Notifications', href: '/notifications', icon: <Bell className="w-4 h-4" /> },
-      { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },
-    ],
-  },
-];
+import {
+  NAV_STANDALONE,
+  NAV_PILLARS,
+  NAV_SHOP,
+  type NavPillar,
+  type NavCategory,
+} from '@/config/navigation';
 
 // ---------------------------------------------------------------------------
 // Sidebar Component
@@ -162,26 +26,58 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { expanded, setExpanded, toggle } = useSidebar();
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Auto-expand the active category on mount
+  // ---- Active-state detection ----
+  const isActive = (href: string) => {
+    const baseHref = href.split('?')[0];
+    if (pathname === baseHref) return true;
+    if (baseHref !== '/' && pathname.startsWith(baseHref + '/')) return true;
+    return false;
+  };
+
+  const isCategoryActive = (cat: NavCategory): boolean => {
+    if (cat.href) return isActive(cat.href);
+    return cat.children?.some(c => isActive(c.href)) ?? false;
+  };
+
+  const isPillarActive = (pillar: NavPillar): boolean =>
+    pillar.categories.some(cat => isCategoryActive(cat));
+
+  // ---- Auto-expand active category on mount / route change ----
   useEffect(() => {
-    for (const cat of NAV_CATEGORIES) {
-      if (cat.href && pathname === cat.href) {
-        setExpandedCategory(cat.id);
-        break;
-      }
-      if (cat.children?.some(child => {
-        const baseHref = child.href.split('?')[0];
-        return pathname === baseHref || pathname.startsWith(baseHref + '/');
-      })) {
-        setExpandedCategory(cat.id);
-        break;
+    const checkActive = (href: string) => {
+      const baseHref = href.split('?')[0];
+      if (pathname === baseHref) return true;
+      if (baseHref !== '/' && pathname.startsWith(baseHref + '/')) return true;
+      return false;
+    };
+
+    for (const pillar of NAV_PILLARS) {
+      for (const cat of pillar.categories) {
+        if (cat.href && checkActive(cat.href)) {
+          setExpandedCategories(prev => {
+            if (prev.has(cat.id)) return prev;
+            const next = new Set(prev);
+            next.add(cat.id);
+            return next;
+          });
+          return;
+        }
+        if (cat.children?.some(child => checkActive(child.href))) {
+          setExpandedCategories(prev => {
+            if (prev.has(cat.id)) return prev;
+            const next = new Set(prev);
+            next.add(cat.id);
+            return next;
+          });
+          return;
+        }
       }
     }
   }, [pathname]);
@@ -202,23 +98,21 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const isActive = (href: string) => {
-    const baseHref = href.split('?')[0];
-    if (pathname === baseHref) return true;
-    if (baseHref !== '/' && pathname.startsWith(baseHref + '/')) return true;
-    return false;
-  };
-
-  const isCategoryActive = (cat: NavCategory) => {
-    if (cat.href) return isActive(cat.href);
-    return cat.children?.some(c => isActive(c.href)) ?? false;
-  };
-
+  // ---- Toggle ----
   const toggleCategory = (catId: string) => {
-    setExpandedCategory(prev => prev === catId ? null : catId);
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) {
+        next.delete(catId);
+      } else {
+        next.add(catId);
+      }
+      return next;
+    });
     if (!expanded) setExpanded(true);
   };
 
+  // ---- Logout ----
   const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -230,9 +124,24 @@ export default function Sidebar() {
     }
   };
 
+  // ---- Role detection ----
   const isAdmin = user?.role === 'admin';
-  const visibleCategories = NAV_CATEGORIES.filter(cat => !cat.adminOnly || isAdmin);
+  const isShopUser = user?.role === 'shop';
 
+  const getVisiblePillars = (): NavPillar[] =>
+    NAV_PILLARS.map(pillar => ({
+      ...pillar,
+      categories: pillar.categories
+        .filter(cat => !cat.adminOnly || isAdmin)
+        .map(cat => ({
+          ...cat,
+          children: cat.children?.filter(item => !item.adminOnly || isAdmin),
+        })),
+    })).filter(pillar => pillar.categories.length > 0);
+
+  const visiblePillars = getVisiblePillars();
+
+  // ---- Render navigation content (shared between desktop and mobile) ----
   const renderNavContent = (isMobile = false) => (
     <div className="flex flex-col h-full">
       {/* Logo Area */}
@@ -267,86 +176,205 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2" role="navigation" aria-label="Main navigation">
-        {visibleCategories.map(cat => {
-          const catActive = isCategoryActive(cat);
-          const isExpanded = expandedCategory === cat.id;
+        {/* ---- Shop Portal: Simplified nav for shop-role users ---- */}
+        {isShopUser ? (
+          <div className="space-y-1">
+            {(expanded || isMobile) && (
+              <div className="px-3 py-2 mb-2">
+                <span className="text-[10px] font-semibold tracking-wider uppercase text-primary-500 dark:text-primary-400">
+                  SHOP PORTAL
+                </span>
+                {user?.shop_code && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Shop: {user.shop_code}</p>
+                )}
+              </div>
+            )}
+            {NAV_SHOP.map(item => (
+              (expanded || isMobile) ? (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg transition-colors px-3 py-2.5 ${
+                    isActive(item.href)
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
+                >
+                  <span className={isActive(item.href) ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span className="text-sm font-medium">{item.label}</span>
+                </Link>
+              ) : (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`flex items-center justify-center rounded-lg transition-colors px-0 py-2.5 ${
+                    isActive(item.href)
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                  title={item.label}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
+                >
+                  <span className={isActive(item.href) ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span className="sr-only">{item.label}</span>
+                </Link>
+              )
+            ))}
+          </div>
+        ) : (
+        <>
+        {/* ---- Dashboard (standalone) ---- */}
+        {(expanded || isMobile) ? (
+          <Link
+            href={NAV_STANDALONE.href}
+            className={`flex items-center gap-3 rounded-lg transition-colors mb-1 px-3 py-2.5 ${
+              isActive(NAV_STANDALONE.href)
+                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+            aria-current={isActive(NAV_STANDALONE.href) ? 'page' : undefined}
+          >
+            <span className={isActive(NAV_STANDALONE.href) ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+              {NAV_STANDALONE.icon}
+            </span>
+            <span className="text-sm font-medium">{NAV_STANDALONE.label}</span>
+          </Link>
+        ) : (
+          <Link
+            href={NAV_STANDALONE.href}
+            className={`flex items-center justify-center rounded-lg transition-colors mb-1 px-0 py-2.5 ${
+              isActive(NAV_STANDALONE.href)
+                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+            title={NAV_STANDALONE.label}
+            aria-current={isActive(NAV_STANDALONE.href) ? 'page' : undefined}
+          >
+            <span className={isActive(NAV_STANDALONE.href) ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+              {NAV_STANDALONE.icon}
+            </span>
+            <span className="sr-only">{NAV_STANDALONE.label}</span>
+          </Link>
+        )}
 
-          if (cat.href) {
-            return (
-              <Link
-                key={cat.id}
-                href={cat.href}
-                className={`flex items-center gap-3 rounded-lg transition-colors mb-0.5 ${
-                  expanded || isMobile ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-                } ${
-                  catActive
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={!expanded && !isMobile ? cat.label : undefined}
-                aria-current={catActive ? 'page' : undefined}
-              >
-                <span className={catActive ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">{cat.icon}</span>
-                {(expanded || isMobile) && <span className="text-sm font-medium">{cat.label}</span>}
-                {!expanded && !isMobile && <span className="sr-only">{cat.label}</span>}
-              </Link>
-            );
-          }
+        {/* ---- Pillars ---- */}
+        {visiblePillars.map(pillar => {
+          const pillarActive = isPillarActive(pillar);
 
           return (
-            <div key={cat.id} className="mb-0.5">
-              <button
-                onClick={() => toggleCategory(cat.id)}
-                className={`w-full flex items-center gap-3 rounded-lg transition-colors ${
-                  expanded || isMobile ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-                } ${
-                  catActive
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={!expanded && !isMobile ? cat.label : undefined}
-                aria-expanded={isExpanded}
-                aria-label={!expanded && !isMobile ? cat.label : undefined}
-              >
-                <span className={catActive ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">{cat.icon}</span>
-                {(expanded || isMobile) && (
-                  <>
-                    <span className="text-sm font-medium flex-1 text-left">{cat.label}</span>
-                    {isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                    )}
-                  </>
-                )}
-                {!expanded && !isMobile && <span className="sr-only">{cat.label}</span>}
-              </button>
-
-              {isExpanded && (expanded || isMobile) && (
-                <div className="ml-3 pl-4 border-l border-gray-200 dark:border-gray-700 mt-0.5 mb-1" role="group" aria-label={`${cat.label} submenu`}>
-                  {cat.children!.map(child => {
-                    const childActive = isActive(child.href);
-                    return (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className={`flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors ${
-                          childActive
-                            ? 'text-primary-700 dark:text-primary-300 font-medium bg-primary-50/50 dark:bg-primary-900/10'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                        }`}
-                        aria-current={childActive ? 'page' : undefined}
-                      >
-                        {child.icon && <span className={childActive ? 'text-primary-500' : 'text-gray-400'} aria-hidden="true">{child.icon}</span>}
-                        <span>{child.label}</span>
-                      </Link>
-                    );
-                  })}
+            <div key={pillar.id} role="group" aria-labelledby={`pillar-${pillar.id}`}>
+              {/* Pillar Header */}
+              {(expanded || isMobile) ? (
+                <div className="mt-4 first:mt-2 mb-1 px-3" id={`pillar-${pillar.id}`}>
+                  <span className={`text-[10px] font-semibold tracking-wider uppercase ${
+                    pillarActive ? 'text-primary-500 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {pillar.label}
+                  </span>
                 </div>
+              ) : (
+                /* Collapsed: show pillar icon */
+                <button
+                  onClick={() => {
+                    setExpanded(true);
+                    // Auto-open the first category in this pillar
+                    if (pillar.categories.length > 0) {
+                      setExpandedCategories(prev => {
+                        const next = new Set(prev);
+                        next.add(pillar.categories[0].id);
+                        return next;
+                      });
+                    }
+                  }}
+                  className={`w-full flex items-center justify-center rounded-lg transition-colors mt-3 first:mt-1 px-0 py-2.5 ${
+                    pillarActive
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                  title={pillar.label}
+                  aria-label={pillar.label}
+                  id={`pillar-${pillar.id}`}
+                >
+                  <span className={pillarActive ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+                    {pillar.icon}
+                  </span>
+                </button>
               )}
+
+              {/* Categories within this pillar (only when expanded / mobile) */}
+              {(expanded || isMobile) && pillar.categories.map(cat => {
+                const catActive = isCategoryActive(cat);
+                const catExpanded = expandedCategories.has(cat.id);
+
+                return (
+                  <div key={cat.id} className="mb-0.5">
+                    {/* Category toggle button */}
+                    <button
+                      onClick={() => toggleCategory(cat.id)}
+                      className={`w-full flex items-center gap-3 rounded-lg transition-colors px-3 py-2 ${
+                        catActive
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                      aria-expanded={catExpanded}
+                      aria-controls={`cat-${cat.id}-items`}
+                    >
+                      <span className={catActive ? 'text-primary-600 dark:text-primary-400' : ''} aria-hidden="true">
+                        {cat.icon}
+                      </span>
+                      <span className="text-sm font-medium flex-1 text-left">{cat.label}</span>
+                      {catExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                      )}
+                    </button>
+
+                    {/* Child items */}
+                    {catExpanded && cat.children && (
+                      <div
+                        id={`cat-${cat.id}-items`}
+                        className="ml-3 pl-4 border-l border-gray-200 dark:border-gray-700 mt-0.5 mb-1"
+                        role="group"
+                        aria-label={`${cat.label} submenu`}
+                      >
+                        {cat.children.map(child => {
+                          const childActive = isActive(child.href);
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className={`flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors ${
+                                childActive
+                                  ? 'text-primary-700 dark:text-primary-300 font-medium bg-primary-50/50 dark:bg-primary-900/10'
+                                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                              }`}
+                              aria-current={childActive ? 'page' : undefined}
+                            >
+                              {child.icon && (
+                                <span className={childActive ? 'text-primary-500' : 'text-gray-400'} aria-hidden="true">
+                                  {child.icon}
+                                </span>
+                              )}
+                              <span>{child.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
+        </>
+        )}
       </nav>
 
       {/* Bottom section: theme toggle + user */}
@@ -441,7 +469,9 @@ export default function Sidebar() {
               expanded || isMobile ? 'px-3 py-2 text-sm justify-center' : 'justify-center py-2'
             }`}
           >
-            <User className="w-4 h-4" aria-hidden="true" />
+            <span className="w-4 h-4" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
             {(expanded || isMobile) && <span>Sign in</span>}
             {!expanded && !isMobile && <span className="sr-only">Sign in</span>}
           </button>
@@ -456,7 +486,7 @@ export default function Sidebar() {
       <aside
         ref={sidebarRef}
         className={`hidden md:flex flex-col fixed top-0 left-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-30 transition-all duration-200 ${
-          expanded ? 'w-56' : 'w-14'
+          expanded ? 'w-64' : 'w-14'
         }`}
         aria-label="Sidebar navigation"
       >
@@ -518,7 +548,8 @@ export default function Sidebar() {
                 <summary className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">Show demo credentials</summary>
                 <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs font-mono">
                   admin@railsync.com / admin123<br />
-                  operator@railsync.com / operator123
+                  operator@railsync.com / operator123<br />
+                  shop@demo.railsync.com / shop123
                 </div>
               </details>
             </div>

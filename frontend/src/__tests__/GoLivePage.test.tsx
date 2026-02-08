@@ -17,7 +17,7 @@ jest.mock('@/context/AuthContext', () => ({
 // Go-live page uses direct fetch
 global.fetch = jest.fn();
 
-import GoLivePage from '@/app/go-live/page';
+import GoLivePage from '@/app/(operations)/go-live/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -37,7 +37,7 @@ jest.mock('@/components/cars/CarsDashboard', () => {
   };
 });
 
-import CarsPageWrapper from '@/app/cars/page';
+import CarsPageWrapper from '@/app/(assets)/cars/page';
 
 // ---------------------------------------------------------------------------
 // Helpers

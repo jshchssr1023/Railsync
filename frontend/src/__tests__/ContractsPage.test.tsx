@@ -90,7 +90,7 @@ jest.mock('@/components/FacetedSidebar', () => {
   };
 });
 
-import ContractsPage from '@/app/contracts/page';
+import ContractsPage from '@/app/(assets)/contracts/page';
 
 // ---------------------------------------------------------------------------
 // Helpers
