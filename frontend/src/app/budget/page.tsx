@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
-import { X, Plus, Trash2, RefreshCw, Settings, BarChart3, Loader2 } from 'lucide-react';
+import { X, Plus, Trash2, RefreshCw, Settings, BarChart3, Loader2, Info } from 'lucide-react';
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -44,6 +44,17 @@ interface BudgetSummary {
   running_repairs: { total_budget: number; actual_spend: number; remaining: number };
   service_events: { total_budget: number; planned_cost: number; actual_cost: number; remaining: number };
   total: { budget: number; planned: number; shop_committed: number; committed: number; remaining: number; consumed_pct: number };
+}
+
+interface ActiveCarCount {
+  count: number;
+  as_of: string;
+}
+
+interface HistoricalEvent {
+  event_type: string;
+  event_count: number;
+  avg_cost: number;
 }
 
 const fetcher = async (url: string) => {
@@ -96,8 +107,12 @@ function BudgetContent() {
   const { data: summaryData } = useSWR(`${API_URL}/budget/summary?fiscal_year=${fiscalYear}`, fetcher);
   const { data: rrData, mutate: mutateRR } = useSWR(`${API_URL}/budget/running-repairs?fiscal_year=${fiscalYear}`, fetcher);
   const { data: seData, mutate: mutateSE } = useSWR(`${API_URL}/budget/service-events?fiscal_year=${fiscalYear}`, fetcher);
+  const { data: activeCarData } = useSWR(`${API_URL}/budget/active-car-count`, fetcher);
+  const { data: historicalData } = useSWR(`${API_URL}/budget/service-events/historical`, fetcher);
 
   const summary: BudgetSummary | null = summaryData?.data || null;
+  const activeCarCount: ActiveCarCount | null = activeCarData?.data || null;
+  const historicalEvents: HistoricalEvent[] = historicalData?.data?.events || [];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const runningRepairs: RunningRepairsBudget[] = rrData?.data || [];
   const serviceEvents: ServiceEventBudget[] = seData?.data || [];
@@ -150,7 +165,7 @@ function BudgetContent() {
   // Update individual RR month field (used by inline EditableCell)
   const handleUpdateRRMonthField = async (
     month: string,
-    field: 'cars_on_lease' | 'actual_spend',
+    field: 'actual_spend',
     newValue: string | number,
   ) => {
     setSaveError(null);
@@ -390,7 +405,15 @@ function BudgetContent() {
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Running Repairs</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pool-based: Monthly Allocation x Cars on Lease</p>
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <span>Pool-based: Monthly Allocation x Cars on Lease</span>
+                  {activeCarCount && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                      <Info className="w-3 h-3" />
+                      {activeCarCount.count.toLocaleString()} active leased cars
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-gray-600 dark:text-gray-400">$/Car/Month:</label>
@@ -414,7 +437,7 @@ function BudgetContent() {
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-4 py-2 text-left">Month</th>
-                    <th className="px-4 py-2 text-right">Cars on Lease</th>
+                    <th className="px-4 py-2 text-right" title="Derived from active lease records">Cars on Lease</th>
                     <th className="px-4 py-2 text-right">$/Car</th>
                     <th className="px-4 py-2 text-right">Monthly Budget</th>
                     <th className="px-4 py-2 text-right">Actual</th>
@@ -425,13 +448,8 @@ function BudgetContent() {
                   {runningRepairs.map((rr) => (
                     <tr key={rr.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-2 font-medium">{formatMonth(rr.month)}</td>
-                      <td className="px-4 py-2 text-right">
-                        <EditableCell
-                          value={rr.cars_on_lease}
-                          type="number"
-                          onSave={(v) => handleUpdateRRMonthField(rr.month, 'cars_on_lease', v)}
-                          formatDisplay={(v) => Number(v).toLocaleString()}
-                        />
+                      <td className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">
+                        {Number(rr.cars_on_lease).toLocaleString()}
                       </td>
                       <td className="px-4 py-2 text-right">{formatCurrency(rr.allocation_per_car)}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(rr.monthly_budget)}</td>
@@ -472,6 +490,25 @@ function BudgetContent() {
               </table>
             </div>
           </div>
+
+          {/* Historical Reference Panel */}
+          {historicalEvents.length > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">Trailing 12-Month Reference</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {historicalEvents.map((he) => (
+                  <div key={he.event_type} className="bg-white dark:bg-gray-800 rounded-lg px-3 py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{he.event_type}</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{he.event_count.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">avg {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(he.avg_cost)}/car</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Service Events Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">

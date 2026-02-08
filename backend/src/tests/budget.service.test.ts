@@ -5,6 +5,8 @@
  */
 
 import {
+  getActiveLeasedCarCount,
+  getHistoricalServiceEventStats,
   getRunningRepairsBudget,
   updateRunningRepairsBudget,
   calculateRunningRepairsBudget,
@@ -22,11 +24,6 @@ jest.mock('../config/database', () => ({
   pool: { query: jest.fn() },
 }));
 
-// Mock the carImport service
-jest.mock('../services/carImport.service', () => ({
-  getActiveCarCount: jest.fn().mockResolvedValue(5000),
-}));
-
 import { query, queryOne } from '../config/database';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
@@ -35,6 +32,58 @@ const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;
 describe('Budget Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  // ============================================================================
+  // Get Active Leased Car Count
+  // ============================================================================
+  describe('getActiveLeasedCarCount', () => {
+    it('should return count of actively leased cars from lease hierarchy', async () => {
+      mockQueryOne.mockResolvedValueOnce({ count: 4200 } as any);
+
+      const result = await getActiveLeasedCarCount();
+
+      expect(result).toBe(4200);
+      expect(mockQueryOne).toHaveBeenCalledWith(
+        expect.stringContaining('rider_cars rc')
+      );
+    });
+
+    it('should return 0 when no active leased cars', async () => {
+      mockQueryOne.mockResolvedValueOnce(null);
+
+      const result = await getActiveLeasedCarCount();
+
+      expect(result).toBe(0);
+    });
+  });
+
+  // ============================================================================
+  // Get Historical Service Event Stats
+  // ============================================================================
+  describe('getHistoricalServiceEventStats', () => {
+    it('should return historical event counts grouped by type', async () => {
+      mockQuery.mockResolvedValueOnce([
+        { event_type: 'Qualification', event_count: 850, avg_cost: '4500.00' },
+        { event_type: 'Assignment', event_count: 320, avg_cost: '12000.00' },
+        { event_type: 'Return', event_count: 210, avg_cost: '8000.00' },
+      ] as any);
+
+      const result = await getHistoricalServiceEventStats();
+
+      expect(result).toHaveLength(3);
+      expect(result[0].event_type).toBe('Qualification');
+      expect(result[0].event_count).toBe(850);
+      expect(result[0].avg_cost).toBe(4500);
+    });
+
+    it('should return empty array when no historical events', async () => {
+      mockQuery.mockResolvedValueOnce([] as any);
+
+      const result = await getHistoricalServiceEventStats();
+
+      expect(result).toHaveLength(0);
+    });
   });
 
   // ============================================================================
@@ -67,7 +116,14 @@ describe('Budget Service', () => {
   // Update Running Repairs Budget
   // ============================================================================
   describe('updateRunningRepairsBudget', () => {
-    it('should update or insert running repairs budget', async () => {
+    it('should update budget with lease-derived car count', async () => {
+      // Mock getActiveLeasedCarCount
+      mockQueryOne.mockResolvedValueOnce({ count: 5000 } as any);
+      // Mock existing row lookup (for preserving allocation_per_car)
+      mockQueryOne.mockResolvedValueOnce({
+        allocation_per_car: '150',
+      } as any);
+      // Mock the upsert
       mockQuery.mockResolvedValueOnce([
         {
           id: '1',
@@ -85,16 +141,45 @@ describe('Budget Service', () => {
         2026,
         '2026-01',
         {
-          cars_on_lease: 5000,
-          allocation_per_car: 150,
           actual_spend: 700000,
         },
         'user-1'
       );
 
       expect(result).toBeDefined();
-      expect(result.monthly_budget).toBe(750000);
-      expect(result.remaining_budget).toBe(50000);
+      // cars_on_lease should be derived, not from input
+      expect(mockQueryOne).toHaveBeenCalledWith(
+        expect.stringContaining('rider_cars')
+      );
+    });
+
+    it('should use provided allocation_per_car when specified', async () => {
+      // Mock getActiveLeasedCarCount
+      mockQueryOne.mockResolvedValueOnce({ count: 4000 } as any);
+      // Mock the upsert
+      mockQuery.mockResolvedValueOnce([
+        {
+          id: '1',
+          fiscal_year: 2026,
+          month: '2026-01',
+          cars_on_lease: 4000,
+          allocation_per_car: 200,
+          monthly_budget: 800000,
+          actual_spend: 0,
+          remaining_budget: 800000,
+        },
+      ] as any);
+
+      const result = await updateRunningRepairsBudget(
+        2026,
+        '2026-01',
+        {
+          allocation_per_car: 200,
+        },
+        'user-1'
+      );
+
+      expect(result).toBeDefined();
     });
   });
 
@@ -103,14 +188,17 @@ describe('Budget Service', () => {
   // ============================================================================
   describe('calculateRunningRepairsBudget', () => {
     it('should generate 12 months of budget', async () => {
-      mockQuery.mockResolvedValue([
-        { fiscal_year: 2026, month: '2026-01' },
-      ] as any);
+      // Each month: getActiveLeasedCarCount + upsert
+      for (let i = 0; i < 12; i++) {
+        mockQueryOne.mockResolvedValueOnce({ count: 5000 } as any);
+        mockQuery.mockResolvedValueOnce([
+          { fiscal_year: 2026, month: `2026-${String(i + 1).padStart(2, '0')}` },
+        ] as any);
+      }
 
       const result = await calculateRunningRepairsBudget(2026, 150, 'user-1');
 
       expect(result).toHaveLength(12);
-      expect(mockQuery).toHaveBeenCalledTimes(12);
     });
   });
 

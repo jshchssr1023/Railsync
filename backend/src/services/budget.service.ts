@@ -4,7 +4,68 @@ import {
   ServiceEventBudget,
   EventType,
 } from '../types';
-import { getActiveCarCount } from './carImport.service';
+
+// ============================================================================
+// ACTIVE LEASED CAR COUNT (source of truth for budget)
+// ============================================================================
+
+/**
+ * Count distinct cars actively on lease by joining the lease hierarchy:
+ * rider_cars (is_active) → lease_riders (Active) → master_leases (Active)
+ */
+export async function getActiveLeasedCarCount(): Promise<number> {
+  const sql = `
+    SELECT COUNT(DISTINCT rc.car_number)::int AS count
+    FROM rider_cars rc
+    JOIN lease_riders lr ON lr.id = rc.rider_id
+    JOIN master_leases ml ON ml.id = lr.lease_id
+    WHERE rc.is_active = TRUE
+      AND lr.status = 'Active'
+      AND ml.status = 'Active'
+  `;
+  const result = await queryOne<{ count: number }>(sql);
+  return result?.count ?? 0;
+}
+
+/**
+ * Get historical service event counts and avg costs grouped by event type
+ * for the trailing 12 months. Maps shopping_type_code → budget EventType.
+ */
+export async function getHistoricalServiceEventStats(): Promise<
+  Array<{ event_type: string; event_count: number; avg_cost: number }>
+> {
+  const sql = `
+    SELECT
+      CASE
+        WHEN se.event_type = 'Qualification' OR se.shopping_type_code ILIKE '%QUAL%' THEN 'Qualification'
+        WHEN se.event_type = 'Assignment' OR se.shopping_type_code ILIKE '%ASSIGN%' THEN 'Assignment'
+        WHEN se.event_type = 'Return' OR se.shopping_type_code ILIKE '%RETURN%' OR se.shopping_type_code ILIKE '%RELEASE%' THEN 'Return'
+        ELSE COALESCE(se.event_type, 'Other')
+      END AS event_type,
+      COUNT(*)::int AS event_count,
+      COALESCE(AVG(
+        CASE WHEN a.actual_cost IS NOT NULL THEN a.actual_cost::numeric ELSE a.estimated_cost::numeric END
+      ), 0)::numeric AS avg_cost
+    FROM shopping_events se
+    LEFT JOIN allocations a ON a.car_mark_number = se.car_number
+      AND a.target_month = TO_CHAR(se.created_at, 'YYYY-MM')
+    WHERE se.created_at >= NOW() - INTERVAL '12 months'
+    GROUP BY
+      CASE
+        WHEN se.event_type = 'Qualification' OR se.shopping_type_code ILIKE '%QUAL%' THEN 'Qualification'
+        WHEN se.event_type = 'Assignment' OR se.shopping_type_code ILIKE '%ASSIGN%' THEN 'Assignment'
+        WHEN se.event_type = 'Return' OR se.shopping_type_code ILIKE '%RETURN%' OR se.shopping_type_code ILIKE '%RELEASE%' THEN 'Return'
+        ELSE COALESCE(se.event_type, 'Other')
+      END
+    ORDER BY event_count DESC
+  `;
+  const rows = await query<{ event_type: string; event_count: number; avg_cost: string }>(sql);
+  return rows.map(r => ({
+    event_type: r.event_type,
+    event_count: Number(r.event_count),
+    avg_cost: parseFloat(String(r.avg_cost)) || 0,
+  }));
+}
 
 // ============================================================================
 // RUNNING REPAIRS BUDGET
@@ -57,7 +118,6 @@ export async function updateRunningRepairsBudget(
   fiscalYear: number,
   month: string,
   data: {
-    cars_on_lease?: number;
     allocation_per_car?: number;
     actual_spend?: number;
     actual_car_count?: number;
@@ -65,10 +125,21 @@ export async function updateRunningRepairsBudget(
   },
   userId?: string
 ): Promise<RunningRepairsBudget> {
-  // Calculate monthly budget and remaining
-  const carsOnLease = data.cars_on_lease || 0;
-  const allocationPerCar = data.allocation_per_car || 0;
-  const monthlyBudget = carsOnLease * allocationPerCar;
+  // Derive cars_on_lease from lease hierarchy (not user-editable)
+  const carsOnLease = await getActiveLeasedCarCount();
+
+  // If only actual_spend is being updated, preserve existing allocation
+  // by fetching current row first
+  let allocationPerCar = data.allocation_per_car;
+  if (allocationPerCar === undefined) {
+    const existing = await queryOne<RunningRepairsBudget>(
+      'SELECT allocation_per_car FROM running_repairs_budget WHERE fiscal_year = $1 AND month = $2',
+      [fiscalYear, month]
+    );
+    allocationPerCar = existing ? Number(existing.allocation_per_car) : 0;
+  }
+
+  const monthlyBudget = carsOnLease * (allocationPerCar || 0);
   const actualSpend = data.actual_spend || 0;
   const remainingBudget = monthlyBudget - actualSpend;
 
@@ -79,7 +150,7 @@ export async function updateRunningRepairsBudget(
       notes, created_by
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     ON CONFLICT (fiscal_year, month) DO UPDATE SET
-      cars_on_lease = COALESCE($3, running_repairs_budget.cars_on_lease),
+      cars_on_lease = $3,
       allocation_per_car = COALESCE($4, running_repairs_budget.allocation_per_car),
       monthly_budget = $5,
       actual_spend = COALESCE($6, running_repairs_budget.actual_spend),
@@ -93,8 +164,8 @@ export async function updateRunningRepairsBudget(
   const rows = await query<RunningRepairsBudget>(sql, [
     fiscalYear,
     month,
-    data.cars_on_lease,
-    data.allocation_per_car,
+    carsOnLease,
+    allocationPerCar,
     monthlyBudget,
     data.actual_spend,
     data.actual_car_count,
@@ -114,7 +185,7 @@ export async function calculateRunningRepairsBudget(
   allocationPerCar: number = 150,
   userId?: string
 ): Promise<RunningRepairsBudget[]> {
-  const activeCount = await getActiveCarCount();
+  // cars_on_lease is now auto-derived inside updateRunningRepairsBudget
   const results: RunningRepairsBudget[] = [];
 
   // Generate 12 months of budget
@@ -124,7 +195,6 @@ export async function calculateRunningRepairsBudget(
       fiscalYear,
       month,
       {
-        cars_on_lease: activeCount,
         allocation_per_car: allocationPerCar,
       },
       userId
@@ -383,6 +453,8 @@ export async function getBudgetSummary(fiscalYear: number): Promise<{
 }
 
 export default {
+  getActiveLeasedCarCount,
+  getHistoricalServiceEventStats,
   getRunningRepairsBudget,
   updateRunningRepairsBudget,
   calculateRunningRepairsBudget,

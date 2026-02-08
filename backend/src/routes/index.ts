@@ -908,6 +908,8 @@ router.post('/budget/service-events', authenticate, authorize('admin', 'operator
 router.put('/budget/service-events/:id', authenticate, authorize('admin', 'operator'), planningController.updateServiceEventBudget);
 router.delete('/budget/service-events/:id', authenticate, authorize('admin'), planningController.deleteServiceEventBudget);
 router.get('/budget/summary', optionalAuth, planningController.getBudgetSummary);
+router.get('/budget/active-car-count', optionalAuth, planningController.getActiveLeasedCarCount);
+router.get('/budget/service-events/historical', optionalAuth, planningController.getHistoricalServiceEvents);
 
 // ============================================================================
 // PHASE 9 - CAR MASTER ROUTES

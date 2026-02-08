@@ -103,6 +103,33 @@ export async function getBudgetSummary(req: Request, res: Response): Promise<voi
   }
 }
 
+export async function getActiveLeasedCarCount(_req: Request, res: Response): Promise<void> {
+  try {
+    const count = await budgetService.getActiveLeasedCarCount();
+    res.json({ success: true, data: { count, as_of: new Date().toISOString() } });
+  } catch (error: unknown) {
+    logger.error({ err: error }, 'Get active leased car count error');
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
+export async function getHistoricalServiceEvents(_req: Request, res: Response): Promise<void> {
+  try {
+    const events = await budgetService.getHistoricalServiceEventStats();
+    res.json({
+      success: true,
+      data: {
+        events,
+        period: 'trailing_12_months',
+        as_of: new Date().toISOString(),
+      },
+    });
+  } catch (error: unknown) {
+    logger.error({ err: error }, 'Get historical service events error');
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
+  }
+}
+
 export async function updateServiceEventBudget(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
@@ -734,6 +761,8 @@ export default {
   updateServiceEventBudget,
   deleteServiceEventBudget,
   getBudgetSummary,
+  getActiveLeasedCarCount,
+  getHistoricalServiceEvents,
   // Cars
   listCars,
   getCarById,
