@@ -33,32 +33,30 @@ jest.mock('@/components/ConfirmDialog', () => {
   };
 });
 
-jest.mock('@/components/TypeaheadSearch', () => {
-  return function MockTypeaheadSearch() {
-    return <div data-testid="typeahead-search" />;
-  };
-});
-
-const mockGetPlanStats = jest.fn();
-const mockListPlanAllocations = jest.fn();
-const mockListPlanDemands = jest.fn();
-
-jest.mock('@/lib/api', () => ({
-  searchCars: jest.fn().mockResolvedValue([]),
-  getPlanStats: (...args: unknown[]) => mockGetPlanStats(...args),
-  listPlanAllocations: (...args: unknown[]) => mockListPlanAllocations(...args),
-  addCarsToPlan: jest.fn(),
-  importDemandsIntoPlan: jest.fn(),
-  removeAllocationFromPlan: jest.fn(),
-  assignShopToPlanAllocation: jest.fn(),
-  evaluateShops: jest.fn().mockResolvedValue([]),
-  listDemands: jest.fn().mockResolvedValue([]),
-  listScenarios: jest.fn().mockResolvedValue([]),
-  listPlanDemands: (...args: unknown[]) => mockListPlanDemands(...args),
-  createDemandForPlan: jest.fn(),
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    back: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+  }),
 }));
 
-global.fetch = jest.fn();
+const mockListMasterPlans = jest.fn();
+const mockGetCapacityFit = jest.fn();
+const mockGetPlanStats = jest.fn();
+const mockListPlanAllocations = jest.fn();
+
+jest.mock('@/lib/api', () => ({
+  listMasterPlans: (...args: unknown[]) => mockListMasterPlans(...args),
+  createMasterPlan: jest.fn(),
+  duplicatePlan: jest.fn(),
+  transitionPlanStatus: jest.fn(),
+  getCapacityFit: (...args: unknown[]) => mockGetCapacityFit(...args),
+  getPlanStats: (...args: unknown[]) => mockGetPlanStats(...args),
+  listPlanAllocations: (...args: unknown[]) => mockListPlanAllocations(...args),
+}));
 
 import MasterPlansPage from '@/app/(network)/plans/page';
 
@@ -73,7 +71,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     description: 'Monthly planning cycle',
     fiscal_year: 2026,
     planning_month: '2026-03',
-    status: 'active',
+    status: 'draft',
     version_count: 3,
     latest_version: 3,
     current_allocation_count: 150,
@@ -84,17 +82,11 @@ function makePlan(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function mockFetchSuccess(data: any) {
-  (global.fetch as jest.Mock).mockResolvedValue({
-    ok: true,
-    json: async () => ({ success: true, data }),
-  });
-}
-
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsAuthenticated = true;
-  mockFetchSuccess([]);
+  mockListMasterPlans.mockResolvedValue([]);
+  mockGetCapacityFit.mockRejectedValue(new Error('not loaded'));
   mockGetPlanStats.mockResolvedValue({
     total_allocations: 150,
     assigned: 100,
@@ -106,7 +98,6 @@ beforeEach(() => {
     by_shop: [],
   });
   mockListPlanAllocations.mockResolvedValue([]);
-  mockListPlanDemands.mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -125,7 +116,6 @@ describe('MasterPlansPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Master Plans')).toBeInTheDocument();
     });
-    expect(screen.getByText('Build and version monthly planning cycles')).toBeInTheDocument();
   });
 
   it('renders new plan button', async () => {
@@ -135,10 +125,20 @@ describe('MasterPlansPage', () => {
     });
   });
 
+  it('renders status bucket filters', async () => {
+    render(<MasterPlansPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Open Plans')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Pending Commitment')).toBeInTheDocument();
+    expect(screen.getByText('Committed Plans')).toBeInTheDocument();
+    expect(screen.getByText('Archived Plans')).toBeInTheDocument();
+  });
+
   it('displays plan list with data', async () => {
-    mockFetchSuccess([
-      makePlan({ id: '1', name: 'March 2026 S&OP', status: 'active' }),
-      makePlan({ id: '2', name: 'April 2026 S&OP', status: 'draft' }),
+    mockListMasterPlans.mockResolvedValue([
+      makePlan({ id: '1', name: 'March 2026 S&OP', status: 'draft' }),
+      makePlan({ id: '2', name: 'April 2026 S&OP', status: 'soft_plan' }),
     ]);
 
     render(<MasterPlansPage />);
@@ -148,137 +148,73 @@ describe('MasterPlansPage', () => {
     expect(screen.getByText('April 2026 S&OP')).toBeInTheDocument();
   });
 
-  it('shows empty state when no plans', async () => {
+  it('shows empty state when no open plans', async () => {
     render(<MasterPlansPage />);
     await waitFor(() => {
-      expect(screen.getByText('No plans yet')).toBeInTheDocument();
+      expect(screen.getByText(/No open plans/i)).toBeInTheDocument();
     });
     expect(screen.getByText('Create your first plan')).toBeInTheDocument();
   });
 
-  it('displays planning cycles header', async () => {
+  it('renders table columns', async () => {
+    mockListMasterPlans.mockResolvedValue([makePlan()]);
+
     render(<MasterPlansPage />);
     await waitFor(() => {
-      expect(screen.getByText('Planning Cycles')).toBeInTheDocument();
+      expect(screen.getByText('Plan')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Project')).toBeInTheDocument();
+    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.getByText('Cars')).toBeInTheDocument();
+    expect(screen.getByText('Target Shops')).toBeInTheDocument();
+    expect(screen.getByText('Est. Start')).toBeInTheDocument();
+    expect(screen.getByText('Est. Completion')).toBeInTheDocument();
+    expect(screen.getByText('Capacity Fit')).toBeInTheDocument();
+    expect(screen.getByText('Actions')).toBeInTheDocument();
+  });
+
+  it('opens drawer when clicking a plan row', async () => {
+    mockListMasterPlans.mockResolvedValue([makePlan()]);
+
+    render(<MasterPlansPage />);
+    const planRow = await screen.findByText('March 2026 S&OP');
+    fireEvent.click(planRow);
+
+    await waitFor(() => {
+      expect(screen.getByText('Plan Summary')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Open Workspace')).toBeInTheDocument();
+  });
+
+  it('shows lifecycle status badge in drawer', async () => {
+    mockListMasterPlans.mockResolvedValue([makePlan({ status: 'draft' })]);
+
+    render(<MasterPlansPage />);
+    const planRow = await screen.findByText('March 2026 S&OP');
+    fireEvent.click(planRow);
+
+    await waitFor(() => {
+      // Draft status should appear multiple times (table + drawer)
+      const draftBadges = screen.getAllByText('Draft');
+      expect(draftBadges.length).toBeGreaterThanOrEqual(2);
     });
   });
 
-  it('renders tabs when plan selected', async () => {
-    mockFetchSuccess([makePlan()]);
+  it('filters plans by search query', async () => {
+    mockListMasterPlans.mockResolvedValue([
+      makePlan({ id: '1', name: 'March 2026 S&OP' }),
+      makePlan({ id: '2', name: 'April 2026 S&OP' }),
+    ]);
 
     render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
+    await screen.findByText('March 2026 S&OP');
+
+    const searchInput = screen.getByPlaceholderText('Search plans by name or project...');
+    fireEvent.change(searchInput, { target: { value: 'April' } });
 
     await waitFor(() => {
-      expect(screen.getByText('Overview')).toBeInTheDocument();
+      expect(screen.queryByText('March 2026 S&OP')).not.toBeInTheDocument();
     });
-    expect(screen.getByText('Demands')).toBeInTheDocument();
-    expect(screen.getByText('Cars & Allocations')).toBeInTheDocument();
-    expect(screen.getByText('Versions')).toBeInTheDocument();
-  });
-
-  it('displays overview tab with stats', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Total Cars')).toBeInTheDocument();
-    });
-  });
-
-  it('shows add cars button on allocations tab', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    const allocationsTab = await screen.findByText('Cars & Allocations');
-    fireEvent.click(allocationsTab);
-
-    await waitFor(() => {
-      expect(screen.getByText('Add Cars')).toBeInTheDocument();
-    });
-  });
-
-  it('shows import from demands button', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    const allocationsTab = await screen.findByText('Cars & Allocations');
-    fireEvent.click(allocationsTab);
-
-    await waitFor(() => {
-      expect(screen.getByText('Import from Demands')).toBeInTheDocument();
-    });
-  });
-
-  it('shows create snapshot button on versions tab', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    const versionsTab = await screen.findByText('Versions');
-    fireEvent.click(versionsTab);
-
-    await waitFor(() => {
-      expect(screen.getByText('Snapshot')).toBeInTheDocument();
-    });
-  });
-
-  it('shows new demand button on demands tab', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    const demandsTab = await screen.findByText('Demands');
-    fireEvent.click(demandsTab);
-
-    await waitFor(() => {
-      expect(screen.getByText('New Demand')).toBeInTheDocument();
-    });
-  });
-
-  it('opens create plan modal when button clicked', async () => {
-    render(<MasterPlansPage />);
-    const newButton = await screen.findByText('New Plan');
-    fireEvent.click(newButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('Create Master Plan')).toBeInTheDocument();
-    });
-  });
-
-  it('shows loading state', async () => {
-    (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
-    render(<MasterPlansPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
-    });
-  });
-
-  it('displays status dropdown for selected plan', async () => {
-    mockFetchSuccess([makePlan()]);
-
-    render(<MasterPlansPage />);
-    const planButton = await screen.findByText('March 2026 S&OP');
-    fireEvent.click(planButton);
-
-    await waitFor(() => {
-      const selectElement = screen.getByRole('combobox');
-      expect(selectElement).toBeInTheDocument();
-    });
+    expect(screen.getByText('April 2026 S&OP')).toBeInTheDocument();
   });
 });
