@@ -30,6 +30,13 @@ jest.mock('@/components/UmlerSpecSection', () => {
   };
 });
 
+// Mock the CarsDashboard component to avoid chart rendering in tests
+jest.mock('@/components/cars/CarsDashboard', () => {
+  return function MockCarsDashboard() {
+    return <div data-testid="cars-dashboard">Dashboard Mock</div>;
+  };
+});
+
 import CarsPageWrapper from '@/app/cars/page';
 
 // ---------------------------------------------------------------------------

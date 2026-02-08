@@ -1,12 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import {
-  Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
-  AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
-  FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList, Loader2
+  Search, Filter, X, ChevronDown, ChevronUp, Loader2
 } from 'lucide-react';
-import UmlerSpecSection from '@/components/UmlerSpecSection';
 import MobileCarCard from '@/components/MobileCarCard';
 import EmptyState from '@/components/EmptyState';
 import ExportButton from '@/components/ExportButton';
@@ -15,6 +12,13 @@ import { useURLFilters } from '@/hooks/useURLFilters';
 import { useFilterPresets } from '@/hooks/useFilterPresets';
 import FilterPresetsBar from '@/components/FilterPresetsBar';
 import type { ExportColumn } from '@/hooks/useExportCSV';
+
+// Car page components (extracted)
+import CarDrawer from '@/components/cars/CarDrawer';
+import CarTypeDrilldown, { type TypeTreeNode } from '@/components/cars/CarTypeDrilldown';
+import { QualBadge, StatusBadge } from '@/components/cars/CarBadges';
+import CarTypeIcon from '@/components/cars/CarTypeIcon';
+import CarsDashboard from '@/components/cars/CarsDashboard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -35,19 +39,6 @@ interface Car {
   tank_qual_year: number;
   contract_number: string;
   plan_status: string;
-}
-
-interface TypeTreeNode {
-  name: string;
-  count: number;
-  children: { name: string; count: number }[];
-}
-
-interface CarDetail {
-  car: Record<string, any>;
-  shopping_events_count: number;
-  active_shopping_event: { id: string; event_number: string; state: string; shop_code: string } | null;
-  lease_info: { lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string } | null;
 }
 
 interface Pagination {
@@ -75,568 +66,8 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   return json;
 }
 
-const currentYear = new Date().getFullYear();
-
-function QualBadge({ year }: { year: number | null }) {
-  if (!year) return <span className="text-gray-400 dark:text-gray-600">-</span>;
-  if (year <= currentYear) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-        <AlertTriangle className="w-3 h-3" /> Overdue
-      </span>
-    );
-  }
-  if (year === currentYear + 1) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-        <Clock className="w-3 h-3" /> {year}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-      <CheckCircle className="w-3 h-3" /> {year}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-gray-400">-</span>;
-  const colors: Record<string, string> = {
-    'Complete': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    'Released': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    'Arrived': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    'Enroute': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-    'To Be Routed': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-    'To Be Scrapped': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    'Scrapped': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
-    'Upmarketed': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
-  };
-  return (
-    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${colors[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
-      {status}
-    </span>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Tree Panel Component
-// ---------------------------------------------------------------------------
-function TypeTree({
-  tree, selectedType, selectedCommodity, onSelectType, onSelectCommodity, onClear, collapsed, onToggleCollapse
-}: {
-  tree: TypeTreeNode[];
-  selectedType: string | null;
-  selectedCommodity: string | null;
-  onSelectType: (t: string | null) => void;
-  onSelectCommodity: (c: string | null) => void;
-  onClear: () => void;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
-}) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const totalCars = tree.reduce((sum, n) => sum + n.count, 0);
-
-  const toggle = (name: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  };
-
-  if (collapsed) {
-    return (
-      <div className="w-10 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-3">
-        <button onClick={onToggleCollapse} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Expand tree">
-          <ChevronRight className="w-4 h-4 text-gray-500" />
-        </button>
-        <div className="mt-2 writing-vertical text-xs text-gray-400 dark:text-gray-500 [writing-mode:vertical-lr] rotate-180">
-          Car Types
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Car Types</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{totalCars.toLocaleString()} cars</p>
-        </div>
-        <button onClick={onToggleCollapse} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800" title="Collapse">
-          <ChevronLeft className="w-4 h-4 text-gray-400" />
-        </button>
-      </div>
-
-      {/* All Cars */}
-      <div className="overflow-y-auto flex-1">
-        <button
-          onClick={onClear}
-          className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
-            !selectedType ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          <span>All Cars</span>
-          <span className="text-xs tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{totalCars.toLocaleString()}</span>
-        </button>
-
-        {tree.map(node => (
-          <div key={node.name}>
-            {/* Car Type Level */}
-            <button
-              onClick={() => {
-                toggle(node.name);
-                onSelectType(node.name);
-                onSelectCommodity(null);
-              }}
-              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-1 transition-colors ${
-                selectedType === node.name && !selectedCommodity
-                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-              }`}
-            >
-              {expanded.has(node.name) ? (
-                <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
-              )}
-              <Train className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
-              <span className="truncate flex-1">{node.name}</span>
-              <span className="text-xs tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ml-1">{node.count}</span>
-            </button>
-
-            {/* Commodity Level */}
-            {expanded.has(node.name) && node.children.map(child => (
-              <button
-                key={child.name}
-                onClick={() => {
-                  onSelectType(node.name);
-                  onSelectCommodity(child.name);
-                }}
-                className={`w-full text-left pl-10 pr-3 py-1.5 text-xs flex items-center justify-between transition-colors ${
-                  selectedType === node.name && selectedCommodity === child.name
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
-              >
-                <span className="truncate">{child.name}</span>
-                <span className="tabular-nums bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded ml-1">{child.count}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Side Drawer Component
-// ---------------------------------------------------------------------------
-interface QualRecord {
-  id: string;
-  type_name: string;
-  type_code: string;
-  status: string;
-  next_due_date: string | null;
-  last_completed_date: string | null;
-  regulatory_body: string;
-  is_exempt: boolean;
-}
-
-function QualStatusBadge({ status }: { status: string }) {
-  const config: Record<string, { bg: string; text: string; label: string }> = {
-    overdue:  { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', label: 'Overdue' },
-    due:      { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', label: 'Due' },
-    due_soon: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', label: 'Due Soon' },
-    current:  { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', label: 'Current' },
-    exempt:   { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', label: 'Exempt' },
-    unknown:  { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-500 dark:text-gray-500', label: 'Unknown' },
-  };
-  const c = config[status] || config.unknown;
-  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${c.bg} ${c.text}`}>{c.label}</span>;
-}
-
-function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => void }) {
-  const [detail, setDetail] = useState<CarDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['general', 'specifications', 'qualifications', 'lease'])
-  );
-  const [umlerData, setUmlerData] = useState<Record<string, any> | null>(null);
-  const [umlerLoading, setUmlerLoading] = useState(false);
-  const [umlerLoaded, setUmlerLoaded] = useState(false);
-  const [qualRecords, setQualRecords] = useState<QualRecord[]>([]);
-  const [qualRecordsLoading, setQualRecordsLoading] = useState(false);
-  const [qualRecordsLoaded, setQualRecordsLoaded] = useState(false);
-  const [clmLocation, setClmLocation] = useState<Record<string, any> | null>(null);
-  const [clmLocationLoading, setClmLocationLoading] = useState(false);
-  const [clmLocationLoaded, setClmLocationLoaded] = useState(false);
-  const drawerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setUmlerData(null);
-    setUmlerLoaded(false);
-    setQualRecords([]);
-    setQualRecordsLoaded(false);
-    setClmLocation(null);
-    setClmLocationLoaded(false);
-    apiFetch<{ data: CarDetail }>(`/contracts-browse/car/${carNumber}`)
-      .then(res => {
-        setDetail(res.data);
-        // Auto-load qualification records if section is expanded
-        if (res.data?.car?.car_id && expandedSections.has('qualifications')) {
-          setQualRecordsLoading(true);
-          apiFetch<{ data: QualRecord[] }>(`/cars/${res.data.car.car_id}/qualifications`)
-            .then(qRes => { setQualRecords(qRes.data || []); setQualRecordsLoaded(true); })
-            .catch(() => { setQualRecords([]); setQualRecordsLoaded(true); })
-            .finally(() => setQualRecordsLoading(false));
-        }
-      })
-      .catch(() => setDetail(null))
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carNumber]);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  const car = detail?.car;
-
-  const toggleSection = (s: string) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
-      return next;
-    });
-    // Lazy-load UMLER data on first expand
-    if (s === 'umler' && !umlerLoaded) {
-      setUmlerLoading(true);
-      apiFetch<{ data: Record<string, any> | null }>(`/cars/${carNumber}/umler`)
-        .then(res => { setUmlerData(res.data); setUmlerLoaded(true); })
-        .catch(() => { setUmlerData(null); setUmlerLoaded(true); })
-        .finally(() => setUmlerLoading(false));
-    }
-    // Lazy-load qualification records on first expand
-    if (s === 'qualifications' && !qualRecordsLoaded && car?.car_id) {
-      setQualRecordsLoading(true);
-      apiFetch<{ data: QualRecord[] }>(`/cars/${car.car_id}/qualifications`)
-        .then(res => { setQualRecords(res.data || []); setQualRecordsLoaded(true); })
-        .catch(() => { setQualRecords([]); setQualRecordsLoaded(true); })
-        .finally(() => setQualRecordsLoading(false));
-    }
-    // Lazy-load CLM location data on first expand
-    if (s === 'location' && !clmLocationLoaded) {
-      setClmLocationLoading(true);
-      apiFetch<{ data: Record<string, any> | null }>(`/car-locations/${carNumber}`)
-        .then(res => { setClmLocation(res.data); setClmLocationLoaded(true); })
-        .catch(() => { setClmLocation(null); setClmLocationLoaded(true); })
-        .finally(() => setClmLocationLoading(false));
-    }
-  };
-
-  const Section = ({ id, title, icon: Icon, children }: {
-    id: string; title: string; icon: typeof Train; children: React.ReactNode;
-  }) => (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <button
-        onClick={() => toggleSection(id)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-      >
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-          <Icon className="w-4 h-4 text-gray-400" />
-          {title}
-        </div>
-        {expandedSections.has(id) ? (
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-        )}
-      </button>
-      {expandedSections.has(id) && (
-        <div className="px-4 pb-3">{children}</div>
-      )}
-    </div>
-  );
-
-  const Field = ({ label, value }: { label: string; value: any }) => (
-    <div className="flex justify-between py-1">
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-      <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right max-w-[60%] truncate">
-        {value ?? '-'}
-      </span>
-    </div>
-  );
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40" onClick={onClose} />
-
-      {/* Drawer */}
-      <div
-        ref={drawerRef}
-        className="fixed top-0 right-0 h-full w-[480px] max-w-full bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col animate-slide-in-right"
-      >
-        {/* Sticky Header */}
-        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
-              {car && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {car.car_type || 'Unknown Type'} &middot; {car.commodity || 'No Commodity'}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {detail?.active_shopping_event && (
-                <a
-                  href={`/shopping/${detail.active_shopping_event.id}`}
-                  className="text-xs px-2 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-md hover:bg-primary-100 dark:hover:bg-primary-900/50 flex items-center gap-1"
-                >
-                  <Wrench className="w-3 h-3" />
-                  {detail.active_shopping_event.state}
-                </a>
-              )}
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Stats Row */}
-          {car && (
-            <div className="grid grid-cols-4 gap-0 border-t border-gray-200 dark:border-gray-700">
-              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Age</div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{car.car_age ?? '-'}</div>
-              </div>
-              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Tank Qual</div>
-                <div className="text-sm font-semibold"><QualBadge year={car.tank_qual_year} /></div>
-              </div>
-              <div className="px-3 py-2 text-center border-r border-gray-200 dark:border-gray-700">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Status</div>
-                <div className="text-sm"><StatusBadge status={car.current_status} /></div>
-              </div>
-              <div className="px-3 py-2 text-center">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Events</div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{detail?.shopping_events_count ?? 0}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-            </div>
-          ) : !car ? (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">Car not found</div>
-          ) : (
-            <>
-              {/* General Info */}
-              <Section id="general" title="General Information" icon={Train}>
-                <Field label="Car Number" value={car.car_number} />
-                <Field label="Car Mark" value={car.car_mark} />
-                <Field label="Car ID" value={car.car_id} />
-                <Field label="Car Type" value={car.car_type} />
-                <Field label="Lessee" value={car.lessee_name} />
-                <Field label="Lessee Code" value={car.lessee_code} />
-                <Field label="FMS Lessee #" value={car.fms_lessee_number} />
-                <Field label="CSR" value={car.csr_name} />
-                <Field label="CSL" value={car.csl_name} />
-                <Field label="Commercial" value={car.commercial_contact} />
-                <Field label="Portfolio" value={car.portfolio_status} />
-              </Section>
-
-              {/* Specifications */}
-              <Section id="specifications" title="Specifications" icon={Layers}>
-                <Field label="Commodity" value={car.commodity} />
-                <Field label="Jacketed" value={car.is_jacketed ? 'Yes' : 'No'} />
-                <Field label="Lined" value={car.is_lined ? 'Yes' : 'No'} />
-                <Field label="Lining Type" value={car.lining_type} />
-                <Field label="Material Type" value={car.material_type} />
-                <Field label="Product Code" value={car.product_code} />
-                <Field label="Stencil Class" value={car.stencil_class} />
-                <Field label="Car Age" value={car.car_age ? `${car.car_age} years` : null} />
-                <Field label="Has Asbestos" value={car.has_asbestos ? 'Yes' : 'No'} />
-                <Field label="Nitrogen Pad Stage" value={car.nitrogen_pad_stage} />
-              </Section>
-
-              {/* Regulatory / Qualifications */}
-              <Section id="qualifications" title="Qualifications & Due Dates" icon={Shield}>
-                <div className="space-y-1">
-                  {[
-                    { label: 'Tank Qualification', value: car.tank_qual_year },
-                    { label: 'Min (No Lining)', value: car.min_no_lining_year },
-                    { label: 'Min (With Lining)', value: car.min_lining_year },
-                    { label: 'Interior Lining', value: car.interior_lining_year },
-                    { label: 'Rule 88B', value: car.rule_88b_year },
-                    { label: 'Safety Relief', value: car.safety_relief_year },
-                    { label: 'Service Equipment', value: car.service_equipment_year },
-                    { label: 'Stub Sill', value: car.stub_sill_year },
-                    { label: 'Tank Thickness', value: car.tank_thickness_year },
-                  ].map(item => (
-                    <div key={item.label} className="flex justify-between py-1 items-center">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{item.label}</span>
-                      <QualBadge year={item.value} />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <Field label="Full/Partial Qual" value={car.full_partial_qual} />
-                  <Field label="Perform Tank Qual" value={car.perform_tank_qual ? 'Yes' : 'No'} />
-                  <Field label="Qual Expiration" value={car.qual_exp_date?.slice(0, 10)} />
-                </div>
-                {/* Qualification Records from qualifications table */}
-                {qualRecordsLoading ? (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-center py-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary-500 inline-block" />
-                  </div>
-                ) : qualRecords.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-[10px] uppercase font-semibold text-gray-400 dark:text-gray-500 mb-1 tracking-wider">Compliance Records</p>
-                    {qualRecords.map(qr => (
-                      <div key={qr.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 dark:border-gray-800 last:border-0">
-                        <div>
-                          <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{qr.type_name}</span>
-                          <span className="text-[10px] text-gray-400 ml-1">({qr.regulatory_body})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {qr.next_due_date && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{qr.next_due_date}</span>
-                          )}
-                          <QualStatusBadge status={qr.status} />
-                        </div>
-                      </div>
-                    ))}
-                    <a
-                      href="/qualifications"
-                      className="block text-center text-[10px] text-primary-600 dark:text-primary-400 hover:underline mt-2"
-                    >
-                      View All Qualifications
-                    </a>
-                  </div>
-                )}
-              </Section>
-
-              {/* Maintenance / Status */}
-              <Section id="maintenance" title="Maintenance & Status" icon={Wrench}>
-                <Field label="Current Status" value={car.current_status} />
-                <Field label="Adjusted Status" value={car.adjusted_status} />
-                <Field label="Plan Status" value={car.plan_status} />
-                <Field label="Scheduled Status" value={car.scheduled_status} />
-                <Field label="Reason Shopped" value={car.reason_shopped} />
-                <Field label="Assigned Shop" value={car.assigned_shop_code} />
-                <Field label="Assigned Date" value={car.assigned_date?.slice(0, 10)} />
-                <Field label="Last Repair Date" value={car.last_repair_date?.slice(0, 10)} />
-                <Field label="Last Repair Shop" value={car.last_repair_shop} />
-                {detail?.active_shopping_event && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-xs text-gray-500">Active Event</span>
-                      <a
-                        href={`/shopping/${detail.active_shopping_event.id}`}
-                        className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
-                      >
-                        {detail.active_shopping_event.event_number}
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <Field label="State" value={detail.active_shopping_event.state} />
-                    <Field label="Shop" value={detail.active_shopping_event.shop_code} />
-                  </div>
-                )}
-              </Section>
-
-              {/* Location */}
-              <Section id="location" title="Location" icon={MapPin}>
-                <Field label="Current Region" value={car.current_region} />
-                <Field label="Past Region" value={car.past_region} />
-                {clmLocationLoading && (
-                  <div className="flex items-center justify-center py-3">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-                  </div>
-                )}
-                {clmLocationLoaded && clmLocation && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">CLM Location Data</div>
-                    <Field label="Railroad" value={clmLocation.railroad} />
-                    <Field label="City" value={clmLocation.city} />
-                    <Field label="State" value={clmLocation.state} />
-                    <Field label="Location Type" value={clmLocation.location_type} />
-                    <Field label="Last Reported" value={clmLocation.reported_at?.slice(0, 16)?.replace('T', ' ')} />
-                  </div>
-                )}
-                {clmLocationLoaded && !clmLocation && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">No CLM location data available</p>
-                  </div>
-                )}
-              </Section>
-
-              {/* Lease / Contract */}
-              <Section id="lease" title="Lease & Contract" icon={FileText}>
-                <Field label="Contract #" value={car.contract_number} />
-                <Field label="Contract Expiration" value={car.contract_expiration?.slice(0, 10)} />
-                {detail?.lease_info && (
-                  <>
-                    <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                      <Field label="Customer" value={detail.lease_info.customer_name} />
-                      <Field label="Customer Code" value={detail.lease_info.customer_code} />
-                      <Field label="Lease ID" value={detail.lease_info.lease_id} />
-                      <Field label="Lease Name" value={detail.lease_info.lease_name} />
-                      <Field label="Lease Status" value={detail.lease_info.lease_status} />
-                    </div>
-                  </>
-                )}
-              </Section>
-
-              {/* UMLER Engineering Specifications — lazy loaded */}
-              <Section id="umler" title="UMLER Specifications" icon={ClipboardList}>
-                <UmlerSpecSection data={umlerData} loading={umlerLoading} />
-              </Section>
-            </>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        {car && (
-          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-2 bg-gray-50 dark:bg-gray-800">
-            <a
-              href={`/shopping?search=${carNumber}`}
-              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              View History
-            </a>
-            <a
-              href={`/contracts`}
-              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Contracts View
-            </a>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main Page
+// Page Wrapper
 // ---------------------------------------------------------------------------
 export default function CarsPageWrapper() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -670,7 +101,9 @@ export default function CarsPageWrapper() {
   );
 }
 
-// Default filter values for the cars page
+// ---------------------------------------------------------------------------
+// Filter Defaults
+// ---------------------------------------------------------------------------
 const CARS_FILTER_DEFAULTS: Record<string, string> = {
   type: '',
   commodity: '',
@@ -680,6 +113,9 @@ const CARS_FILTER_DEFAULTS: Record<string, string> = {
   lessee: '',
 };
 
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 function CarsPage() {
   // --- URL-driven filter state ---
   const { filters, setFilter, setFilters, clearFilters } = useURLFilters(CARS_FILTER_DEFAULTS);
@@ -702,6 +138,20 @@ function CarsPage() {
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
   const [showFilters, setShowFilters] = useState(!!(statusFilter || regionFilter || lesseeFilter));
+
+  // Dashboard collapse (persisted)
+  const [dashboardCollapsed, setDashboardCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('railsync_cars_dashboard_collapsed') === 'true';
+  });
+
+  const toggleDashboard = useCallback(() => {
+    setDashboardCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('railsync_cars_dashboard_collapsed', String(next));
+      return next;
+    });
+  }, []);
 
   // Sort & pagination
   const [sortField, setSortField] = useState('car_number');
@@ -803,7 +253,7 @@ function CarsPage() {
 
   const columns = [
     { key: 'car_number', label: 'Car #', width: 'w-28' },
-    { key: 'car_type', label: 'Type', width: 'w-40' },
+    { key: 'car_type', label: 'Type', width: 'w-44' },
     { key: 'lessee_name', label: 'Lessee', width: 'w-44' },
     { key: 'commodity', label: 'Commodity', width: 'w-44' },
     { key: 'current_status', label: 'Status', width: 'w-28' },
@@ -819,10 +269,18 @@ function CarsPage() {
     { key: 'current_region', header: 'Region' },
     { key: 'lessee_name', header: 'Lessee' },
     { key: 'commodity', header: 'Commodity' },
-    { key: 'product_code', header: 'Product Code' },
   ];
 
   const exportFilename = `railsync-cars-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  // Active filter chips
+  const activeChips: { key: string; label: string; value: string }[] = [];
+  if (selectedType) activeChips.push({ key: 'type', label: 'Type', value: selectedType });
+  if (selectedCommodity) activeChips.push({ key: 'commodity', label: 'Commodity', value: selectedCommodity });
+  if (statusFilter) activeChips.push({ key: 'status', label: 'Status', value: statusFilter });
+  if (regionFilter) activeChips.push({ key: 'region', label: 'Region', value: regionFilter });
+  if (lesseeFilter) activeChips.push({ key: 'lessee', label: 'Lessee', value: lesseeFilter });
+  if (search) activeChips.push({ key: 'search', label: 'Search', value: search });
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
@@ -833,7 +291,7 @@ function CarsPage() {
             <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
           </div>
         ) : (
-          <TypeTree
+          <CarTypeDrilldown
             tree={tree}
             selectedType={selectedType}
             selectedCommodity={selectedCommodity}
@@ -846,8 +304,16 @@ function CarsPage() {
         )}
       </div>
 
-      {/* Main Panel: Car List */}
+      {/* Main Panel */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+        {/* Dashboard Section */}
+        <CarsDashboard
+          filters={filters}
+          onFilterChange={setFilter}
+          collapsed={dashboardCollapsed}
+          onToggleCollapse={toggleDashboard}
+        />
+
         {/* Header Bar */}
         <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
@@ -921,7 +387,7 @@ function CarsPage() {
             </button>
           </div>
 
-          {/* Filter Row */}
+          {/* Filter Dropdowns */}
           {showFilters && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex gap-4">
               <div className="flex-1">
@@ -960,6 +426,34 @@ function CarsPage() {
             </div>
           )}
         </div>
+
+        {/* Active Filter Chips */}
+        {activeChips.length > 0 && (
+          <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 dark:text-gray-500">Active:</span>
+            {activeChips.map(chip => (
+              <span
+                key={chip.key}
+                className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800"
+              >
+                <span className="text-primary-400 dark:text-primary-500">{chip.label}:</span>
+                <span className="max-w-[120px] truncate">{chip.value}</span>
+                <button
+                  onClick={() => setFilter(chip.key, '')}
+                  className="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={clearAllFilters}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
 
         {/* Table / Mobile Cards */}
         <div className="flex-1 overflow-auto">
@@ -1022,8 +516,11 @@ function CarsPage() {
                     <td className="px-3 py-2.5 text-sm font-medium text-primary-600 dark:text-primary-400 whitespace-nowrap">
                       {car.car_number}
                     </td>
-                    <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 truncate max-w-[160px]">
-                      {car.car_type || '-'}
+                    <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <CarTypeIcon type={car.car_type} size="sm" className="text-gray-400 dark:text-gray-500" />
+                        <span className="truncate max-w-[140px]">{car.car_type || '-'}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 truncate max-w-[176px]">
                       {car.lessee_name || '-'}
@@ -1071,7 +568,6 @@ function CarsPage() {
               >
                 Prev
               </button>
-              {/* Page numbers */}
               {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                 const startPage = Math.max(1, Math.min(page - 2, pagination.totalPages - 4));
                 const p = startPage + i;
