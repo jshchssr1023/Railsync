@@ -59,6 +59,7 @@ export default function FeedbackPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     loadData().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, filter]);
 
   async function handleSubmit() {

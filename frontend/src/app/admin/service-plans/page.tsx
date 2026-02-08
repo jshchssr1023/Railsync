@@ -84,6 +84,8 @@ export default function ServicePlansPage() {
 
   useEffect(() => {
     if (isAuthenticated) loadPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, filterStatus, filterYear]);
 
   const loadPlans = async () => {

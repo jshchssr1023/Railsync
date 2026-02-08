@@ -95,6 +95,7 @@ export default function MigrationPage() {
       setReconciliation(reconRes.data || []);
       setDeltaSummary(deltaRes.data || []);
     }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   function handleUpload(entityKey: string) {

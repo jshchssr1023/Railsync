@@ -55,6 +55,7 @@ export default function CommoditiesPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     fetchWithAuth('/commodities').then(res => setCommodities(res.data || [])).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function handleCreate() {

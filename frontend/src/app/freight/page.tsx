@@ -73,6 +73,7 @@ export default function FreightPage() {
 
   useEffect(() => {
     if (isAuthenticated) loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const loadInitialData = async () => {

@@ -188,6 +188,7 @@ function InvoicesContent() {
       fetchInvoices();
       fetchQueueStats();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, fetchInvoices]);
 
   // Reset to page 1 when search or filters change

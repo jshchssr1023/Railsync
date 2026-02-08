@@ -80,6 +80,7 @@ export default function ParallelRunPage() {
       fetchWithAuth('/parallel-run/health-score').then(res => setHealthScore(res.data || null)),
       fetchWithAuth('/parallel-run/daily-report?days=30').then(res => setDailyReport(res.data || [])),
     ]).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {

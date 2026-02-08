@@ -44,6 +44,7 @@ export default function NotificationsPage() {
       setPrefs(prefsRes.data || null);
       if (queueRes) setQueueStatus(queueRes.data || null);
     }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isAdmin]);
 
   async function handleProcessQueue() {

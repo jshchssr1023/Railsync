@@ -78,11 +78,13 @@ export default function ReleasesPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     loadAll().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || loading) return;
     loadReleases();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   async function handleRefresh() {

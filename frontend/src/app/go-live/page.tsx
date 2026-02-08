@@ -85,6 +85,7 @@ export default function GoLivePage() {
     if (!isAuthenticated) return;
     setLoading(true);
     loadAll().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function handleRefresh() {

@@ -89,11 +89,13 @@ export default function ContractTransfersPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     loadAll().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || loading) return;
     loadTransfers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
   async function handleRefresh() {

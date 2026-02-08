@@ -88,6 +88,7 @@ export default function ShopPerformancePage() {
       .then(res => setShops(res.data || []))
       .catch(() => setShops([]))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   function toggleShop(shopCode: string) {

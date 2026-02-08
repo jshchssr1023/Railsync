@@ -86,6 +86,8 @@ export default function ShopDesignationsPage() {
     if (isAuthenticated && user?.role === 'admin') {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user]);
 
   const updateDesignation = async (shopCode: string, designation: 'repair' | 'storage' | 'scrap') => {

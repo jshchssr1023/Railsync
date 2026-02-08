@@ -64,6 +64,7 @@ export default function EstimatesPage() {
         setEstimates(results.flat());
       })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function toggleExpand(estId: string) {

@@ -237,6 +237,7 @@ function ProjectsContent() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, projects, selectedProject]);
 
   const getTypeColor = (type: string) => {

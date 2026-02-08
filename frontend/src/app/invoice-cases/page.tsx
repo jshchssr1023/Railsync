@@ -219,6 +219,7 @@ function InvoiceCasesContent() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filters, debouncedSearch, user?.id]);
 
   const fetchStateStats = useCallback(async () => {
@@ -233,6 +234,7 @@ function InvoiceCasesContent() {
     } catch (err) {
       console.error('Failed to fetch state stats:', err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

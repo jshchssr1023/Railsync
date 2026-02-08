@@ -98,6 +98,7 @@ function BudgetContent() {
   const { data: seData, mutate: mutateSE } = useSWR(`${API_URL}/budget/service-events?fiscal_year=${fiscalYear}`, fetcher);
 
   const summary: BudgetSummary | null = summaryData?.data || null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const runningRepairs: RunningRepairsBudget[] = rrData?.data || [];
   const serviceEvents: ServiceEventBudget[] = seData?.data || [];
 
@@ -106,6 +107,7 @@ function BudgetContent() {
     if (runningRepairs.length > 0) {
       setRrAllocation(runningRepairs[0].allocation_per_car || 450);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningRepairs]);
 
   const formatCurrency = (value: number) => {

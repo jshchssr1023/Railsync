@@ -457,7 +457,7 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  }, [invoiceStatusFilter, invoiceCustomerSearch, invoicePeriodFilter, invoicePage]);
+  }, [invoiceStatusFilter, invoicePeriodFilter, invoicePage]);
 
   const loadChargebacksData = useCallback(async () => {
     setLoading(true);

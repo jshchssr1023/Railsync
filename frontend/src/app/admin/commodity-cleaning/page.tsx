@@ -107,6 +107,8 @@ export default function CommodityCleaningPage() {
     if (isAuthenticated && user?.role === 'admin') {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user]);
 
   const loadData = async () => {

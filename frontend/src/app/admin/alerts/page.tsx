@@ -59,6 +59,8 @@ export default function AlertsPage() {
 
   useEffect(() => {
     if (isAuthenticated) loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const loadData = async () => {

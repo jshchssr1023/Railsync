@@ -158,6 +158,8 @@ export default function AdminMonitoringPage() {
     if (!isAuthenticated) return;
     setLoading(true);
     loadAll().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   async function handleRefresh() {

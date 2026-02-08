@@ -96,6 +96,8 @@ export default function DataValidationPage() {
     if (isAuthenticated && user?.role === 'admin') {
       runValidation();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user]);
 
   const filteredResults = useMemo(() => {

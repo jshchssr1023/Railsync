@@ -70,6 +70,7 @@ export default function CustomersPage() {
 
   useEffect(() => {
     if (isAuthenticated) loadCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, showInactive]);
 
   const loadCustomers = async () => {

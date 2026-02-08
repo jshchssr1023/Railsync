@@ -41,10 +41,12 @@ export default function ShoppingReasonsPage() {
       loadTypes();
       loadReasons();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) loadReasons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType]);
 
   const loadTypes = async () => {

@@ -766,7 +766,7 @@ export default function ShoppingEventDetailPage() {
           ) : (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <Brain className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Click "Run AI Analysis" to analyze the latest estimate using rule-based AI evaluation</p>
+              <p className="text-sm">Click &quot;Run AI Analysis&quot; to analyze the latest estimate using rule-based AI evaluation</p>
             </div>
           )}
         </div>

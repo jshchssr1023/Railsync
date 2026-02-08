@@ -69,6 +69,8 @@ export default function BillableItemsPage() {
       setItems(itemsRes.data || []);
       setSummary(summRes.data || []);
     }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, filterLessee, filterResp]);
 
   async function handleCreate() {

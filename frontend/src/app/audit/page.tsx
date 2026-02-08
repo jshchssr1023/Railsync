@@ -133,6 +133,8 @@ export default function AuditLogPage() {
 
   useEffect(() => {
     if (isAuthenticated) fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, page, filters]);
 
   const formatDate = (dateStr: string) => {

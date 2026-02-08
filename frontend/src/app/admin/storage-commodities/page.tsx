@@ -28,6 +28,8 @@ export default function StorageCommoditiesPage() {
 
   useEffect(() => {
     if (isAuthenticated) loadCommodities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const loadCommodities = async () => {

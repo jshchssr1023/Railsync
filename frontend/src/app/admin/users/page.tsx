@@ -75,6 +75,8 @@ export default function UserManagementPage() {
       loadUsers();
       loadPermissions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, currentUser, filters]);
 
   const loadUsers = async () => {

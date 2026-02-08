@@ -85,6 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       saveAuthData(data.data);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('Network error: Could not reach the server. Please check your connection.');
+      }
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +113,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       saveAuthData(data.data);
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('Network error: Could not reach the server. Please check your connection.');
+      }
+      throw error;
     } finally {
       setIsLoading(false);
     }

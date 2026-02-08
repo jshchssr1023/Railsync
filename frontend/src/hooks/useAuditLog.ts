@@ -39,6 +39,7 @@ export function useAuditLog(params?: UseAuditLogParams): UseAuditLogReturn {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     params?.entity_type,
     params?.entity_id,

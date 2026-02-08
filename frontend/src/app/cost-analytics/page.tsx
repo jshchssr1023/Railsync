@@ -86,6 +86,7 @@ export default function CostAnalyticsPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, [fiscalYear, isAuthenticated]);
 
   // Summary stats

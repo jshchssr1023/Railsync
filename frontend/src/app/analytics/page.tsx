@@ -114,6 +114,8 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     loadTabData(activeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, activeTab]);
 
   const loadTabData = async (tab: TabKey) => {

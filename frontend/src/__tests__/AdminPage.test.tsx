@@ -16,8 +16,11 @@ jest.mock('@/context/AuthContext', () => ({
 }));
 
 // Mock sub-components
+// eslint-disable-next-line react/display-name
 jest.mock('@/components/AdminRulesEditor', () => () => <div data-testid="rules-editor" />);
+// eslint-disable-next-line react/display-name
 jest.mock('@/components/BRCImportModal', () => () => <div data-testid="brc-import" />);
+// eslint-disable-next-line react/display-name
 jest.mock('@/components/BRCHistoryList', () => () => <div data-testid="brc-history" />);
 
 // Mock global fetch for user management

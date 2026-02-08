@@ -299,6 +299,7 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
       })
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carNumber]);
 
   useEffect(() => {

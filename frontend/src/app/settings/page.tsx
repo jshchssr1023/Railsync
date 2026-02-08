@@ -45,6 +45,7 @@ export default function SettingsPage() {
     if (isAuthenticated) {
       fetchPreferences();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const handleToggle = (key: keyof Omit<NotificationPreferences, 'user_id'>) => {
@@ -322,6 +323,7 @@ function EmailQueueStatus() {
 
   useEffect(() => {
     fetchStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
