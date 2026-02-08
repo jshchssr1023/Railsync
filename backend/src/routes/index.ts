@@ -872,7 +872,7 @@ router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (r
     const { userId } = req.params;
 
     // Prevent self-deactivation
-    if (userId === req.user?.id) {
+    if (userId === req.user!.id) {
       res.status(400).json({
         success: false,
         error: 'Cannot deactivate yourself',
@@ -936,14 +936,14 @@ router.post('/demands/import', authenticate, authorize('admin'), csvUpload.singl
       res.status(400).json({ success: false, error: 'CSV content required. Upload a file or provide content in the request body.' });
       return;
     }
-    const result = await demandService.importDemandsFromCSV(content, req.user?.id);
+    const result = await demandService.importDemandsFromCSV(content, req.user!.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
 router.post('/demands/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await demandService.revertLastTransition(req.params.id, req.user.id, req.body.notes);
+    const result = await demandService.revertLastTransition(req.params.id, req.user!.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -976,7 +976,7 @@ router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator
 router.post('/allocations/:id/assign', authenticate, authorize('admin', 'operator'), planningController.assignAllocation);
 router.post('/allocations/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await allocationService.revertLastTransition(req.params.id, req.user.id, req.body.notes);
+    const result = await allocationService.revertLastTransition(req.params.id, req.user!.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -2199,7 +2199,7 @@ router.post('/capacity/reservations', authenticate, authorize('admin', 'operator
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     const result = await query(`
       INSERT INTO capacity_reservations (shop_code, lessee_code, lessee_name, start_year, start_month, end_year, end_month, reserved_slots, notes, created_by)
@@ -2254,7 +2254,7 @@ router.put('/capacity/reservations/:id', authenticate, authorize('admin', 'opera
  */
 router.post('/capacity/reservations/:id/confirm', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     // Check capacity before confirming
     const reservation = await query('SELECT * FROM capacity_reservations WHERE id = $1', [req.params.id]);
@@ -2369,7 +2369,7 @@ router.post('/capacity/reservations/:id/allocate', authenticate, authorize('admi
     }
 
     // Create allocations for each car
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const targetMonth = `${r.start_year}-${String(r.start_month).padStart(2, '0')}`;
 
     for (const carNumber of car_numbers) {
@@ -2510,7 +2510,7 @@ router.post('/ccm-documents', authenticate, authorize('admin', 'operator'), asyn
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     // Mark previous versions as not current
     await query(`
@@ -2725,7 +2725,7 @@ router.post('/billable-items', authenticate, authorize('admin', 'operator'), asy
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     const result = await query(`
       INSERT INTO billable_items (lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible, billing_notes, created_by)
@@ -2923,7 +2923,7 @@ router.post('/shopping-packets', authenticate, authorize('admin', 'operator'), a
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await query('SELECT create_shopping_packet($1, $2) AS id', [allocation_id, userId]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
@@ -2975,7 +2975,7 @@ router.put('/shopping-packets/:id', authenticate, authorize('admin', 'operator')
 router.post('/shopping-packets/:id/issue', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { email_to } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE shopping_packets SET
@@ -3009,7 +3009,7 @@ router.post('/shopping-packets/:id/reissue', authenticate, authorize('admin', 'o
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await query('SELECT reissue_shopping_packet($1, $2, $3) AS id', [req.params.id, userId, reason]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
@@ -3139,7 +3139,7 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     // Get shopping reason details if provided
     let reasonCode = null, reasonName = null;
@@ -3236,7 +3236,7 @@ router.post('/projects/:id/activate', authenticate, authorize('admin', 'operator
 router.post('/projects/:id/complete', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { completion_notes } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE projects SET
@@ -3279,7 +3279,7 @@ router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), 
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     let added = 0;
 
     for (const carNumber of car_numbers) {
@@ -3326,7 +3326,7 @@ router.delete('/projects/:projectId/cars/:carNumber', authenticate, authorize('a
 router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { status, completion_notes } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     if (!['pending', 'in_progress', 'completed', 'excluded'].includes(status)) {
       res.status(400).json({ success: false, error: 'Invalid status' });
@@ -3361,7 +3361,7 @@ router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authoriz
  */
 router.post('/projects/:projectId/cars/:carNumber/brc-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE project_cars SET
@@ -3408,8 +3408,8 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
  */
 router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { cars } = req.body;
 
     if (!cars || !Array.isArray(cars) || cars.length === 0) {
@@ -3438,8 +3438,8 @@ router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { assignment_ids } = req.body;
 
     if (!assignment_ids || !Array.isArray(assignment_ids) || assignment_ids.length === 0) {
@@ -3468,8 +3468,8 @@ router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_assignment_id, new_shop_code, new_target_month, new_target_date, new_estimated_cost, reason } = req.body;
 
     if (!project_assignment_id || !new_shop_code || !new_target_month || !reason) {
@@ -3503,8 +3503,8 @@ router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operat
  */
 router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_assignment_id, reason } = req.body;
 
     if (!project_assignment_id || !reason) {
@@ -3537,7 +3537,7 @@ router.post('/projects/:projectId/assignments/:id/unlock', authenticate, authori
     const result = await projectPlanningService.unlockPlan(
       req.params.projectId,
       req.params.id,
-      req.user.id,
+      req.user!.id,
       req.body.notes
     );
     res.json({ success: true, data: result });
@@ -3562,7 +3562,7 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
       return;
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const demand = await demandService.createDemand(
       { ...req.body, project_id: projectId },
       userId
@@ -3572,7 +3572,7 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
     await projectAuditService.writeAuditEvent({
       project_id: projectId,
       actor_id: userId,
-      actor_email: req.user?.email,
+      actor_email: req.user!.email,
       action: 'demand_created',
       notes: `Demand "${demand.name}" created for allocation engine (${demand.car_count} cars, ${demand.target_month})`,
     });
@@ -3645,8 +3645,8 @@ router.get('/projects/:id/plan-history/:carNumber', authenticate, async (req, re
  */
 router.post('/projects/:id/communications', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { communication_type, communicated_to, communication_method, subject, notes } = req.body;
 
     if (!communication_type) {
@@ -3694,8 +3694,8 @@ router.get('/projects/:id/communications', authenticate, async (req, res) => {
  */
 router.post('/shopping-events/:id/bundle-project-work', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const userEmail = req.user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_id, project_car_id, car_number, shop_code, target_month } = req.body;
 
     if (!project_id || !project_car_id || !car_number || !shop_code || !target_month) {
@@ -4084,7 +4084,7 @@ router.post('/ccm-instructions', authenticate, authorize('admin', 'operator'), a
       return res.status(400).json({ success: false, error: 'Invalid scope_type' });
     }
 
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const instruction = await ccmInstructionsService.createCCMInstruction(
       { type: scope_type, id: scope_id },
       data,
@@ -4275,7 +4275,7 @@ router.get('/shopping-events/:id/state-history', optionalAuth, shoppingEventCont
 // Shopping Event Revert
 router.post('/shopping-events/:id/revert', authenticate, async (req, res, next) => {
   try {
-    const result = await shoppingEventService.revertLastTransition(req.params.id, req.user.id);
+    const result = await shoppingEventService.revertLastTransition(req.params.id, req.user!.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -4762,7 +4762,7 @@ router.post('/integrations/batch-retry', authenticate, authorize('admin'), async
 router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCars } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importCars(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4770,7 +4770,7 @@ router.post('/migration/import/cars', authenticate, authorize('admin'), async (r
 router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importContracts } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importContracts(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4778,7 +4778,7 @@ router.post('/migration/import/contracts', authenticate, authorize('admin'), asy
 router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importShoppingEvents } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importShoppingEvents(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4786,7 +4786,7 @@ router.post('/migration/import/shopping', authenticate, authorize('admin'), asyn
 router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importQualifications } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importQualifications(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4823,7 +4823,7 @@ router.get('/migration/reconciliation', authenticate, authorize('admin'), async 
 router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCustomers } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importCustomers(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4831,7 +4831,7 @@ router.post('/migration/import/customers', authenticate, authorize('admin'), asy
 router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importInvoices } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importInvoices(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4839,7 +4839,7 @@ router.post('/migration/import/invoices', authenticate, authorize('admin'), asyn
 router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importAllocations } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importAllocations(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4847,7 +4847,7 @@ router.post('/migration/import/allocations', authenticate, authorize('admin'), a
 router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importMileageRecords } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await importMileageRecords(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4855,7 +4855,7 @@ router.post('/migration/import/mileage', authenticate, authorize('admin'), async
 router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { runOrchestration } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await runOrchestration(req.body.files || {}, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4872,7 +4872,7 @@ router.post('/migration/validate', authenticate, authorize('admin'), async (req,
 router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { rollbackRun } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await rollbackRun(req.params.id, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4891,7 +4891,7 @@ router.get('/system/health-dashboard', authenticate, authorize('admin'), async (
 router.post('/feedback', authenticate, async (req, res) => {
   try {
     const { createFeedback } = await import('../services/feedback.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const data = await createFeedback({ ...req.body, user_id: userId });
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4920,7 +4920,7 @@ router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res)
 router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { updateFeedback } = await import('../services/feedback.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -4971,7 +4971,7 @@ router.get('/system/mode', authenticate, async (req, res) => {
 router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { setSystemMode } = await import('../services/system-mode.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { mode } = req.body;
     if (!mode) { res.status(400).json({ success: false, error: 'mode is required' }); return; }
     const data = await setSystemMode(mode, userId);
@@ -4983,7 +4983,7 @@ router.put('/system/mode', authenticate, authorize('admin'), async (req, res) =>
 router.post('/migration/delta/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { deltaMigrateCars } = await import('../services/migration-pipeline.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await deltaMigrateCars(req.body.content, userId);
     res.json({ success: true, data: result });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -5034,7 +5034,7 @@ router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('a
 router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/parallel-run.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
     res.json({ success: true, data: { resolved: result } });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -5134,7 +5134,7 @@ router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
 router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { createIncident } = await import('../services/go-live-incidents.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const data = await createIncident({ ...req.body, reported_by: userId });
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -5181,8 +5181,8 @@ router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) =
 router.get('/alerts', authenticate, async (req, res) => {
   try {
     const { getActiveAlerts } = await import('../services/alert-engine.service');
-    const userId = req.user?.id;
-    const role = req.user?.role;
+    const userId = req.user!.id;
+    const role = req.user!.role;
     const data = await getActiveAlerts(userId, role);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -5191,7 +5191,7 @@ router.get('/alerts', authenticate, async (req, res) => {
 router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
   try {
     const { dismissAlert } = await import('../services/alert-engine.service');
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     await dismissAlert(req.params.id, userId);
     res.json({ success: true });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
@@ -5369,7 +5369,7 @@ router.post('/report-builder/export-csv', authenticate, async (req, res) => {
 router.get('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { listSavedReports } = await import('../services/report-builder.service');
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const data = await listSavedReports(userId);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -5380,7 +5380,7 @@ router.get('/report-builder/saved', authenticate, async (req, res) => {
 router.post('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { saveReport } = await import('../services/report-builder.service');
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { template_id, name, description, columns, filters, sort_by, sort_dir } = req.body;
     if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
     const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
@@ -5393,7 +5393,7 @@ router.post('/report-builder/saved', authenticate, async (req, res) => {
 router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
   try {
     const { deleteSavedReport } = await import('../services/report-builder.service');
-    const userId = req.user.id;
+    const userId = req.user!.id;
     await deleteSavedReport(req.params.id, userId);
     res.json({ success: true });
   } catch (error: any) {
@@ -5568,7 +5568,7 @@ router.get('/migration/reconciliation/discrepancies', authenticate, authorize('a
 router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
-    const data = await resolveDiscrepancy(req.params.id, req.body, req.user?.id);
+    const data = await resolveDiscrepancy(req.params.id, req.body, req.user!.id);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5577,7 +5577,7 @@ router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate
   try {
     const { bulkResolveDiscrepancies } = await import('../services/data-reconciliation.service');
     const { ids, ...resolution } = req.body;
-    const data = await bulkResolveDiscrepancies(ids, resolution, req.user?.id);
+    const data = await bulkResolveDiscrepancies(ids, resolution, req.user!.id);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5602,7 +5602,7 @@ router.get('/training/modules', authenticate, async (req, res) => {
 router.get('/training/progress', authenticate, async (req, res) => {
   try {
     const { getUserProgress } = await import('../services/training-progress.service');
-    const data = await getUserProgress(req.user?.id);
+    const data = await getUserProgress(req.user!.id);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5610,7 +5610,7 @@ router.get('/training/progress', authenticate, async (req, res) => {
 router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
   try {
     const { startModule } = await import('../services/training-progress.service');
-    const data = await startModule(req.user?.id, req.params.moduleId);
+    const data = await startModule(req.user!.id, req.params.moduleId);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5618,7 +5618,7 @@ router.post('/training/modules/:moduleId/start', authenticate, async (req, res) 
 router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
   try {
     const { completeModule } = await import('../services/training-progress.service');
-    const data = await completeModule(req.user?.id, req.params.moduleId, req.body.score);
+    const data = await completeModule(req.user!.id, req.params.moduleId, req.body.score);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5626,7 +5626,7 @@ router.post('/training/modules/:moduleId/complete', authenticate, async (req, re
 router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
   try {
     const { updateProgress } = await import('../services/training-progress.service');
-    const data = await updateProgress(req.user?.id, req.params.moduleId, req.body.timeSpent);
+    const data = await updateProgress(req.user!.id, req.params.moduleId, req.body.timeSpent);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5634,7 +5634,7 @@ router.put('/training/modules/:moduleId/progress', authenticate, async (req, res
 router.get('/training/certifications', authenticate, async (req, res) => {
   try {
     const { getUserCertifications } = await import('../services/training-progress.service');
-    const data = await getUserCertifications(req.user?.id);
+    const data = await getUserCertifications(req.user!.id);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
@@ -5642,7 +5642,7 @@ router.get('/training/certifications', authenticate, async (req, res) => {
 router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { grantCertification } = await import('../services/training-progress.service');
-    const data = await grantCertification(req.body.userId, req.body.certType, req.user?.id, req.body.notes);
+    const data = await grantCertification(req.body.userId, req.body.certType, req.user!.id, req.body.notes);
     res.json({ success: true, data });
   } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });

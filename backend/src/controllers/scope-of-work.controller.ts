@@ -16,7 +16,7 @@ import {
 
 export async function createSOWHandler(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { scope_library_id } = req.body;
 
     const sow = await createSOW({ scope_library_id }, userId);
@@ -164,7 +164,7 @@ export async function populateFromCCMHandler(req: Request, res: Response): Promi
 export async function finalizeSOWHandler(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     const sow = await finalizeSOW(id, userId);
 
@@ -183,7 +183,7 @@ export async function finalizeSOWHandler(req: Request, res: Response): Promise<v
 export async function saveAsTemplateHandler(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { name } = req.body;
 
     if (!name) {

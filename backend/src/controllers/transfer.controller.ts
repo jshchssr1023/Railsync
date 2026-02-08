@@ -25,7 +25,7 @@ export async function validatePrerequisites(req: Request, res: Response): Promis
  */
 export async function initiateTransfer(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await transferService.initiateTransfer(req.body, userId);
     res.status(201).json({ success: true, data: result });
   } catch (error: any) {
@@ -91,7 +91,7 @@ export async function getTransfer(req: Request, res: Response): Promise<void> {
  */
 export async function confirmTransfer(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await transferService.confirmTransfer(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -105,7 +105,7 @@ export async function confirmTransfer(req: Request, res: Response): Promise<void
  */
 export async function completeTransfer(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const result = await transferService.completeTransfer(req.params.id, userId, req.body.notes);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -119,7 +119,7 @@ export async function completeTransfer(req: Request, res: Response): Promise<voi
  */
 export async function cancelTransfer(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { reason } = req.body;
     if (!reason) {
       res.status(400).json({ success: false, error: 'Cancellation reason is required' });

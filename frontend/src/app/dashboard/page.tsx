@@ -796,7 +796,7 @@ export default function DashboardPage() {
                     <LabelList
                       dataKey="avg_days"
                       position="right"
-                      formatter={(v: number) => `${v}d`}
+                      formatter={(v) => `${v ?? ''}d`}
                       style={{ fontSize: '11px', fill: '#6b7280', fontWeight: 600 }}
                     />
                   </Bar>
@@ -1216,7 +1216,7 @@ export default function DashboardPage() {
                     <LabelList
                       dataKey="variance"
                       position="right"
-                      formatter={(v: number) => `${v > 0 ? '+' : ''}${v}%`}
+                      formatter={(v) => `${Number(v) > 0 ? '+' : ''}${v ?? 0}%`}
                       style={{ fontSize: '10px', fill: '#6b7280', fontWeight: 600 }}
                     />
                   </Bar>

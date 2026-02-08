@@ -85,7 +85,7 @@ export async function createComponent(req: Request, res: Response): Promise<void
       return;
     }
 
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await componentService.createComponent({
       car_number,
@@ -111,7 +111,7 @@ export async function createComponent(req: Request, res: Response): Promise<void
 export async function updateComponent(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await componentService.updateComponent(id, req.body, userId);
 
@@ -141,7 +141,7 @@ export async function replaceComponent(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await componentService.replaceComponent(id, {
       newSerialNumber,
@@ -170,7 +170,7 @@ export async function removeComponent(req: Request, res: Response): Promise<void
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await componentService.removeComponent(id, notes, userId);
 
@@ -194,7 +194,7 @@ export async function recordInspection(req: Request, res: Response): Promise<voi
   try {
     const { id } = req.params;
     const { shopCode, notes } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await componentService.recordInspection(id, {
       shopCode,

@@ -18,12 +18,12 @@ export function errorHandler(
   const statusCode = err.statusCode || 500;
   const isProduction = process.env.NODE_ENV === 'production';
 
-  logger.error(`[Error] ${err.message}`, {
+  logger.error({
     statusCode,
     stack: err.stack,
     path: req.path,
     method: req.method,
-  });
+  }, `[Error] ${err.message}`);
 
   res.status(statusCode).json({
     success: false,

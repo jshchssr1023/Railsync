@@ -76,7 +76,7 @@ export async function createCommodity(req: Request, res: Response): Promise<void
       return;
     }
 
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await commodityService.createCommodity(req.body, userId);
 
@@ -98,7 +98,7 @@ export async function createCommodity(req: Request, res: Response): Promise<void
 export async function updateCommodity(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user!.id;
 
     const result = await commodityService.updateCommodity(id, req.body, userId);
 
