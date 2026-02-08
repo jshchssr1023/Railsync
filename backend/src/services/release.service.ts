@@ -11,6 +11,7 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { logTransition } from './transition-log.service';
 import * as assetEventService from './assetEvent.service';
 import { createAlert } from './alerts.service';
@@ -127,7 +128,7 @@ export async function initiateRelease(
     isReversible: true,
     actorId: userId,
     notes: `Release type: ${input.release_type}`,
-  }).catch(err => console.error('[TransitionLog] Failed to log release initiation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log release initiation'));
 
   return result;
 }
@@ -171,7 +172,7 @@ export async function approveRelease(
     toState: 'APPROVED',
     isReversible: true,
     actorId: userId,
-  }).catch(err => console.error('[TransitionLog] Failed to log release approval:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log release approval'));
 
   return result;
 }
@@ -212,7 +213,7 @@ export async function executeRelease(
     isReversible: false,
     actorId: userId,
     notes: 'Physical release in progress',
-  }).catch(err => console.error('[TransitionLog] Failed to log release execution:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log release execution'));
 
   return result;
 }
@@ -310,7 +311,7 @@ export async function completeRelease(
     actorId: userId,
     sideEffects,
     notes: notes || undefined,
-  }).catch(err => console.error('[TransitionLog] Failed to log release completion:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log release completion'));
 
   // Record asset event
   const carResult = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [current.car_number]);
@@ -386,7 +387,7 @@ export async function cancelRelease(
     isReversible: false,
     actorId: userId,
     notes: reason,
-  }).catch(err => console.error('[TransitionLog] Failed to log release cancellation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log release cancellation'));
 
   return result;
 }

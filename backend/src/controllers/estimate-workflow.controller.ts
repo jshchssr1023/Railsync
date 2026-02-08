@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   submitEstimate as submitEstimateService,
   getEstimate as getEstimateService,
@@ -14,7 +15,7 @@ import {
 // POST /api/shopping-events/:id/estimates
 export async function submitEstimate(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const input = {
       shopping_event_id: req.params.id,
       ...req.body,
@@ -22,7 +23,7 @@ export async function submitEstimate(req: Request, res: Response): Promise<void>
     const estimate = await submitEstimateService(input, userId);
     res.status(201).json(estimate);
   } catch (error: any) {
-    console.error('Error submitting estimate:', error);
+    logger.error({ err: error }, 'Error submitting estimate');
     res.status(500).json({ error: error.message || 'Failed to submit estimate' });
   }
 }
@@ -33,7 +34,7 @@ export async function listEstimateVersions(req: Request, res: Response): Promise
     const versions = await listEstimateVersionsService(req.params.id);
     res.json(versions);
   } catch (error: any) {
-    console.error('Error listing estimate versions:', error);
+    logger.error({ err: error }, 'Error listing estimate versions');
     res.status(500).json({ error: error.message || 'Failed to list estimate versions' });
   }
 }
@@ -48,7 +49,7 @@ export async function getEstimate(req: Request, res: Response): Promise<void> {
     }
     res.json(estimate);
   } catch (error: any) {
-    console.error('Error getting estimate:', error);
+    logger.error({ err: error }, 'Error getting estimate');
     res.status(500).json({ error: error.message || 'Failed to get estimate' });
   }
 }
@@ -56,7 +57,7 @@ export async function getEstimate(req: Request, res: Response): Promise<void> {
 // POST /api/estimates/:id/decisions
 export async function recordLineDecisions(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const { decisions } = req.body;
 
     if (!Array.isArray(decisions) || decisions.length === 0) {
@@ -72,7 +73,7 @@ export async function recordLineDecisions(req: Request, res: Response): Promise<
 
     res.status(201).json(createdDecisions);
   } catch (error: any) {
-    console.error('Error recording line decisions:', error);
+    logger.error({ err: error }, 'Error recording line decisions');
     res.status(500).json({ error: error.message || 'Failed to record line decisions' });
   }
 }
@@ -100,7 +101,7 @@ export async function getEstimateDecisions(req: Request, res: Response): Promise
 
     res.json(allDecisions);
   } catch (error: any) {
-    console.error('Error getting estimate decisions:', error);
+    logger.error({ err: error }, 'Error getting estimate decisions');
     res.status(500).json({ error: error.message || 'Failed to get estimate decisions' });
   }
 }
@@ -112,7 +113,7 @@ export async function updateEstimateStatus(req: Request, res: Response): Promise
     const estimate = await updateEstimateStatusService(req.params.id, status);
     res.json(estimate);
   } catch (error: any) {
-    console.error('Error updating estimate status:', error);
+    logger.error({ err: error }, 'Error updating estimate status');
     res.status(500).json({ error: error.message || 'Failed to update estimate status' });
   }
 }
@@ -120,7 +121,7 @@ export async function updateEstimateStatus(req: Request, res: Response): Promise
 // POST /api/estimates/:id/approval-packet
 export async function generateApprovalPacket(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const { overall_decision, line_decisions, notes } = req.body;
     const packet = await generateApprovalPacketService(
       req.params.id,
@@ -131,7 +132,7 @@ export async function generateApprovalPacket(req: Request, res: Response): Promi
     );
     res.status(201).json(packet);
   } catch (error: any) {
-    console.error('Error generating approval packet:', error);
+    logger.error({ err: error }, 'Error generating approval packet');
     res.status(500).json({ error: error.message || 'Failed to generate approval packet' });
   }
 }
@@ -146,7 +147,7 @@ export async function getApprovalPacket(req: Request, res: Response): Promise<vo
     }
     res.json(packet);
   } catch (error: any) {
-    console.error('Error getting approval packet:', error);
+    logger.error({ err: error }, 'Error getting approval packet');
     res.status(500).json({ error: error.message || 'Failed to get approval packet' });
   }
 }
@@ -154,11 +155,11 @@ export async function getApprovalPacket(req: Request, res: Response): Promise<vo
 // POST /api/approval-packets/:id/release
 export async function releaseApprovalPacket(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const packet = await releaseApprovalPacketService(req.params.id, userId);
     res.json(packet);
   } catch (error: any) {
-    console.error('Error releasing approval packet:', error);
+    logger.error({ err: error }, 'Error releasing approval packet');
     res.status(500).json({ error: error.message || 'Failed to release approval packet' });
   }
 }

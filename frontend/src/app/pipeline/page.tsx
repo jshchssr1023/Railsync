@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Search, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+import ExportButton from '@/components/ExportButton';
+import type { ExportColumn } from '@/hooks/useExportCSV';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -120,6 +122,19 @@ export default function PipelinePage() {
     };
   }, [data, activeTab, searchQuery, currentPage, pageSize]);
 
+  const pipelineExportColumns: ExportColumn[] = [
+    { key: 'car_number', header: 'Car Number' },
+    { key: 'car_mark', header: 'Car Mark' },
+    { key: 'product_code', header: 'Product Code' },
+    { key: 'current_status', header: 'Status' },
+    { key: 'shop_name', header: 'Shop', format: (v: string | null) => v || '' },
+    { key: 'target_month', header: 'Target Month', format: (v: string | null) => v || '' },
+    { key: 'needs_shopping_reason', header: 'Reason', format: (v: string | null) => v || '' },
+    { key: 'estimated_cost', header: 'Estimated Cost', format: (v: number) => v != null ? v.toFixed(2) : '' },
+  ];
+
+  const pipelineExportFilename = `railsync-pipeline-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -147,13 +162,21 @@ export default function PipelinePage() {
             Track cars through the shopping lifecycle
           </p>
         </div>
-        <button
-          onClick={() => mutate()}
-          className="btn btn-secondary flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" aria-hidden="true" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <ExportButton
+            data={filteredCars}
+            columns={pipelineExportColumns}
+            filename={pipelineExportFilename}
+            disabled={isLoading}
+          />
+          <button
+            onClick={() => mutate()}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

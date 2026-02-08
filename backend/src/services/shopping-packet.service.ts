@@ -4,6 +4,7 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 
 // Types
 export interface ShoppingPacketDetail {
@@ -292,13 +293,13 @@ export async function sendPacket(id: string, userId: string): Promise<ShoppingPa
           `,
           text: `Shopping Packet Issued\n\nPacket: ${result.packet_number}\nCar: ${result.car_number}\nShop: ${result.shop_code}\n${result.special_instructions ? `Instructions: ${result.special_instructions}\n` : ''}`,
         });
-        console.log(`[Packet] Email queued to ${shopContact.email} for packet ${result.packet_number}`);
+        logger.info(`[Packet] Email queued to ${shopContact.email} for packet ${result.packet_number}`);
       } else {
-        console.log(`[Packet] No primary contact email for shop ${result.shop_code}, skipping email`);
+        logger.info(`[Packet] No primary contact email for shop ${result.shop_code}, skipping email`);
       }
     } catch (err) {
       // Email failure should not block packet issuance
-      console.error(`[Packet] Failed to queue email for packet ${id}:`, (err as Error).message);
+      logger.error({ err, packetId: id }, 'Failed to queue email for packet');
     }
   }
 

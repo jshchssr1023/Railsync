@@ -5,6 +5,7 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { pool } from '../config/database';
 
 // ============================================================================
@@ -751,7 +752,7 @@ export async function importMileageRecords(
     imported = records.length;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Billing] Mileage import error for file ${fileId}:`, message);
+    logger.error({ fileId, message }, 'Mileage import error');
     errorCount = records.length;
   }
 

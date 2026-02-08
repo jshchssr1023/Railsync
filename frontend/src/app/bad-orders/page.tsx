@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { listBadOrders, createBadOrder, resolveBadOrder, revertBadOrder, BadOrderReport } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
 import { useToast } from '@/components/Toast';
+import EmptyState from '@/components/EmptyState';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
 
@@ -84,6 +85,7 @@ function BadOrdersContent() {
       });
       setShowForm(false);
       fetchReports();
+      toast.success('Bad order report created successfully');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create report');
     }
@@ -93,6 +95,7 @@ function BadOrdersContent() {
     try {
       await resolveBadOrder(id, action);
       fetchReports();
+      toast.success('Bad order resolved successfully');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to resolve');
     }
@@ -213,7 +216,15 @@ function BadOrdersContent() {
           {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded" />)}
         </div>
       ) : reports.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No bad order reports found</div>
+        <EmptyState
+          variant={filter ? 'search' : 'neutral'}
+          title="No bad order reports found"
+          description={filter
+            ? 'Try changing the status filter to see more results.'
+            : 'Submit a new bad order report to get started.'}
+          actionLabel="Report Bad Order"
+          onAction={() => setShowForm(true)}
+        />
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (

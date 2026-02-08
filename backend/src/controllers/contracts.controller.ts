@@ -5,6 +5,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as contractsService from '../services/contracts.service';
 
 // ============================================================================
@@ -22,7 +23,7 @@ export async function listCustomers(req: Request, res: Response) {
       total: customers.length,
     });
   } catch (error: any) {
-    console.error('Error listing customers:', error);
+    logger.error({ err: error }, 'Error listing customers');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to list customers',
@@ -47,7 +48,7 @@ export async function getCustomer(req: Request, res: Response) {
       data: customer,
     });
   } catch (error: any) {
-    console.error('Error getting customer:', error);
+    logger.error({ err: error }, 'Error getting customer');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get customer',
@@ -66,7 +67,7 @@ export async function getCustomerLeases(req: Request, res: Response) {
       total: leases.length,
     });
   } catch (error: any) {
-    console.error('Error getting customer leases:', error);
+    logger.error({ err: error }, 'Error getting customer leases');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get customer leases',
@@ -95,7 +96,7 @@ export async function getLease(req: Request, res: Response) {
       data: lease,
     });
   } catch (error: any) {
-    console.error('Error getting lease:', error);
+    logger.error({ err: error }, 'Error getting lease');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get lease',
@@ -114,7 +115,7 @@ export async function getLeaseRiders(req: Request, res: Response) {
       total: riders.length,
     });
   } catch (error: any) {
-    console.error('Error getting lease riders:', error);
+    logger.error({ err: error }, 'Error getting lease riders');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get lease riders',
@@ -143,7 +144,7 @@ export async function getRider(req: Request, res: Response) {
       data: rider,
     });
   } catch (error: any) {
-    console.error('Error getting rider:', error);
+    logger.error({ err: error }, 'Error getting rider');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get rider',
@@ -162,7 +163,7 @@ export async function getRiderCars(req: Request, res: Response) {
       total: cars.length,
     });
   } catch (error: any) {
-    console.error('Error getting rider cars:', error);
+    logger.error({ err: error }, 'Error getting rider cars');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get rider cars',
@@ -181,7 +182,7 @@ export async function getRiderAmendments(req: Request, res: Response) {
       total: amendments.length,
     });
   } catch (error: any) {
-    console.error('Error getting rider amendments:', error);
+    logger.error({ err: error }, 'Error getting rider amendments');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get rider amendments',
@@ -192,7 +193,7 @@ export async function getRiderAmendments(req: Request, res: Response) {
 export async function resyncRiderSchedules(req: Request, res: Response) {
   try {
     const { riderId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const count = await contractsService.resyncSchedules(riderId, userId);
 
@@ -204,7 +205,7 @@ export async function resyncRiderSchedules(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
-    console.error('Error resyncing rider schedules:', error);
+    logger.error({ err: error }, 'Error resyncing rider schedules');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to resync schedules',
@@ -239,7 +240,7 @@ export async function getAmendment(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
-    console.error('Error getting amendment:', error);
+    logger.error({ err: error }, 'Error getting amendment');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get amendment',
@@ -262,7 +263,7 @@ export async function detectAmendmentConflicts(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
-    console.error('Error detecting conflicts:', error);
+    logger.error({ err: error }, 'Error detecting conflicts');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to detect conflicts',
@@ -294,7 +295,7 @@ export async function getCarsWithAmendments(req: Request, res: Response) {
       filters,
     });
   } catch (error: any) {
-    console.error('Error getting cars with amendments:', error);
+    logger.error({ err: error }, 'Error getting cars with amendments');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get cars with amendments',
@@ -316,7 +317,7 @@ export async function validateCarForShopping(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error validating car for shopping:', error);
+    logger.error({ err: error }, 'Error validating car for shopping');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to validate car',

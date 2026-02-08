@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../config/logger';
 import jwt from 'jsonwebtoken';
 import { JwtPayload, UserRole, UserPublic } from '../types';
 import { findByIdPublic } from '../models/user.model';
@@ -12,9 +13,9 @@ declare module 'express-serve-static-core' {
 }
 
 if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is not set.');
-  console.error('Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
-  console.error('Set it in your .env file or environment before starting the server.');
+  logger.error('FATAL: JWT_SECRET environment variable is not set.');
+  logger.error('Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+  logger.error('Set it in your .env file or environment before starting the server.');
   process.exit(1);
 }
 
@@ -94,7 +95,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
         next();
       })
       .catch((err) => {
-        console.error('Auth middleware error:', err);
+        logger.error({ err: err }, 'Auth middleware error');
         res.status(500).json({
           success: false,
           error: 'Internal server error',
@@ -119,7 +120,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
       return;
     }
 
-    console.error('JWT verification error:', err);
+    logger.error({ err: err }, 'JWT verification error');
     res.status(500).json({
       success: false,
       error: 'Internal server error',

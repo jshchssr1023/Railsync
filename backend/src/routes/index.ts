@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import logger from '../config/logger';
 import carController from '../controllers/car.controller';
 import shopController from '../controllers/shop.controller';
 import ruleController from '../controllers/rule.controller';
@@ -69,15 +70,34 @@ const invoiceUpload = multer({
     }
   },
 });
+// Allowed MIME types for document uploads (packets and shopping requests)
+const allowedDocMimeTypes = [
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv', 'text/plain',
+];
+
+const safeDocFileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  if (allowedDocMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('File type not allowed. Accepted: PDF, images, Office documents, CSV.'));
+  }
+};
+
 // Configure multer for packet document uploads
 const packetDocUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  fileFilter: safeDocFileFilter,
 });
 // Configure multer for shopping request attachment uploads
 const shoppingRequestUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  fileFilter: safeDocFileFilter,
 });
 
 import { authenticate, authorize, optionalAuth } from '../middleware/auth';
@@ -181,7 +201,7 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
     `);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Cars browse error:', err);
+    logger.error({ err }, 'Cars browse error');
     res.status(500).json({ success: false, error: 'Failed to fetch cars' });
   }
 });
@@ -211,7 +231,7 @@ router.get('/contracts-browse/filters', optionalAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Contracts browse filters error:', err);
+    logger.error({ err }, 'Contracts browse filters error');
     res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
   }
 });
@@ -250,7 +270,7 @@ router.get('/contracts-browse/types', optionalAuth, async (req, res) => {
 
     res.json({ success: true, data: tree });
   } catch (err) {
-    console.error('Contracts browse types error:', err);
+    logger.error({ err }, 'Contracts browse types error');
     res.status(500).json({ success: false, error: 'Failed to fetch car types' });
   }
 });
@@ -343,7 +363,7 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
       pagination: { page, limit, total, totalPages }
     });
   } catch (err) {
-    console.error('Contracts browse cars error:', err);
+    logger.error({ err }, 'Contracts browse cars error');
     res.status(500).json({ success: false, error: 'Failed to fetch cars' });
   }
 });
@@ -405,7 +425,7 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
       }
     });
   } catch (err) {
-    console.error('Contracts browse car detail error:', err);
+    logger.error({ err }, 'Contracts browse car detail error');
     res.status(500).json({ success: false, error: 'Failed to fetch car detail' });
   }
 });
@@ -429,7 +449,7 @@ router.get('/cars/:carNumber/details', optionalAuth, async (req, res) => {
 
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Car details error:', err);
+    logger.error({ err }, 'Car details error');
     res.status(500).json({ success: false, error: 'Failed to fetch car details' });
   }
 });
@@ -443,7 +463,7 @@ router.get('/cars/:carNumber/details', optionalAuth, async (req, res) => {
  * @desc    List all active shops
  * @access  Public
  */
-router.get('/shops', shopController.listShops);
+router.get('/shops', authenticate, shopController.listShops);
 
 /**
  * @route   POST /api/shops/evaluate
@@ -494,7 +514,7 @@ router.post('/shops/evaluate', optionalAuth, validateEvaluationRequest, shopCont
  * @access  Public
  * @query   latitude, longitude, radiusMiles, capabilityTypes, tier, preferredNetworkOnly, region
  */
-router.get('/shops/filter', shopFilterController.filterShops);
+router.get('/shops/filter', authenticate, shopFilterController.filterShops);
 
 /**
  * @route   GET /api/shops/nearby
@@ -502,28 +522,28 @@ router.get('/shops/filter', shopFilterController.filterShops);
  * @access  Public
  * @query   latitude (required), longitude (required), radiusMiles (default: 500)
  */
-router.get('/shops/nearby', shopFilterController.findNearbyShops);
+router.get('/shops/nearby', authenticate, shopFilterController.findNearbyShops);
 
 /**
  * @route   GET /api/shops/filter-options
  * @desc    Get filter options for dropdowns (regions, tiers, capability types)
  * @access  Public
  */
-router.get('/shops/filter-options', shopFilterController.getFilterOptions);
+router.get('/shops/filter-options', authenticate, shopFilterController.getFilterOptions);
 
 /**
  * @route   GET /api/shops/capability-types
  * @desc    Get list of all capability types
  * @access  Public
  */
-router.get('/shops/capability-types', shopFilterController.getCapabilityTypes);
+router.get('/shops/capability-types', authenticate, shopFilterController.getCapabilityTypes);
 
 /**
  * @route   GET /api/shops/capability-values/:type
  * @desc    Get unique values for a capability type
  * @access  Public
  */
-router.get('/shops/capability-values/:type', shopFilterController.getCapabilityValues);
+router.get('/shops/capability-values/:type', authenticate, shopFilterController.getCapabilityValues);
 
 /**
  * @route   GET /api/shops/by-capabilities
@@ -641,7 +661,7 @@ router.post('/capacity/import/work', authenticate, authorize('admin'), shopImpor
  *
  * @query   active: 'true' | 'false' (default: 'true')
  */
-router.get('/rules', ruleController.listRules);
+router.get('/rules', authenticate, ruleController.listRules);
 
 /**
  * @route   GET /api/rules/:ruleId
@@ -750,7 +770,7 @@ router.get('/audit-logs', authenticate, authorize('admin'), async (req, res) => 
       offset: filters.offset,
     });
   } catch (error) {
-    console.error('Audit log query error:', error);
+    logger.error({ err: error }, 'Audit log query error');
     res.status(500).json({
       success: false,
       error: 'Failed to query audit logs',
@@ -784,7 +804,7 @@ router.get('/admin/users', authenticate, authorize('admin'), async (req, res) =>
       offset,
     });
   } catch (error) {
-    console.error('List users error:', error);
+    logger.error({ err: error }, 'List users error');
     res.status(500).json({
       success: false,
       error: 'Failed to list users',
@@ -831,7 +851,7 @@ router.put('/admin/users/:userId/role', authenticate, authorize('admin'), async 
       data: user,
     });
   } catch (error) {
-    console.error('Update user role error:', error);
+    logger.error({ err: error }, 'Update user role error');
     res.status(500).json({
       success: false,
       error: 'Failed to update user role',
@@ -852,7 +872,7 @@ router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (r
     const { userId } = req.params;
 
     // Prevent self-deactivation
-    if (userId === req.user?.id) {
+    if (userId === req.user!.id) {
       res.status(400).json({
         success: false,
         error: 'Cannot deactivate yourself',
@@ -868,7 +888,7 @@ router.delete('/admin/users/:userId', authenticate, authorize('admin'), async (r
       message: 'User deactivated successfully',
     });
   } catch (error) {
-    console.error('Deactivate user error:', error);
+    logger.error({ err: error }, 'Deactivate user error');
     res.status(500).json({
       success: false,
       error: 'Failed to deactivate user',
@@ -916,14 +936,14 @@ router.post('/demands/import', authenticate, authorize('admin'), csvUpload.singl
       res.status(400).json({ success: false, error: 'CSV content required. Upload a file or provide content in the request body.' });
       return;
     }
-    const result = await demandService.importDemandsFromCSV(content, (req as any).user?.id);
+    const result = await demandService.importDemandsFromCSV(content, req.user!.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
 
 router.post('/demands/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await demandService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    const result = await demandService.revertLastTransition(req.params.id, req.user!.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -956,7 +976,7 @@ router.put('/allocations/:id/status', authenticate, authorize('admin', 'operator
 router.post('/allocations/:id/assign', authenticate, authorize('admin', 'operator'), planningController.assignAllocation);
 router.post('/allocations/:id/revert', authenticate, authorize('admin', 'operator'), async (req, res, next) => {
   try {
-    const result = await allocationService.revertLastTransition(req.params.id, (req as any).user.id, req.body.notes);
+    const result = await allocationService.revertLastTransition(req.params.id, req.user!.id, req.body.notes);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -1005,7 +1025,7 @@ router.delete('/dashboard/configs/:id', authenticate, planningController.deleteD
 // PHASE 12 - CONTRACTS VISIBILITY ROUTES
 // ============================================================================
 
-router.get('/contracts/metrics', async (req, res) => {
+router.get('/contracts/metrics', authenticate, async (req, res) => {
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
     let result;
@@ -1035,12 +1055,12 @@ router.get('/contracts/metrics', async (req, res) => {
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Contracts metrics error:', error);
+    logger.error({ err: error }, 'Contracts metrics error');
     res.status(500).json({ success: false, error: 'Failed to fetch contracts metrics' });
   }
 });
 
-router.get('/contracts/monthly-volumes', async (req, res) => {
+router.get('/contracts/monthly-volumes', authenticate, async (req, res) => {
   const year = parseInt(req.query.year as string) || new Date().getFullYear();
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
@@ -1072,12 +1092,12 @@ router.get('/contracts/monthly-volumes', async (req, res) => {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Monthly volumes error:', error);
+    logger.error({ err: error }, 'Monthly volumes error');
     res.status(500).json({ success: false, error: 'Failed to fetch monthly volumes' });
   }
 });
 
-router.get('/contracts/tier-summary', async (req, res) => {
+router.get('/contracts/tier-summary', authenticate, async (req, res) => {
   const tier = req.query.tier ? parseInt(req.query.tier as string) : null;
   try {
     let result;
@@ -1091,13 +1111,13 @@ router.get('/contracts/tier-summary', async (req, res) => {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Tier summary error:', error);
+    logger.error({ err: error }, 'Tier summary error');
     res.status(500).json({ success: false, error: 'Failed to fetch tier summary' });
   }
 });
 
 // Dynamic filter options endpoint
-router.get('/filters/options', async (req, res) => {
+router.get('/filters/options', authenticate, async (req, res) => {
   try {
     // Get distinct tiers from shops
     const tiersResult = await query(`
@@ -1136,7 +1156,7 @@ router.get('/filters/options', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Filter options error:', error);
+    logger.error({ err: error }, 'Filter options error');
     res.status(500).json({ success: false, error: 'Failed to fetch filter options' });
   }
 });
@@ -1156,7 +1176,7 @@ router.post('/alerts/scan/:scanType', authenticate, authorize('admin'), alertsCo
 // PHASE 13 - PIPELINE VIEW ROUTES
 // ============================================================================
 
-router.get('/pipeline/buckets', async (req, res) => {
+router.get('/pipeline/buckets', authenticate, async (req, res) => {
   try {
     const statusAutomation = await import('../services/status-automation.service');
 
@@ -1179,7 +1199,7 @@ router.get('/pipeline/buckets', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Pipeline buckets error:', err);
+    logger.error({ err }, 'Pipeline buckets error');
     res.status(500).json({ success: false, error: 'Failed to fetch pipeline buckets' });
   }
 });
@@ -1190,7 +1210,7 @@ router.post('/pipeline/recalculate', authenticate, authorize('admin'), async (re
     const result = await statusAutomation.recalculatePipelineStatuses();
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Pipeline recalculate error:', err);
+    logger.error({ err }, 'Pipeline recalculate error');
     res.status(500).json({ success: false, error: 'Failed to recalculate pipeline statuses' });
   }
 });
@@ -1213,7 +1233,7 @@ router.post('/pipeline/status-update', authenticate, authorize('admin', 'operato
       res.status(400).json({ success: false, error: result.error });
     }
   } catch (err) {
-    console.error('Status update error:', err);
+    logger.error({ err }, 'Status update error');
     res.status(500).json({ success: false, error: 'Failed to update status' });
   }
 });
@@ -1315,7 +1335,7 @@ router.post('/allocations/:id/line-items', authenticate, async (req, res) => {
 
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Add line items error:', err);
+    logger.error({ err }, 'Add line items error');
     res.status(500).json({ success: false, error: 'Failed to add line items' });
   }
 });
@@ -1339,7 +1359,7 @@ router.get('/allocations/:id/line-items', optionalAuth, async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Get line items error:', err);
+    logger.error({ err }, 'Get line items error');
     res.status(500).json({ success: false, error: 'Failed to get line items' });
   }
 });
@@ -1354,7 +1374,7 @@ router.get('/budget/monthly-summary', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_budget_by_month');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Budget summary error:', err);
+    logger.error({ err }, 'Budget summary error');
     res.status(500).json({ success: false, error: 'Failed to get budget summary' });
   }
 });
@@ -1369,7 +1389,7 @@ router.get('/budget/by-type', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_budget_by_type');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Budget by type error:', err);
+    logger.error({ err }, 'Budget by type error');
     res.status(500).json({ success: false, error: 'Failed to get budget by type' });
   }
 });
@@ -1384,7 +1404,7 @@ router.get('/budget/by-lessee', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_budget_by_lessee');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Budget by lessee error:', err);
+    logger.error({ err }, 'Budget by lessee error');
     res.status(500).json({ success: false, error: 'Failed to get budget by lessee' });
   }
 });
@@ -1398,7 +1418,7 @@ router.get('/reports/qual-dashboard', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_qual_dashboard');
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Qual dashboard error:', err);
+    logger.error({ err }, 'Qual dashboard error');
     res.status(500).json({ success: false, error: 'Failed to get qual dashboard' });
   }
 });
@@ -1408,7 +1428,7 @@ router.get('/reports/qual-by-year', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_qual_by_year');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Qual by year error:', err);
+    logger.error({ err }, 'Qual by year error');
     res.status(500).json({ success: false, error: 'Failed to get qual by year' });
   }
 });
@@ -1419,7 +1439,7 @@ router.get('/reports/overdue-cars', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_overdue_cars LIMIT $1', [limit]);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Overdue cars error:', err);
+    logger.error({ err }, 'Overdue cars error');
     res.status(500).json({ success: false, error: 'Failed to get overdue cars' });
   }
 });
@@ -1430,7 +1450,7 @@ router.get('/reports/upcoming-quals', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_upcoming_quals LIMIT $1', [limit]);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Upcoming quals error:', err);
+    logger.error({ err }, 'Upcoming quals error');
     res.status(500).json({ success: false, error: 'Failed to get upcoming quals' });
   }
 });
@@ -1440,7 +1460,7 @@ router.get('/reports/qual-by-csr', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_qual_by_csr');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Qual by CSR error:', err);
+    logger.error({ err }, 'Qual by CSR error');
     res.status(500).json({ success: false, error: 'Failed to get qual by CSR' });
   }
 });
@@ -1450,7 +1470,7 @@ router.get('/reports/qual-by-lessee', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_qual_by_lessee');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Qual by lessee error:', err);
+    logger.error({ err }, 'Qual by lessee error');
     res.status(500).json({ success: false, error: 'Failed to get qual by lessee' });
   }
 });
@@ -1460,7 +1480,7 @@ router.get('/reports/qual-by-region', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_qual_by_region');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Qual by region error:', err);
+    logger.error({ err }, 'Qual by region error');
     res.status(500).json({ success: false, error: 'Failed to get qual by region' });
   }
 });
@@ -1581,7 +1601,7 @@ router.get('/shops/browse/hierarchy', optionalAuth, async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Shop hierarchy error:', err);
+    logger.error({ err }, 'Shop hierarchy error');
     res.status(500).json({ success: false, error: 'Failed to get shop hierarchy' });
   }
 });
@@ -1665,7 +1685,7 @@ router.get('/shops/browse/detail/:shopCode', optionalAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Shop detail error:', err);
+    logger.error({ err }, 'Shop detail error');
     res.status(500).json({ success: false, error: 'Failed to get shop detail' });
   }
 });
@@ -1691,7 +1711,7 @@ router.get('/shops/by-designation/:designation', optionalAuth, async (req, res) 
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Shops by designation error:', err);
+    logger.error({ err }, 'Shops by designation error');
     res.status(500).json({ success: false, error: 'Failed to get shops by designation' });
   }
 });
@@ -1706,7 +1726,7 @@ router.get('/shops/designation-summary', optionalAuth, async (req, res) => {
     const result = await query('SELECT * FROM v_shops_by_designation');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Designation summary error:', err);
+    logger.error({ err }, 'Designation summary error');
     res.status(500).json({ success: false, error: 'Failed to get designation summary' });
   }
 });
@@ -1737,7 +1757,7 @@ router.put('/shops/:shopCode/designation', authenticate, authorize('admin'), asy
 
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Update designation error:', err);
+    logger.error({ err }, 'Update designation error');
     res.status(500).json({ success: false, error: 'Failed to update shop designation' });
   }
 });
@@ -1767,7 +1787,7 @@ router.put('/shops/bulk-designation', authenticate, authorize('admin'), async (r
 
     res.json({ success: true, data: result, updated: result.length });
   } catch (err) {
-    console.error('Bulk designation error:', err);
+    logger.error({ err }, 'Bulk designation error');
     res.status(500).json({ success: false, error: 'Failed to bulk update designations' });
   }
 });
@@ -1787,7 +1807,7 @@ router.get('/storage-commodities', optionalAuth, async (req, res) => {
     `);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Storage commodities error:', err);
+    logger.error({ err }, 'Storage commodities error');
     res.status(500).json({ success: false, error: 'Failed to get storage commodities' });
   }
 });
@@ -1810,7 +1830,7 @@ router.get('/shopping-types/:typeId/required-designation', optionalAuth, async (
     const designation = result[0]?.required_designation || 'repair';
     res.json({ success: true, data: { required_designation: designation } });
   } catch (err) {
-    console.error('Required designation error:', err);
+    logger.error({ err }, 'Required designation error');
     res.status(500).json({ success: false, error: 'Failed to get required designation' });
   }
 });
@@ -1849,7 +1869,7 @@ router.get('/shops/for-shopping-type/:typeId', optionalAuth, async (req, res) =>
       }
     });
   } catch (err) {
-    console.error('Shops for shopping type error:', err);
+    logger.error({ err }, 'Shops for shopping type error');
     res.status(500).json({ success: false, error: 'Failed to get shops for shopping type' });
   }
 });
@@ -1918,7 +1938,7 @@ router.get('/cars/:carNumber/validate-shopping', optionalAuth, contractsControll
 // ============================================================================
 
 // Shopping Types (18 canonical types with cost allocation)
-router.get('/shopping-types', async (req, res) => {
+router.get('/shopping-types', authenticate, async (req, res) => {
   try {
     const types = await query(`
       SELECT id, code, name, description, is_planned, default_cost_owner, tier_preference, sort_order,
@@ -1927,13 +1947,13 @@ router.get('/shopping-types', async (req, res) => {
     `);
     res.json({ success: true, data: types });
   } catch (err) {
-    console.error('Shopping types error:', err);
+    logger.error({ err }, 'Shopping types error');
     res.status(500).json({ success: false, error: 'Failed to fetch shopping types' });
   }
 });
 
 // Shopping Reasons (filtered by type)
-router.get('/shopping-reasons', async (req, res) => {
+router.get('/shopping-reasons', authenticate, async (req, res) => {
   try {
     const typeId = req.query.type_id as string;
     const typeCode = req.query.type_code as string;
@@ -1953,7 +1973,7 @@ router.get('/shopping-reasons', async (req, res) => {
     const reasons = await query(sql, params);
     res.json({ success: true, data: reasons });
   } catch (err) {
-    console.error('Shopping reasons error:', err);
+    logger.error({ err }, 'Shopping reasons error');
     res.status(500).json({ success: false, error: 'Failed to fetch shopping reasons' });
   }
 });
@@ -2072,7 +2092,7 @@ router.get('/capacity/calendar', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Capacity calendar error:', err);
+    logger.error({ err }, 'Capacity calendar error');
     res.status(500).json({ success: false, error: 'Failed to fetch capacity calendar' });
   }
 });
@@ -2126,7 +2146,7 @@ router.get('/capacity/reservations', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Reservations list error:', err);
+    logger.error({ err }, 'Reservations list error');
     res.status(500).json({ success: false, error: 'Failed to fetch reservations' });
   }
 });
@@ -2141,7 +2161,7 @@ router.get('/capacity/reservations/by-lessee', authenticate, async (req, res) =>
     const result = await query('SELECT * FROM v_reservations_by_lessee');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Reservations by lessee error:', err);
+    logger.error({ err }, 'Reservations by lessee error');
     res.status(500).json({ success: false, error: 'Failed to fetch reservations by lessee' });
   }
 });
@@ -2160,7 +2180,7 @@ router.get('/capacity/reservations/:id', authenticate, async (req, res) => {
     }
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Reservation get error:', err);
+    logger.error({ err }, 'Reservation get error');
     res.status(500).json({ success: false, error: 'Failed to fetch reservation' });
   }
 });
@@ -2179,7 +2199,7 @@ router.post('/capacity/reservations', authenticate, authorize('admin', 'operator
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     const result = await query(`
       INSERT INTO capacity_reservations (shop_code, lessee_code, lessee_name, start_year, start_month, end_year, end_month, reserved_slots, notes, created_by)
@@ -2195,7 +2215,7 @@ router.post('/capacity/reservations', authenticate, authorize('admin', 'operator
     const created = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [result[0].id]);
     res.status(201).json({ success: true, data: created[0] });
   } catch (err) {
-    console.error('Reservation create error:', err);
+    logger.error({ err }, 'Reservation create error');
     res.status(500).json({ success: false, error: 'Failed to create reservation' });
   }
 });
@@ -2222,7 +2242,7 @@ router.put('/capacity/reservations/:id', authenticate, authorize('admin', 'opera
     const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Reservation update error:', err);
+    logger.error({ err }, 'Reservation update error');
     res.status(500).json({ success: false, error: 'Failed to update reservation' });
   }
 });
@@ -2234,7 +2254,7 @@ router.put('/capacity/reservations/:id', authenticate, authorize('admin', 'opera
  */
 router.post('/capacity/reservations/:id/confirm', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     // Check capacity before confirming
     const reservation = await query('SELECT * FROM capacity_reservations WHERE id = $1', [req.params.id]);
@@ -2273,7 +2293,7 @@ router.post('/capacity/reservations/:id/confirm', authenticate, authorize('admin
     const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Reservation confirm error:', err);
+    logger.error({ err }, 'Reservation confirm error');
     res.status(500).json({ success: false, error: 'Failed to confirm reservation' });
   }
 });
@@ -2294,7 +2314,7 @@ router.post('/capacity/reservations/:id/cancel', authenticate, authorize('admin'
     const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Reservation cancel error:', err);
+    logger.error({ err }, 'Reservation cancel error');
     res.status(500).json({ success: false, error: 'Failed to cancel reservation' });
   }
 });
@@ -2310,7 +2330,7 @@ router.post('/capacity/reservations/:id/rollover', authenticate, authorize('admi
     const newReservation = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [result[0].new_id]);
     res.json({ success: true, data: newReservation[0] });
   } catch (err: any) {
-    console.error('Reservation rollover error:', err);
+    logger.error({ err }, 'Reservation rollover error');
     res.status(400).json({ success: false, error: err.message || 'Failed to rollover reservation' });
   }
 });
@@ -2349,7 +2369,7 @@ router.post('/capacity/reservations/:id/allocate', authenticate, authorize('admi
     }
 
     // Create allocations for each car
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const targetMonth = `${r.start_year}-${String(r.start_month).padStart(2, '0')}`;
 
     for (const carNumber of car_numbers) {
@@ -2385,7 +2405,7 @@ router.post('/capacity/reservations/:id/allocate', authenticate, authorize('admi
     const updated = await query('SELECT * FROM v_capacity_reservations WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Reservation allocate error:', err);
+    logger.error({ err }, 'Reservation allocate error');
     res.status(500).json({ success: false, error: 'Failed to allocate cars to reservation' });
   }
 });
@@ -2421,7 +2441,7 @@ router.get('/capacity/check', authenticate, async (req, res) => {
       available: !result.some((c: any) => c.would_exceed)
     });
   } catch (err) {
-    console.error('Capacity check error:', err);
+    logger.error({ err }, 'Capacity check error');
     res.status(500).json({ success: false, error: 'Failed to check capacity' });
   }
 });
@@ -2452,7 +2472,7 @@ router.get('/ccm-documents', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('CCM documents error:', err);
+    logger.error({ err }, 'CCM documents error');
     res.status(500).json({ success: false, error: 'Failed to fetch CCM documents' });
   }
 });
@@ -2471,7 +2491,7 @@ router.get('/ccm-documents/:id', authenticate, async (req, res) => {
     }
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('CCM document get error:', err);
+    logger.error({ err }, 'CCM document get error');
     res.status(500).json({ success: false, error: 'Failed to fetch document' });
   }
 });
@@ -2490,7 +2510,7 @@ router.post('/ccm-documents', authenticate, authorize('admin', 'operator'), asyn
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     // Mark previous versions as not current
     await query(`
@@ -2513,7 +2533,7 @@ router.post('/ccm-documents', authenticate, authorize('admin', 'operator'), asyn
     const created = await query('SELECT * FROM v_current_ccm_documents WHERE id = $1', [result[0].id]);
     res.status(201).json({ success: true, data: created[0] });
   } catch (err) {
-    console.error('CCM document create error:', err);
+    logger.error({ err }, 'CCM document create error');
     res.status(500).json({ success: false, error: 'Failed to create document' });
   }
 });
@@ -2528,7 +2548,7 @@ router.delete('/ccm-documents/:id', authenticate, authorize('admin'), async (req
     await query('DELETE FROM ccm_documents WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Document deleted' });
   } catch (err) {
-    console.error('CCM document delete error:', err);
+    logger.error({ err }, 'CCM document delete error');
     res.status(500).json({ success: false, error: 'Failed to delete document' });
   }
 });
@@ -2564,7 +2584,7 @@ router.get('/riders', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Riders error:', err);
+    logger.error({ err }, 'Riders error');
     res.status(500).json({ success: false, error: 'Failed to fetch riders' });
   }
 });
@@ -2589,7 +2609,7 @@ router.get('/riders/:id', authenticate, async (req, res) => {
 
     res.json({ success: true, data: { ...rider[0], cars } });
   } catch (err) {
-    console.error('Rider get error:', err);
+    logger.error({ err }, 'Rider get error');
     res.status(500).json({ success: false, error: 'Failed to fetch rider' });
   }
 });
@@ -2604,7 +2624,7 @@ router.post('/riders/populate', authenticate, authorize('admin'), async (req, re
     const result = await query('SELECT populate_riders_from_cars() AS count');
     res.json({ success: true, data: { inserted: result[0].count } });
   } catch (err) {
-    console.error('Riders populate error:', err);
+    logger.error({ err }, 'Riders populate error');
     res.status(500).json({ success: false, error: 'Failed to populate riders' });
   }
 });
@@ -2630,7 +2650,7 @@ router.put('/riders/:id', authenticate, authorize('admin', 'operator'), async (r
     const updated = await query('SELECT * FROM v_riders_summary WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Rider update error:', err);
+    logger.error({ err }, 'Rider update error');
     res.status(500).json({ success: false, error: 'Failed to update rider' });
   }
 });
@@ -2671,7 +2691,7 @@ router.get('/billable-items', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Billable items error:', err);
+    logger.error({ err }, 'Billable items error');
     res.status(500).json({ success: false, error: 'Failed to fetch billable items' });
   }
 });
@@ -2686,7 +2706,7 @@ router.get('/billable-items/summary', authenticate, async (req, res) => {
     const result = await query('SELECT * FROM v_lessee_billable_summary');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Billable summary error:', err);
+    logger.error({ err }, 'Billable summary error');
     res.status(500).json({ success: false, error: 'Failed to fetch billable summary' });
   }
 });
@@ -2705,7 +2725,7 @@ router.post('/billable-items', authenticate, authorize('admin', 'operator'), asy
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     const result = await query(`
       INSERT INTO billable_items (lessee_code, rider_id, commodity, car_type, item_code, item_description, is_customer_responsible, billing_notes, created_by)
@@ -2716,7 +2736,7 @@ router.post('/billable-items', authenticate, authorize('admin', 'operator'), asy
     const created = await query('SELECT * FROM v_billable_items WHERE id = $1', [result[0].id]);
     res.status(201).json({ success: true, data: created[0] });
   } catch (err) {
-    console.error('Billable item create error:', err);
+    logger.error({ err }, 'Billable item create error');
     res.status(500).json({ success: false, error: 'Failed to create billable item' });
   }
 });
@@ -2742,7 +2762,7 @@ router.put('/billable-items/:id', authenticate, authorize('admin', 'operator'), 
     const updated = await query('SELECT * FROM v_billable_items WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Billable item update error:', err);
+    logger.error({ err }, 'Billable item update error');
     res.status(500).json({ success: false, error: 'Failed to update billable item' });
   }
 });
@@ -2757,7 +2777,7 @@ router.delete('/billable-items/:id', authenticate, authorize('admin'), async (re
     await query('DELETE FROM billable_items WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Billable item deleted' });
   } catch (err) {
-    console.error('Billable item delete error:', err);
+    logger.error({ err }, 'Billable item delete error');
     res.status(500).json({ success: false, error: 'Failed to delete billable item' });
   }
 });
@@ -2793,7 +2813,7 @@ router.get('/cars/:carNumber/billable-items', authenticate, async (req, res) => 
 
     res.json({ success: true, data: items });
   } catch (err) {
-    console.error('Car billable items error:', err);
+    logger.error({ err }, 'Car billable items error');
     res.status(500).json({ success: false, error: 'Failed to fetch billable items for car' });
   }
 });
@@ -2835,7 +2855,7 @@ router.get('/shopping-packets', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Shopping packets error:', err);
+    logger.error({ err }, 'Shopping packets error');
     res.status(500).json({ success: false, error: 'Failed to fetch shopping packets' });
   }
 });
@@ -2850,7 +2870,7 @@ router.get('/shopping-packets/pending', authenticate, async (req, res) => {
     const result = await query('SELECT * FROM v_packets_pending');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Pending packets error:', err);
+    logger.error({ err }, 'Pending packets error');
     res.status(500).json({ success: false, error: 'Failed to fetch pending packets' });
   }
 });
@@ -2865,7 +2885,7 @@ router.get('/shopping-packets/recent', authenticate, async (req, res) => {
     const result = await query('SELECT * FROM v_packets_recent');
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Recent packets error:', err);
+    logger.error({ err }, 'Recent packets error');
     res.status(500).json({ success: false, error: 'Failed to fetch recent packets' });
   }
 });
@@ -2884,7 +2904,7 @@ router.get('/shopping-packets/:id', authenticate, async (req, res) => {
     }
     res.json({ success: true, data: result[0] });
   } catch (err) {
-    console.error('Packet get error:', err);
+    logger.error({ err }, 'Packet get error');
     res.status(500).json({ success: false, error: 'Failed to fetch packet' });
   }
 });
@@ -2903,13 +2923,13 @@ router.post('/shopping-packets', authenticate, authorize('admin', 'operator'), a
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await query('SELECT create_shopping_packet($1, $2) AS id', [allocation_id, userId]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
     res.status(201).json({ success: true, data: packet[0] });
   } catch (err: any) {
-    console.error('Packet create error:', err);
+    logger.error({ err }, 'Packet create error');
     res.status(400).json({ success: false, error: err.message || 'Failed to create packet' });
   }
 });
@@ -2942,7 +2962,7 @@ router.put('/shopping-packets/:id', authenticate, authorize('admin', 'operator')
     const updated = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Packet update error:', err);
+    logger.error({ err }, 'Packet update error');
     res.status(500).json({ success: false, error: 'Failed to update packet' });
   }
 });
@@ -2955,7 +2975,7 @@ router.put('/shopping-packets/:id', authenticate, authorize('admin', 'operator')
 router.post('/shopping-packets/:id/issue', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { email_to } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE shopping_packets SET
@@ -2970,7 +2990,7 @@ router.post('/shopping-packets/:id/issue', authenticate, authorize('admin', 'ope
     const updated = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Packet issue error:', err);
+    logger.error({ err }, 'Packet issue error');
     res.status(500).json({ success: false, error: 'Failed to issue packet' });
   }
 });
@@ -2989,13 +3009,13 @@ router.post('/shopping-packets/:id/reissue', authenticate, authorize('admin', 'o
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await query('SELECT reissue_shopping_packet($1, $2, $3) AS id', [req.params.id, userId, reason]);
 
     const packet = await query('SELECT * FROM v_shopping_packets WHERE id = $1', [result[0].id]);
     res.json({ success: true, data: packet[0] });
   } catch (err: any) {
-    console.error('Packet reissue error:', err);
+    logger.error({ err }, 'Packet reissue error');
     res.status(400).json({ success: false, error: err.message || 'Failed to reissue packet' });
   }
 });
@@ -3010,7 +3030,7 @@ router.get('/allocations/:id/packet-history', authenticate, async (req, res) => 
     const result = await query('SELECT * FROM v_packet_history WHERE allocation_id = $1', [req.params.id]);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Packet history error:', err);
+    logger.error({ err }, 'Packet history error');
     res.status(500).json({ success: false, error: 'Failed to fetch packet history' });
   }
 });
@@ -3056,7 +3076,7 @@ router.get('/projects', authenticate, async (req, res) => {
     const result = await query(sql, params);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Projects error:', err);
+    logger.error({ err }, 'Projects error');
     res.status(500).json({ success: false, error: 'Failed to fetch projects' });
   }
 });
@@ -3074,7 +3094,7 @@ router.get('/projects/summary', authenticate, async (req, res) => {
     ]);
     res.json({ success: true, data: { by_type: byType, by_mc: byMc } });
   } catch (err) {
-    console.error('Projects summary error:', err);
+    logger.error({ err }, 'Projects summary error');
     res.status(500).json({ success: false, error: 'Failed to fetch projects summary' });
   }
 });
@@ -3096,7 +3116,7 @@ router.get('/projects/:id', authenticate, async (req, res) => {
 
     res.json({ success: true, data: { ...project[0], cars } });
   } catch (err) {
-    console.error('Project get error:', err);
+    logger.error({ err }, 'Project get error');
     res.status(500).json({ success: false, error: 'Failed to fetch project' });
   }
 });
@@ -3119,7 +3139,7 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     // Get shopping reason details if provided
     let reasonCode = null, reasonName = null;
@@ -3150,7 +3170,7 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
     const created = await query('SELECT * FROM v_projects WHERE id = $1', [result[0].id]);
     res.status(201).json({ success: true, data: created[0] });
   } catch (err) {
-    console.error('Project create error:', err);
+    logger.error({ err }, 'Project create error');
     res.status(500).json({ success: false, error: 'Failed to create project' });
   }
 });
@@ -3187,7 +3207,7 @@ router.put('/projects/:id', authenticate, authorize('admin', 'operator'), async 
     const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Project update error:', err);
+    logger.error({ err }, 'Project update error');
     res.status(500).json({ success: false, error: 'Failed to update project' });
   }
 });
@@ -3203,7 +3223,7 @@ router.post('/projects/:id/activate', authenticate, authorize('admin', 'operator
     const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Project activate error:', err);
+    logger.error({ err }, 'Project activate error');
     res.status(500).json({ success: false, error: 'Failed to activate project' });
   }
 });
@@ -3216,7 +3236,7 @@ router.post('/projects/:id/activate', authenticate, authorize('admin', 'operator
 router.post('/projects/:id/complete', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { completion_notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE projects SET
@@ -3240,7 +3260,7 @@ router.post('/projects/:id/complete', authenticate, authorize('admin', 'operator
     const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Project complete error:', err);
+    logger.error({ err }, 'Project complete error');
     res.status(500).json({ success: false, error: 'Failed to complete project' });
   }
 });
@@ -3259,7 +3279,7 @@ router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), 
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     let added = 0;
 
     for (const carNumber of car_numbers) {
@@ -3278,7 +3298,7 @@ router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), 
     const cars = await query('SELECT * FROM v_project_cars WHERE project_id = $1', [req.params.id]);
     res.json({ success: true, data: { added, cars } });
   } catch (err) {
-    console.error('Add cars error:', err);
+    logger.error({ err }, 'Add cars error');
     res.status(500).json({ success: false, error: 'Failed to add cars to project' });
   }
 });
@@ -3293,7 +3313,7 @@ router.delete('/projects/:projectId/cars/:carNumber', authenticate, authorize('a
     await query('DELETE FROM project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
     res.json({ success: true, message: 'Car removed from project' });
   } catch (err) {
-    console.error('Remove car error:', err);
+    logger.error({ err }, 'Remove car error');
     res.status(500).json({ success: false, error: 'Failed to remove car from project' });
   }
 });
@@ -3306,7 +3326,7 @@ router.delete('/projects/:projectId/cars/:carNumber', authenticate, authorize('a
 router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { status, completion_notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     if (!['pending', 'in_progress', 'completed', 'excluded'].includes(status)) {
       res.status(400).json({ success: false, error: 'Invalid status' });
@@ -3329,7 +3349,7 @@ router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authoriz
     const updated = await query('SELECT * FROM v_project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('Update car status error:', err);
+    logger.error({ err }, 'Update car status error');
     res.status(500).json({ success: false, error: 'Failed to update car status' });
   }
 });
@@ -3341,7 +3361,7 @@ router.put('/projects/:projectId/cars/:carNumber/status', authenticate, authoriz
  */
 router.post('/projects/:projectId/cars/:carNumber/brc-review', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     await query(`
       UPDATE project_cars SET
@@ -3357,7 +3377,7 @@ router.post('/projects/:projectId/cars/:carNumber/brc-review', authenticate, aut
     const updated = await query('SELECT * FROM v_project_cars WHERE project_id = $1 AND car_number = $2', [req.params.projectId, req.params.carNumber]);
     res.json({ success: true, data: updated[0] });
   } catch (err) {
-    console.error('BRC review error:', err);
+    logger.error({ err }, 'BRC review error');
     res.status(500).json({ success: false, error: 'Failed to mark BRC reviewed' });
   }
 });
@@ -3372,7 +3392,7 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
     const result = await query('SELECT * FROM v_car_project_history WHERE car_number = $1', [req.params.carNumber]);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Car project history error:', err);
+    logger.error({ err }, 'Car project history error');
     res.status(500).json({ success: false, error: 'Failed to fetch car project history' });
   }
 });
@@ -3388,8 +3408,8 @@ router.get('/cars/:carNumber/project-history', authenticate, async (req, res) =>
  */
 router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { cars } = req.body;
 
     if (!cars || !Array.isArray(cars) || cars.length === 0) {
@@ -3406,7 +3426,7 @@ router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operato
 
     res.status(201).json({ success: true, data: result });
   } catch (err) {
-    console.error('Plan cars error:', err);
+    logger.error({ err }, 'Plan cars error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3418,8 +3438,8 @@ router.post('/projects/:id/plan-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { assignment_ids } = req.body;
 
     if (!assignment_ids || !Array.isArray(assignment_ids) || assignment_ids.length === 0) {
@@ -3436,7 +3456,7 @@ router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operato
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Lock cars error:', err);
+    logger.error({ err }, 'Lock cars error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3448,8 +3468,8 @@ router.post('/projects/:id/lock-cars', authenticate, authorize('admin', 'operato
  */
 router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_assignment_id, new_shop_code, new_target_month, new_target_date, new_estimated_cost, reason } = req.body;
 
     if (!project_assignment_id || !new_shop_code || !new_target_month || !reason) {
@@ -3471,7 +3491,7 @@ router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operat
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Relock car error:', err);
+    logger.error({ err }, 'Relock car error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3483,8 +3503,8 @@ router.post('/projects/:id/relock-car', authenticate, authorize('admin', 'operat
  */
 router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_assignment_id, reason } = req.body;
 
     if (!project_assignment_id || !reason) {
@@ -3502,7 +3522,7 @@ router.post('/projects/:id/cancel-plan', authenticate, authorize('admin', 'opera
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Cancel plan error:', err);
+    logger.error({ err }, 'Cancel plan error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3517,7 +3537,7 @@ router.post('/projects/:projectId/assignments/:id/unlock', authenticate, authori
     const result = await projectPlanningService.unlockPlan(
       req.params.projectId,
       req.params.id,
-      (req as any).user.id,
+      req.user!.id,
       req.body.notes
     );
     res.json({ success: true, data: result });
@@ -3542,7 +3562,7 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
       return;
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const demand = await demandService.createDemand(
       { ...req.body, project_id: projectId },
       userId
@@ -3552,14 +3572,14 @@ router.post('/projects/:id/create-demand', authenticate, authorize('admin', 'ope
     await projectAuditService.writeAuditEvent({
       project_id: projectId,
       actor_id: userId,
-      actor_email: (req as any).user?.email,
+      actor_email: req.user!.email,
       action: 'demand_created',
       notes: `Demand "${demand.name}" created for allocation engine (${demand.car_count} cars, ${demand.target_month})`,
     });
 
     res.status(201).json({ success: true, data: demand });
   } catch (err) {
-    console.error('Create project demand error:', err);
+    logger.error({ err }, 'Create project demand error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3574,7 +3594,7 @@ router.get('/projects/:id/plan', authenticate, async (req, res) => {
     const result = await projectPlanningService.getPlanSummary(req.params.id);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Get plan error:', err);
+    logger.error({ err }, 'Get plan error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3595,7 +3615,7 @@ router.get('/projects/:id/plan-history', authenticate, async (req, res) => {
     );
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Plan history error:', err);
+    logger.error({ err }, 'Plan history error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3613,7 +3633,7 @@ router.get('/projects/:id/plan-history/:carNumber', authenticate, async (req, re
     );
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Car plan history error:', err);
+    logger.error({ err }, 'Car plan history error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3625,8 +3645,8 @@ router.get('/projects/:id/plan-history/:carNumber', authenticate, async (req, re
  */
 router.post('/projects/:id/communications', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { communication_type, communicated_to, communication_method, subject, notes } = req.body;
 
     if (!communication_type) {
@@ -3647,7 +3667,7 @@ router.post('/projects/:id/communications', authenticate, authorize('admin', 'op
 
     res.status(201).json({ success: true, data: result });
   } catch (err) {
-    console.error('Log communication error:', err);
+    logger.error({ err }, 'Log communication error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3662,7 +3682,7 @@ router.get('/projects/:id/communications', authenticate, async (req, res) => {
     const result = await projectPlanningService.getCommunications(req.params.id);
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Get communications error:', err);
+    logger.error({ err }, 'Get communications error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3674,8 +3694,8 @@ router.get('/projects/:id/communications', authenticate, async (req, res) => {
  */
 router.post('/shopping-events/:id/bundle-project-work', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    const userEmail = (req as any).user?.email;
+    const userId = req.user!.id;
+    const userEmail = req.user!.email;
     const { project_id, project_car_id, car_number, shop_code, target_month } = req.body;
 
     if (!project_id || !project_car_id || !car_number || !shop_code || !target_month) {
@@ -3696,7 +3716,7 @@ router.post('/shopping-events/:id/bundle-project-work', authenticate, authorize(
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Bundle project work error:', err);
+    logger.error({ err }, 'Bundle project work error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3718,7 +3738,7 @@ router.get('/shopping-events/:id/project-flags', authenticate, async (req, res) 
     const detection = await projectPlanningService.detectProjectForCar(event[0].car_number);
     res.json({ success: true, data: detection });
   } catch (err) {
-    console.error('Project flags error:', err);
+    logger.error({ err }, 'Project flags error');
     res.status(500).json({ success: false, error: (err as Error).message });
   }
 });
@@ -3942,7 +3962,7 @@ router.get('/ccm-instructions/hierarchy-tree', optionalAuth, async (req, res) =>
     const tree = await ccmInstructionsService.getHierarchyTree(customerId);
     res.json({ success: true, data: tree });
   } catch (error) {
-    console.error('Error fetching hierarchy tree:', error);
+    logger.error({ err: error }, 'Error fetching hierarchy tree');
     res.status(500).json({ success: false, error: 'Failed to fetch hierarchy tree' });
   }
 });
@@ -3971,7 +3991,7 @@ router.get('/ccm-instructions', optionalAuth, async (req, res) => {
     const instructions = await ccmInstructionsService.listCCMInstructions(filters);
     res.json({ success: true, data: instructions });
   } catch (error) {
-    console.error('Error listing CCM instructions:', error);
+    logger.error({ err: error }, 'Error listing CCM instructions');
     res.status(500).json({ success: false, error: 'Failed to list CCM instructions' });
   }
 });
@@ -3997,7 +4017,7 @@ router.get('/ccm-instructions/by-scope/:scopeType/:scopeId', optionalAuth, async
 
     res.json({ success: true, data: instruction });
   } catch (error) {
-    console.error('Error fetching CCM instruction by scope:', error);
+    logger.error({ err: error }, 'Error fetching CCM instruction by scope');
     res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
   }
 });
@@ -4023,7 +4043,7 @@ router.get('/ccm-instructions/parent/:scopeType/:scopeId', optionalAuth, async (
 
     res.json({ success: true, data: parentCCM });
   } catch (error) {
-    console.error('Error fetching parent CCM:', error);
+    logger.error({ err: error }, 'Error fetching parent CCM');
     res.status(500).json({ success: false, error: 'Failed to fetch parent CCM' });
   }
 });
@@ -4041,7 +4061,7 @@ router.get('/ccm-instructions/:id', optionalAuth, async (req, res) => {
     }
     res.json({ success: true, data: instruction });
   } catch (error) {
-    console.error('Error fetching CCM instruction:', error);
+    logger.error({ err: error }, 'Error fetching CCM instruction');
     res.status(500).json({ success: false, error: 'Failed to fetch CCM instruction' });
   }
 });
@@ -4064,7 +4084,7 @@ router.post('/ccm-instructions', authenticate, authorize('admin', 'operator'), a
       return res.status(400).json({ success: false, error: 'Invalid scope_type' });
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const instruction = await ccmInstructionsService.createCCMInstruction(
       { type: scope_type, id: scope_id },
       data,
@@ -4073,7 +4093,7 @@ router.post('/ccm-instructions', authenticate, authorize('admin', 'operator'), a
 
     res.status(201).json({ success: true, data: instruction });
   } catch (error) {
-    console.error('Error creating CCM instruction:', error);
+    logger.error({ err: error }, 'Error creating CCM instruction');
     res.status(500).json({ success: false, error: 'Failed to create CCM instruction' });
   }
 });
@@ -4091,7 +4111,7 @@ router.put('/ccm-instructions/:id', authenticate, authorize('admin', 'operator')
     }
     res.json({ success: true, data: instruction });
   } catch (error) {
-    console.error('Error updating CCM instruction:', error);
+    logger.error({ err: error }, 'Error updating CCM instruction');
     res.status(500).json({ success: false, error: 'Failed to update CCM instruction' });
   }
 });
@@ -4109,7 +4129,7 @@ router.delete('/ccm-instructions/:id', authenticate, authorize('admin', 'operato
     }
     res.json({ success: true, message: 'CCM instruction deleted' });
   } catch (error) {
-    console.error('Error deleting CCM instruction:', error);
+    logger.error({ err: error }, 'Error deleting CCM instruction');
     res.status(500).json({ success: false, error: 'Failed to delete CCM instruction' });
   }
 });
@@ -4120,7 +4140,7 @@ router.post('/ccm-instructions/:id/sealing', authenticate, authorize('admin', 'o
     const sealing = await ccmInstructionsService.addSealingSection(req.params.id, req.body);
     res.status(201).json({ success: true, data: sealing });
   } catch (error) {
-    console.error('Error adding sealing section:', error);
+    logger.error({ err: error }, 'Error adding sealing section');
     res.status(500).json({ success: false, error: 'Failed to add sealing section' });
   }
 });
@@ -4133,7 +4153,7 @@ router.put('/ccm-instructions/:id/sealing/:sealingId', authenticate, authorize('
     }
     res.json({ success: true, data: sealing });
   } catch (error) {
-    console.error('Error updating sealing section:', error);
+    logger.error({ err: error }, 'Error updating sealing section');
     res.status(500).json({ success: false, error: 'Failed to update sealing section' });
   }
 });
@@ -4146,7 +4166,7 @@ router.delete('/ccm-instructions/:id/sealing/:sealingId', authenticate, authoriz
     }
     res.json({ success: true, message: 'Sealing section removed' });
   } catch (error) {
-    console.error('Error removing sealing section:', error);
+    logger.error({ err: error }, 'Error removing sealing section');
     res.status(500).json({ success: false, error: 'Failed to remove sealing section' });
   }
 });
@@ -4157,7 +4177,7 @@ router.post('/ccm-instructions/:id/lining', authenticate, authorize('admin', 'op
     const lining = await ccmInstructionsService.addLiningSection(req.params.id, req.body);
     res.status(201).json({ success: true, data: lining });
   } catch (error) {
-    console.error('Error adding lining section:', error);
+    logger.error({ err: error }, 'Error adding lining section');
     res.status(500).json({ success: false, error: 'Failed to add lining section' });
   }
 });
@@ -4170,7 +4190,7 @@ router.put('/ccm-instructions/:id/lining/:liningId', authenticate, authorize('ad
     }
     res.json({ success: true, data: lining });
   } catch (error) {
-    console.error('Error updating lining section:', error);
+    logger.error({ err: error }, 'Error updating lining section');
     res.status(500).json({ success: false, error: 'Failed to update lining section' });
   }
 });
@@ -4183,7 +4203,7 @@ router.delete('/ccm-instructions/:id/lining/:liningId', authenticate, authorize(
     }
     res.json({ success: true, message: 'Lining section removed' });
   } catch (error) {
-    console.error('Error removing lining section:', error);
+    logger.error({ err: error }, 'Error removing lining section');
     res.status(500).json({ success: false, error: 'Failed to remove lining section' });
   }
 });
@@ -4204,7 +4224,7 @@ router.get('/cars/:carNumber/effective-ccm', optionalAuth, async (req, res) => {
     }
     res.json({ success: true, data: effectiveCCM });
   } catch (error) {
-    console.error('Error resolving effective CCM:', error);
+    logger.error({ err: error }, 'Error resolving effective CCM');
     res.status(500).json({ success: false, error: 'Failed to resolve effective CCM' });
   }
 });
@@ -4248,13 +4268,14 @@ router.get('/shopping-events', optionalAuth, shoppingEventController.listShoppin
 router.post('/shopping-events', authenticate, authorize('admin', 'operator'), shoppingEventController.createShoppingEvent);
 router.post('/shopping-events/batch', authenticate, authorize('admin', 'operator'), shoppingEventController.createBatchShoppingEvents);
 router.get('/shopping-events/:id', optionalAuth, shoppingEventController.getShoppingEvent);
+router.patch('/shopping-events/:id', authenticate, authorize('admin', 'operator'), shoppingEventController.updateShoppingEvent);
 router.put('/shopping-events/:id/state', authenticate, authorize('admin', 'operator'), shoppingEventController.transitionState);
 router.get('/shopping-events/:id/state-history', optionalAuth, shoppingEventController.getStateHistory);
 
 // Shopping Event Revert
 router.post('/shopping-events/:id/revert', authenticate, async (req, res, next) => {
   try {
-    const result = await shoppingEventService.revertLastTransition(req.params.id, (req as any).user.id);
+    const result = await shoppingEventService.revertLastTransition(req.params.id, req.user!.id);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
@@ -4283,7 +4304,7 @@ router.post('/estimates/:id/pre-review', authenticate, authorize('admin', 'opera
     const result = await preReviewEstimate(req.params.id);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Pre-review failed' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
@@ -4292,7 +4313,7 @@ router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
     const result = await getJobCodeStats(req.params.code);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to fetch stats' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4350,7 +4371,7 @@ router.get('/dashboard/project-planning', authenticate, async (req, res) => {
     `, []);
     res.json({ success: true, data: result[0] || null });
   } catch (err) {
-    console.error('Dashboard project planning error:', err);
+    logger.error({ err }, 'Dashboard project planning error');
     res.status(500).json({ success: false, error: 'Failed to fetch project planning summary' });
   }
 });
@@ -4623,7 +4644,7 @@ router.get('/integrations/retry-queue', authenticate, authorize('admin'), async 
     const result = await getRetryQueueEntries(limit);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get retry queue' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('admin'), async (req, res) => {
@@ -4632,7 +4653,7 @@ router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('ad
     const result = await dismissRetryEntry(req.params.id);
     res.json({ success: true, data: { dismissed: result } });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to dismiss retry entry' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/retry-queue/process', authenticate, authorize('admin'), async (req, res) => {
@@ -4641,7 +4662,7 @@ router.post('/integrations/retry-queue/process', authenticate, authorize('admin'
     const result = await processRetryQueue();
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to process retry queue' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4650,7 +4671,7 @@ router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), 
     const result = await getRetryQueueStats();
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get retry stats' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/dead-letters', authenticate, authorize('admin'), async (req, res) => {
@@ -4660,7 +4681,7 @@ router.get('/integrations/dead-letters', authenticate, authorize('admin'), async
     const result = await getDeadLetterEntries(limit);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get dead letters' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4671,7 +4692,7 @@ router.get('/integrations/sync-schedules', authenticate, authorize('admin'), asy
     const data = await getScheduledJobs();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get sync schedules' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'), async (req, res) => {
@@ -4680,7 +4701,7 @@ router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'),
     const data = await getJobsDueForExecution();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get due schedules' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.post('/integrations/sync-schedules', authenticate, authorize('admin'), async (req, res) => {
@@ -4689,7 +4710,7 @@ router.post('/integrations/sync-schedules', authenticate, authorize('admin'), as
     const data = await createScheduledJob(req.body);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to create sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'), async (req, res) => {
@@ -4698,7 +4719,7 @@ router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'),
     const data = await updateScheduledJob(req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to update sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('admin'), async (req, res) => {
@@ -4707,7 +4728,7 @@ router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('a
     const data = await toggleJobEnabled(req.params.id, req.body.enabled);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to toggle sync schedule' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -4717,7 +4738,7 @@ router.get('/integrations/health-dashboard', authenticate, authorize('admin'), a
     const { getIntegrationHealthDashboard } = await import('../services/integration-monitor.service');
     const data = await getIntegrationHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/integrations/error-trends', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4725,7 +4746,7 @@ router.get('/integrations/error-trends', authenticate, authorize('admin'), async
     const days = parseInt(req.query.days as string) || 7;
     const data = await getErrorTrends(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/integrations/batch-retry', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4734,41 +4755,41 @@ router.post('/integrations/batch-retry', authenticate, authorize('admin'), async
     if (!category) { res.status(400).json({ success: false, error: 'category required' }); return; }
     const data = await batchRetryByCategory(category, system_name);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CIPROTS Migration Pipeline
 router.post('/migration/import/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCars } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importContracts } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importContracts(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importShoppingEvents } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importShoppingEvents(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importQualifications } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importQualifications(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4776,68 +4797,68 @@ router.get('/migration/runs', authenticate, authorize('admin'), async (req, res)
     const limit = parseInt(req.query.limit as string) || 50;
     const data = await getMigrationRuns(limit);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationRun } = await import('../services/migration-pipeline.service');
     const data = await getMigrationRun(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id/errors', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationErrors } = await import('../services/migration-pipeline.service');
     const data = await getMigrationErrors(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/reconciliation', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getReconciliationSummary } = await import('../services/migration-pipeline.service');
     const data = await getReconciliationSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importCustomers } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importCustomers(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importInvoices } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importInvoices(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importAllocations } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importAllocations(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { importMileageRecords } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await importMileageRecords(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { runOrchestration } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await runOrchestration(req.body.files || {}, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/validate', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4846,15 +4867,15 @@ router.post('/migration/validate', authenticate, authorize('admin'), async (req,
     if (!entity_type || !content) { res.status(400).json({ success: false, error: 'entity_type and content required' }); return; }
     const result = await validateOnly(entity_type, content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { rollbackRun } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await rollbackRun(req.params.id, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System health dashboard
@@ -4863,17 +4884,17 @@ router.get('/system/health-dashboard', authenticate, authorize('admin'), async (
     const { getHealthDashboard } = await import('../services/system-health.service');
     const data = await getHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // User feedback
 router.post('/feedback', authenticate, async (req, res) => {
   try {
     const { createFeedback } = await import('../services/feedback.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const data = await createFeedback({ ...req.body, user_id: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
@@ -4885,7 +4906,7 @@ router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4893,16 +4914,16 @@ router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res)
     const { getFeedbackStats } = await import('../services/feedback.service');
     const data = await getFeedbackStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { updateFeedback } = await import('../services/feedback.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Performance monitoring
@@ -4911,7 +4932,7 @@ router.get('/system/performance/tables', authenticate, authorize('admin'), async
     const { getTableSizes } = await import('../services/performance-monitor.service');
     const data = await getTableSizes(parseInt(req.query.limit as string) || 30);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/indexes', authenticate, authorize('admin'), async (req, res) => {
@@ -4919,7 +4940,7 @@ router.get('/system/performance/indexes', authenticate, authorize('admin'), asyn
     const { getIndexUsage } = await import('../services/performance-monitor.service');
     const data = await getIndexUsage(parseInt(req.query.limit as string) || 50);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -4927,7 +4948,7 @@ router.get('/system/performance/stats', authenticate, authorize('admin'), async 
     const { getDatabaseStats } = await import('../services/performance-monitor.service');
     const data = await getDatabaseStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/slow-queries', authenticate, authorize('admin'), async (req, res) => {
@@ -4935,7 +4956,7 @@ router.get('/system/performance/slow-queries', authenticate, authorize('admin'),
     const { getSlowQueries } = await import('../services/performance-monitor.service');
     const data = await getSlowQueries(parseInt(req.query.limit as string) || 20);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System mode
@@ -4944,13 +4965,13 @@ router.get('/system/mode', authenticate, async (req, res) => {
     const { getSystemMode } = await import('../services/system-mode.service');
     const data = await getSystemMode();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { setSystemMode } = await import('../services/system-mode.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const { mode } = req.body;
     if (!mode) { res.status(400).json({ success: false, error: 'mode is required' }); return; }
     const data = await setSystemMode(mode, userId);
@@ -4962,10 +4983,10 @@ router.put('/system/mode', authenticate, authorize('admin'), async (req, res) =>
 router.post('/migration/delta/cars', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { deltaMigrateCars } = await import('../services/migration-pipeline.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await deltaMigrateCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/delta/summary', authenticate, authorize('admin'), async (req, res) => {
@@ -4973,7 +4994,7 @@ router.get('/migration/delta/summary', authenticate, authorize('admin'), async (
     const { getDeltaSummary } = await import('../services/migration-pipeline.service');
     const data = await getDeltaSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel Run Comparison
@@ -4984,7 +5005,7 @@ router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), 
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareInvoices(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -4993,14 +5014,14 @@ router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), 
     if (!content) { res.status(400).json({ success: false, error: 'content required' }); return; }
     const result = await compareCarStatuses(content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getParallelRunResults } = await import('../services/parallel-run.service');
     const data = await getParallelRunResults();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5008,15 +5029,15 @@ router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('a
     const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
     const data = await getDiscrepancies(req.params.id, resolved);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/parallel-run.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
     res.json({ success: true, data: { resolved: result } });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel run — daily report and health score
@@ -5026,7 +5047,7 @@ router.get('/parallel-run/daily-report', authenticate, authorize('admin', 'opera
     const days = parseInt(req.query.days as string) || 30;
     const data = await getDailyReport(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/parallel-run/health-score', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5034,7 +5055,7 @@ router.get('/parallel-run/health-score', authenticate, authorize('admin', 'opera
     const { getHealthScore } = await import('../services/parallel-run.service');
     const data = await getHealthScore();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5043,7 +5064,7 @@ router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), a
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareBillingTotals(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5052,7 +5073,7 @@ router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), a
     if (!content || !reporting_period) { res.status(400).json({ success: false, error: 'content and reporting_period required' }); return; }
     const result = await compareMileage(content, reporting_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5061,14 +5082,14 @@ router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'
     if (!content || !target_month) { res.status(400).json({ success: false, error: 'content and target_month required' }); return; }
     const result = await compareAllocations(content, target_month);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/go-live-checklist', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getGoLiveChecklist } = await import('../services/parallel-run.service');
     const data = await getGoLiveChecklist();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live readiness check
@@ -5077,7 +5098,7 @@ router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, r
     const { getGoLiveReadiness } = await import('../services/go-live-check.service');
     const data = await getGoLiveReadiness();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live incidents
@@ -5090,7 +5111,7 @@ router.get('/go-live/incidents', authenticate, async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
@@ -5098,7 +5119,7 @@ router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
     const { getIncidentStats } = await import('../services/go-live-incidents.service');
     const data = await getIncidentStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
@@ -5107,16 +5128,16 @@ router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
     const data = await getIncident(req.params.id);
     if (!data) { res.status(404).json({ success: false, error: 'Incident not found' }); return; }
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { createIncident } = await import('../services/go-live-incidents.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const data = await createIncident({ ...req.body, reported_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5124,7 +5145,7 @@ router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'
     const { updateIncident } = await import('../services/go-live-incidents.service');
     const data = await updateIncident(req.params.id, req.body);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('admin'), async (req, res) => {
@@ -5133,7 +5154,7 @@ router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('adm
     const result = await resetDeadLetter(req.params.id);
     res.json({ success: true, data: { reset: result } });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to reset dead letter' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5146,7 +5167,7 @@ router.post('/alerts/generate', authenticate, authorize('admin'), async (req, re
     const { runAlertGeneration } = await import('../services/alert-engine.service');
     const data = await runAlertGeneration();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -5154,26 +5175,26 @@ router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) =
     const { getAlertStats } = await import('../services/alert-engine.service');
     const data = await getAlertStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts', authenticate, async (req, res) => {
   try {
     const { getActiveAlerts } = await import('../services/alert-engine.service');
-    const userId = (req as any).user?.id;
-    const role = (req as any).user?.role;
+    const userId = req.user!.id;
+    const role = req.user!.role;
     const data = await getActiveAlerts(userId, role);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
   try {
     const { dismissAlert } = await import('../services/alert-engine.service');
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     await dismissAlert(req.params.id, userId);
     res.json({ success: true });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // ============================================================================
@@ -5187,7 +5208,7 @@ router.get('/forecast/maintenance', authenticate, async (req, res) => {
     const data = await getMaintenanceForecast(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get maintenance forecast' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5198,7 +5219,7 @@ router.get('/forecast/trends', authenticate, async (req, res) => {
     const data = await getForecastTrends(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast trends' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5209,7 +5230,7 @@ router.get('/forecast/dashboard-summary', authenticate, async (req, res) => {
     const data = await getDashboardSummary(fiscalYear);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get forecast dashboard' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5225,7 +5246,7 @@ router.get('/freight/rates', authenticate, async (req, res) => {
       res.json({ success: true, data: defaultRate });
     }
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get freight rates' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5236,7 +5257,7 @@ router.post('/freight/calculate', authenticate, async (req, res) => {
     const data = await calculateFreightCost(origin_code, shop_code);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to calculate freight cost' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5246,7 +5267,7 @@ router.get('/freight/origins', authenticate, async (req, res) => {
     const data = await listOriginLocations();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to list origins' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5262,7 +5283,7 @@ router.get('/work-hours/factors', authenticate, async (req, res) => {
     const data = await getWorkHoursFactors(factorType, factorValue);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get work hours factors' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5273,7 +5294,7 @@ router.post('/work-hours/calculate', authenticate, async (req, res) => {
     const data = await calculateWorkHours(car, overrides || {});
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to calculate work hours' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5290,7 +5311,7 @@ router.get('/projects/:id/audit', authenticate, async (req, res) => {
     const data = await getProjectAuditEvents(req.params.id, carNumber, limit, offset);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Failed to get project audit' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5303,7 +5324,7 @@ router.get('/report-builder/templates', authenticate, async (req, res) => {
     const { listTemplates } = await import('../services/report-builder.service');
     res.json({ success: true, data: listTemplates() });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5314,7 +5335,7 @@ router.get('/report-builder/templates/:id', authenticate, async (req, res) => {
     if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
     res.json({ success: true, data: template });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5326,7 +5347,7 @@ router.post('/report-builder/run', authenticate, async (req, res) => {
     const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit, offset });
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5341,42 +5362,42 @@ router.post('/report-builder/export-csv', authenticate, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
     res.send(csv);
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.get('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { listSavedReports } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const data = await listSavedReports(userId);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.post('/report-builder/saved', authenticate, async (req, res) => {
   try {
     const { saveReport } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     const { template_id, name, description, columns, filters, sort_by, sort_dir } = req.body;
     if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
     const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
   try {
     const { deleteSavedReport } = await import('../services/report-builder.service');
-    const userId = (req as any).user.id;
+    const userId = req.user!.id;
     await deleteSavedReport(req.params.id, userId);
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5388,7 +5409,7 @@ router.put('/report-builder/saved/:id/schedule', authenticate, authorize('admin'
     const data = await setSchedule(req.params.id, cron, recipients);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5398,7 +5419,7 @@ router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('adm
     const data = await removeSchedule(req.params.id);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5408,7 +5429,7 @@ router.get('/reports/templates', authenticate, async (req, res) => {
     const { listTemplates } = await import('../services/report-builder.service');
     const data = listTemplates();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/reports/run', authenticate, async (req, res) => {
   try {
@@ -5417,7 +5438,7 @@ router.post('/reports/run', authenticate, async (req, res) => {
     if (!templateId) { res.status(400).json({ success: false, error: 'templateId required' }); return; }
     const data = await runReport(templateId, filters || {});
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/reports/export/:templateId', authenticate, async (req, res) => {
   try {
@@ -5434,7 +5455,7 @@ router.get('/reports/export/:templateId', authenticate, async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/\s/g, '_')}_report.csv"`);
       res.send(toCSV(data));
     }
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CLM single car on-demand lookup
@@ -5444,7 +5465,7 @@ router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
     const data = await syncSingleCar(req.params.carNumber);
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5465,6 +5486,10 @@ router.get('/health', async (req, res) => {
     dbStatus = 'disconnected';
   }
 
+  // Circuit breaker status for SAP and Salesforce integrations
+  const { getAllCircuitBreakerStatuses } = await import('../services/circuit-breaker');
+  const circuitBreakers = getAllCircuitBreakerStatuses();
+
   const mem = process.memoryUsage();
   res.json({
     success: true,
@@ -5479,6 +5504,12 @@ router.get('/health', async (req, res) => {
         heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
         heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
       },
+      circuit_breakers: circuitBreakers.map(cb => ({
+        name: cb.name,
+        state: cb.state,
+        failure_count: cb.failureCount,
+        cooldown_remaining_ms: cb.cooldownRemainingMs,
+      })),
     },
   });
 });
@@ -5513,7 +5544,7 @@ router.get('/admin/data-validation', authenticate, authorize('admin'), async (re
     const data = await runFullValidation();
     res.json({ success: true, data });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message || 'Data validation failed' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -5523,7 +5554,7 @@ router.get('/migration/reconciliation/dashboard', authenticate, authorize('admin
     const { getReconciliationDashboard } = await import('../services/data-reconciliation.service');
     const data = await getReconciliationDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/discrepancies', authenticate, authorize('admin'), async (req, res) => {
@@ -5531,24 +5562,24 @@ router.get('/migration/reconciliation/discrepancies', authenticate, authorize('a
     const { listDiscrepancies } = await import('../services/data-reconciliation.service');
     const data = await listDiscrepancies(req.query as any);
     res.json({ success: true, ...data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
-    const data = await resolveDiscrepancy(req.params.id, req.body, (req as any).user?.id);
+    const data = await resolveDiscrepancy(req.params.id, req.body, req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { bulkResolveDiscrepancies } = await import('../services/data-reconciliation.service');
     const { ids, ...resolution } = req.body;
-    const data = await bulkResolveDiscrepancies(ids, resolution, (req as any).user?.id);
+    const data = await bulkResolveDiscrepancies(ids, resolution, req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
@@ -5556,7 +5587,7 @@ router.get('/migration/reconciliation/duplicates', authenticate, authorize('admi
     const { detectDuplicates } = await import('../services/data-reconciliation.service');
     const data = await detectDuplicates(req.query.entity_type as any);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Training Progress
@@ -5565,55 +5596,55 @@ router.get('/training/modules', authenticate, async (req, res) => {
     const { listModules } = await import('../services/training-progress.service');
     const data = await listModules();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/progress', authenticate, async (req, res) => {
   try {
     const { getUserProgress } = await import('../services/training-progress.service');
-    const data = await getUserProgress((req as any).user?.id);
+    const data = await getUserProgress(req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
   try {
     const { startModule } = await import('../services/training-progress.service');
-    const data = await startModule((req as any).user?.id, req.params.moduleId);
+    const data = await startModule(req.user!.id, req.params.moduleId);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
   try {
     const { completeModule } = await import('../services/training-progress.service');
-    const data = await completeModule((req as any).user?.id, req.params.moduleId, req.body.score);
+    const data = await completeModule(req.user!.id, req.params.moduleId, req.body.score);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
   try {
     const { updateProgress } = await import('../services/training-progress.service');
-    const data = await updateProgress((req as any).user?.id, req.params.moduleId, req.body.timeSpent);
+    const data = await updateProgress(req.user!.id, req.params.moduleId, req.body.timeSpent);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/certifications', authenticate, async (req, res) => {
   try {
     const { getUserCertifications } = await import('../services/training-progress.service');
-    const data = await getUserCertifications((req as any).user?.id);
+    const data = await getUserCertifications(req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { grantCertification } = await import('../services/training-progress.service');
-    const data = await grantCertification(req.body.userId, req.body.certType, (req as any).user?.id, req.body.notes);
+    const data = await grantCertification(req.body.userId, req.body.certType, req.user!.id, req.body.notes);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/organization', authenticate, authorize('admin'), async (req, res) => {
@@ -5621,7 +5652,7 @@ router.get('/training/organization', authenticate, authorize('admin'), async (re
     const { getOrganizationProgress } = await import('../services/training-progress.service');
     const data = await getOrganizationProgress();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/readiness', authenticate, authorize('admin'), async (req, res) => {
@@ -5629,7 +5660,7 @@ router.get('/training/readiness', authenticate, authorize('admin'), async (req, 
     const { getReadinessAssessment } = await import('../services/training-progress.service');
     const data = await getReadinessAssessment();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 export default router;

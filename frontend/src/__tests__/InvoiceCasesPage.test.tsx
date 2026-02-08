@@ -148,8 +148,9 @@ describe('InvoiceCasesPage', () => {
   it('renders empty state when no cases (no filters)', async () => {
     render(<InvoiceCasesPage />);
     await waitFor(() => {
-      expect(screen.getByText('No invoice cases yet. Create one to get started.')).toBeInTheDocument();
+      expect(screen.getByText('No invoice cases yet')).toBeInTheDocument();
     });
+    expect(screen.getByText('Create one to get started.')).toBeInTheDocument();
   });
 
   it('renders table columns when cases exist', async () => {
@@ -234,7 +235,8 @@ describe('InvoiceCasesPage', () => {
     expect(screen.getByText('Create Invoice Case')).toBeInTheDocument();
     expect(screen.getByText('Invoice Type *')).toBeInTheDocument();
     expect(screen.getByText('Vendor Name')).toBeInTheDocument();
-    expect(screen.getByText('Create Case')).toBeInTheDocument();
+    // "Create Case" appears in both EmptyState button and modal button
+    expect(screen.getAllByText('Create Case').length).toBeGreaterThanOrEqual(1);
 
     // Close modal
     fireEvent.click(screen.getByText('Cancel'));

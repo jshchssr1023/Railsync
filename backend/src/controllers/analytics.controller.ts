@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import analyticsService from '../services/analytics.service';
 import { ApiResponse } from '../types';
 
@@ -16,7 +17,7 @@ export async function getCapacityForecast(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching capacity forecast:', error);
+    logger.error({ err: error }, 'Error fetching capacity forecast');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch capacity forecast',
@@ -34,7 +35,7 @@ export async function getCapacityTrends(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching capacity trends:', error);
+    logger.error({ err: error }, 'Error fetching capacity trends');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch capacity trends',
@@ -52,7 +53,7 @@ export async function getBottleneckShops(req: Request, res: Response): Promise<v
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching bottleneck shops:', error);
+    logger.error({ err: error }, 'Error fetching bottleneck shops');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch bottleneck shops',
@@ -74,7 +75,7 @@ export async function getCostTrends(req: Request, res: Response): Promise<void> 
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching cost trends:', error);
+    logger.error({ err: error }, 'Error fetching cost trends');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch cost trends',
@@ -92,7 +93,7 @@ export async function getBudgetComparison(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching budget comparison:', error);
+    logger.error({ err: error }, 'Error fetching budget comparison');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch budget comparison',
@@ -110,7 +111,7 @@ export async function getShopCostComparison(req: Request, res: Response): Promis
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching shop cost comparison:', error);
+    logger.error({ err: error }, 'Error fetching shop cost comparison');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch shop cost comparison',
@@ -131,7 +132,7 @@ export async function getOperationsKPIs(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching operations KPIs:', error);
+    logger.error({ err: error }, 'Error fetching operations KPIs');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch operations KPIs',
@@ -149,7 +150,7 @@ export async function getDwellTimeByShop(req: Request, res: Response): Promise<v
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching dwell time by shop:', error);
+    logger.error({ err: error }, 'Error fetching dwell time by shop');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch dwell time by shop',
@@ -167,7 +168,7 @@ export async function getThroughputTrends(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching throughput trends:', error);
+    logger.error({ err: error }, 'Error fetching throughput trends');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch throughput trends',
@@ -189,7 +190,7 @@ export async function getDemandForecast(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching demand forecast:', error);
+    logger.error({ err: error }, 'Error fetching demand forecast');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch demand forecast',
@@ -206,7 +207,7 @@ export async function getDemandByRegion(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching demand by region:', error);
+    logger.error({ err: error }, 'Error fetching demand by region');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch demand by region',
@@ -224,7 +225,7 @@ export async function getDemandByCustomer(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching demand by customer:', error);
+    logger.error({ err: error }, 'Error fetching demand by customer');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch demand by customer',
@@ -242,7 +243,7 @@ export async function getCostVarianceReport(req: Request, res: Response): Promis
     const data = await analyticsService.getCostVarianceReport(fiscalYear);
     res.json({ success: true, data } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching cost variance report:', error);
+    logger.error({ err: error }, 'Error fetching cost variance report');
     res.status(500).json({ success: false, error: 'Failed to fetch cost variance report' } as ApiResponse<null>);
   }
 }
@@ -254,7 +255,7 @@ export async function getCustomerCostBreakdown(req: Request, res: Response): Pro
     const data = await analyticsService.getCustomerCostBreakdown(fiscalYear, limit);
     res.json({ success: true, data } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching customer cost breakdown:', error);
+    logger.error({ err: error }, 'Error fetching customer cost breakdown');
     res.status(500).json({ success: false, error: 'Failed to fetch customer cost breakdown' } as ApiResponse<null>);
   }
 }
@@ -269,7 +270,7 @@ export async function getShopPerformanceScores(req: Request, res: Response): Pro
     const data = await analyticsService.getShopPerformanceScores(limit);
     res.json({ success: true, data } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching shop performance scores:', error);
+    logger.error({ err: error }, 'Error fetching shop performance scores');
     res.status(500).json({ success: false, error: 'Failed to fetch shop performance scores' } as ApiResponse<null>);
   }
 }
@@ -281,7 +282,7 @@ export async function getShopPerformanceTrend(req: Request, res: Response): Prom
     const data = await analyticsService.getShopPerformanceTrend(shopCode, months);
     res.json({ success: true, data } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching shop performance trend:', error);
+    logger.error({ err: error }, 'Error fetching shop performance trend');
     res.status(500).json({ success: false, error: 'Failed to fetch shop performance trend' } as ApiResponse<null>);
   }
 }

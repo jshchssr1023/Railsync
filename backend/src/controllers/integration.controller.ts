@@ -21,7 +21,7 @@ export async function getConnectionStatuses(req: Request, res: Response): Promis
 
 export async function pushApprovedCosts(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { allocationId } = req.body;
     if (!allocationId) { res.status(400).json({ error: 'allocationId is required' }); return; }
     const result = await sapService.pushApprovedCosts(allocationId, userId);
@@ -33,7 +33,7 @@ export async function pushApprovedCosts(req: Request, res: Response): Promise<vo
 
 export async function pushBillingTrigger(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { invoiceId } = req.body;
     if (!invoiceId) { res.status(400).json({ error: 'invoiceId is required' }); return; }
     const result = await sapService.pushBillingTrigger(invoiceId, userId);
@@ -45,7 +45,7 @@ export async function pushBillingTrigger(req: Request, res: Response): Promise<v
 
 export async function pushMileage(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { mileageRecordId } = req.body;
     if (!mileageRecordId) { res.status(400).json({ error: 'mileageRecordId is required' }); return; }
     const result = await sapService.pushMileage(mileageRecordId, userId);
@@ -57,7 +57,7 @@ export async function pushMileage(req: Request, res: Response): Promise<void> {
 
 export async function pushInvoiceToSAP(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { invoiceId } = req.body;
     if (!invoiceId) { res.status(400).json({ error: 'invoiceId is required' }); return; }
     const result = await sapService.pushInvoiceToSAP(invoiceId, userId);
@@ -92,7 +92,7 @@ export async function checkSAPConnection(req: Request, res: Response): Promise<v
 
 export async function sfPullCustomers(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await sfService.pullCustomers(userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -102,7 +102,7 @@ export async function sfPullCustomers(req: Request, res: Response): Promise<void
 
 export async function sfPullContacts(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await sfService.pullContacts(userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -112,7 +112,7 @@ export async function sfPullContacts(req: Request, res: Response): Promise<void>
 
 export async function sfFullSync(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await sfService.runFullSync(userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -205,7 +205,7 @@ export async function getSAPFieldMappings(req: Request, res: Response): Promise<
 
 export async function sfPullDealStages(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const result = await sfService.pullDealStages(userId);
     res.json({ success: true, data: result });
   } catch (error: any) {
@@ -215,7 +215,7 @@ export async function sfPullDealStages(req: Request, res: Response): Promise<voi
 
 export async function sfPushBillingStatus(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { customerId, billingData } = req.body;
     if (!customerId || !billingData) {
       res.status(400).json({ error: 'customerId and billingData are required' });

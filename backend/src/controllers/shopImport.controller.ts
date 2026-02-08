@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as shopImportService from '../services/shopImport.service';
 import { logFromRequest } from '../services/audit.service';
 
@@ -29,7 +30,7 @@ export async function importShopAttributes(req: Request, res: Response): Promise
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import shop attributes error:', error);
+    logger.error({ err: error }, 'Import shop attributes error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -56,7 +57,7 @@ export async function importShopCapabilities(req: Request, res: Response): Promi
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import shop capabilities error:', error);
+    logger.error({ err: error }, 'Import shop capabilities error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -83,7 +84,7 @@ export async function importMonthlyCapacity(req: Request, res: Response): Promis
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import monthly capacity error:', error);
+    logger.error({ err: error }, 'Import monthly capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }
@@ -110,7 +111,7 @@ export async function importWorkCapacity(req: Request, res: Response): Promise<v
 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error('Import work capacity error:', error);
+    logger.error({ err: error }, 'Import work capacity error');
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
 }

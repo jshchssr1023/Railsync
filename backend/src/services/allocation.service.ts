@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { pool } from '../config/database';
 import { PoolClient } from 'pg';
 import * as assignmentService from './assignment.service';
@@ -148,7 +149,7 @@ export async function createAllocation(input: CreateAllocationInput): Promise<Al
         }
       } catch (err) {
         // Log but don't fail - legacy flow should still work
-        console.warn('SSOT write failed (non-blocking):', err);
+        logger.warn({ err }, 'SSOT write failed (non-blocking)');
       }
     }
 
@@ -289,7 +290,7 @@ export async function updateAllocationStatus(
       toState: newStatus,
       isReversible: ['proposed', 'planned'].includes(newStatus),
       actorId: undefined, // no userId param on this function
-    }).catch(err => console.error('[TransitionLog] Failed to log allocation transition:', err));
+    }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log allocation transition'));
 
     return allocation;
   });

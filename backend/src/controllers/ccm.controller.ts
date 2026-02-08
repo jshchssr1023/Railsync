@@ -1,3 +1,4 @@
+import logger from '../config/logger';
 import { Request, Response } from 'express';
 import {
   getCCMWithSections as getCCMWithSectionsService,
@@ -34,7 +35,7 @@ export async function getCCMWithSections(req: Request, res: Response): Promise<v
 
     res.json(ccm);
   } catch (error) {
-    console.error('Error getting CCM with sections:', error);
+    logger.error({ err: error }, 'Error getting CCM with sections');
     res.status(500).json({ error: 'Failed to get CCM document' });
   }
 }
@@ -52,14 +53,14 @@ export async function listCCMsByLessee(req: Request, res: Response): Promise<voi
 
     res.json(ccms);
   } catch (error) {
-    console.error('Error listing CCMs by lessee:', error);
+    logger.error({ err: error }, 'Error listing CCMs by lessee');
     res.status(500).json({ error: 'Failed to list CCM documents' });
   }
 }
 
 export async function addSection(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const ccmDocumentId = req.params.id;
     const { section_number, section_name, content, section_type, can_include_in_sow } = req.body;
 
@@ -74,7 +75,7 @@ export async function addSection(req: Request, res: Response): Promise<void> {
 
     res.status(201).json(section);
   } catch (error) {
-    console.error('Error adding CCM section:', error);
+    logger.error({ err: error }, 'Error adding CCM section');
     res.status(500).json({ error: 'Failed to add CCM section' });
   }
 }
@@ -93,7 +94,7 @@ export async function updateSection(req: Request, res: Response): Promise<void> 
 
     res.json(section);
   } catch (error) {
-    console.error('Error updating CCM section:', error);
+    logger.error({ err: error }, 'Error updating CCM section');
     res.status(500).json({ error: 'Failed to update CCM section' });
   }
 }
@@ -111,7 +112,7 @@ export async function deleteSection(req: Request, res: Response): Promise<void> 
 
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting CCM section:', error);
+    logger.error({ err: error }, 'Error deleting CCM section');
     res.status(500).json({ error: 'Failed to delete CCM section' });
   }
 }
@@ -124,7 +125,7 @@ export async function getSectionsForSOW(req: Request, res: Response): Promise<vo
 
     res.json(sections);
   } catch (error) {
-    console.error('Error getting CCM sections for SOW:', error);
+    logger.error({ err: error }, 'Error getting CCM sections for SOW');
     res.status(500).json({ error: 'Failed to get CCM sections for SOW' });
   }
 }
@@ -135,11 +136,11 @@ export async function getSectionsForSOW(req: Request, res: Response): Promise<vo
 
 export async function createCCMForm(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const form = await createCCMFormService(req.body, userId);
     res.status(201).json({ success: true, data: form });
   } catch (error) {
-    console.error('Error creating CCM form:', error);
+    logger.error({ err: error }, 'Error creating CCM form');
     res.status(500).json({ success: false, error: 'Failed to create CCM form' });
   }
 }
@@ -153,7 +154,7 @@ export async function getCCMForm(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: form });
   } catch (error) {
-    console.error('Error getting CCM form:', error);
+    logger.error({ err: error }, 'Error getting CCM form');
     res.status(500).json({ success: false, error: 'Failed to get CCM form' });
   }
 }
@@ -168,7 +169,7 @@ export async function listCCMForms(req: Request, res: Response): Promise<void> {
     const result = await listCCMFormsService(filters);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing CCM forms:', error);
+    logger.error({ err: error }, 'Error listing CCM forms');
     res.status(500).json({ success: false, error: 'Failed to list CCM forms' });
   }
 }
@@ -182,7 +183,7 @@ export async function updateCCMForm(req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, data: form });
   } catch (error) {
-    console.error('Error updating CCM form:', error);
+    logger.error({ err: error }, 'Error updating CCM form');
     res.status(500).json({ success: false, error: 'Failed to update CCM form' });
   }
 }
@@ -194,7 +195,7 @@ export async function addSealingSection(req: Request, res: Response): Promise<vo
     const section = await addSealingSectionService(req.params.id, req.body);
     res.status(201).json({ success: true, data: section });
   } catch (error) {
-    console.error('Error adding sealing section:', error);
+    logger.error({ err: error }, 'Error adding sealing section');
     res.status(500).json({ success: false, error: 'Failed to add sealing section' });
   }
 }
@@ -208,7 +209,7 @@ export async function updateSealingSection(req: Request, res: Response): Promise
     }
     res.json({ success: true, data: section });
   } catch (error) {
-    console.error('Error updating sealing section:', error);
+    logger.error({ err: error }, 'Error updating sealing section');
     res.status(500).json({ success: false, error: 'Failed to update sealing section' });
   }
 }
@@ -222,7 +223,7 @@ export async function removeSealingSection(req: Request, res: Response): Promise
     }
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing sealing section:', error);
+    logger.error({ err: error }, 'Error removing sealing section');
     res.status(500).json({ success: false, error: 'Failed to remove sealing section' });
   }
 }
@@ -234,7 +235,7 @@ export async function addLiningSection(req: Request, res: Response): Promise<voi
     const section = await addLiningSectionService(req.params.id, req.body);
     res.status(201).json({ success: true, data: section });
   } catch (error) {
-    console.error('Error adding lining section:', error);
+    logger.error({ err: error }, 'Error adding lining section');
     res.status(500).json({ success: false, error: 'Failed to add lining section' });
   }
 }
@@ -248,7 +249,7 @@ export async function updateLiningSection(req: Request, res: Response): Promise<
     }
     res.json({ success: true, data: section });
   } catch (error) {
-    console.error('Error updating lining section:', error);
+    logger.error({ err: error }, 'Error updating lining section');
     res.status(500).json({ success: false, error: 'Failed to update lining section' });
   }
 }
@@ -262,7 +263,7 @@ export async function removeLiningSection(req: Request, res: Response): Promise<
     }
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing lining section:', error);
+    logger.error({ err: error }, 'Error removing lining section');
     res.status(500).json({ success: false, error: 'Failed to remove lining section' });
   }
 }
@@ -271,7 +272,7 @@ export async function removeLiningSection(req: Request, res: Response): Promise<
 
 export async function addCCMFormAttachment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
 
     if (!file) {
@@ -288,7 +289,7 @@ export async function addCCMFormAttachment(req: Request, res: Response): Promise
 
     res.status(201).json({ success: true, data: attachment });
   } catch (error) {
-    console.error('Error adding CCM form attachment:', error);
+    logger.error({ err: error }, 'Error adding CCM form attachment');
     res.status(500).json({ success: false, error: 'Failed to add attachment' });
   }
 }
@@ -302,7 +303,7 @@ export async function removeCCMFormAttachment(req: Request, res: Response): Prom
     }
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing attachment:', error);
+    logger.error({ err: error }, 'Error removing attachment');
     res.status(500).json({ success: false, error: 'Failed to remove attachment' });
   }
 }
@@ -312,7 +313,7 @@ export async function getCCMFormSOWSections(req: Request, res: Response): Promis
     const sections = await getCCMFormSOWSectionsService(req.params.id);
     res.json({ success: true, data: sections });
   } catch (error) {
-    console.error('Error getting CCM form SOW sections:', error);
+    logger.error({ err: error }, 'Error getting CCM form SOW sections');
     res.status(500).json({ success: false, error: 'Failed to get SOW sections' });
   }
 }

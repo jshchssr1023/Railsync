@@ -9,6 +9,7 @@
  */
 
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 
 // =============================================================================
 // CIRCUIT BREAKER
@@ -167,7 +168,7 @@ export async function processRetryQueue(): Promise<{
     try {
       // Re-execute the operation (mock — in production, dispatch to actual service)
       // For now: simulate success (mock adapter pattern)
-      console.log(`[RetryQueue] Retrying ${entry.system_name}/${entry.operation} (id: ${entry.id})`);
+      logger.info(`[RetryQueue] Retrying ${entry.system_name}/${entry.operation} (id: ${entry.id})`);
 
       // Simulated success
       await query(

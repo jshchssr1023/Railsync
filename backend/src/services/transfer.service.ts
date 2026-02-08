@@ -13,6 +13,7 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { logTransition } from './transition-log.service';
 import * as assetEventService from './assetEvent.service';
 import { createAlert } from './alerts.service';
@@ -246,7 +247,7 @@ export async function initiateTransfer(
     isReversible: true,
     actorId: userId,
     notes: `${input.transition_type}: ${prereqs.from_rider?.customer || '?'} → ${prereqs.to_rider?.customer || '?'}`,
-  }).catch(err => console.error('[TransitionLog] Failed to log transfer initiation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log transfer initiation'));
 
   return result;
 }
@@ -290,7 +291,7 @@ export async function confirmTransfer(
     toState: 'InProgress',
     isReversible: true,
     actorId: userId,
-  }).catch(err => console.error('[TransitionLog] Failed to log transfer confirmation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log transfer confirmation'));
 
   return result;
 }
@@ -368,7 +369,7 @@ export async function completeTransfer(
       { type: 'created', entity_type: 'rider_car', entity_id: `${current.to_rider_id}:${current.car_number}` },
     ],
     notes: notes || undefined,
-  }).catch(err => console.error('[TransitionLog] Failed to log transfer completion:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log transfer completion'));
 
   const carResult = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [current.car_number]);
   if (carResult) {
@@ -443,7 +444,7 @@ export async function cancelTransfer(
     isReversible: false,
     actorId: userId,
     notes: reason,
-  }).catch(err => console.error('[TransitionLog] Failed to log transfer cancellation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log transfer cancellation'));
 
   return result;
 }

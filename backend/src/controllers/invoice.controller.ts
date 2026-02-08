@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as invoiceService from '../services/invoice.service';
 import * as invoiceParser from '../services/invoice-parser.service';
 import * as invoiceMatching from '../services/invoice-matching.service';
@@ -14,14 +15,14 @@ import * as invoiceMatching from '../services/invoice-matching.service';
 
 export async function createInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const invoice = await invoiceService.createInvoice({
       ...req.body,
       created_by: userId,
     });
     res.status(201).json(invoice);
   } catch (error) {
-    console.error('Error creating invoice:', error);
+    logger.error({ err: error }, 'Error creating invoice');
     res.status(500).json({ error: 'Failed to create invoice' });
   }
 }
@@ -31,7 +32,7 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
  */
 export async function uploadInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const file = (req as any).file;
 
     if (!file) {
@@ -69,7 +70,7 @@ export async function uploadInvoice(req: Request, res: Response): Promise<void> 
       parse_warnings: parsed.parse_warnings,
     });
   } catch (error) {
-    console.error('Error uploading invoice:', error);
+    logger.error({ err: error }, 'Error uploading invoice');
     res.status(500).json({ error: 'Failed to upload and process invoice' });
   }
 }
@@ -89,7 +90,7 @@ export async function rematchInvoice(req: Request, res: Response): Promise<void>
       match_summary: matchSummary,
     });
   } catch (error) {
-    console.error('Error rematching invoice:', error);
+    logger.error({ err: error }, 'Error rematching invoice');
     res.status(500).json({ error: 'Failed to rematch invoice' });
   }
 }
@@ -111,7 +112,7 @@ export async function getInvoice(req: Request, res: Response): Promise<void> {
     }
     res.json(invoice);
   } catch (error) {
-    console.error('Error fetching invoice:', error);
+    logger.error({ err: error }, 'Error fetching invoice');
     res.status(500).json({ error: 'Failed to fetch invoice' });
   }
 }
@@ -139,7 +140,7 @@ export async function listInvoices(req: Request, res: Response): Promise<void> {
     const result = await invoiceService.listInvoices(filters);
     res.json(result);
   } catch (error) {
-    console.error('Error listing invoices:', error);
+    logger.error({ err: error }, 'Error listing invoices');
     res.status(500).json({ error: 'Failed to list invoices' });
   }
 }
@@ -148,7 +149,7 @@ export async function updateInvoiceStatus(req: Request, res: Response): Promise<
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const invoice = await invoiceService.updateInvoiceStatus(id, status, userId, notes);
     if (!invoice) {
@@ -157,7 +158,7 @@ export async function updateInvoiceStatus(req: Request, res: Response): Promise<
     }
     res.json(invoice);
   } catch (error) {
-    console.error('Error updating invoice status:', error);
+    logger.error({ err: error }, 'Error updating invoice status');
     res.status(500).json({ error: 'Failed to update invoice status' });
   }
 }
@@ -172,7 +173,7 @@ export async function getInvoiceLineItems(req: Request, res: Response): Promise<
     const lineItems = await invoiceService.getInvoiceLineItems(id);
     res.json(lineItems);
   } catch (error) {
-    console.error('Error fetching line items:', error);
+    logger.error({ err: error }, 'Error fetching line items');
     res.status(500).json({ error: 'Failed to fetch line items' });
   }
 }
@@ -195,7 +196,7 @@ export async function updateLineItemMatch(req: Request, res: Response): Promise<
     }
     res.json(lineItem);
   } catch (error) {
-    console.error('Error updating line item match:', error);
+    logger.error({ err: error }, 'Error updating line item match');
     res.status(500).json({ error: 'Failed to update line item match' });
   }
 }
@@ -203,7 +204,7 @@ export async function updateLineItemMatch(req: Request, res: Response): Promise<
 export async function verifyLineItem(req: Request, res: Response): Promise<void> {
   try {
     const { id, lineId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({ error: 'User not authenticated' });
@@ -217,7 +218,7 @@ export async function verifyLineItem(req: Request, res: Response): Promise<void>
     }
     res.json(lineItem);
   } catch (error) {
-    console.error('Error verifying line item:', error);
+    logger.error({ err: error }, 'Error verifying line item');
     res.status(500).json({ error: 'Failed to verify line item' });
   }
 }
@@ -236,7 +237,7 @@ export async function getInvoiceComparison(req: Request, res: Response): Promise
     }
     res.json(comparison);
   } catch (error) {
-    console.error('Error fetching invoice comparison:', error);
+    logger.error({ err: error }, 'Error fetching invoice comparison');
     res.status(500).json({ error: 'Failed to fetch invoice comparison' });
   }
 }
@@ -249,7 +250,7 @@ export async function approveInvoice(req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Update status to approved
     const invoice = await invoiceService.updateInvoiceStatus(id, 'approved', userId, notes);
@@ -265,16 +266,16 @@ export async function approveInvoice(req: Request, res: Response): Promise<void>
       const pushResponse = await pushInvoiceToSAP(id, userId);
       if (pushResponse.success) {
         sapResult = { pushed: true, document_number: pushResponse.sap_document_id };
-        console.log(`Invoice ${id} approved by ${userId} and pushed to SAP (doc ${pushResponse.sap_document_id}).`);
+        logger.info(`Invoice ${id} approved by ${userId} and pushed to SAP (doc ${pushResponse.sap_document_id}).`);
       }
     } catch (sapErr) {
       // SAP push is non-blocking; log and continue
-      console.warn(`Invoice ${id} approved but SAP push failed:`, sapErr);
+      logger.warn({ err: sapErr }, `Invoice ${id} approved but SAP push failed`);
     }
 
     res.json({ ...invoice, sap: sapResult, message: sapResult.pushed ? 'Invoice approved and pushed to SAP.' : 'Invoice approved.' });
   } catch (error) {
-    console.error('Error approving invoice:', error);
+    logger.error({ err: error }, 'Error approving invoice');
     res.status(500).json({ error: 'Failed to approve invoice' });
   }
 }
@@ -283,7 +284,7 @@ export async function rejectInvoice(req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!notes) {
       res.status(400).json({ error: 'Rejection reason is required' });
@@ -298,7 +299,7 @@ export async function rejectInvoice(req: Request, res: Response): Promise<void> 
 
     res.json(invoice);
   } catch (error) {
-    console.error('Error rejecting invoice:', error);
+    logger.error({ err: error }, 'Error rejecting invoice');
     res.status(500).json({ error: 'Failed to reject invoice' });
   }
 }
@@ -312,7 +313,7 @@ export async function getApprovalQueueStats(req: Request, res: Response): Promis
     const stats = await invoiceService.getApprovalQueueStats();
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching approval queue stats:', error);
+    logger.error({ err: error }, 'Error fetching approval queue stats');
     res.status(500).json({ error: 'Failed to fetch approval queue stats' });
   }
 }
@@ -322,7 +323,7 @@ export async function getPendingReviewInvoices(req: Request, res: Response): Pro
     const invoices = await invoiceService.getPendingReviewInvoices();
     res.json(invoices);
   } catch (error) {
-    console.error('Error fetching pending review invoices:', error);
+    logger.error({ err: error }, 'Error fetching pending review invoices');
     res.status(500).json({ error: 'Failed to fetch pending review invoices' });
   }
 }

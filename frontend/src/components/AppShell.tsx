@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { useSidebar } from '@/context/SidebarContext';
 import GlobalCommandBar from '@/components/GlobalCommandBar';
+import DensityToggle from '@/components/DensityToggle';
 import Sidebar from '@/components/Sidebar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
@@ -25,9 +26,6 @@ export default function AppShell({ children, dashboardWrapper }: AppShellProps) 
         Skip to main content
       </a>
 
-      {/* Global Command Bar (Ctrl+K) */}
-      <GlobalCommandBar />
-
       {/* Sidebar Navigation */}
       <Sidebar />
 
@@ -38,18 +36,20 @@ export default function AppShell({ children, dashboardWrapper }: AppShellProps) 
         {/* Mobile top spacer */}
         <div className="h-14 md:hidden flex-shrink-0" />
 
-        <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {/* Top bar with search trigger and density toggle */}
+        <div className="hidden md:flex items-center justify-end gap-3 h-12 px-4 sm:px-6 lg:px-8 w-full mx-auto flex-shrink-0">
+          <DensityToggle />
+          <GlobalCommandBar />
+        </div>
+
+        <main id="main-content" className="flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <Breadcrumbs />
           {children}
         </main>
 
-        {/* Footer - hidden on mobile */}
-        <footer className="hidden md:block bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-              Railsync Shop Loading Tool v2.1.0
-            </p>
-          </div>
+        {/* Minimal footer - hidden on mobile */}
+        <footer className="hidden md:flex items-center justify-center h-6 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Railsync v2.1.0</p>
         </footer>
       </div>
 

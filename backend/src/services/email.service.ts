@@ -4,6 +4,7 @@
  */
 
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 
 // Email configuration (use environment variables in production)
 const EMAIL_CONFIG = {
@@ -286,7 +287,7 @@ export async function notifyBadOrder(data: { car_number: string; shop_code: stri
     await queueEmail(user.email, user.first_name, template);
   }
 
-  console.log(`[Email] Queued bad order notification for ${users.length} users`);
+  logger.info(`[Email] Queued bad order notification for ${users.length} users`);
 }
 
 export async function notifyCapacityWarning(data: { shop_code: string; month: string; utilization: number; available: number }): Promise<void> {
@@ -297,7 +298,7 @@ export async function notifyCapacityWarning(data: { shop_code: string; month: st
     await queueEmail(user.email, user.first_name, template);
   }
 
-  console.log(`[Email] Queued capacity warning for ${users.length} users`);
+  logger.info(`[Email] Queued capacity warning for ${users.length} users`);
 }
 
 export async function notifyAllocationChange(data: { car_number: string; shop_code: string; old_status: string; new_status: string; changed_by: string }): Promise<void> {
@@ -308,7 +309,7 @@ export async function notifyAllocationChange(data: { car_number: string; shop_co
     await queueEmail(user.email, user.first_name, template);
   }
 
-  console.log(`[Email] Queued allocation update for ${users.length} users`);
+  logger.info(`[Email] Queued allocation update for ${users.length} users`);
 }
 
 export async function notifyProjectRelock(data: { project_number: string; project_name: string; car_number: string; old_shop: string; new_shop: string; old_month: string; new_month: string; reason: string; relocked_by: string }): Promise<void> {
@@ -319,7 +320,7 @@ export async function notifyProjectRelock(data: { project_number: string; projec
     await queueEmail(user.email, user.first_name, template);
   }
 
-  console.log(`[Email] Queued project relock notification for ${users.length} users`);
+  logger.info(`[Email] Queued project relock notification for ${users.length} users`);
 }
 
 export async function notifyProjectBundling(data: { project_number: string; project_name: string; car_number: string; shop_code: string; scope_of_work: string }): Promise<void> {
@@ -330,13 +331,13 @@ export async function notifyProjectBundling(data: { project_number: string; proj
     await queueEmail(user.email, user.first_name, template);
   }
 
-  console.log(`[Email] Queued project bundling alert for ${users.length} users`);
+  logger.info(`[Email] Queued project bundling alert for ${users.length} users`);
 }
 
 // Process email queue (call this from a cron job or worker)
 export async function processEmailQueue(batchSize: number = 10): Promise<{ sent: number; failed: number }> {
   if (!EMAIL_CONFIG.enabled) {
-    console.log('[Email] Email sending disabled');
+    logger.info('[Email] Email sending disabled');
     return { sent: 0, failed: 0 };
   }
 
@@ -355,7 +356,7 @@ export async function processEmailQueue(batchSize: number = 10): Promise<{ sent:
     try {
       // In production, use nodemailer or similar
       // For now, just log and mark as sent
-      console.log(`[Email] Would send to ${email.to_email}: ${email.subject}`);
+      logger.info(`[Email] Would send to ${email.to_email}: ${email.subject}`);
 
       await query(
         `UPDATE email_queue SET status = 'sent', sent_at = NOW(), attempts = attempts + 1 WHERE id = $1`,
@@ -363,7 +364,7 @@ export async function processEmailQueue(batchSize: number = 10): Promise<{ sent:
       );
       sent++;
     } catch (err) {
-      console.error(`[Email] Failed to send to ${email.to_email}:`, err);
+      logger.error({ err: err }, `[Email] Failed to send to ${email.to_email}`);
       await query(
         `UPDATE email_queue SET status = 'failed', attempts = attempts + 1, error_message = $2 WHERE id = $1`,
         [email.id, (err as Error).message]

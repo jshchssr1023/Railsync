@@ -1,3 +1,4 @@
+import logger from '../config/logger';
 /**
  * Billing Controller
  * API endpoints for billing runs, outbound invoices, rate management,
@@ -22,7 +23,7 @@ export async function runPreflight(req: Request, res: Response): Promise<void> {
     const result = await billingService.runPreflight(Number(fiscalYear), Number(fiscalMonth));
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error running billing preflight:', error);
+    logger.error({ err: error }, 'Error running billing preflight');
     res.status(500).json({ success: false, error: 'Failed to run billing preflight' });
   }
 }
@@ -31,7 +32,7 @@ export async function runPreflight(req: Request, res: Response): Promise<void> {
 export async function createBillingRun(req: Request, res: Response): Promise<void> {
   try {
     const { fiscalYear, fiscalMonth, runType } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     if (!fiscalYear || !fiscalMonth || !runType) {
       res.status(400).json({ success: false, error: 'fiscalYear, fiscalMonth, and runType are required' });
       return;
@@ -41,7 +42,7 @@ export async function createBillingRun(req: Request, res: Response): Promise<voi
     );
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating billing run:', error);
+    logger.error({ err: error }, 'Error creating billing run');
     res.status(500).json({ success: false, error: 'Failed to create billing run' });
   }
 }
@@ -54,7 +55,7 @@ export async function listBillingRuns(req: Request, res: Response): Promise<void
     const result = await billingService.listBillingRuns(limit, offset);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing billing runs:', error);
+    logger.error({ err: error }, 'Error listing billing runs');
     res.status(500).json({ success: false, error: 'Failed to list billing runs' });
   }
 }
@@ -69,7 +70,7 @@ export async function getBillingRun(req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting billing run:', error);
+    logger.error({ err: error }, 'Error getting billing run');
     res.status(500).json({ success: false, error: 'Failed to get billing run' });
   }
 }
@@ -82,7 +83,7 @@ export async function getBillingRun(req: Request, res: Response): Promise<void> 
 export async function generateInvoices(req: Request, res: Response): Promise<void> {
   try {
     const { fiscalYear, fiscalMonth } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     if (!fiscalYear || !fiscalMonth) {
       res.status(400).json({ success: false, error: 'fiscalYear and fiscalMonth are required' });
       return;
@@ -92,7 +93,7 @@ export async function generateInvoices(req: Request, res: Response): Promise<voi
     );
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error generating invoices:', error);
+    logger.error({ err: error }, 'Error generating invoices');
     res.status(500).json({ success: false, error: 'Failed to generate invoices' });
   }
 }
@@ -110,7 +111,7 @@ export async function listInvoices(req: Request, res: Response): Promise<void> {
     });
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing invoices:', error);
+    logger.error({ err: error }, 'Error listing invoices');
     res.status(500).json({ success: false, error: 'Failed to list invoices' });
   }
 }
@@ -125,7 +126,7 @@ export async function getInvoice(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting invoice:', error);
+    logger.error({ err: error }, 'Error getting invoice');
     res.status(500).json({ success: false, error: 'Failed to get invoice' });
   }
 }
@@ -133,7 +134,7 @@ export async function getInvoice(req: Request, res: Response): Promise<void> {
 // PUT /api/billing/invoices/:id/approve
 export async function approveInvoice(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.approveOutboundInvoice(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Invoice not found or not in approvable state' });
@@ -141,7 +142,7 @@ export async function approveInvoice(req: Request, res: Response): Promise<void>
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error approving invoice:', error);
+    logger.error({ err: error }, 'Error approving invoice');
     res.status(500).json({ success: false, error: 'Failed to approve invoice' });
   }
 }
@@ -161,7 +162,7 @@ export async function voidInvoice(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error voiding invoice:', error);
+    logger.error({ err: error }, 'Error voiding invoice');
     res.status(500).json({ success: false, error: 'Failed to void invoice' });
   }
 }
@@ -176,7 +177,7 @@ export async function getRateHistory(req: Request, res: Response): Promise<void>
     const result = await billingService.getRateHistory(req.params.riderId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting rate history:', error);
+    logger.error({ err: error }, 'Error getting rate history');
     res.status(500).json({ success: false, error: 'Failed to get rate history' });
   }
 }
@@ -185,7 +186,7 @@ export async function getRateHistory(req: Request, res: Response): Promise<void>
 export async function updateRate(req: Request, res: Response): Promise<void> {
   try {
     const { newRate, effectiveDate, changeType, reason } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     if (!newRate || !effectiveDate || !changeType) {
       res.status(400).json({ success: false, error: 'newRate, effectiveDate, and changeType are required' });
       return;
@@ -195,7 +196,7 @@ export async function updateRate(req: Request, res: Response): Promise<void> {
     );
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error updating rate:', error);
+    logger.error({ err: error }, 'Error updating rate');
     res.status(500).json({ success: false, error: 'Failed to update rate' });
   }
 }
@@ -208,7 +209,7 @@ export async function updateRate(req: Request, res: Response): Promise<void> {
 export async function registerMileageFile(req: Request, res: Response): Promise<void> {
   try {
     const { filename, fileType, reportingPeriod } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     if (!filename || !reportingPeriod) {
       res.status(400).json({ success: false, error: 'filename and reportingPeriod are required' });
       return;
@@ -218,7 +219,7 @@ export async function registerMileageFile(req: Request, res: Response): Promise<
     );
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error registering mileage file:', error);
+    logger.error({ err: error }, 'Error registering mileage file');
     res.status(500).json({ success: false, error: 'Failed to register mileage file' });
   }
 }
@@ -234,7 +235,7 @@ export async function importMileageRecords(req: Request, res: Response): Promise
     const result = await billingService.importMileageRecords(req.params.fileId, records);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error importing mileage records:', error);
+    logger.error({ err: error }, 'Error importing mileage records');
     res.status(500).json({ success: false, error: 'Failed to import mileage records' });
   }
 }
@@ -251,7 +252,7 @@ export async function getMileageSummary(req: Request, res: Response): Promise<vo
     const result = await billingService.getMileageSummary(customerId, period);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting mileage summary:', error);
+    logger.error({ err: error }, 'Error getting mileage summary');
     res.status(500).json({ success: false, error: 'Failed to get mileage summary' });
   }
 }
@@ -259,7 +260,7 @@ export async function getMileageSummary(req: Request, res: Response): Promise<vo
 // PUT /api/billing/mileage/records/:id/verify
 export async function verifyMileageRecord(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.verifyMileageRecord(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Mileage record not found' });
@@ -267,7 +268,7 @@ export async function verifyMileageRecord(req: Request, res: Response): Promise<
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error verifying mileage record:', error);
+    logger.error({ err: error }, 'Error verifying mileage record');
     res.status(500).json({ success: false, error: 'Failed to verify mileage record' });
   }
 }
@@ -279,7 +280,7 @@ export async function verifyMileageRecord(req: Request, res: Response): Promise<
 // POST /api/billing/chargebacks
 export async function createChargeback(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.createChargeback({
       ...req.body,
       customer_id: req.body.customerId || req.body.customer_id,
@@ -290,7 +291,7 @@ export async function createChargeback(req: Request, res: Response): Promise<voi
     });
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating chargeback:', error);
+    logger.error({ err: error }, 'Error creating chargeback');
     res.status(500).json({ success: false, error: 'Failed to create chargeback' });
   }
 }
@@ -307,7 +308,7 @@ export async function listChargebacks(req: Request, res: Response): Promise<void
     });
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing chargebacks:', error);
+    logger.error({ err: error }, 'Error listing chargebacks');
     res.status(500).json({ success: false, error: 'Failed to list chargebacks' });
   }
 }
@@ -315,7 +316,7 @@ export async function listChargebacks(req: Request, res: Response): Promise<void
 // PUT /api/billing/chargebacks/:id/review
 export async function reviewChargeback(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const { approved, notes } = req.body;
     if (typeof approved !== 'boolean') {
       res.status(400).json({ success: false, error: 'approved (boolean) is required' });
@@ -328,7 +329,7 @@ export async function reviewChargeback(req: Request, res: Response): Promise<voi
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error reviewing chargeback:', error);
+    logger.error({ err: error }, 'Error reviewing chargeback');
     res.status(500).json({ success: false, error: 'Failed to review chargeback' });
   }
 }
@@ -337,7 +338,7 @@ export async function reviewChargeback(req: Request, res: Response): Promise<voi
 export async function generateChargebackInvoice(req: Request, res: Response): Promise<void> {
   try {
     const { customerId, fiscalYear, fiscalMonth } = req.body;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     if (!customerId || !fiscalYear || !fiscalMonth) {
       res.status(400).json({ success: false, error: 'customerId, fiscalYear, and fiscalMonth are required' });
       return;
@@ -351,7 +352,7 @@ export async function generateChargebackInvoice(req: Request, res: Response): Pr
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error generating chargeback invoice:', error);
+    logger.error({ err: error }, 'Error generating chargeback invoice');
     res.status(500).json({ success: false, error: 'Failed to generate chargeback invoice' });
   }
 }
@@ -363,7 +364,7 @@ export async function generateChargebackInvoice(req: Request, res: Response): Pr
 // POST /api/billing/adjustments
 export async function createAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.createAdjustment({
       ...req.body,
       customer_id: req.body.customerId || req.body.customer_id,
@@ -376,7 +377,7 @@ export async function createAdjustment(req: Request, res: Response): Promise<voi
     });
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating adjustment:', error);
+    logger.error({ err: error }, 'Error creating adjustment');
     res.status(500).json({ success: false, error: 'Failed to create adjustment' });
   }
 }
@@ -388,7 +389,7 @@ export async function listPendingAdjustments(req: Request, res: Response): Promi
     const result = await billingService.listPendingAdjustments(customerId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing pending adjustments:', error);
+    logger.error({ err: error }, 'Error listing pending adjustments');
     res.status(500).json({ success: false, error: 'Failed to list pending adjustments' });
   }
 }
@@ -396,7 +397,7 @@ export async function listPendingAdjustments(req: Request, res: Response): Promi
 // PUT /api/billing/adjustments/:id/approve
 export async function approveAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.approveAdjustment(req.params.id, userId);
     if (!result) {
       res.status(404).json({ success: false, error: 'Adjustment not found or not pending' });
@@ -404,7 +405,7 @@ export async function approveAdjustment(req: Request, res: Response): Promise<vo
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error approving adjustment:', error);
+    logger.error({ err: error }, 'Error approving adjustment');
     res.status(500).json({ success: false, error: 'Failed to approve adjustment' });
   }
 }
@@ -412,7 +413,7 @@ export async function approveAdjustment(req: Request, res: Response): Promise<vo
 // PUT /api/billing/adjustments/:id/reject
 export async function rejectAdjustment(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const { reason } = req.body;
     if (!reason) {
       res.status(400).json({ success: false, error: 'Reason is required' });
@@ -425,7 +426,7 @@ export async function rejectAdjustment(req: Request, res: Response): Promise<voi
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error rejecting adjustment:', error);
+    logger.error({ err: error }, 'Error rejecting adjustment');
     res.status(500).json({ success: false, error: 'Failed to reject adjustment' });
   }
 }
@@ -446,7 +447,7 @@ export async function getBillingSummary(req: Request, res: Response): Promise<vo
     const result = await billingService.getBillingSummary(fiscalYear, fiscalMonth);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting billing summary:', error);
+    logger.error({ err: error }, 'Error getting billing summary');
     res.status(500).json({ success: false, error: 'Failed to get billing summary' });
   }
 }
@@ -459,7 +460,7 @@ export async function getCustomerInvoiceHistory(req: Request, res: Response): Pr
     const result = await billingService.getCustomerInvoiceHistory(req.params.customerId, limit, offset);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting customer invoice history:', error);
+    logger.error({ err: error }, 'Error getting customer invoice history');
     res.status(500).json({ success: false, error: 'Failed to get customer invoice history' });
   }
 }
@@ -471,7 +472,7 @@ export async function getCustomerInvoiceHistory(req: Request, res: Response): Pr
 // PUT /api/billing/runs/:id/approve
 export async function approveBillingRun(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const { notes } = req.body;
     const result = await billingService.approveBillingRun(req.params.id, userId, notes);
     if (!result) {
@@ -480,7 +481,7 @@ export async function approveBillingRun(req: Request, res: Response): Promise<vo
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error approving billing run:', error);
+    logger.error({ err: error }, 'Error approving billing run');
     res.status(500).json({ success: false, error: 'Failed to approve billing run' });
   }
 }
@@ -495,7 +496,7 @@ export async function completeBillingRun(req: Request, res: Response): Promise<v
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error completing billing run:', error);
+    logger.error({ err: error }, 'Error completing billing run');
     res.status(500).json({ success: false, error: 'Failed to complete billing run' });
   }
 }
@@ -507,14 +508,14 @@ export async function completeBillingRun(req: Request, res: Response): Promise<v
 // POST /api/billing/cost-allocations
 export async function createCostAllocation(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
     const result = await billingService.createCostAllocationEntry({
       ...req.body,
       allocated_by: userId,
     });
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating cost allocation:', error);
+    logger.error({ err: error }, 'Error creating cost allocation');
     res.status(500).json({ success: false, error: 'Failed to create cost allocation' });
   }
 }
@@ -531,7 +532,7 @@ export async function getCostAllocationSummary(req: Request, res: Response): Pro
     const result = await billingService.getCostAllocationSummary(fiscalYear, fiscalMonth);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting cost allocation summary:', error);
+    logger.error({ err: error }, 'Error getting cost allocation summary');
     res.status(500).json({ success: false, error: 'Failed to get cost allocation summary' });
   }
 }
@@ -549,7 +550,7 @@ export async function listCostAllocations(req: Request, res: Response): Promise<
     });
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing cost allocations:', error);
+    logger.error({ err: error }, 'Error listing cost allocations');
     res.status(500).json({ success: false, error: 'Failed to list cost allocations' });
   }
 }

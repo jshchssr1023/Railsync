@@ -621,11 +621,11 @@ describe('Component Service', () => {
       expect(result!.last_inspection_date).toBe('2026-02-07');
       expect(result!.next_inspection_due).toBe('2027-02-07');
 
-      // Verify UPDATE query sets dates
+      // Verify UPDATE query sets dates (includes parameterized inspection interval)
       expect(mockQueryOne).toHaveBeenNthCalledWith(
         2,
         expect.stringContaining('last_inspection_date = CURRENT_DATE'),
-        ['comp-uuid-1']
+        ['comp-uuid-1', 365]
       );
       expect(mockQueryOne).toHaveBeenNthCalledWith(
         2,

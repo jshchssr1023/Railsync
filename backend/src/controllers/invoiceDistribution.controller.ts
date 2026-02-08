@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as distributionService from '../services/invoiceDistribution.service';
 
 // GET /api/billing/distribution/configs
@@ -12,7 +13,7 @@ export async function listConfigs(req: Request, res: Response): Promise<void> {
     const result = await distributionService.listDistributionConfigs();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing distribution configs:', error);
+    logger.error({ err: error }, 'Error listing distribution configs');
     res.status(500).json({ success: false, error: 'Failed to list distribution configs' });
   }
 }
@@ -23,7 +24,7 @@ export async function getConfig(req: Request, res: Response): Promise<void> {
     const result = await distributionService.getDistributionConfig(req.params.customerId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting distribution config:', error);
+    logger.error({ err: error }, 'Error getting distribution config');
     res.status(500).json({ success: false, error: 'Failed to get distribution config' });
   }
 }
@@ -37,7 +38,7 @@ export async function upsertConfig(req: Request, res: Response): Promise<void> {
     });
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error updating distribution config:', error);
+    logger.error({ err: error }, 'Error updating distribution config');
     res.status(500).json({ success: false, error: 'Failed to update distribution config' });
   }
 }
@@ -52,7 +53,7 @@ export async function deleteConfig(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: { deleted: true } });
   } catch (error) {
-    console.error('Error deleting distribution config:', error);
+    logger.error({ err: error }, 'Error deleting distribution config');
     res.status(500).json({ success: false, error: 'Failed to delete distribution config' });
   }
 }
@@ -72,7 +73,7 @@ export async function queueDelivery(req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error queuing delivery:', error);
+    logger.error({ err: error }, 'Error queuing delivery');
     res.status(500).json({ success: false, error: 'Failed to queue delivery' });
   }
 }
@@ -83,7 +84,7 @@ export async function processDeliveries(req: Request, res: Response): Promise<vo
     const result = await distributionService.processPendingDeliveries();
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error processing deliveries:', error);
+    logger.error({ err: error }, 'Error processing deliveries');
     res.status(500).json({ success: false, error: 'Failed to process deliveries' });
   }
 }
@@ -94,7 +95,7 @@ export async function getDeliveryHistory(req: Request, res: Response): Promise<v
     const result = await distributionService.getInvoiceDeliveryHistory(req.params.invoiceId);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting delivery history:', error);
+    logger.error({ err: error }, 'Error getting delivery history');
     res.status(500).json({ success: false, error: 'Failed to get delivery history' });
   }
 }
@@ -111,7 +112,7 @@ export async function getDeliveryStats(req: Request, res: Response): Promise<voi
     const result = await distributionService.getDeliveryStats(fiscalYear, fiscalMonth);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting delivery stats:', error);
+    logger.error({ err: error }, 'Error getting delivery stats');
     res.status(500).json({ success: false, error: 'Failed to get delivery stats' });
   }
 }
@@ -123,7 +124,7 @@ export async function getPendingDeliveries(req: Request, res: Response): Promise
     const result = await distributionService.getPendingDeliveries(limit);
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error getting pending deliveries:', error);
+    logger.error({ err: error }, 'Error getting pending deliveries');
     res.status(500).json({ success: false, error: 'Failed to get pending deliveries' });
   }
 }

@@ -1,4 +1,5 @@
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 import { BRCRecord, BRCImportResult, Allocation } from '../types';
 import * as assignmentService from './assignment.service';
 
@@ -301,7 +302,7 @@ async function createRunningRepairAllocation(brc: BRCRecord, userId?: string): P
         }
       }
     } catch (err) {
-      console.warn('SSOT write failed for BRC (non-blocking):', err);
+      logger.warn({ err }, 'SSOT write failed for BRC (non-blocking)');
     }
   }
 }

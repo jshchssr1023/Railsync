@@ -86,7 +86,7 @@ export async function updateLastLogin(userId: string): Promise<void> {
 export async function updatePassword(userId: string, newPassword: string): Promise<void> {
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await query(
-    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
     [passwordHash, userId]
   );
 }

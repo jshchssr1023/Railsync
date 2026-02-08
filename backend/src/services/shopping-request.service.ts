@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
 import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
 
 // ---------------------------------------------------------------------------
@@ -414,7 +415,7 @@ export async function approveShoppingRequest(
       actorId: userId,
       sideEffects: [{ type: 'created', entity_type: 'shopping_event', entity_id: eventId }],
       notes: notes || undefined,
-    }).catch(err => console.error('[TransitionLog] Failed to log shopping request approval:', err));
+    }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log shopping request approval'));
 
     return updated;
   });
@@ -460,7 +461,7 @@ export async function rejectShoppingRequest(
     isReversible: true,
     actorId: userId,
     notes,
-  }).catch(err => console.error('[TransitionLog] Failed to log shopping request rejection:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log shopping request rejection'));
 
   return result!;
 }
@@ -500,7 +501,7 @@ export async function cancelShoppingRequest(
     toState: 'cancelled',
     isReversible: false,
     actorId: userId,
-  }).catch(err => console.error('[TransitionLog] Failed to log shopping request cancellation:', err));
+  }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log shopping request cancellation'));
 
   return result!;
 }

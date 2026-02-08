@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as badOrderService from '../services/badOrder.service';
 import { logFromRequest } from '../services/audit.service';
 
@@ -50,7 +51,7 @@ export async function createBadOrder(req: Request, res: Response): Promise<void>
       has_existing_plan: badOrder.had_existing_plan,
     });
   } catch (error) {
-    console.error('Create bad order error:', error);
+    logger.error({ err: error }, 'Create bad order error');
     res.status(500).json({ success: false, error: 'Failed to create bad order' });
   }
 }
@@ -67,7 +68,7 @@ export async function getBadOrder(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, data: badOrder });
   } catch (error) {
-    console.error('Get bad order error:', error);
+    logger.error({ err: error }, 'Get bad order error');
     res.status(500).json({ success: false, error: 'Failed to get bad order' });
   }
 }
@@ -85,7 +86,7 @@ export async function listBadOrders(req: Request, res: Response): Promise<void> 
     const result = await badOrderService.listBadOrders(filters);
     res.json({ success: true, data: result.reports, total: result.total });
   } catch (error) {
-    console.error('List bad orders error:', error);
+    logger.error({ err: error }, 'List bad orders error');
     res.status(500).json({ success: false, error: 'Failed to list bad orders' });
   }
 }
@@ -128,7 +129,7 @@ export async function resolveBadOrder(req: Request, res: Response): Promise<void
 
     res.json({ success: true, data: badOrder });
   } catch (error) {
-    console.error('Resolve bad order error:', error);
+    logger.error({ err: error }, 'Resolve bad order error');
     res.status(500).json({ success: false, error: 'Failed to resolve bad order' });
   }
 }
@@ -151,7 +152,7 @@ export async function revertBadOrder(req: Request, res: Response): Promise<void>
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Revert bad order error:', error);
+    logger.error({ err: error }, 'Revert bad order error');
     const message = error instanceof Error ? error.message : 'Failed to revert bad order';
     res.status(400).json({ success: false, error: message });
   }

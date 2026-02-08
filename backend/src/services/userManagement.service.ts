@@ -379,9 +379,10 @@ export async function getActiveUsers(minutesAgo: number = 15) {
   return query(
     `SELECT id, email, first_name, last_name, last_activity_at
      FROM users
-     WHERE last_activity_at > NOW() - INTERVAL '${minutesAgo} minutes'
+     WHERE last_activity_at > NOW() - make_interval(mins => $1)
      AND is_active = true
-     ORDER BY last_activity_at DESC`
+     ORDER BY last_activity_at DESC`,
+    [minutesAgo]
   );
 }
 

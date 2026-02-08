@@ -1,13 +1,20 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle, Clock, Train, Droplets, Shield, Wrench,
   FileText, MapPin, Calendar, User, Building2, ExternalLink, Layers, ClipboardList, Loader2
 } from 'lucide-react';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
+import MobileCarCard from '@/components/MobileCarCard';
+import EmptyState from '@/components/EmptyState';
+import ExportButton from '@/components/ExportButton';
+import { useAuth } from '@/context/AuthContext';
+import { useURLFilters } from '@/hooks/useURLFilters';
+import { useFilterPresets } from '@/hooks/useFilterPresets';
+import FilterPresetsBar from '@/components/FilterPresetsBar';
+import type { ExportColumn } from '@/hooks/useExportCSV';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -631,6 +638,26 @@ function CarDrawer({ carNumber, onClose }: { carNumber: string; onClose: () => v
 // Main Page
 // ---------------------------------------------------------------------------
 export default function CarsPageWrapper() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          Please sign in to view the cars directory
+        </h2>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
@@ -642,22 +669,38 @@ export default function CarsPageWrapper() {
   );
 }
 
+// Default filter values for the cars page
+const CARS_FILTER_DEFAULTS: Record<string, string> = {
+  type: '',
+  commodity: '',
+  search: '',
+  status: '',
+  region: '',
+  lessee: '',
+};
+
 function CarsPage() {
-  const searchParams = useSearchParams();
+  // --- URL-driven filter state ---
+  const { filters, setFilter, setFilters, clearFilters } = useURLFilters(CARS_FILTER_DEFAULTS);
+  const selectedType = filters.type || null;
+  const selectedCommodity = filters.commodity || null;
+  const search = filters.search;
+  const statusFilter = filters.status;
+  const regionFilter = filters.region;
+  const lesseeFilter = filters.lessee;
+
+  // --- Filter presets ---
+  const { presets, savePreset, deletePreset, applyPreset } = useFilterPresets(
+    'cars',
+    (presetFilters) => setFilters(presetFilters),
+  );
 
   // Tree data
   const [tree, setTree] = useState<TypeTreeNode[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
-  // Initialize filters from URL query params
-  const [selectedType, setSelectedType] = useState<string | null>(searchParams.get('type'));
-  const [selectedCommodity, setSelectedCommodity] = useState<string | null>(searchParams.get('commodity'));
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
-  const [regionFilter, setRegionFilter] = useState(searchParams.get('region') || '');
-  const [lesseeFilter, setLesseeFilter] = useState(searchParams.get('lessee') || '');
-  const [showFilters, setShowFilters] = useState(!!(searchParams.get('status') || searchParams.get('region') || searchParams.get('lessee')));
+  const [showFilters, setShowFilters] = useState(!!(statusFilter || regionFilter || lesseeFilter));
 
   // Sort & pagination
   const [sortField, setSortField] = useState('car_number');
@@ -672,6 +715,15 @@ function CarsPage() {
 
   // Drawer
   const [selectedCar, setSelectedCar] = useState<string | null>(null);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Distinct values for filter dropdowns
   const [filterOptions, setFilterOptions] = useState<{ statuses: string[]; regions: string[]; lessees: string[] }>({ statuses: [], regions: [], lessees: [] });
@@ -713,7 +765,9 @@ function CarsPage() {
   }, [page, pageSize, sortField, sortDir, selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
 
   // Reset page on filter change
-  const handleFilterChange = useCallback(() => setPage(1), []);
+  useEffect(() => {
+    setPage(1);
+  }, [selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
 
   const handleSort = useCallback((field: string) => {
     if (sortField === field) {
@@ -725,29 +779,25 @@ function CarsPage() {
     setPage(1);
   }, [sortField]);
 
-  const handleTypeSelect = (t: string | null) => { setSelectedType(t); setPage(1); };
-  const handleCommoditySelect = (c: string | null) => { setSelectedCommodity(c); setPage(1); };
-  const handleClearTree = () => { setSelectedType(null); setSelectedCommodity(null); setPage(1); };
+  const handleTypeSelect = (t: string | null) => { setFilter('type', t || ''); };
+  const handleCommoditySelect = (c: string | null) => { setFilter('commodity', c || ''); };
+  const handleClearTree = () => { setFilters({ type: '', commodity: '' }); };
 
   const activeFilterCount = [statusFilter, regionFilter, lesseeFilter, search].filter(Boolean).length
     + (selectedType ? 1 : 0) + (selectedCommodity ? 1 : 0);
 
   const clearAllFilters = () => {
-    setSearch('');
-    setStatusFilter('');
-    setRegionFilter('');
-    setLesseeFilter('');
-    setSelectedType(null);
-    setSelectedCommodity(null);
+    clearFilters();
     setPage(1);
   };
 
   // Debounced search
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
-    setSearch(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => setPage(1), 300);
+    searchTimeoutRef.current = setTimeout(() => {
+      setFilter('search', value);
+    }, 300);
   };
 
   const columns = [
@@ -760,6 +810,18 @@ function CarsPage() {
     { key: 'tank_qual_year', label: 'Tank Qual', width: 'w-24' },
     { key: 'car_age', label: 'Age', width: 'w-16' },
   ];
+
+  const exportColumns: ExportColumn[] = [
+    { key: 'car_number', header: 'Car Number' },
+    { key: 'car_type', header: 'Type' },
+    { key: 'current_status', header: 'Status' },
+    { key: 'current_region', header: 'Region' },
+    { key: 'lessee_name', header: 'Lessee' },
+    { key: 'commodity', header: 'Commodity' },
+    { key: 'product_code', header: 'Product Code' },
+  ];
+
+  const exportFilename = `railsync-cars-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
@@ -797,6 +859,12 @@ function CarsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <ExportButton
+                data={cars}
+                columns={exportColumns}
+                filename={exportFilename}
+                disabled={carsLoading}
+              />
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearAllFilters}
@@ -808,13 +876,25 @@ function CarsPage() {
             </div>
           </div>
 
+          {/* Filter Presets */}
+          <div className="mb-2">
+            <FilterPresetsBar
+              presets={presets}
+              onApply={applyPreset}
+              onDelete={deletePreset}
+              onSave={(name) => savePreset(name, filters)}
+              currentFilters={filters}
+              defaults={CARS_FILTER_DEFAULTS}
+            />
+          </div>
+
           <div className="flex gap-3">
             {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={search}
+                defaultValue={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Search car number..."
                 className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
@@ -847,7 +927,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
                 <select
                   value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('status', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
@@ -858,7 +938,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Region</label>
                 <select
                   value={regionFilter}
-                  onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('region', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
@@ -869,7 +949,7 @@ function CarsPage() {
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Lessee</label>
                 <select
                   value={lesseeFilter}
-                  onChange={(e) => { setLesseeFilter(e.target.value); setPage(1); }}
+                  onChange={(e) => { setFilter('lessee', e.target.value); setPage(1); }}
                   className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">All</option>
@@ -880,42 +960,55 @@ function CarsPage() {
           )}
         </div>
 
-        {/* Table */}
+        {/* Table / Mobile Cards */}
         <div className="flex-1 overflow-auto">
-          <table className="w-full">
-            <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
-              <tr>
-                {columns.map(col => (
-                  <th
-                    key={col.key}
-                    onClick={() => handleSort(col.key)}
-                    className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 select-none ${col.width}`}
-                  >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      {sortField === col.key && (
-                        sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
-              {carsLoading ? (
+          {carsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+            </div>
+          ) : cars.length === 0 ? (
+            <EmptyState
+              variant="search"
+              title="No cars match the current filters"
+              description="Try adjusting your search or filter criteria."
+              actionLabel="Clear Filters"
+              onAction={clearAllFilters}
+            />
+          ) : isMobile ? (
+            <div className="space-y-3 p-3">
+              {cars.map(car => (
+                <MobileCarCard
+                  key={car.car_number}
+                  carNumber={car.car_number}
+                  status={car.current_status || 'Unknown'}
+                  carType={car.car_type}
+                  customer={car.lessee_name}
+                  onClick={() => setSelectedCar(car.car_number)}
+                />
+              ))}
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
                 <tr>
-                  <td colSpan={columns.length} className="py-16 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary-500 inline-block" />
-                  </td>
+                  {columns.map(col => (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col.key)}
+                      className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 select-none ${col.width}`}
+                    >
+                      <div className="flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.key && (
+                          sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                        )}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
-              ) : cars.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No cars match the current filters.
-                  </td>
-                </tr>
-              ) : (
-                cars.map(car => (
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                {cars.map(car => (
                   <tr
                     key={car.car_number}
                     onClick={() => setSelectedCar(car.car_number)}
@@ -950,10 +1043,10 @@ function CarsPage() {
                       {car.car_age ? `${car.car_age}y` : '-'}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination */}

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as commodityService from '../services/commodity.service';
 
 /**
@@ -13,7 +14,7 @@ export async function listCommodities(req: Request, res: Response): Promise<void
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error listing commodities:', error);
+    logger.error({ err: error }, 'Error listing commodities');
     res.status(500).json({ success: false, error: 'Failed to list commodities' });
   }
 }
@@ -35,7 +36,7 @@ export async function getCommodityByCode(req: Request, res: Response): Promise<v
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching commodity:', error);
+    logger.error({ err: error }, 'Error fetching commodity');
     res.status(500).json({ success: false, error: 'Failed to get commodity' });
   }
 }
@@ -57,7 +58,7 @@ export async function getCommodityCleaningRequirements(req: Request, res: Respon
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching cleaning requirements:', error);
+    logger.error({ err: error }, 'Error fetching cleaning requirements');
     res.status(500).json({ success: false, error: 'Failed to get cleaning requirements' });
   }
 }
@@ -75,7 +76,7 @@ export async function createCommodity(req: Request, res: Response): Promise<void
       return;
     }
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
 
     const result = await commodityService.createCommodity(req.body, userId);
 
@@ -85,7 +86,7 @@ export async function createCommodity(req: Request, res: Response): Promise<void
       res.status(409).json({ success: false, error: 'Commodity with this code already exists' });
       return;
     }
-    console.error('Error creating commodity:', error);
+    logger.error({ err: error }, 'Error creating commodity');
     res.status(500).json({ success: false, error: 'Failed to create commodity' });
   }
 }
@@ -97,7 +98,7 @@ export async function createCommodity(req: Request, res: Response): Promise<void
 export async function updateCommodity(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.userId;
+    const userId = req.user!.id;
 
     const result = await commodityService.updateCommodity(id, req.body, userId);
 
@@ -108,7 +109,7 @@ export async function updateCommodity(req: Request, res: Response): Promise<void
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error updating commodity:', error);
+    logger.error({ err: error }, 'Error updating commodity');
     res.status(500).json({ success: false, error: 'Failed to update commodity' });
   }
 }
@@ -130,7 +131,7 @@ export async function getCarCleaningRequirements(req: Request, res: Response): P
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error fetching car cleaning requirements:', error);
+    logger.error({ err: error }, 'Error fetching car cleaning requirements');
     res.status(500).json({ success: false, error: 'Failed to get car cleaning requirements' });
   }
 }

@@ -7,6 +7,9 @@ import {
   Shield, Clock, Factory, Users, Gauge, ExternalLink, Truck,
   Award, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import MobileShopCard from '@/components/MobileShopCard';
+import EmptyState from '@/components/EmptyState';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -453,6 +456,7 @@ function DesignationCard({
   tierFilter,
   regionFilter,
   preferredOnly,
+  isMobile,
 }: {
   group: DesignationGroup;
   expandedNetworks: Set<string>;
@@ -463,6 +467,7 @@ function DesignationCard({
   tierFilter: string;
   regionFilter: string;
   preferredOnly: boolean;
+  isMobile: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const config = DESIGNATION_CONFIG[group.designation] || DESIGNATION_CONFIG.repair;
@@ -530,48 +535,66 @@ function DesignationCard({
                   {/* Shop Rows */}
                   {isExpanded && (
                     <div className="bg-gray-50/50 dark:bg-gray-800/30">
-                      {net.shops.map(shop => {
-                        const tc = getTierColor(shop.tier);
-                        return (
-                          <button
-                            key={shop.shop_code}
-                            onClick={() => onSelectShop(shop.shop_code)}
-                            className={`w-full flex items-center gap-3 px-4 pl-10 py-2 text-left border-l-3 ${tc.border} hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${
-                              selectedShopCode === shop.shop_code ? 'bg-primary-50 dark:bg-primary-900/20' : ''
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{shop.shop_name}</span>
-                                {shop.is_preferred_network && (
-                                  <span title="Preferred Network">
-                                    <Award className="w-3 h-3 text-green-500 flex-shrink-0" />
-                                  </span>
+                      {isMobile ? (
+                        <div className="space-y-2 p-3">
+                          {net.shops.map(shop => (
+                            <MobileShopCard
+                              key={shop.shop_code}
+                              shopCode={shop.shop_code}
+                              shopName={shop.shop_name}
+                              region={shop.region}
+                              tier={shop.tier}
+                              designation={group.designation}
+                              capacity={shop.capacity}
+                              isPreferredNetwork={shop.is_preferred_network}
+                              onClick={() => onSelectShop(shop.shop_code)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        net.shops.map(shop => {
+                          const tc = getTierColor(shop.tier);
+                          return (
+                            <button
+                              key={shop.shop_code}
+                              onClick={() => onSelectShop(shop.shop_code)}
+                              className={`w-full flex items-center gap-3 px-4 pl-10 py-2 text-left border-l-3 ${tc.border} hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${
+                                selectedShopCode === shop.shop_code ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{shop.shop_name}</span>
+                                  {shop.is_preferred_network && (
+                                    <span title="Preferred Network">
+                                      <Award className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                  <span className="font-mono">{shop.shop_code}</span>
+                                  <span>&middot;</span>
+                                  <span>{shop.region}</span>
+                                </div>
+                              </div>
+
+                              <div className="hidden md:flex items-center gap-4 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="text-xs font-medium text-gray-900 dark:text-gray-100">{shop.cars_in_shop}/{shop.capacity}</div>
+                                  <div className="text-[10px] text-gray-500">load</div>
+                                </div>
+                                <LoadIndicator status={shop.load_status} pct={shop.load_pct} />
+                                {group.designation === 'repair' && (
+                                  <div className="text-right w-16">
+                                    <div className="text-xs font-medium text-gray-900 dark:text-gray-100">${shop.labor_rate}</div>
+                                    <div className="text-[10px] text-gray-500">rate</div>
+                                  </div>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span className="font-mono">{shop.shop_code}</span>
-                                <span>&middot;</span>
-                                <span>{shop.region}</span>
-                              </div>
-                            </div>
-
-                            <div className="hidden md:flex items-center gap-4 flex-shrink-0">
-                              <div className="text-right">
-                                <div className="text-xs font-medium text-gray-900 dark:text-gray-100">{shop.cars_in_shop}/{shop.capacity}</div>
-                                <div className="text-[10px] text-gray-500">load</div>
-                              </div>
-                              <LoadIndicator status={shop.load_status} pct={shop.load_pct} />
-                              {group.designation === 'repair' && (
-                                <div className="text-right w-16">
-                                  <div className="text-xs font-medium text-gray-900 dark:text-gray-100">${shop.labor_rate}</div>
-                                  <div className="text-[10px] text-gray-500">rate</div>
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
                   )}
                 </div>
@@ -587,11 +610,44 @@ function DesignationCard({
 // ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
-export default function ShopsPage() {
+export default function ShopsPageWrapper() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+          Please sign in to view the shop directory
+        </h2>
+      </div>
+    );
+  }
+
+  return <ShopsPage />;
+}
+
+function ShopsPage() {
   const [hierarchy, setHierarchy] = useState<DesignationGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedNetworks, setExpandedNetworks] = useState<Set<string>>(new Set());
   const [selectedShopCode, setSelectedShopCode] = useState<string | null>(null);
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -731,6 +787,7 @@ export default function ShopsPage() {
               tierFilter={tierFilter}
               regionFilter={regionFilter}
               preferredOnly={preferredOnly}
+              isMobile={isMobile}
             />
           ))}
         </div>

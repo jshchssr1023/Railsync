@@ -20,6 +20,8 @@ import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
 import EstimateReviewPanel from '@/components/EstimateReviewPanel';
+import ActivityTimeline from '@/components/ActivityTimeline';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 // ---------------------------------------------------------------------------
 // State badge color mapping
@@ -145,6 +147,15 @@ export default function ShoppingEventDetailPage() {
   const [aiAnalysisError, setAiAnalysisError] = useState<string | null>(null);
 
   // Estimate decisions moved to EstimateReviewPanel component
+
+  // -----------------------------------------------------------------------
+  // Activity history (audit logs)
+  // -----------------------------------------------------------------------
+  const {
+    entries: auditEntries,
+    loading: auditLoading,
+  } = useAuditLog({ entity_type: 'shopping_event', entity_id: id, limit: 50 });
+  const [activityCollapsed, setActivityCollapsed] = useState(true);
 
   // -----------------------------------------------------------------------
   // Transition confirmation dialog
@@ -471,7 +482,7 @@ export default function ShoppingEventDetailPage() {
       {/* State Transition Actions                                          */}
       {/* ----------------------------------------------------------------- */}
       {(transitions.length > 0 || canCancel) && (
-        <div className="card p-4">
+        <div className="card p-4 sticky bottom-0 z-10 backdrop-blur-sm bg-white/90 dark:bg-gray-900/90 border-t border-gray-200 dark:border-gray-700 shadow-lg">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h2>
 
           {/* Optional notes for forward transitions */}
@@ -961,6 +972,41 @@ export default function ShoppingEventDetailPage() {
             </div>
           )}
         </dl>
+      </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Activity History (Audit Trail)                                   */}
+      {/* ----------------------------------------------------------------- */}
+      <div className="card">
+        <button
+          type="button"
+          onClick={() => setActivityCollapsed(!activityCollapsed)}
+          className="card-header flex items-center gap-2 w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors p-4"
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 transition-transform ${
+              activityCollapsed ? '-rotate-90' : ''
+            }`}
+          />
+          <div className="text-left">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Activity History
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Full audit trail for this shopping event
+            </p>
+          </div>
+        </button>
+        {!activityCollapsed && (
+          <div className="p-4 pt-0">
+            <ActivityTimeline
+              entries={auditEntries}
+              loading={auditLoading}
+              maxHeight="400px"
+              emptyMessage="No activity recorded for this shopping event."
+            />
+          </div>
+        )}
       </div>
 
       {/* Transition confirmation dialog */}

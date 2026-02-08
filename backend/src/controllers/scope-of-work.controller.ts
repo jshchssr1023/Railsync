@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import {
   createSOW,
   getSOW,
@@ -15,13 +16,13 @@ import {
 
 export async function createSOWHandler(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const { scope_library_id } = req.body;
 
     const sow = await createSOW({ scope_library_id }, userId);
     res.status(201).json(sow);
   } catch (error) {
-    console.error('Error creating scope of work:', error);
+    logger.error({ err: error }, 'Error creating scope of work');
     res.status(500).json({ error: 'Failed to create scope of work' });
   }
 }
@@ -38,7 +39,7 @@ export async function getSOWHandler(req: Request, res: Response): Promise<void> 
 
     res.json(sow);
   } catch (error) {
-    console.error('Error getting scope of work:', error);
+    logger.error({ err: error }, 'Error getting scope of work');
     res.status(500).json({ error: 'Failed to get scope of work' });
   }
 }
@@ -56,7 +57,7 @@ export async function addSOWItemHandler(req: Request, res: Response): Promise<vo
     const item = await addSOWItem(id, { line_number, instruction_text, source, ccm_section_id, scope_library_item_id });
     res.status(201).json(item);
   } catch (error) {
-    console.error('Error adding SOW item:', error);
+    logger.error({ err: error }, 'Error adding SOW item');
     res.status(500).json({ error: 'Failed to add scope of work item' });
   }
 }
@@ -79,7 +80,7 @@ export async function updateSOWItemHandler(req: Request, res: Response): Promise
       res.status(409).json({ error: error.message });
       return;
     }
-    console.error('Error updating SOW item:', error);
+    logger.error({ err: error }, 'Error updating SOW item');
     res.status(500).json({ error: 'Failed to update scope of work item' });
   }
 }
@@ -90,7 +91,7 @@ export async function removeSOWItemHandler(req: Request, res: Response): Promise
     await removeSOWItem(itemId);
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing SOW item:', error);
+    logger.error({ err: error }, 'Error removing SOW item');
     res.status(500).json({ error: 'Failed to remove scope of work item' });
   }
 }
@@ -108,7 +109,7 @@ export async function addItemJobCodeHandler(req: Request, res: Response): Promis
     await addItemJobCode(itemId, job_code_id, is_expected, notes);
     res.status(201).json({ message: 'Job code added to SOW item' });
   } catch (error) {
-    console.error('Error adding item job code:', error);
+    logger.error({ err: error }, 'Error adding item job code');
     res.status(500).json({ error: 'Failed to add job code to SOW item' });
   }
 }
@@ -119,7 +120,7 @@ export async function removeItemJobCodeHandler(req: Request, res: Response): Pro
     await removeItemJobCode(itemId, codeId);
     res.status(204).send();
   } catch (error) {
-    console.error('Error removing item job code:', error);
+    logger.error({ err: error }, 'Error removing item job code');
     res.status(500).json({ error: 'Failed to remove job code from SOW item' });
   }
 }
@@ -137,7 +138,7 @@ export async function populateFromLibraryHandler(req: Request, res: Response): P
     const insertedCount = await populateFromLibrary(id, template_id);
     res.json({ inserted_count: insertedCount });
   } catch (error) {
-    console.error('Error populating from library:', error);
+    logger.error({ err: error }, 'Error populating from library');
     res.status(500).json({ error: 'Failed to populate from library' });
   }
 }
@@ -155,7 +156,7 @@ export async function populateFromCCMHandler(req: Request, res: Response): Promi
     const insertedCount = await populateFromCCM(id, section_ids);
     res.json({ inserted_count: insertedCount });
   } catch (error) {
-    console.error('Error populating from CCM:', error);
+    logger.error({ err: error }, 'Error populating from CCM');
     res.status(500).json({ error: 'Failed to populate from CCM' });
   }
 }
@@ -163,7 +164,7 @@ export async function populateFromCCMHandler(req: Request, res: Response): Promi
 export async function finalizeSOWHandler(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
 
     const sow = await finalizeSOW(id, userId);
 
@@ -174,7 +175,7 @@ export async function finalizeSOWHandler(req: Request, res: Response): Promise<v
 
     res.json(sow);
   } catch (error) {
-    console.error('Error finalizing scope of work:', error);
+    logger.error({ err: error }, 'Error finalizing scope of work');
     res.status(500).json({ error: 'Failed to finalize scope of work' });
   }
 }
@@ -182,7 +183,7 @@ export async function finalizeSOWHandler(req: Request, res: Response): Promise<v
 export async function saveAsTemplateHandler(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user!.id;
     const { name } = req.body;
 
     if (!name) {
@@ -193,7 +194,7 @@ export async function saveAsTemplateHandler(req: Request, res: Response): Promis
     const template = await saveAsTemplate(id, name, userId);
     res.status(201).json(template);
   } catch (error) {
-    console.error('Error saving as template:', error);
+    logger.error({ err: error }, 'Error saving as template');
     res.status(500).json({ error: 'Failed to save as template' });
   }
 }

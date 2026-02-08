@@ -1,4 +1,5 @@
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 import { pool } from '../config/database';
 import {
   Demand,
@@ -266,7 +267,7 @@ export async function updateDemandStatus(
       toState: status,
       isReversible: !terminalStates.includes(status),
       actorId: userId,
-    }).catch(err => console.error('[TransitionLog] Failed to log demand transition:', err));
+    }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log demand transition'));
   }
 
   return updated;

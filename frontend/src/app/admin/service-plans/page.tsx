@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
-import { Loader2, Plus, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, FileText, Pencil } from 'lucide-react';
+import EditableCell from '@/components/EditableCell';
 
 interface ServicePlan {
   id: string;
@@ -157,6 +158,69 @@ export default function ServicePlansPage() {
       }
     } catch {
       toast.error('Failed to approve plan');
+    }
+  };
+
+  // Update a single field on a service plan (inline edit)
+  const handleUpdatePlanField = async (
+    id: string,
+    field: 'name' | 'description',
+    newValue: string | number,
+  ) => {
+    try {
+      const data = await fetchWithAuth(`/service-plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ [field]: newValue }),
+      });
+      if (data.success) {
+        // Update local state immediately
+        setPlans((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, [field]: newValue } : p))
+        );
+        toast.success('Plan updated');
+      } else {
+        toast.error(data.error || 'Failed to update plan');
+        throw new Error(data.error || 'Failed to update plan');
+      }
+    } catch (err) {
+      toast.error('Failed to update plan');
+      throw err;
+    }
+  };
+
+  // Update a single field on a plan option (inline edit)
+  const handleUpdateOptionField = async (
+    optionId: string,
+    planId: string,
+    field: 'name' | 'description',
+    newValue: string | number,
+  ) => {
+    try {
+      const data = await fetchWithAuth(`/service-plan-options/${optionId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ [field]: newValue }),
+      });
+      if (data.success) {
+        // Update local state immediately
+        setPlans((prev) =>
+          prev.map((p) => {
+            if (p.id !== planId || !p.options) return p;
+            return {
+              ...p,
+              options: p.options.map((opt) =>
+                opt.id === optionId ? { ...opt, [field]: newValue } : opt
+              ),
+            };
+          })
+        );
+        toast.success('Option updated');
+      } else {
+        toast.error(data.error || 'Failed to update option');
+        throw new Error(data.error || 'Failed to update option');
+      }
+    } catch (err) {
+      toast.error('Failed to update option');
+      throw err;
     }
   };
 
@@ -372,9 +436,29 @@ export default function ServicePlansPage() {
 
               {expandedPlan === plan.id && (
                 <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-                  {plan.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{plan.description}</p>
-                  )}
+                  {/* Editable plan name */}
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Plan Name</label>
+                    <EditableCell
+                      value={plan.name}
+                      type="text"
+                      editable={isAdmin && plan.status === 'draft'}
+                      onSave={(v) => handleUpdatePlanField(plan.id, 'name', v)}
+                      className="font-medium"
+                    />
+                  </div>
+
+                  {/* Editable description */}
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Description</label>
+                    <EditableCell
+                      value={plan.description || ''}
+                      type="text"
+                      editable={isAdmin && plan.status === 'draft'}
+                      onSave={(v) => handleUpdatePlanField(plan.id, 'description', v)}
+                      placeholder="No description"
+                    />
+                  </div>
 
                   {/* Admin actions */}
                   {isAdmin && plan.status === 'pending_approval' && (
@@ -415,9 +499,23 @@ export default function ServicePlansPage() {
                           {plan.options.map((opt) => (
                             <tr key={opt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                               <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                                {opt.name}
+                                <EditableCell
+                                  value={opt.name}
+                                  type="text"
+                                  editable={isAdmin && plan.status === 'draft'}
+                                  onSave={(v) => handleUpdateOptionField(opt.id, plan.id, 'name', v)}
+                                  className="font-medium"
+                                />
                                 {opt.description && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{opt.description}</div>
+                                  <div className="mt-0.5">
+                                    <EditableCell
+                                      value={opt.description}
+                                      type="text"
+                                      editable={isAdmin && plan.status === 'draft'}
+                                      onSave={(v) => handleUpdateOptionField(opt.id, plan.id, 'description', v)}
+                                      className="text-xs text-gray-500 dark:text-gray-400"
+                                    />
+                                  </div>
                                 )}
                               </td>
                               <td className="px-3 py-2">

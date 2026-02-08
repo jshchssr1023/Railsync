@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import userManagementService from '../services/userManagement.service';
 import { logFromRequest } from '../services/audit.service';
 import { ApiResponse } from '../types';
@@ -23,7 +24,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
       data: users,
     } as ApiResponse<typeof users>);
   } catch (error) {
-    console.error('Error listing users:', error);
+    logger.error({ err: error }, 'Error listing users');
     res.status(500).json({
       success: false,
       error: 'Failed to list users',
@@ -55,7 +56,7 @@ export async function getUserById(req: Request, res: Response): Promise<void> {
       },
     } as ApiResponse<any>);
   } catch (error) {
-    console.error('Error getting user:', error);
+    logger.error({ err: error }, 'Error getting user');
     res.status(500).json({
       success: false,
       error: 'Failed to get user',
@@ -111,7 +112,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       message: 'User created successfully',
     } as ApiResponse<typeof user>);
   } catch (error: any) {
-    console.error('Error creating user:', error);
+    logger.error({ err: error }, 'Error creating user');
 
     if (error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
       res.status(409).json({
@@ -153,7 +154,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
       message: 'User updated successfully',
     } as ApiResponse<typeof user>);
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error({ err: error }, 'Error updating user');
     res.status(500).json({
       success: false,
       error: 'Failed to update user',
@@ -182,7 +183,7 @@ export async function updatePassword(req: Request, res: Response): Promise<void>
       message: 'Password updated successfully',
     } as ApiResponse<null>);
   } catch (error) {
-    console.error('Error updating password:', error);
+    logger.error({ err: error }, 'Error updating password');
     res.status(500).json({
       success: false,
       error: 'Failed to update password',
@@ -211,7 +212,7 @@ export async function deactivateUser(req: Request, res: Response): Promise<void>
       message: 'User deactivated successfully',
     } as ApiResponse<null>);
   } catch (error) {
-    console.error('Error deactivating user:', error);
+    logger.error({ err: error }, 'Error deactivating user');
     res.status(500).json({
       success: false,
       error: 'Failed to deactivate user',
@@ -231,7 +232,7 @@ export async function activateUser(req: Request, res: Response): Promise<void> {
       message: 'User activated successfully',
     } as ApiResponse<null>);
   } catch (error) {
-    console.error('Error activating user:', error);
+    logger.error({ err: error }, 'Error activating user');
     res.status(500).json({
       success: false,
       error: 'Failed to activate user',
@@ -262,7 +263,7 @@ export async function listPermissions(req: Request, res: Response): Promise<void
       },
     } as ApiResponse<any>);
   } catch (error) {
-    console.error('Error listing permissions:', error);
+    logger.error({ err: error }, 'Error listing permissions');
     res.status(500).json({
       success: false,
       error: 'Failed to list permissions',
@@ -280,7 +281,7 @@ export async function getUserPermissions(req: Request, res: Response): Promise<v
       data: permissions.map(p => p.permission_code),
     } as ApiResponse<string[]>);
   } catch (error) {
-    console.error('Error getting user permissions:', error);
+    logger.error({ err: error }, 'Error getting user permissions');
     res.status(500).json({
       success: false,
       error: 'Failed to get user permissions',
@@ -323,7 +324,7 @@ export async function updateUserPermissions(req: Request, res: Response): Promis
       message: 'Permissions updated successfully',
     } as ApiResponse<string[]>);
   } catch (error) {
-    console.error('Error updating user permissions:', error);
+    logger.error({ err: error }, 'Error updating user permissions');
     res.status(500).json({
       success: false,
       error: 'Failed to update permissions',
@@ -347,7 +348,7 @@ export async function listGroups(req: Request, res: Response): Promise<void> {
       data: groups,
     } as ApiResponse<typeof groups>);
   } catch (error) {
-    console.error('Error listing groups:', error);
+    logger.error({ err: error }, 'Error listing groups');
     res.status(500).json({
       success: false,
       error: 'Failed to list groups',
@@ -380,7 +381,7 @@ export async function getGroupById(req: Request, res: Response): Promise<void> {
       },
     } as ApiResponse<any>);
   } catch (error) {
-    console.error('Error getting group:', error);
+    logger.error({ err: error }, 'Error getting group');
     res.status(500).json({
       success: false,
       error: 'Failed to get group',
@@ -415,7 +416,7 @@ export async function createGroup(req: Request, res: Response): Promise<void> {
       message: 'Group created successfully',
     } as ApiResponse<typeof group>);
   } catch (error) {
-    console.error('Error creating group:', error);
+    logger.error({ err: error }, 'Error creating group');
     res.status(500).json({
       success: false,
       error: 'Failed to create group',
@@ -438,7 +439,7 @@ export async function updateGroup(req: Request, res: Response): Promise<void> {
       message: 'Group updated successfully',
     } as ApiResponse<typeof group>);
   } catch (error) {
-    console.error('Error updating group:', error);
+    logger.error({ err: error }, 'Error updating group');
     res.status(500).json({
       success: false,
       error: 'Failed to update group',
@@ -458,7 +459,7 @@ export async function deleteGroup(req: Request, res: Response): Promise<void> {
       message: 'Group deleted successfully',
     } as ApiResponse<null>);
   } catch (error) {
-    console.error('Error deleting group:', error);
+    logger.error({ err: error }, 'Error deleting group');
     res.status(500).json({
       success: false,
       error: 'Failed to delete group',
@@ -493,7 +494,7 @@ export async function updateGroupMembers(req: Request, res: Response): Promise<v
       message: 'Group members updated successfully',
     } as ApiResponse<typeof members>);
   } catch (error) {
-    console.error('Error updating group members:', error);
+    logger.error({ err: error }, 'Error updating group members');
     res.status(500).json({
       success: false,
       error: 'Failed to update group members',
@@ -525,7 +526,7 @@ export async function updateGroupPermissions(req: Request, res: Response): Promi
       message: 'Group permissions updated successfully',
     } as ApiResponse<typeof groupPermissions>);
   } catch (error) {
-    console.error('Error updating group permissions:', error);
+    logger.error({ err: error }, 'Error updating group permissions');
     res.status(500).json({
       success: false,
       error: 'Failed to update group permissions',
@@ -547,7 +548,7 @@ export async function getCustomerUsers(req: Request, res: Response): Promise<voi
       data: users,
     } as ApiResponse<typeof users>);
   } catch (error) {
-    console.error('Error getting customer users:', error);
+    logger.error({ err: error }, 'Error getting customer users');
     res.status(500).json({
       success: false,
       error: 'Failed to get customer users',
@@ -572,7 +573,7 @@ export async function assignUserToCustomer(req: Request, res: Response): Promise
         : 'User removed from customer successfully',
     } as ApiResponse<typeof user>);
   } catch (error) {
-    console.error('Error assigning user to customer:', error);
+    logger.error({ err: error }, 'Error assigning user to customer');
     res.status(500).json({
       success: false,
       error: 'Failed to assign user to customer',

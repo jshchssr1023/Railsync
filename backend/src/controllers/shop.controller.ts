@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import shopModel from '../models/shop.model';
 import evaluationService from '../services/evaluation.service';
 import * as assignmentService from '../services/assignment.service';
@@ -32,7 +33,7 @@ export async function evaluateShops(req: Request, res: Response): Promise<void> 
       message: `Evaluated ${results.length} shops, ${results.filter(r => r.is_eligible).length} eligible`,
     } as ApiResponse<EvaluationResult[]>);
   } catch (error: any) {
-    console.error('Error evaluating shops:', error);
+    logger.error({ err: error }, 'Error evaluating shops');
 
     if (error.message?.includes('Car not found')) {
       res.status(404).json({
@@ -116,7 +117,7 @@ export async function getShopBacklog(req: Request, res: Response): Promise<void>
       capabilities: Record<string, string[]>;
     }>);
   } catch (error) {
-    console.error('Error fetching shop backlog:', error);
+    logger.error({ err: error }, 'Error fetching shop backlog');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -144,7 +145,7 @@ export async function listShops(req: Request, res: Response): Promise<void> {
       })),
     } as ApiResponse<any[]>);
   } catch (error) {
-    console.error('Error listing shops:', error);
+    logger.error({ err: error }, 'Error listing shops');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -189,7 +190,7 @@ export async function updateShopBacklog(req: Request, res: Response): Promise<vo
       message: `Backlog updated for shop ${shopCode}`,
     } as ApiResponse<ShopBacklog | null>);
   } catch (error) {
-    console.error('Error updating shop backlog:', error);
+    logger.error({ err: error }, 'Error updating shop backlog');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -244,7 +245,7 @@ export async function updateShopCapacity(req: Request, res: Response): Promise<v
       message: `Capacity updated for shop ${shopCode}, work type ${work_type}`,
     } as ApiResponse<ShopCapacity | null>);
   } catch (error) {
-    console.error('Error updating shop capacity:', error);
+    logger.error({ err: error }, 'Error updating shop capacity');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -276,7 +277,7 @@ export async function batchUpdateBacklog(req: Request, res: Response): Promise<v
       message: `Updated ${successCount} of ${backlogs.length} shop backlogs`,
     } as ApiResponse<{ updated_count: number; total_count: number }>);
   } catch (error) {
-    console.error('Error batch updating backlogs:', error);
+    logger.error({ err: error }, 'Error batch updating backlogs');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -359,7 +360,7 @@ export async function createServiceEvent(req: Request, res: Response): Promise<v
         created_by_id: req.user?.id,
       });
     } catch (err) {
-      console.error('Failed to create SSOT assignment:', err);
+      logger.error({ err: err }, 'Failed to create SSOT assignment');
       // Continue with legacy flow if SSOT fails (shouldn't happen)
     }
 
@@ -405,7 +406,7 @@ export async function createServiceEvent(req: Request, res: Response): Promise<v
       message: `Service event created for car ${carNum} at shop ${assigned_shop}`,
     });
   } catch (error) {
-    console.error('Error creating service event:', error);
+    logger.error({ err: error }, 'Error creating service event');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -475,7 +476,7 @@ export async function listServiceEvents(req: Request, res: Response): Promise<vo
       offset: offsetNum,
     });
   } catch (error) {
-    console.error('Error listing service events:', error);
+    logger.error({ err: error }, 'Error listing service events');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -513,7 +514,7 @@ export async function getServiceEvent(req: Request, res: Response): Promise<void
       data: event,
     });
   } catch (error) {
-    console.error('Error fetching service event:', error);
+    logger.error({ err: error }, 'Error fetching service event');
     res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -580,7 +581,7 @@ export async function updateServiceEventStatus(req: Request, res: Response): Pro
       message: `Service event status updated to ${status}`,
     });
   } catch (error) {
-    console.error('Error updating service event status:', error);
+    logger.error({ err: error }, 'Error updating service event status');
     res.status(500).json({
       success: false,
       error: 'Internal server error',

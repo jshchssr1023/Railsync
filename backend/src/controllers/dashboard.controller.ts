@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as dashboardService from '../services/dashboard.service';
 import { ApiResponse } from '../types';
 
@@ -15,7 +16,7 @@ export async function getContractsReadiness(req: Request, res: Response): Promis
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching contracts readiness:', error);
+    logger.error({ err: error }, 'Error fetching contracts readiness');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch contracts readiness',
@@ -32,7 +33,7 @@ export async function getNeedShoppingAlert(req: Request, res: Response): Promise
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching need shopping alert:', error);
+    logger.error({ err: error }, 'Error fetching need shopping alert');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch need shopping alert',
@@ -62,7 +63,7 @@ export async function getMyContractsHealth(req: Request, res: Response): Promise
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching my contracts health:', error);
+    logger.error({ err: error }, 'Error fetching my contracts health');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch contracts health',
@@ -79,7 +80,7 @@ export async function getManagerPerformance(req: Request, res: Response): Promis
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching manager performance:', error);
+    logger.error({ err: error }, 'Error fetching manager performance');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch manager performance',
@@ -100,7 +101,7 @@ export async function getDwellTimeHeatmap(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching dwell time heatmap:', error);
+    logger.error({ err: error }, 'Error fetching dwell time heatmap');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch dwell time heatmap',
@@ -118,7 +119,7 @@ export async function getShopThroughput(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching shop throughput:', error);
+    logger.error({ err: error }, 'Error fetching shop throughput');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch shop throughput',
@@ -136,7 +137,7 @@ export async function getUpcomingReleases(req: Request, res: Response): Promise<
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching upcoming releases:', error);
+    logger.error({ err: error }, 'Error fetching upcoming releases');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch upcoming releases',
@@ -158,7 +159,7 @@ export async function getHighCostExceptions(req: Request, res: Response): Promis
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching high cost exceptions:', error);
+    logger.error({ err: error }, 'Error fetching high cost exceptions');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch high cost exceptions',
@@ -175,7 +176,7 @@ export async function getExpiryForecast(req: Request, res: Response): Promise<vo
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching expiry forecast:', error);
+    logger.error({ err: error }, 'Error fetching expiry forecast');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch expiry forecast',
@@ -193,7 +194,7 @@ export async function getBudgetBurnVelocity(req: Request, res: Response): Promis
       data,
     } as ApiResponse<typeof data>);
   } catch (error) {
-    console.error('Error fetching budget burn velocity:', error);
+    logger.error({ err: error }, 'Error fetching budget burn velocity');
     res.status(500).json({
       success: false,
       error: 'Failed to fetch budget burn velocity',

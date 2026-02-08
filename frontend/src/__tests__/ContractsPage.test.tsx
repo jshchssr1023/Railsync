@@ -5,6 +5,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // Mocks
 // ---------------------------------------------------------------------------
 
+jest.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    user: { id: '1', email: 'admin@test.com', first_name: 'Admin', last_name: 'User', role: 'admin' as const, is_active: true },
+    isLoading: false,
+  }),
+}));
+
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),

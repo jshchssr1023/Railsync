@@ -3,7 +3,7 @@ import * as railincService from '../services/railinc-edi.service';
 
 export async function importEDIFile(req: Request, res: Response): Promise<void> {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { content } = req.body;
     if (!content) { res.status(400).json({ error: 'EDI file content is required' }); return; }
     const result = await railincService.importEDIFile(content, userId);

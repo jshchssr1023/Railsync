@@ -11,6 +11,14 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+jest.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    user: { id: '1', email: 'admin@test.com', first_name: 'Admin', last_name: 'User', role: 'admin' as const, is_active: true },
+    isLoading: false,
+  }),
+}));
+
 // Mock global fetch for apiFetch helper used in cars page
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -92,11 +100,21 @@ describe('CarsPage', () => {
   it('shows empty state when no cars returned', async () => {
     render(<CarsPageWrapper />);
     await waitFor(() => {
-      expect(screen.getByText('No cars match the current filters.')).toBeInTheDocument();
+      expect(screen.getByText('No cars match the current filters')).toBeInTheDocument();
     });
+    expect(screen.getByText('Try adjusting your search or filter criteria.')).toBeInTheDocument();
   });
 
   it('renders table columns', async () => {
+    mockApiResponses(
+      emptyTypesResponse,
+      emptyFiltersResponse,
+      {
+        data: [makeCar()],
+        pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
+      },
+    );
+
     render(<CarsPageWrapper />);
     await waitFor(() => {
       expect(screen.getByText('Car #')).toBeInTheDocument();

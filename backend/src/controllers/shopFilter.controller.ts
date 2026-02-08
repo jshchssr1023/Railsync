@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as shopFilterService from '../services/shopFilter.service';
 import { FilterOptions } from '../services/shopFilter.service';
 
@@ -106,7 +107,7 @@ export async function filterShops(req: Request, res: Response): Promise<void> {
       filters: options,
     });
   } catch (error) {
-    console.error('Filter shops error:', error);
+    logger.error({ err: error }, 'Filter shops error');
     res.status(500).json({
       success: false,
       error: 'Failed to filter shops',
@@ -159,7 +160,7 @@ export async function findNearbyShops(req: Request, res: Response): Promise<void
       params: { latitude: lat, longitude: lon, radiusMiles: radius },
     });
   } catch (error) {
-    console.error('Find nearby shops error:', error);
+    logger.error({ err: error }, 'Find nearby shops error');
     res.status(500).json({
       success: false,
       error: 'Failed to find nearby shops',
@@ -180,7 +181,7 @@ export async function getFilterOptions(req: Request, res: Response): Promise<voi
       data: options,
     });
   } catch (error) {
-    console.error('Get filter options error:', error);
+    logger.error({ err: error }, 'Get filter options error');
     res.status(500).json({
       success: false,
       error: 'Failed to get filter options',
@@ -201,7 +202,7 @@ export async function getCapabilityTypes(req: Request, res: Response): Promise<v
       data: capabilityTypes,
     });
   } catch (error) {
-    console.error('Get capability types error:', error);
+    logger.error({ err: error }, 'Get capability types error');
     res.status(500).json({
       success: false,
       error: 'Failed to get capability types',
@@ -233,7 +234,7 @@ export async function getCapabilityValues(req: Request, res: Response): Promise<
       capabilityType: type,
     });
   } catch (error) {
-    console.error('Get capability values error:', error);
+    logger.error({ err: error }, 'Get capability values error');
     res.status(500).json({
       success: false,
       error: 'Failed to get capability values',
@@ -267,7 +268,7 @@ export async function filterByCapabilities(req: Request, res: Response): Promise
       filters: { capabilityTypes: types },
     });
   } catch (error) {
-    console.error('Filter by capabilities error:', error);
+    logger.error({ err: error }, 'Filter by capabilities error');
     res.status(500).json({
       success: false,
       error: 'Failed to filter shops by capabilities',
@@ -288,7 +289,7 @@ export async function getRegions(req: Request, res: Response): Promise<void> {
       data: regions,
     });
   } catch (error) {
-    console.error('Get regions error:', error);
+    logger.error({ err: error }, 'Get regions error');
     res.status(500).json({
       success: false,
       error: 'Failed to get regions',

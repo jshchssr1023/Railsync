@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../config/logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -17,12 +18,12 @@ export function errorHandler(
   const statusCode = err.statusCode || 500;
   const isProduction = process.env.NODE_ENV === 'production';
 
-  console.error(`[Error] ${err.message}`, {
+  logger.error({
     statusCode,
     stack: err.stack,
     path: req.path,
     method: req.method,
-  });
+  }, `[Error] ${err.message}`);
 
   res.status(statusCode).json({
     success: false,

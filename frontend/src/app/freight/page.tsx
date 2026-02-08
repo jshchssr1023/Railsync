@@ -105,6 +105,7 @@ export default function FreightPage() {
       });
       if (data.success) {
         setCalcResult(data.data);
+        toast.success('Freight calculated successfully');
       } else {
         toast.error(data.error || 'Calculation failed');
       }
@@ -126,6 +127,7 @@ export default function FreightPage() {
       const data = await fetchWithAuth(`/freight/rates?origin=${lookupOrigin}&destination=${lookupDest}`);
       if (data.success) {
         setLookupResult(data.data);
+        toast.success('Rate found');
       } else {
         toast.error(data.error || 'Rate not found');
       }

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../config/logger';
 import * as masterPlanService from '../services/masterPlan.service';
 
 // GET /api/master-plans
@@ -11,7 +12,7 @@ export async function listMasterPlans(req: Request, res: Response): Promise<void
     });
     res.json({ success: true, data: plans });
   } catch (error) {
-    console.error('Error listing master plans:', error);
+    logger.error({ err: error }, 'Error listing master plans');
     res.status(500).json({ success: false, error: 'Failed to list master plans' });
   }
 }
@@ -26,7 +27,7 @@ export async function getMasterPlan(req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, data: plan });
   } catch (error) {
-    console.error('Error getting master plan:', error);
+    logger.error({ err: error }, 'Error getting master plan');
     res.status(500).json({ success: false, error: 'Failed to get master plan' });
   }
 }
@@ -54,7 +55,7 @@ export async function createMasterPlan(req: Request, res: Response): Promise<voi
 
     res.status(201).json({ success: true, data: plan });
   } catch (error) {
-    console.error('Error creating master plan:', error);
+    logger.error({ err: error }, 'Error creating master plan');
     res.status(500).json({ success: false, error: 'Failed to create master plan' });
   }
 }
@@ -76,7 +77,7 @@ export async function updateMasterPlan(req: Request, res: Response): Promise<voi
 
     res.json({ success: true, data: plan });
   } catch (error) {
-    console.error('Error updating master plan:', error);
+    logger.error({ err: error }, 'Error updating master plan');
     res.status(500).json({ success: false, error: 'Failed to update master plan' });
   }
 }
@@ -87,7 +88,7 @@ export async function deleteMasterPlan(req: Request, res: Response): Promise<voi
     await masterPlanService.deleteMasterPlan(req.params.id);
     res.json({ success: true, message: 'Master plan deleted' });
   } catch (error) {
-    console.error('Error deleting master plan:', error);
+    logger.error({ err: error }, 'Error deleting master plan');
     res.status(500).json({ success: false, error: 'Failed to delete master plan' });
   }
 }
@@ -98,7 +99,7 @@ export async function listVersions(req: Request, res: Response): Promise<void> {
     const versions = await masterPlanService.listPlanVersions(req.params.id);
     res.json({ success: true, data: versions });
   } catch (error) {
-    console.error('Error listing versions:', error);
+    logger.error({ err: error }, 'Error listing versions');
     res.status(500).json({ success: false, error: 'Failed to list versions' });
   }
 }
@@ -121,7 +122,7 @@ export async function createVersion(req: Request, res: Response): Promise<void> 
 
     res.status(201).json({ success: true, data: version });
   } catch (error) {
-    console.error('Error creating version:', error);
+    logger.error({ err: error }, 'Error creating version');
     res.status(500).json({ success: false, error: 'Failed to create version' });
   }
 }
@@ -136,7 +137,7 @@ export async function getVersion(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: version });
   } catch (error) {
-    console.error('Error getting version:', error);
+    logger.error({ err: error }, 'Error getting version');
     res.status(500).json({ success: false, error: 'Failed to get version' });
   }
 }
@@ -147,7 +148,7 @@ export async function getVersionAllocations(req: Request, res: Response): Promis
     const allocations = await masterPlanService.getVersionAllocations(req.params.versionId);
     res.json({ success: true, data: allocations });
   } catch (error) {
-    console.error('Error getting version allocations:', error);
+    logger.error({ err: error }, 'Error getting version allocations');
     res.status(500).json({ success: false, error: 'Failed to get version allocations' });
   }
 }
@@ -168,7 +169,7 @@ export async function compareVersions(req: Request, res: Response): Promise<void
     const comparison = await masterPlanService.compareVersions(versionId1, versionId2);
     res.json({ success: true, data: comparison });
   } catch (error) {
-    console.error('Error comparing versions:', error);
+    logger.error({ err: error }, 'Error comparing versions');
     res.status(500).json({ success: false, error: 'Failed to compare versions' });
   }
 }
@@ -183,7 +184,7 @@ export async function getPlanStats(req: Request, res: Response): Promise<void> {
     const stats = await masterPlanService.getPlanStats(req.params.id);
     res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Error getting plan stats:', error);
+    logger.error({ err: error }, 'Error getting plan stats');
     res.status(500).json({ success: false, error: 'Failed to get plan stats' });
   }
 }
@@ -199,7 +200,7 @@ export async function listPlanAllocations(req: Request, res: Response): Promise<
     });
     res.json({ success: true, data: allocations });
   } catch (error) {
-    console.error('Error listing plan allocations:', error);
+    logger.error({ err: error }, 'Error listing plan allocations');
     res.status(500).json({ success: false, error: 'Failed to list plan allocations' });
   }
 }
@@ -231,7 +232,7 @@ export async function addCarsToPlan(req: Request, res: Response): Promise<void> 
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error adding cars to plan:', error);
+    logger.error({ err: error }, 'Error adding cars to plan');
     res.status(500).json({ success: false, error: 'Failed to add cars to plan' });
   }
 }
@@ -255,7 +256,7 @@ export async function importFromDemands(req: Request, res: Response): Promise<vo
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Error importing demands:', error);
+    logger.error({ err: error }, 'Error importing demands');
     res.status(500).json({ success: false, error: 'Failed to import demands' });
   }
 }
@@ -275,7 +276,7 @@ export async function removeAllocationFromPlan(req: Request, res: Response): Pro
 
     res.json({ success: true, message: 'Allocation removed from plan' });
   } catch (error) {
-    console.error('Error removing allocation:', error);
+    logger.error({ err: error }, 'Error removing allocation');
     res.status(500).json({ success: false, error: 'Failed to remove allocation' });
   }
 }
@@ -312,7 +313,7 @@ export async function assignShopToAllocation(req: Request, res: Response): Promi
 
     res.json({ success: true, data: result.allocation });
   } catch (error) {
-    console.error('Error assigning shop:', error);
+    logger.error({ err: error }, 'Error assigning shop');
     res.status(500).json({ success: false, error: 'Failed to assign shop' });
   }
 }
@@ -323,7 +324,7 @@ export async function listPlanDemands(req: Request, res: Response): Promise<void
     const result = await masterPlanService.listPlanDemands(req.params.id);
     res.json({ success: true, data: result.demands, total: result.total });
   } catch (error) {
-    console.error('Error listing plan demands:', error);
+    logger.error({ err: error }, 'Error listing plan demands');
     res.status(500).json({ success: false, error: 'Failed to list plan demands' });
   }
 }
@@ -363,7 +364,7 @@ export async function createDemandForPlan(req: Request, res: Response): Promise<
 
     res.status(201).json({ success: true, data: demand });
   } catch (error: any) {
-    console.error('Error creating demand for plan:', error);
+    logger.error({ err: error }, 'Error creating demand for plan');
     if (error.message === 'Master plan not found') {
       res.status(404).json({ success: false, error: 'Master plan not found' });
       return;
@@ -386,7 +387,7 @@ export async function searchCars(req: Request, res: Response): Promise<void> {
     const cars = await masterPlanService.searchCars(q, Math.min(limit, 50));
     res.json({ success: true, data: cars });
   } catch (error) {
-    console.error('Error searching cars:', error);
+    logger.error({ err: error }, 'Error searching cars');
     res.status(500).json({ success: false, error: 'Failed to search cars' });
   }
 }

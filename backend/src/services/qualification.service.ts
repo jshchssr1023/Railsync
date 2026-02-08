@@ -1,4 +1,5 @@
 import { query, queryOne } from '../config/database';
+import logger from '../config/logger';
 import { pool } from '../config/database';
 
 // ============================================================================
@@ -774,7 +775,7 @@ async function logHistory(
     `INSERT INTO qualification_history (qualification_id, action, performed_by, old_status, new_status, old_due_date, new_due_date, notes)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [qualificationId, action, userId || null, oldStatus || null, newStatus || null, oldDueDate || null, newDueDate || null, notes || null]
-  ).catch(err => console.error('[QualHistory] Failed to log:', err));
+  ).catch(err => logger.error({ err: err }, '[QualHistory] Failed to log'));
 }
 
 // ============================================================================

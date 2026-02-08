@@ -20,10 +20,21 @@ jest.mock('@/components/Toast', () => ({
 }));
 
 const mockPush = jest.fn();
-const mockGet = jest.fn().mockReturnValue(null);
+const mockReplace = jest.fn();
+// Track current search params so that URL-driven filter state works in tests.
+// When router.replace is called, we extract the query string and update the
+// params that useSearchParams returns.
+let currentSearchParams = new URLSearchParams();
+mockReplace.mockImplementation((url: string) => {
+  const qsIndex = url.indexOf('?');
+  currentSearchParams = qsIndex >= 0
+    ? new URLSearchParams(url.slice(qsIndex))
+    : new URLSearchParams();
+});
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => ({ get: mockGet }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => currentSearchParams,
+  usePathname: () => '/invoices',
 }));
 
 // Mock global fetch
@@ -79,6 +90,14 @@ function mockDefaultFetch(invoices: ReturnType<typeof makeInvoice>[] = [], total
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsAuthenticated = true;
+  currentSearchParams = new URLSearchParams();
+  // Re-attach the implementation after clearAllMocks resets it
+  mockReplace.mockImplementation((url: string) => {
+    const qsIndex = url.indexOf('?');
+    currentSearchParams = qsIndex >= 0
+      ? new URLSearchParams(url.slice(qsIndex))
+      : new URLSearchParams();
+  });
   mockDefaultFetch();
 });
 
@@ -128,8 +147,9 @@ describe('InvoicesPage', () => {
   it('renders empty state when no invoices', async () => {
     render(<InvoicesPage />);
     await waitFor(() => {
-      expect(screen.getByText('No invoices found. Upload one to get started.')).toBeInTheDocument();
+      expect(screen.getByText('No invoices found')).toBeInTheDocument();
     });
+    expect(screen.getByText('Upload an invoice to get started.')).toBeInTheDocument();
   });
 
   it('renders invoice table with data', async () => {
@@ -177,16 +197,17 @@ describe('InvoicesPage', () => {
   });
 
   it('shows Clear All Filters when filters are active', async () => {
+    // Pre-populate URL search params so the component renders with an active filter.
+    // useURLFilters reads from useSearchParams(), so setting the params before
+    // render is equivalent to having a filter-populated URL.
+    currentSearchParams = new URLSearchParams('search=test');
+
     render(<InvoicesPage />);
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Search invoices, vendors, shops...')).toBeInTheDocument();
     });
 
-    // No Clear All Filters initially
-    expect(screen.queryByText('Clear All Filters')).not.toBeInTheDocument();
-
-    // Type in search
-    fireEvent.change(screen.getByPlaceholderText('Search invoices, vendors, shops...'), { target: { value: 'test' } });
+    // The "search" filter is active via URL params, so Clear All Filters should be visible
     expect(screen.getByText('Clear All Filters')).toBeInTheDocument();
   });
 
