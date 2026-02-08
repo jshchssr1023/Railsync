@@ -1873,6 +1873,154 @@ export async function createDemandForPlan(planId: string, data: CreatePlanDemand
   return response.data as Demand;
 }
 
+// ============================================================================
+// MASTER PLANS - EXTENDED API
+// ============================================================================
+
+import type {
+  MasterPlan,
+  PlanVersion as MasterPlanVersion,
+  CapacityFitResult,
+  PlanConflict,
+  AllocationGroup,
+  NetworkLoadForecast,
+  PlanCommunication,
+  PlanLifecycleStatus,
+} from '@/types';
+
+export async function listMasterPlans(filters?: {
+  fiscal_year?: number;
+  status?: string;
+  project_id?: string;
+}): Promise<MasterPlan[]> {
+  const params = new URLSearchParams();
+  if (filters?.fiscal_year) params.set('fiscal_year', String(filters.fiscal_year));
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.project_id) params.set('project_id', filters.project_id);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetchApi<MasterPlan[]>(`/master-plans${qs}`);
+  return response.data || [];
+}
+
+export async function getMasterPlan(planId: string): Promise<MasterPlan | null> {
+  const response = await fetchApi<MasterPlan>(`/master-plans/${encodeURIComponent(planId)}`);
+  return response.data || null;
+}
+
+export async function createMasterPlan(data: {
+  name: string;
+  description?: string;
+  fiscal_year: number;
+  planning_month: string;
+  project_id?: string;
+}): Promise<MasterPlan> {
+  const response = await fetchApi<MasterPlan>('/master-plans', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data as MasterPlan;
+}
+
+export async function updateMasterPlan(planId: string, data: Partial<MasterPlan>): Promise<MasterPlan> {
+  const response = await fetchApi<MasterPlan>(`/master-plans/${encodeURIComponent(planId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data as MasterPlan;
+}
+
+export async function duplicatePlan(planId: string, newName: string): Promise<MasterPlan> {
+  const response = await fetchApi<MasterPlan>(`/master-plans/${encodeURIComponent(planId)}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify({ name: newName }),
+  });
+  return response.data as MasterPlan;
+}
+
+export async function transitionPlanStatus(
+  planId: string,
+  targetStatus: PlanLifecycleStatus,
+  reason?: string
+): Promise<MasterPlan> {
+  const response = await fetchApi<MasterPlan>(`/master-plans/${encodeURIComponent(planId)}/transition`, {
+    method: 'POST',
+    body: JSON.stringify({ target_status: targetStatus, reason }),
+  });
+  return response.data as MasterPlan;
+}
+
+export async function getCapacityFit(planId: string): Promise<CapacityFitResult> {
+  const response = await fetchApi<CapacityFitResult>(
+    `/master-plans/${encodeURIComponent(planId)}/capacity-fit`
+  );
+  return response.data as CapacityFitResult;
+}
+
+export async function getPlanConflicts(planId: string): Promise<PlanConflict[]> {
+  const response = await fetchApi<PlanConflict[]>(
+    `/master-plans/${encodeURIComponent(planId)}/conflicts`
+  );
+  return response.data || [];
+}
+
+export async function getAllocationGroups(planId: string): Promise<AllocationGroup[]> {
+  const response = await fetchApi<AllocationGroup[]>(
+    `/master-plans/${encodeURIComponent(planId)}/allocation-groups`
+  );
+  return response.data || [];
+}
+
+export async function getNetworkLoadForecast(planId: string, filters?: {
+  network_tier?: string;
+  shop_code?: string;
+  car_type?: string;
+  start_date?: string;
+  end_date?: string;
+}): Promise<NetworkLoadForecast> {
+  const params = new URLSearchParams();
+  if (filters?.network_tier) params.set('network_tier', filters.network_tier);
+  if (filters?.shop_code) params.set('shop_code', filters.shop_code);
+  if (filters?.car_type) params.set('car_type', filters.car_type);
+  if (filters?.start_date) params.set('start_date', filters.start_date);
+  if (filters?.end_date) params.set('end_date', filters.end_date);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetchApi<NetworkLoadForecast>(
+    `/master-plans/${encodeURIComponent(planId)}/network-load${qs}`
+  );
+  return response.data as NetworkLoadForecast;
+}
+
+export async function generatePlanSummary(planId: string): Promise<PlanCommunication> {
+  const response = await fetchApi<PlanCommunication>(
+    `/master-plans/${encodeURIComponent(planId)}/communicate`,
+    { method: 'POST' }
+  );
+  return response.data as PlanCommunication;
+}
+
+export async function listPlanVersions(planId: string): Promise<MasterPlanVersion[]> {
+  const response = await fetchApi<MasterPlanVersion[]>(
+    `/master-plans/${encodeURIComponent(planId)}/versions`
+  );
+  return response.data || [];
+}
+
+export async function bulkAssignShop(
+  planId: string,
+  allocationIds: string[],
+  shopCode: string,
+  targetMonth?: string
+): Promise<{ updated: number; errors: string[] }> {
+  const response = await fetchApi<{ updated: number; errors: string[] }>(
+    `/master-plans/${encodeURIComponent(planId)}/allocations/bulk-assign`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ allocation_ids: allocationIds, shop_code: shopCode, target_month: targetMonth }),
+    }
+  );
+  return response.data as { updated: number; errors: string[] };
+}
+
 const api = {
   // Core
   getCarByNumber,

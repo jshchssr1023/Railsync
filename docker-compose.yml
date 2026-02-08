@@ -86,7 +86,11 @@ services:
       - ./database/migrations/062_report_builder.sql:/docker-entrypoint-initdb.d/69-report-builder.sql
       - ./database/migrations/063_training_progress.sql:/docker-entrypoint-initdb.d/70-training-progress.sql
       - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/71-seed-test-data.sql
+      - ./database/migrations/064_add_service_event_created_by.sql:/docker-entrypoint-initdb.d/71a-service-event-created-by.sql
       - ./database/migrations/065_golden_thread_demo_data.sql:/docker-entrypoint-initdb.d/72-golden-thread-demo.sql
+      - ./database/migrations/066_work_packages.sql:/docker-entrypoint-initdb.d/73-work-packages.sql
+      - ./database/migrations/067_master_plans_lifecycle.sql:/docker-entrypoint-initdb.d/74-master-plans-lifecycle.sql
+      - ./database/migrations/068_add_users_shop_code.sql:/docker-entrypoint-initdb.d/75-users-shop-code.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
