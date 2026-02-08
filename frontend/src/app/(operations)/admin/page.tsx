@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect, useMemo } from 'react';
+import { useAuth, useAuthFetch } from '@/context/AuthContext';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
 import BRCImportModal from '@/components/BRCImportModal';
 import BRCHistoryList from '@/components/BRCHistoryList';
@@ -168,7 +168,6 @@ export default function AdminPage() {
 }
 
 function UserManagement() {
-  const { useAuthFetch } = require('@/context/AuthContext');
   const authFetch = useAuthFetch();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,9 +177,10 @@ function UserManagement() {
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-  useState(() => {
+  useEffect(() => {
     fetchUsers();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -347,7 +347,6 @@ function UserManagement() {
 }
 
 function AuditLogs() {
-  const { useAuthFetch } = require('@/context/AuthContext');
   const authFetch = useAuthFetch();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,9 +356,10 @@ function AuditLogs() {
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-  useState(() => {
+  useEffect(() => {
     fetchLogs();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchLogs = async () => {
     try {
