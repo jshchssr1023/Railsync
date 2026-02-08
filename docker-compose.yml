@@ -86,6 +86,7 @@ services:
       - ./database/migrations/062_report_builder.sql:/docker-entrypoint-initdb.d/69-report-builder.sql
       - ./database/migrations/063_training_progress.sql:/docker-entrypoint-initdb.d/70-training-progress.sql
       - ./database/seed_test_data.sql:/docker-entrypoint-initdb.d/71-seed-test-data.sql
+      - ./database/migrations/065_golden_thread_demo_data.sql:/docker-entrypoint-initdb.d/72-golden-thread-demo.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
