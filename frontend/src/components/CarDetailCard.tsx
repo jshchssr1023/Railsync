@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Calendar, User, MapPin, Wrench, AlertTriangle, CheckCircle, Clock, FileText, Droplets, Shield } from 'lucide-react';
+import { buildShopCarURL } from '@/lib/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -75,6 +77,7 @@ interface CarDetailCardProps {
 }
 
 export default function CarDetailCard({ carNumber, onClose, onShopNow }: CarDetailCardProps) {
+  const router = useRouter();
   const [car, setCar] = useState<CarDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,14 +186,15 @@ export default function CarDetailCard({ carNumber, onClose, onShopNow }: CarDeta
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {onShopNow && (
-              <button
-                onClick={() => onShopNow(car.car_number)}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
-              >
-                Shop Now
-              </button>
-            )}
+            <button
+              onClick={() => onShopNow
+                ? onShopNow(car.car_number)
+                : router.push(buildShopCarURL(car.car_number))
+              }
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+            >
+              Shop Now
+            </button>
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <X className="w-5 h-5" />
             </button>

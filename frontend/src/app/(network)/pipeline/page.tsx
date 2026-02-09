@@ -66,13 +66,11 @@ export default function PipelinePage() {
   );
 
   const handleShopCar = useCallback((car: PipelineCar) => {
-    const params = new URLSearchParams({
-      car: car.car_number,
-    });
+    const params = new URLSearchParams({ shopCar: car.car_number });
     if (car.needs_shopping_reason) {
       params.set('reason', car.needs_shopping_reason);
     }
-    router.push(`/planning?${params.toString()}`);
+    router.push(`/shopping?${params.toString()}`);
   }, [router]);
 
   // Reset to page 1 when tab or search changes

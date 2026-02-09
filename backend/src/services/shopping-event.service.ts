@@ -76,6 +76,18 @@ export async function createShoppingEvent(
   input: CreateShoppingEventInput,
   userId: string
 ): Promise<ShoppingEvent> {
+  // Guard: only one active (non-terminal) shopping event per car
+  const existing = await queryOne<{ id: string; event_number: string; state: string }>(
+    `SELECT id, event_number, state FROM shopping_events
+     WHERE car_number = $1 AND state NOT IN ('RELEASED', 'CANCELLED')`,
+    [input.car_number]
+  );
+  if (existing) {
+    throw new Error(
+      `Car ${input.car_number} already has an active shopping event (${existing.event_number}, state: ${existing.state}). Cancel or complete it before creating a new one.`
+    );
+  }
+
   const eventNumber = await queryOne<{ generate_event_number: string }>(
     `SELECT generate_event_number()`,
     []

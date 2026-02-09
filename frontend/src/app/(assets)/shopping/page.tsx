@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2, FileText, ChevronRight } from 'lucide-react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { Loader2, FileText, ChevronRight, Lock, AlertTriangle, Train } from 'lucide-react';
 import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent } from '@/lib/api';
 import { ShoppingEvent, ShoppingEventState } from '@/types';
 import { useToast } from '@/components/Toast';
@@ -131,6 +131,18 @@ function ShoppingContent() {
   const [createReasonCode, setCreateReasonCode] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // --- "Shop a Car" workflow state (from ?shopCar= URL param) ---
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const shopCarParam = searchParams.get('shopCar');
+  const shopReasonParam = searchParams.get('reason');
+  const [shopCarNumber, setShopCarNumber] = useState<string | null>(null);
+  const [shopCarData, setShopCarData] = useState<Record<string, any> | null>(null);
+  const [shopCarLoading, setShopCarLoading] = useState(false);
+  const [shopCarActiveEvent, setShopCarActiveEvent] = useState<{
+    id: string; event_number: string; state: string; shop_code: string;
+  } | null>(null);
+
   // --- Batch form state ---
   const [batchShopCode, setBatchShopCode] = useState('');
   const [batchTypeCode, setBatchTypeCode] = useState('');
@@ -186,6 +198,75 @@ function ShoppingContent() {
   }, [stateFilter, shopCodeFilter, carNumberFilter]);
 
   // -------------------------------------------------------------------------
+  // "Shop a Car" workflow: detect ?shopCar param and fetch car data
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!shopCarParam) {
+      // Clear shop-car state when param removed (e.g. back button)
+      setShopCarNumber(null);
+      setShopCarData(null);
+      setShopCarActiveEvent(null);
+      return;
+    }
+
+    const carNumber = shopCarParam;
+    setShopCarNumber(carNumber);
+    setShopCarLoading(true);
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    fetch(`${API_URL}/contracts-browse/car/${encodeURIComponent(carNumber)}`, { headers })
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('Car not found')))
+      .then((data: { car: Record<string, any>; active_shopping_event: any; }) => {
+        if (data.active_shopping_event) {
+          // Car already has an active shopping event — show banner, no create form
+          setShopCarActiveEvent(data.active_shopping_event);
+          setShopCarData(data.car);
+          setShowCreateForm(false);
+          setShowBatchForm(false);
+        } else {
+          // No active event — open create form with pre-populated fields
+          setShopCarActiveEvent(null);
+          setShopCarData(data.car);
+          setCreateCarNumber(carNumber);
+          setCreateShopCode(data.car?.assigned_shop_code || data.car?.last_repair_shop || '');
+          if (shopReasonParam) setCreateReasonCode(shopReasonParam);
+          setShowCreateForm(true);
+          setShowBatchForm(false);
+        }
+      })
+      .catch(() => {
+        toast.error(`Car "${carNumber}" not found`);
+        // Clear the shopCar param from URL
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('shopCar');
+        params.delete('reason');
+        params.delete('boId');
+        const qs = params.toString();
+        router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+        setShopCarNumber(null);
+      })
+      .finally(() => setShopCarLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopCarParam]);
+
+  /** Remove shopCar-related params from the URL */
+  const clearShopCarParams = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('shopCar');
+    params.delete('reason');
+    params.delete('boId');
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+    setShopCarNumber(null);
+    setShopCarData(null);
+    setShopCarActiveEvent(null);
+  }, [searchParams, pathname, router]);
+
+  // -------------------------------------------------------------------------
   // Stats summary - count events by state groupings
   // -------------------------------------------------------------------------
   const stats = useMemo(() => {
@@ -233,6 +314,8 @@ function ShoppingContent() {
       setCreateTypeCode('');
       setCreateReasonCode('');
       setShowCreateForm(false);
+      // Clean up shopCar URL params if present
+      if (shopCarNumber) clearShopCarParams();
       fetchEvents();
       toast.success('Shopping event created successfully');
     } catch (err) {
@@ -349,6 +432,109 @@ function ShoppingContent() {
             </div>
 
             {/* ------------------------------------------------------------- */}
+            {/* Shop-a-Car: Active Event Banner                                */}
+            {/* ------------------------------------------------------------- */}
+            {shopCarNumber && shopCarActiveEvent && (
+              <div className="card p-4 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/10">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                      {shopCarNumber} already has an active shopping event
+                    </h3>
+                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">{shopCarActiveEvent.event_number}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATE_COLORS[shopCarActiveEvent.state] || 'bg-gray-100 text-gray-800'}`}>
+                        {STATE_LABELS[shopCarActiveEvent.state] || shopCarActiveEvent.state}
+                      </span>
+                      <span>at <strong>{shopCarActiveEvent.shop_code}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          setSelectedEventId(shopCarActiveEvent.id);
+                          clearShopCarParams();
+                        }}
+                        className="px-3 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700"
+                      >
+                        View Event
+                      </button>
+                      <button
+                        onClick={clearShopCarParams}
+                        className="px-3 py-1.5 text-gray-700 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* Shop-a-Car: Car Context Summary Card                           */}
+            {/* ------------------------------------------------------------- */}
+            {shopCarNumber && shopCarData && !shopCarActiveEvent && showCreateForm && (
+              <div className="card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Train className="w-5 h-5 text-primary-600" />
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    Shopping: {shopCarNumber}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Car Type</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.car_type || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Commodity</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.commodity || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Lessee</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.lessee_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Status</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.current_status || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Region</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.current_region || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Tank Qual</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.tank_qual_year || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Last Shop</span>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{shopCarData.last_repair_shop || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Flags</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {shopCarData.is_jacketed && <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded">Jacketed</span>}
+                      {shopCarData.is_lined && <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded">Lined</span>}
+                      {shopCarData.has_asbestos && <span className="px-1.5 py-0.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded">Asbestos</span>}
+                      {!shopCarData.is_jacketed && !shopCarData.is_lined && !shopCarData.has_asbestos && <span className="text-gray-400">None</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* Shop-a-Car: Loading state                                      */}
+            {/* ------------------------------------------------------------- */}
+            {shopCarLoading && (
+              <div className="card p-6 flex items-center justify-center gap-2 text-gray-500">
+                <Loader2 className="animate-spin h-5 w-5" />
+                <span>Loading car details...</span>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
             {/* Create Form (inline)                                           */}
             {/* ------------------------------------------------------------- */}
             {showCreateForm && (
@@ -358,14 +544,18 @@ function ShoppingContent() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Car Number <span className="text-red-500">*</span>
+                      {shopCarNumber && (
+                        <Lock className="inline w-3 h-3 ml-1 text-gray-400" />
+                      )}
                     </label>
                     <input
                       type="text"
                       required
                       value={createCarNumber}
-                      onChange={(e) => setCreateCarNumber(e.target.value)}
+                      onChange={(e) => !shopCarNumber && setCreateCarNumber(e.target.value)}
+                      readOnly={!!shopCarNumber}
                       placeholder="e.g. GATX 12345"
-                      className="input w-full"
+                      className={`input w-full ${shopCarNumber ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>

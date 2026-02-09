@@ -165,13 +165,13 @@ describe('PipelinePage', () => {
     expect(screen.getByText('Shop Now')).toBeInTheDocument();
   });
 
-  it('navigates to planning on Shop Now click', () => {
+  it('navigates to shopping on Shop Now click', () => {
     setData({ backlog: [makePipelineCar({ car_number: '10001', needs_shopping_reason: 'Qual due' })] });
 
     render(<PipelinePage />);
     fireEvent.click(screen.getByText('Shop Now'));
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/planning?'));
-    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('car=10001'));
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('/shopping?'));
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining('shopCar=10001'));
   });
 
   it('renders table columns for backlog tab', () => {

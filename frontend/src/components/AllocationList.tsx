@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, ArrowLeftRight } from 'lucide-react';
 import { Allocation, AllocationStatus } from '@/types';
 import { listAllocations } from '@/lib/api';
 import { FetchError } from '@/components/ErrorBoundary';
+import { buildShopCarURL } from '@/lib/navigation';
 
 interface AllocationListProps {
   onShopCarNow?: (carNumber: string) => void;
@@ -29,6 +31,7 @@ export default function AllocationList({
   shopCode,
   targetMonth,
 }: AllocationListProps) {
+  const router = useRouter();
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -304,7 +307,10 @@ export default function AllocationList({
                       <td className="text-right">
                         {isShoppable && (
                           <button
-                            onClick={() => onShopCarNow?.(allocation.car_number!)}
+                            onClick={() => onShopCarNow
+                              ? onShopCarNow(allocation.car_number!)
+                              : router.push(buildShopCarURL(allocation.car_number!))
+                            }
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 rounded hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
                             title="Shop this car now"
                           >

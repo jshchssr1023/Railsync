@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertCircle, AlertTriangle, Info, Bell, ChevronDown, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { buildShopCarURL } from '@/lib/navigation';
 
 interface Alert {
   id: string;
@@ -22,6 +24,7 @@ interface AlertBannerProps {
 }
 
 export default function AlertBanner({ onShopCarNow }: AlertBannerProps) {
+  const router = useRouter();
   const { isAuthenticated, getAccessToken } = useAuth();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -210,11 +213,13 @@ export default function AlertBanner({ onShopCarNow }: AlertBannerProps) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {alert.entity_type === 'car' && alert.entity_id && onShopCarNow && (
+                {alert.entity_type === 'car' && alert.entity_id && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onShopCarNow(alert.entity_id!);
+                      onShopCarNow
+                        ? onShopCarNow(alert.entity_id!)
+                        : router.push(buildShopCarURL(alert.entity_id!));
                     }}
                     className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >

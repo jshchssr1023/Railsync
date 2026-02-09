@@ -253,7 +253,7 @@ function BadOrdersContent() {
                 {(report.status === 'open' || report.status === 'pending_decision') && (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => router.push(`/shopping/new?car=${encodeURIComponent(report.car_number)}&boId=${report.id}`)}
+                      onClick={() => router.push(`/shopping?shopCar=${encodeURIComponent(report.car_number)}&boId=${report.id}`)}
                       className="text-xs px-2 py-1 bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded font-medium"
                     >
                       Shopping Request

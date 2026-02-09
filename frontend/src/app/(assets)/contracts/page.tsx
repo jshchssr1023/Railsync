@@ -284,13 +284,13 @@ function ContractsPage() {
         setShopValidation(data.data);
         setShowShopConfirmModal(true);
       } else {
-        // No conflicts, proceed to planning
-        router.push(`/planning?car=${encodeURIComponent(carNumber)}`);
+        // No conflicts, proceed to shopping
+        router.push(`/shopping?shopCar=${encodeURIComponent(carNumber)}`);
       }
     } catch (error) {
       console.error('Error validating car for shopping:', error);
       // On error, allow shopping anyway
-      router.push(`/planning?car=${encodeURIComponent(carNumber)}`);
+      router.push(`/shopping?shopCar=${encodeURIComponent(carNumber)}`);
     } finally {
       setValidatingShop(false);
     }
@@ -298,7 +298,7 @@ function ContractsPage() {
 
   const confirmShop = () => {
     if (pendingShopCar) {
-      router.push(`/planning?car=${encodeURIComponent(pendingShopCar)}`);
+      router.push(`/shopping?shopCar=${encodeURIComponent(pendingShopCar)}`);
     }
     setShowShopConfirmModal(false);
     setPendingShopCar(null);

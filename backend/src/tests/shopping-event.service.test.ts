@@ -267,7 +267,11 @@ describe('Shopping Event Service', () => {
   // ============================================================================
   describe('createShoppingEvent', () => {
     it('should create a new shopping event in REQUESTED state', async () => {
+      // 1. Active-event guard returns null (no existing active event)
+      mockQueryOne.mockResolvedValueOnce(null);
+      // 2. generate_event_number
       mockQueryOne.mockResolvedValueOnce({ generate_event_number: 'SE-100' } as any);
+      // 3. INSERT RETURNING
       mockQueryOne.mockResolvedValueOnce({
         id: 'new-event-id',
         event_number: 'SE-100',
@@ -285,7 +289,20 @@ describe('Shopping Event Service', () => {
       expect(result).toBeDefined();
       expect(result.event_number).toBe('SE-100');
       expect(result.state).toBe('REQUESTED');
-      expect(mockQueryOne).toHaveBeenCalledTimes(2);
+      expect(mockQueryOne).toHaveBeenCalledTimes(3);
+    });
+
+    it('should reject creation when car has an active shopping event', async () => {
+      // Active-event guard returns existing event
+      mockQueryOne.mockResolvedValueOnce({
+        id: 'existing-id',
+        event_number: 'SE-050',
+        state: 'IN_REPAIR',
+      } as any);
+
+      await expect(
+        createShoppingEvent({ car_number: 'UTLX999999', shop_code: 'SHOP002' }, 'user-1')
+      ).rejects.toThrow('already has an active shopping event');
     });
   });
 

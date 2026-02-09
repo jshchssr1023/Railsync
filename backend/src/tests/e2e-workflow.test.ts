@@ -164,6 +164,9 @@ describe('E2E Workflow: Shopping Event Lifecycle', () => {
 
   describe('Creating a Shopping Event', () => {
     it('should create a shopping event in REQUESTED state', async () => {
+      // Mock active-event guard (no existing active event)
+      mockQueryOne.mockResolvedValueOnce(null);
+
       // Mock generate_event_number function
       mockQueryOne.mockResolvedValueOnce({ generate_event_number: 'SE-100' } as any);
 
@@ -632,6 +635,9 @@ describe('E2E Workflow: Cross-Process Integration', () => {
       const userId = 'user-1';
 
       // Simulate shopping request approval creating a shopping event
+      // 0. Active-event guard (no existing active event)
+      mockQueryOne.mockResolvedValueOnce(null);
+
       // 1. Generate event number
       mockQueryOne.mockResolvedValueOnce({ generate_event_number: 'SE-200' } as any);
 

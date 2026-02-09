@@ -57,7 +57,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'create-shopping',
     label: 'Create Shopping Event',
-    href: '/shopping?action=create',
+    href: '/shopping',
     icon: <ShoppingCart className="w-4 h-4" />,
     shortcutHint: 'Ctrl+Shift+S',
   },

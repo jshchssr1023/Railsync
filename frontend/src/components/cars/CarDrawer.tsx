@@ -402,16 +402,25 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
         {car && (
           <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-2 bg-gray-50 dark:bg-gray-800">
             <a
-              href={`/shopping?search=${carNumber}`}
-              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              href={detail?.active_shopping_event
+                ? `/shopping?shopCar=${encodeURIComponent(carNumber)}`
+                : `/shopping?shopCar=${encodeURIComponent(carNumber)}`
+              }
+              className="flex-1 text-center text-xs px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
             >
-              View History
+              {detail?.active_shopping_event ? 'View Shopping Event' : 'Shop this Car'}
             </a>
             <a
-              href={`/contracts`}
+              href={`/shopping?car=${encodeURIComponent(carNumber)}`}
               className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              Contracts View
+              Shopping History
+            </a>
+            <a
+              href="/contracts"
+              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              Contracts
             </a>
           </div>
         )}
