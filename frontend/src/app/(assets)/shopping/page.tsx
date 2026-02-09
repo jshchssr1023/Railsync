@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Loader2, FileText, ChevronRight, Lock, AlertTriangle, Train, Search } from 'lucide-react';
+import { Loader2, FileText, ChevronRight, ChevronDown, Lock, AlertTriangle, Train, Search, Star, TrendingDown, Zap, Shield, CheckCircle } from 'lucide-react';
 import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops, evaluateShops } from '@/lib/api';
 import { ShoppingEvent, ShoppingEventState, ShopSummary, EvaluationResult } from '@/types';
 import ResultsGrid from '@/components/ResultsGrid';
@@ -150,6 +150,7 @@ function ShoppingContent() {
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalLastUpdated, setEvalLastUpdated] = useState<Date | undefined>();
   const [showEvalResults, setShowEvalResults] = useState(false);
+  const [showFullGrid, setShowFullGrid] = useState(false);
 
   // --- Batch form state ---
   const [batchShopCode, setBatchShopCode] = useState('');
@@ -572,50 +573,200 @@ function ShoppingContent() {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* Shop-a-Car: Shop Evaluation Results                            */}
+            {/* Shop-a-Car: Shop Evaluation — Decision → Detail → Data        */}
             {/* ------------------------------------------------------------- */}
             {shopCarNumber && showEvalResults && !shopCarActiveEvent && (
-              <div className="card overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-5 h-5 text-primary-600" />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Shop Evaluation — {shopCarNumber}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setShowEvalResults(false);
-                        setCreateShopCode(shopCarData?.assigned_shop_code || shopCarData?.last_repair_shop || '');
-                        setShowCreateForm(true);
-                      }}
-                      className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
-                    >
-                      Skip — Pick Manually
-                    </button>
-                  </div>
-                </div>
+              <>
                 {evalLoading ? (
-                  <div className="p-8 flex items-center justify-center gap-2 text-gray-500">
-                    <Loader2 className="animate-spin h-5 w-5" />
-                    <span>Evaluating {shops.length || 24} shops...</span>
-                  </div>
-                ) : evalResults.length > 0 ? (
-                  <div>
-                    <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
-                      Click a shop row to see details, compare shops, then click &quot;Select this Shop&quot; to use it for this shopping event.
+                  <div className="card p-8">
+                    <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
+                      <Loader2 className="animate-spin h-8 w-8 text-primary-500" />
+                      <div className="text-center">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">Finding the best shop for {shopCarNumber}</p>
+                        <p className="text-sm mt-1">Evaluating {shops.length || 24} shops on cost, capacity, and eligibility...</p>
+                      </div>
                     </div>
-                    <ResultsGrid
-                      results={evalResults}
-                      lastUpdated={evalLastUpdated}
-                      onRefresh={() => runEvaluation(shopCarNumber)}
-                      carNumber={shopCarNumber}
-                      onSelectShop={handleShopSelected}
-                    />
                   </div>
-                ) : (
-                  <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                ) : evalResults.length > 0 ? (() => {
+                  // Compute recommendation data
+                  const eligible = evalResults.filter(r => r.is_eligible);
+                  const topShops = eligible.slice(0, 3);
+                  const best = topShops[0];
+                  const formatCost = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+                  const getUtilPct = (r: EvaluationResult) => r.capacity.length > 0 ? r.capacity.reduce((s, c) => s + parseFloat(String(c.current_utilization_pct || 0)), 0) / r.capacity.length : 0;
+                  const isLowRisk = (r: EvaluationResult) => getUtilPct(r) < 90 && Number(r.backlog.hours_backlog || 0) < 100;
+
+                  return (
+                    <>
+                      {/* ═══════════════════════════════════════════════════════ */}
+                      {/* LAYER 1: DECISION — Recommended Shop                   */}
+                      {/* ═══════════════════════════════════════════════════════ */}
+                      {best && (
+                        <div className="card overflow-hidden border-2 border-green-200 dark:border-green-800">
+                          <div className="px-4 py-3 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Star className="w-5 h-5 text-green-600 dark:text-green-400" />
+                              <h2 className="text-lg font-semibold text-green-900 dark:text-green-100">
+                                Recommended Shop
+                              </h2>
+                              <span className="text-sm text-green-700 dark:text-green-300">
+                                — {eligible.length} of {evalResults.length} shops eligible
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setShowEvalResults(false);
+                                setCreateShopCode(shopCarData?.assigned_shop_code || shopCarData?.last_repair_shop || '');
+                                setShowCreateForm(true);
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                            >
+                              Skip, pick manually
+                            </button>
+                          </div>
+
+                          {/* Best Shop — Hero Card */}
+                          <div className="p-5">
+                            <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+                              {/* Left: Shop identity */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                                    {best.shop.shop_name}
+                                  </h3>
+                                  {best.shop.is_preferred_network && (
+                                    <span className="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 rounded-full">
+                                      Preferred Network
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {best.shop.shop_code} &middot; {best.shop.primary_railroad} &middot; {best.shop.region || 'N/A'}
+                                </p>
+
+                                {/* Why this shop — plain English */}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                                    <TrendingDown className="w-3.5 h-3.5" />
+                                    Lowest cost
+                                  </span>
+                                  {isLowRisk(best) && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">
+                                      <Shield className="w-3.5 h-3.5" />
+                                      Low risk — capacity available
+                                    </span>
+                                  )}
+                                  {best.shop.is_preferred_network && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                                      <Zap className="w-3.5 h-3.5" />
+                                      Preferred network
+                                    </span>
+                                  )}
+                                  {best.failed_rules.length === 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      All rules pass
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Center: Key metrics */}
+                              <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCost(best.cost_breakdown.total_cost)}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Cost</p>
+                                </div>
+                                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{Number(best.backlog.hours_backlog || 0).toFixed(0)}h</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">Backlog</p>
+                                </div>
+                                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{getUtilPct(best).toFixed(0)}%</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">Utilization</p>
+                                </div>
+                              </div>
+
+                              {/* Right: CTA */}
+                              <div className="flex flex-col gap-2 lg:min-w-[160px]">
+                                <button
+                                  onClick={() => handleShopSelected(best.shop.shop_code)}
+                                  className="w-full px-5 py-3 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                                >
+                                  Use This Shop
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Runner-up shops (if any) */}
+                          {topShops.length > 1 && (
+                            <div className="border-t border-gray-200 dark:border-gray-700 px-5 py-3 bg-gray-50/50 dark:bg-gray-800/30">
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Also considered</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {topShops.slice(1).map((r) => (
+                                  <div key={r.shop.shop_code} className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5">
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{r.shop.shop_name}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {r.shop.shop_code} &middot; {formatCost(r.cost_breakdown.total_cost)}
+                                        {r.shop.is_preferred_network && ' · Preferred'}
+                                        {isLowRisk(r) ? ' · Low risk' : ''}
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() => handleShopSelected(r.shop.shop_code)}
+                                      className="ml-3 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 rounded-md hover:bg-primary-100 dark:hover:bg-primary-900/50 flex-shrink-0"
+                                    >
+                                      Select
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ═══════════════════════════════════════════════════════ */}
+                      {/* LAYER 2: DETAIL — Full comparison grid (expandable)    */}
+                      {/* ═══════════════════════════════════════════════════════ */}
+                      <div className="card overflow-hidden">
+                        <button
+                          onClick={() => setShowFullGrid(!showFullGrid)}
+                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Search className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Compare All {evalResults.length} Shops
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              — side-by-side cost, capacity, eligibility, and rules
+                            </span>
+                          </div>
+                          {showFullGrid ? (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                        {showFullGrid && (
+                          <div className="border-t border-gray-200 dark:border-gray-700">
+                            <ResultsGrid
+                              results={evalResults}
+                              lastUpdated={evalLastUpdated}
+                              onRefresh={() => runEvaluation(shopCarNumber)}
+                              carNumber={shopCarNumber}
+                              onSelectShop={handleShopSelected}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <div className="card p-8 text-center text-gray-500 dark:text-gray-400">
                     <p>No evaluation results available.</p>
                     <button
                       onClick={() => {
@@ -629,7 +780,7 @@ function ShoppingContent() {
                     </button>
                   </div>
                 )}
-              </div>
+              </>
             )}
 
             {/* ------------------------------------------------------------- */}

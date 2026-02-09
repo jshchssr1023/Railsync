@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { RefreshCw, ChevronDown, Clock } from 'lucide-react';
+import { RefreshCw, ChevronDown, Clock, ArrowRight } from 'lucide-react';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import {
@@ -278,6 +279,7 @@ const VarianceTooltip = ({ active, payload }: any) => {
 // =============================================================================
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -444,7 +446,10 @@ export default function DashboardPage() {
       {contractsReadiness && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Cars */}
-          <div className="card">
+          <div
+            className="card cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+            onClick={() => router.push('/cars')}
+          >
             <div className="card-body p-4">
               <div className="flex items-start justify-between">
                 <div>
@@ -455,12 +460,18 @@ export default function DashboardPage() {
                 </div>
                 <Sparkline data={sparkTotalCars} color="#6b7280" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">In tracking system</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-400">In tracking system</p>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+              </div>
             </div>
           </div>
 
           {/* Availability */}
-          <div className="card">
+          <div
+            className="card cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+            onClick={() => router.push('/contracts')}
+          >
             <div className="card-body p-4">
               <div className="flex items-start justify-between">
                 <div>
@@ -477,12 +488,18 @@ export default function DashboardPage() {
                 </div>
                 <Sparkline data={sparkAvailability} color={Number(contractsReadiness.availability_pct) >= 80 ? '#22c55e' : '#eab308'} />
               </div>
-              <p className="text-xs text-gray-400 mt-1">{formatNumber(contractsReadiness.available)} available</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-400">{formatNumber(contractsReadiness.available)} available</p>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+              </div>
             </div>
           </div>
 
           {/* In Pipeline */}
-          <div className="card">
+          <div
+            className="card cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+            onClick={() => router.push('/pipeline')}
+          >
             <div className="card-body p-4">
               <div className="flex items-start justify-between">
                 <div>
@@ -493,12 +510,18 @@ export default function DashboardPage() {
                 </div>
                 <Sparkline data={sparkPipeline} color="#3b82f6" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Across all stages</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-400">Across all stages</p>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+              </div>
             </div>
           </div>
 
           {/* Need Shopping Alert */}
-          <div className={`card ${contractsReadiness.need_shopping > 0 ? 'border-red-300 dark:border-red-700' : ''}`}>
+          <div
+            className={`card cursor-pointer hover:shadow-md transition-all group ${contractsReadiness.need_shopping > 0 ? 'border-red-300 dark:border-red-700 hover:border-red-400 dark:hover:border-red-600' : 'hover:border-gray-300 dark:hover:border-gray-600'}`}
+            onClick={() => router.push('/shopping')}
+          >
             <div className="card-body p-4">
               <div className="flex items-start justify-between">
                 <div>
@@ -513,7 +536,10 @@ export default function DashboardPage() {
                 </div>
                 <Sparkline data={sparkNeedShopping} color="#ef4444" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Awaiting assignment</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-400">Awaiting assignment</p>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+              </div>
             </div>
           </div>
         </div>
@@ -921,8 +947,12 @@ export default function DashboardPage() {
                   </thead>
                   <tbody>
                     {costExceptions.slice(0, 10).map(ex => (
-                      <tr key={ex.id} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                        <td className="py-2 font-medium text-gray-900 dark:text-gray-100">{ex.car_number}</td>
+                      <tr
+                        key={ex.id}
+                        className="border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/shopping?car=${encodeURIComponent(ex.car_number)}`)}
+                      >
+                        <td className="py-2 font-medium text-primary-600 dark:text-primary-400 hover:underline">{ex.car_number}</td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{ex.shop_code}</td>
                         <td className="py-2 text-right text-gray-500 dark:text-gray-400">{formatCurrency(ex.estimated_cost)}</td>
                         <td className="py-2 text-right font-medium text-gray-900 dark:text-gray-100">{formatCurrency(ex.actual_cost)}</td>
@@ -1087,8 +1117,12 @@ export default function DashboardPage() {
                   </thead>
                   <tbody>
                     {needShopping.slice(0, 10).map(item => (
-                      <tr key={item.id} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                        <td className="py-2 font-medium text-gray-900 dark:text-gray-100">{item.car_number}</td>
+                      <tr
+                        key={item.id}
+                        className="border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/shopping?shopCar=${encodeURIComponent(item.car_number)}`)}
+                      >
+                        <td className="py-2 font-medium text-primary-600 dark:text-primary-400 hover:underline">{item.car_number}</td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{item.target_month || '—'}</td>
                         <td className="py-2 text-right text-gray-500 dark:text-gray-400">
                           {item.estimated_cost ? formatCurrency(item.estimated_cost) : '—'}
@@ -1135,8 +1169,12 @@ export default function DashboardPage() {
                   </thead>
                   <tbody>
                     {expiryForecast.slice(0, 10).map((item, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                        <td className="py-2 font-medium text-gray-900 dark:text-gray-100">{item.car_number}</td>
+                      <tr
+                        key={idx}
+                        className="border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        onClick={() => router.push(`/cars?search=${encodeURIComponent(item.car_number)}`)}
+                      >
+                        <td className="py-2 font-medium text-primary-600 dark:text-primary-400 hover:underline">{item.car_number}</td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{item.car_type || item.car_mark}</td>
                         <td className="py-2 text-gray-500 dark:text-gray-400 truncate max-w-[120px]">{item.lessee_name || '—'}</td>
                         <td className="py-2 text-right">
