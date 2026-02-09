@@ -392,6 +392,159 @@ export async function searchCars(req: Request, res: Response): Promise<void> {
   }
 }
 
+// ============================================================================
+// EXTENDED PLAN MANAGEMENT
+// ============================================================================
+
+// POST /api/master-plans/:id/duplicate
+export async function duplicatePlan(req: Request, res: Response): Promise<void> {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      res.status(400).json({ success: false, error: 'name is required' });
+      return;
+    }
+
+    const plan = await masterPlanService.duplicatePlan(req.params.id, name, req.user?.id);
+    if (!plan) {
+      res.status(404).json({ success: false, error: 'Source plan not found' });
+      return;
+    }
+
+    res.status(201).json({ success: true, data: plan });
+  } catch (error) {
+    logger.error({ err: error }, 'Error duplicating plan');
+    res.status(500).json({ success: false, error: 'Failed to duplicate plan' });
+  }
+}
+
+// POST /api/master-plans/:id/transition
+export async function transitionPlanStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { target_status, reason } = req.body;
+    if (!target_status) {
+      res.status(400).json({ success: false, error: 'target_status is required' });
+      return;
+    }
+
+    const validStatuses = ['draft', 'soft_plan', 'locked', 'pending_commitment', 'committed', 'archived'];
+    if (!validStatuses.includes(target_status)) {
+      res.status(400).json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      return;
+    }
+
+    const result = await masterPlanService.transitionPlanStatus(
+      req.params.id,
+      target_status,
+      req.user?.id,
+      reason
+    );
+
+    if (result.error) {
+      res.status(400).json({ success: false, error: result.error });
+      return;
+    }
+
+    res.json({ success: true, data: result.plan });
+  } catch (error) {
+    logger.error({ err: error }, 'Error transitioning plan status');
+    res.status(500).json({ success: false, error: 'Failed to transition plan status' });
+  }
+}
+
+// GET /api/master-plans/:id/capacity-fit
+export async function getCapacityFit(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await masterPlanService.getCapacityFit(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error({ err: error }, 'Error getting capacity fit');
+    res.status(500).json({ success: false, error: 'Failed to get capacity fit' });
+  }
+}
+
+// GET /api/master-plans/:id/conflicts
+export async function getPlanConflicts(req: Request, res: Response): Promise<void> {
+  try {
+    const conflicts = await masterPlanService.getPlanConflicts(req.params.id);
+    res.json({ success: true, data: conflicts });
+  } catch (error) {
+    logger.error({ err: error }, 'Error getting plan conflicts');
+    res.status(500).json({ success: false, error: 'Failed to get plan conflicts' });
+  }
+}
+
+// GET /api/master-plans/:id/allocation-groups
+export async function getAllocationGroups(req: Request, res: Response): Promise<void> {
+  try {
+    const groups = await masterPlanService.getAllocationGroups(req.params.id);
+    res.json({ success: true, data: groups });
+  } catch (error) {
+    logger.error({ err: error }, 'Error getting allocation groups');
+    res.status(500).json({ success: false, error: 'Failed to get allocation groups' });
+  }
+}
+
+// GET /api/master-plans/:id/network-load
+export async function getNetworkLoad(req: Request, res: Response): Promise<void> {
+  try {
+    const { network_tier, shop_code, car_type, start_date, end_date } = req.query;
+    const result = await masterPlanService.getNetworkLoadForecast(req.params.id, {
+      network_tier: network_tier as string,
+      shop_code: shop_code as string,
+      car_type: car_type as string,
+      start_date: start_date as string,
+      end_date: end_date as string,
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error({ err: error }, 'Error getting network load');
+    res.status(500).json({ success: false, error: 'Failed to get network load' });
+  }
+}
+
+// POST /api/master-plans/:id/communicate
+export async function communicatePlan(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await masterPlanService.generatePlanSummary(req.params.id, req.user?.id);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error({ err: error }, 'Error generating plan summary');
+    res.status(500).json({ success: false, error: 'Failed to generate plan summary' });
+  }
+}
+
+// POST /api/master-plans/:id/allocations/bulk-assign
+export async function bulkAssignShop(req: Request, res: Response): Promise<void> {
+  try {
+    const { allocation_ids, shop_code, target_month } = req.body;
+
+    if (!allocation_ids || !Array.isArray(allocation_ids) || allocation_ids.length === 0 || !shop_code) {
+      res.status(400).json({ success: false, error: 'allocation_ids array and shop_code are required' });
+      return;
+    }
+
+    const plan = await masterPlanService.getMasterPlan(req.params.id);
+    if (!plan) {
+      res.status(404).json({ success: false, error: 'Plan not found' });
+      return;
+    }
+
+    const month = target_month || plan.planning_month;
+    const result = await masterPlanService.bulkAssignShop(
+      req.params.id,
+      allocation_ids,
+      shop_code,
+      month
+    );
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error({ err: error }, 'Error bulk assigning shop');
+    res.status(500).json({ success: false, error: 'Failed to bulk assign shop' });
+  }
+}
+
 export default {
   listMasterPlans,
   getMasterPlan,
@@ -412,4 +565,13 @@ export default {
   listPlanDemands,
   createDemandForPlan,
   searchCars,
+  // Extended
+  duplicatePlan,
+  transitionPlanStatus,
+  getCapacityFit,
+  getPlanConflicts,
+  getAllocationGroups,
+  getNetworkLoad,
+  communicatePlan,
+  bulkAssignShop,
 };

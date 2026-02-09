@@ -78,7 +78,15 @@ export async function getCarHistory(
 }
 
 /**
- * Get event history by car_number (resolves to cars.id first)
+ * Get event history by car_number (resolves to cars.id first).
+ *
+ * Merges two sources into a single timeline:
+ *   1. asset_events – direct lifecycle events keyed by car_id
+ *   2. state_transition_log – unified audit trail where the car number
+ *      appears either as entity_number (allocations, car_assignments,
+ *      car_lease_transitions) or via a linked shopping_event row.
+ *
+ * The merged result is sorted by date descending and capped at `limit`.
  */
 export async function getCarHistoryByNumber(
   carNumber: string,
@@ -86,7 +94,74 @@ export async function getCarHistoryByNumber(
 ): Promise<AssetEvent[]> {
   const car = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [carNumber]);
   if (!car) return [];
-  return getCarHistory(car.id, limit);
+
+  // 1. Existing asset_events
+  const assetEvents = await getCarHistory(car.id, limit);
+
+  // 2. state_transition_log entries for this car.
+  //    entity_number = carNumber covers allocations, car_assignments, car_lease_transitions.
+  //    The subquery covers shopping_event entries where entity_id references a
+  //    shopping_events row whose car_number matches.
+  const transitionRows = await query<{
+    id: string;
+    process_type: string;
+    entity_id: string;
+    entity_number: string | null;
+    from_state: string | null;
+    to_state: string;
+    actor_id: string | null;
+    actor_email: string | null;
+    notes: string | null;
+    created_at: string;
+  }>(
+    `SELECT id, process_type, entity_id, entity_number,
+            from_state, to_state, actor_id, actor_email,
+            notes, created_at
+     FROM state_transition_log
+     WHERE entity_number = $1
+        OR (process_type = 'shopping_event'
+            AND entity_id IN (
+              SELECT id FROM shopping_events WHERE car_number = $1
+            ))
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [carNumber, limit]
+  );
+
+  // 3. Map transition log rows into the AssetEvent shape
+  const mappedTransitions: AssetEvent[] = transitionRows.map((row) => ({
+    id: row.id,
+    car_id: car.id,
+    event_type: row.process_type,
+    event_data: {
+      from_state: row.from_state,
+      to_state: row.to_state,
+      notes: row.notes,
+      entity_number: row.entity_number,
+    },
+    performed_by: row.actor_email || row.actor_id || undefined,
+    performed_at: row.created_at,
+    source_table: 'state_transition_log',
+    source_id: row.entity_id,
+  }));
+
+  // 4. Merge, deduplicate by id, sort descending by date, and cap at limit
+  const seen = new Set<string>();
+  const merged: AssetEvent[] = [];
+  for (const evt of [...assetEvents, ...mappedTransitions]) {
+    if (!seen.has(evt.id)) {
+      seen.add(evt.id);
+      merged.push(evt);
+    }
+  }
+
+  merged.sort((a, b) => {
+    const ta = new Date(a.performed_at).getTime();
+    const tb = new Date(b.performed_at).getTime();
+    return tb - ta;
+  });
+
+  return merged.slice(0, limit);
 }
 
 /**
