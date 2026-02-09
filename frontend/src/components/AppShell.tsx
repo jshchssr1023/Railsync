@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import { ReactNode, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { useSidebar } from '@/context/SidebarContext';
 import GlobalCommandBar from '@/components/GlobalCommandBar';
 import DensityToggle from '@/components/DensityToggle';
@@ -18,11 +19,37 @@ interface AppShellProps {
 
 export default function AppShell({ children, dashboardWrapper }: AppShellProps) {
   const { expanded } = useSidebar();
+  const { isAuthenticated, isLoading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   // Auth pages render fullscreen without the app shell chrome
-  if (AUTH_ROUTES.includes(pathname)) {
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!isAuthRoute && !isLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthRoute, isLoading, isAuthenticated, router]);
+
+  // Auth pages bypass shell entirely
+  if (isAuthRoute) {
     return <>{children}</>;
+  }
+
+  // Show loading while checking auth (brief — AuthContext resolves in <100ms)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Not authenticated — show nothing while redirect fires
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
