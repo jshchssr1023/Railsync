@@ -1,12 +1,15 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/context/SidebarContext';
 import GlobalCommandBar from '@/components/GlobalCommandBar';
 import DensityToggle from '@/components/DensityToggle';
 import Sidebar from '@/components/Sidebar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import KeyboardShortcutsHelp from '@/components/KeyboardShortcutsHelp';
+
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password'];
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,6 +18,12 @@ interface AppShellProps {
 
 export default function AppShell({ children, dashboardWrapper }: AppShellProps) {
   const { expanded } = useSidebar();
+  const pathname = usePathname();
+
+  // Auth pages render fullscreen without the app shell chrome
+  if (AUTH_ROUTES.includes(pathname)) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen flex">
