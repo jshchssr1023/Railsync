@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Loader2, FileText, ChevronRight, Lock, AlertTriangle, Train } from 'lucide-react';
-import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops } from '@/lib/api';
-import { ShoppingEvent, ShoppingEventState, ShopSummary } from '@/types';
+import { Loader2, FileText, ChevronRight, Lock, AlertTriangle, Train, Search } from 'lucide-react';
+import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops, evaluateShops } from '@/lib/api';
+import { ShoppingEvent, ShoppingEventState, ShopSummary, EvaluationResult } from '@/types';
+import ResultsGrid from '@/components/ResultsGrid';
 import { useToast } from '@/components/Toast';
 import EmptyState from '@/components/EmptyState';
 import ExportButton from '@/components/ExportButton';
@@ -144,6 +145,12 @@ function ShoppingContent() {
     id: string; event_number: string; state: string; shop_code: string;
   } | null>(null);
 
+  // --- Shop evaluation state ---
+  const [evalResults, setEvalResults] = useState<EvaluationResult[]>([]);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalLastUpdated, setEvalLastUpdated] = useState<Date | undefined>();
+  const [showEvalResults, setShowEvalResults] = useState(false);
+
   // --- Batch form state ---
   const [batchShopCode, setBatchShopCode] = useState('');
   const [batchTypeCode, setBatchTypeCode] = useState('');
@@ -234,14 +241,16 @@ function ShoppingContent() {
           setShowCreateForm(false);
           setShowBatchForm(false);
         } else {
-          // No active event — open create form with pre-populated fields
+          // No active event — show evaluation results, then create form
           setShopCarActiveEvent(null);
           setShopCarData(data.car);
           setCreateCarNumber(carNumber);
-          setCreateShopCode(data.car?.assigned_shop_code || data.car?.last_repair_shop || '');
           if (shopReasonParam) setCreateReasonCode(shopReasonParam);
-          setShowCreateForm(true);
           setShowBatchForm(false);
+          // Auto-run shop evaluation
+          setShowEvalResults(true);
+          setShowCreateForm(false);
+          runEvaluation(carNumber);
         }
       })
       .catch(() => {
@@ -271,6 +280,28 @@ function ShoppingContent() {
     setShopCarData(null);
     setShopCarActiveEvent(null);
   }, [searchParams, pathname, router]);
+
+  /** Run shop evaluation for a car number */
+  const runEvaluation = useCallback(async (carNumber: string) => {
+    setEvalLoading(true);
+    try {
+      const results = await evaluateShops(carNumber);
+      setEvalResults(results);
+      setEvalLastUpdated(new Date());
+    } catch {
+      toast.error('Shop evaluation failed', 'Could not evaluate shops for this car');
+      setEvalResults([]);
+    } finally {
+      setEvalLoading(false);
+    }
+  }, [toast]);
+
+  /** User selected a shop from evaluation results — fill shop code and open create form */
+  const handleShopSelected = useCallback((shopCode: string) => {
+    setCreateShopCode(shopCode);
+    setShowEvalResults(false);
+    setShowCreateForm(true);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Stats summary - count events by state groupings
@@ -480,7 +511,7 @@ function ShoppingContent() {
             {/* ------------------------------------------------------------- */}
             {/* Shop-a-Car: Car Context Summary Card                           */}
             {/* ------------------------------------------------------------- */}
-            {shopCarNumber && shopCarData && !shopCarActiveEvent && showCreateForm && (
+            {shopCarNumber && shopCarData && !shopCarActiveEvent && (showCreateForm || showEvalResults) && (
               <div className="card p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Train className="w-5 h-5 text-primary-600" />
@@ -537,6 +568,67 @@ function ShoppingContent() {
               <div className="card p-6 flex items-center justify-center gap-2 text-gray-500">
                 <Loader2 className="animate-spin h-5 w-5" />
                 <span>Loading car details...</span>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* Shop-a-Car: Shop Evaluation Results                            */}
+            {/* ------------------------------------------------------------- */}
+            {shopCarNumber && showEvalResults && !shopCarActiveEvent && (
+              <div className="card overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-5 h-5 text-primary-600" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Shop Evaluation — {shopCarNumber}
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setShowEvalResults(false);
+                        setCreateShopCode(shopCarData?.assigned_shop_code || shopCarData?.last_repair_shop || '');
+                        setShowCreateForm(true);
+                      }}
+                      className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                      Skip — Pick Manually
+                    </button>
+                  </div>
+                </div>
+                {evalLoading ? (
+                  <div className="p-8 flex items-center justify-center gap-2 text-gray-500">
+                    <Loader2 className="animate-spin h-5 w-5" />
+                    <span>Evaluating {shops.length || 24} shops...</span>
+                  </div>
+                ) : evalResults.length > 0 ? (
+                  <div>
+                    <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+                      Click a shop row to see details, compare shops, then click &quot;Select this Shop&quot; to use it for this shopping event.
+                    </div>
+                    <ResultsGrid
+                      results={evalResults}
+                      lastUpdated={evalLastUpdated}
+                      onRefresh={() => runEvaluation(shopCarNumber)}
+                      carNumber={shopCarNumber}
+                      onSelectShop={handleShopSelected}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    <p>No evaluation results available.</p>
+                    <button
+                      onClick={() => {
+                        setShowEvalResults(false);
+                        setCreateShopCode(shopCarData?.assigned_shop_code || shopCarData?.last_repair_shop || '');
+                        setShowCreateForm(true);
+                      }}
+                      className="mt-2 text-primary-600 hover:text-primary-700 text-sm font-medium"
+                    >
+                      Select shop manually
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

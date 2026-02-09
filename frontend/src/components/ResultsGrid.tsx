@@ -11,6 +11,8 @@ interface ResultsGridProps {
   lastUpdated?: Date;
   onRefresh?: () => void;
   carNumber?: string;
+  /** When provided, passed to ShopDetailDrawer — "Assign" calls this instead of creating a service event */
+  onSelectShop?: (shopCode: string) => void;
 }
 
 type SortField = 'total_cost' | 'hours_backlog' | 'shop_name' | 'en_route_0_6' | 'railroad';
@@ -24,7 +26,7 @@ const STORAGE_KEYS = {
   showEligibleOnly: 'railsync_showEligibleOnly',
 };
 
-export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber }: ResultsGridProps) {
+export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber, onSelectShop }: ResultsGridProps) {
   // Initialize state from localStorage
   const [sortField, setSortField] = useState<SortField>('en_route_0_6');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -503,6 +505,7 @@ export default function ResultsGrid({ results, lastUpdated, onRefresh, carNumber
         isComparing={selectedShop ? compareShops.has(selectedShop.shop.shop_code) : false}
         carNumber={carNumber}
         onAssign={onRefresh}
+        onSelectShop={onSelectShop}
       />
     </div>
   );

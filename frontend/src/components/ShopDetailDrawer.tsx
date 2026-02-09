@@ -13,6 +13,8 @@ interface ShopDetailDrawerProps {
   isComparing?: boolean;
   carNumber?: string;
   onAssign?: () => void;
+  /** When provided, "Assign to Shop" calls this with the shop_code instead of opening ShopEventModal */
+  onSelectShop?: (shopCode: string) => void;
 }
 
 export default function ShopDetailDrawer({
@@ -23,6 +25,7 @@ export default function ShopDetailDrawer({
   isComparing = false,
   carNumber,
   onAssign,
+  onSelectShop,
 }: ShopDetailDrawerProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
 
@@ -345,10 +348,17 @@ export default function ShopDetailDrawer({
           <div className="flex gap-2">
             {carNumber && shop.is_eligible && (
               <button
-                onClick={() => setShowAssignModal(true)}
+                onClick={() => {
+                  if (onSelectShop) {
+                    onSelectShop(shop.shop.shop_code);
+                    onClose();
+                  } else {
+                    setShowAssignModal(true);
+                  }
+                }}
                 className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Assign to Shop
+                {onSelectShop ? 'Select this Shop' : 'Assign to Shop'}
               </button>
             )}
             <button
