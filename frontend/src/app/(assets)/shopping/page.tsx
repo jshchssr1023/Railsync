@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Loader2, FileText, ChevronRight, Lock, AlertTriangle, Train } from 'lucide-react';
-import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent } from '@/lib/api';
-import { ShoppingEvent, ShoppingEventState } from '@/types';
+import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops } from '@/lib/api';
+import { ShoppingEvent, ShoppingEventState, ShopSummary } from '@/types';
 import { useToast } from '@/components/Toast';
 import EmptyState from '@/components/EmptyState';
 import ExportButton from '@/components/ExportButton';
@@ -130,6 +130,7 @@ function ShoppingContent() {
   const [createTypeCode, setCreateTypeCode] = useState('');
   const [createReasonCode, setCreateReasonCode] = useState('');
   const [creating, setCreating] = useState(false);
+  const [shops, setShops] = useState<ShopSummary[]>([]);
 
   // --- "Shop a Car" workflow state (from ?shopCar= URL param) ---
   const searchParams = useSearchParams();
@@ -196,6 +197,11 @@ function ShoppingContent() {
   useEffect(() => {
     setPage(1);
   }, [stateFilter, shopCodeFilter, carNumberFilter]);
+
+  // Fetch shops list for dropdown
+  useEffect(() => {
+    listShops().then(setShops).catch(() => {});
+  }, []);
 
   // -------------------------------------------------------------------------
   // "Shop a Car" workflow: detect ?shopCar param and fetch car data
@@ -562,14 +568,19 @@ function ShoppingContent() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Shop Code <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={createShopCode}
                       onChange={(e) => setCreateShopCode(e.target.value)}
-                      placeholder="e.g. SHOP-001"
                       className="input w-full"
-                    />
+                    >
+                      <option value="">Select a shop...</option>
+                      {shops.map((s) => (
+                        <option key={s.shop_code} value={s.shop_code}>
+                          {s.shop_code} — {s.shop_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -626,14 +637,19 @@ function ShoppingContent() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Shop Code <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={batchShopCode}
                       onChange={(e) => setBatchShopCode(e.target.value)}
-                      placeholder="e.g. SHOP-001"
                       className="input w-full"
-                    />
+                    >
+                      <option value="">Select a shop...</option>
+                      {shops.map((s) => (
+                        <option key={s.shop_code} value={s.shop_code}>
+                          {s.shop_code} — {s.shop_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
