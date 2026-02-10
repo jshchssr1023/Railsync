@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Users, Calendar } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, TrendingUp, TrendingDown, DollarSign, Users, Calendar, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -52,6 +53,7 @@ function pct(n: number): string {
 }
 
 export default function CostAnalyticsPage() {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
@@ -125,30 +127,48 @@ export default function CostAnalyticsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-            <Calendar className="w-4 h-4" /> YTD Budget
+        <div
+          onClick={() => router.push('/budget')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> YTD Budget</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
           </div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalBudget)}</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-            <DollarSign className="w-4 h-4" /> YTD Actual
+        <div
+          onClick={() => router.push('/invoices')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><DollarSign className="w-4 h-4" /> YTD Actual</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
           </div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{fmt(totalActual)}</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-            {totalVariance >= 0 ? <TrendingUp className="w-4 h-4 text-red-500" /> : <TrendingDown className="w-4 h-4 text-green-500" />}
-            Variance
+        <div
+          onClick={() => setTab('variance')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2">
+              {totalVariance >= 0 ? <TrendingUp className="w-4 h-4 text-red-500" /> : <TrendingDown className="w-4 h-4 text-green-500" />}
+              Variance
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
           </div>
           <div className={`text-xl font-bold ${totalVariance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
             {fmt(Math.abs(totalVariance))} ({pct(totalVariancePct)})
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-            <Users className="w-4 h-4" /> Cars Serviced
+        <div
+          onClick={() => router.push('/shopping')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><Users className="w-4 h-4" /> Cars Serviced</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
           </div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{totalCars.toLocaleString()}</div>
         </div>

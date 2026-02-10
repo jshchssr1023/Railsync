@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Award, Clock, Target, DollarSign, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Award, Clock, Target, DollarSign, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -68,6 +69,7 @@ function ScoreBar({ score, label }: { score: number; label: string }) {
 }
 
 export default function ShopPerformancePage() {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [shops, setShops] = useState<ShopScore[]>([]);
@@ -130,20 +132,44 @@ export default function ShopPerformancePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1"><Award className="w-4 h-4" /> Fleet Avg Score</div>
+        <div
+          onClick={() => router.push('/shops')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><Award className="w-4 h-4" /> Fleet Avg Score</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+          </div>
           <div className={`text-2xl font-bold ${scoreColor(avgScore)}`}>{avgScore}/100</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1"><Clock className="w-4 h-4" /> Avg Dwell</div>
+        <div
+          onClick={() => router.push('/analytics')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> Avg Dwell</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+          </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{avgDwell} days</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1"><Target className="w-4 h-4" /> Avg OTD</div>
+        <div
+          onClick={() => router.push('/analytics')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><Target className="w-4 h-4" /> Avg OTD</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+          </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{avgOTD}%</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1"><DollarSign className="w-4 h-4" /> Completed (180d)</div>
+        <div
+          onClick={() => router.push('/shopping?state=RELEASED')}
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group"
+        >
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex items-center gap-2"><DollarSign className="w-4 h-4" /> Completed (180d)</div>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+          </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{totalCompleted}</div>
         </div>
       </div>

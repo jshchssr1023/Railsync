@@ -1026,15 +1026,23 @@ function ShoppingContent() {
             {/* Stats Summary                                                  */}
             {/* ------------------------------------------------------------- */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-              {stats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`${stat.bgColor} rounded-lg p-3 text-center`}
-                >
-                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{stat.label}</p>
-                </div>
-              ))}
+              {stats.map((stat) => {
+                const filterMap: Record<string, string> = {
+                  'Total': '', 'Requested': 'REQUESTED', 'Inbound': 'INBOUND',
+                  'In Repair': 'IN_REPAIR', 'Awaiting QA': 'QA_COMPLETE',
+                  'Ready for Release': 'READY_FOR_RELEASE', 'Released': 'RELEASED',
+                };
+                return (
+                  <div
+                    key={stat.label}
+                    onClick={() => setFilter('state', filterMap[stat.label] ?? '')}
+                    className={`${stat.bgColor} rounded-lg p-3 text-center cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all ${stateFilter === (filterMap[stat.label] ?? '') ? 'ring-2 ring-primary-500' : ''}`}
+                  >
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{stat.label}</p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* ------------------------------------------------------------- */}

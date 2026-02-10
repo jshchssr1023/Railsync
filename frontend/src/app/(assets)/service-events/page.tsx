@@ -95,14 +95,14 @@ export default function ServiceEventsPage() {
 
       {/* Status summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <button onClick={() => setStatusFilter('')} className={`bg-white dark:bg-gray-800 rounded-lg border p-3 text-left transition-colors ${!statusFilter ? 'border-primary-500 ring-1 ring-primary-500' : 'border-gray-200 dark:border-gray-700'}`}>
+        <button onClick={() => setStatusFilter('')} className={`bg-white dark:bg-gray-800 rounded-lg border p-3 text-left transition-all hover:shadow-md ${!statusFilter ? 'border-primary-500 ring-1 ring-primary-500' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
           <div className="text-xs text-gray-500 dark:text-gray-400">All</div>
           <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{totalCount}</div>
         </button>
         {STATUSES.map(s => {
           const Icon = statusIcons[s] || Clock;
           return (
-            <button key={s} onClick={() => setStatusFilter(s === statusFilter ? '' : s)} className={`bg-white dark:bg-gray-800 rounded-lg border p-3 text-left transition-colors ${statusFilter === s ? 'border-primary-500 ring-1 ring-primary-500' : 'border-gray-200 dark:border-gray-700'}`}>
+            <button key={s} onClick={() => setStatusFilter(s === statusFilter ? '' : s)} className={`bg-white dark:bg-gray-800 rounded-lg border p-3 text-left transition-all hover:shadow-md ${statusFilter === s ? 'border-primary-500 ring-1 ring-primary-500' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
               <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 capitalize">
                 <Icon className="w-3 h-3" /> {s.replace('_', ' ')}
               </div>

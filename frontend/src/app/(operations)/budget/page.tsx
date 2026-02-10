@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
-import { X, Plus, Trash2, RefreshCw, Settings, BarChart3, Loader2, Info } from 'lucide-react';
+import { X, Plus, Trash2, RefreshCw, Settings, BarChart3, Loader2, Info, ArrowRight } from 'lucide-react';
 import BudgetOverview from '@/components/BudgetOverview';
 import DemandList from '@/components/DemandList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -324,23 +324,47 @@ function BudgetContent() {
       {/* Summary Cards (above tabs) */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
+          <div
+            onClick={() => setActiveTab('overview')}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group border border-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+            </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(summary.total.budget)}</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">FY{fiscalYear} aggregate allocation</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Planned</p>
+          <div
+            onClick={() => setActiveTab('overview')}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group border border-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Planned</p>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+            </div>
             <p className="text-2xl font-bold text-amber-600">{formatCurrency(summary.total.planned || 0)}</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">No shop assigned yet</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+          <div
+            onClick={() => setActiveTab('overview')}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group border border-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Committed</p>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+            </div>
             <p className="text-2xl font-bold text-yellow-600">{formatCurrency(summary.total.shop_committed || 0)}</p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Shop assigned + actuals</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
+          <div
+            onClick={() => setActiveTab('overview')}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group border border-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+            </div>
             <p className={`text-2xl font-bold ${summary.total.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(summary.total.remaining)}
             </p>
@@ -348,8 +372,14 @@ function BudgetContent() {
               {(100 - summary.total.consumed_pct).toFixed(0)}% available
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
+          <div
+            onClick={() => setActiveTab('overview')}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group border border-transparent"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Consumed</p>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
+            </div>
             <p className="text-2xl font-bold text-blue-600">{summary.total.consumed_pct.toFixed(1)}%</p>
             <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${Math.min(summary.total.consumed_pct, 100)}%` }} />

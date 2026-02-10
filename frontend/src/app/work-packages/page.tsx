@@ -234,10 +234,10 @@ function WorkPackagesContent() {
   const summaryCards = useMemo(() => {
     if (!summary) return [];
     return [
-      { label: 'Total', value: summary.total, color: 'text-gray-900 dark:text-gray-100' },
-      { label: 'Draft', value: summary.draft, color: 'text-gray-600 dark:text-gray-400' },
-      { label: 'Assembled', value: summary.assembled, color: 'text-blue-600 dark:text-blue-400' },
-      { label: 'Issued', value: summary.issued, color: 'text-green-600 dark:text-green-400' },
+      { label: 'Total', value: summary.total, color: 'text-gray-900 dark:text-gray-100', filterValue: 'all' },
+      { label: 'Draft', value: summary.draft, color: 'text-gray-600 dark:text-gray-400', filterValue: 'draft' },
+      { label: 'Assembled', value: summary.assembled, color: 'text-blue-600 dark:text-blue-400', filterValue: 'assembled' },
+      { label: 'Issued', value: summary.issued, color: 'text-green-600 dark:text-green-400', filterValue: 'issued' },
     ];
   }, [summary]);
 
@@ -304,7 +304,8 @@ function WorkPackagesContent() {
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow"
+                onClick={() => setStatusFilter(card.filterValue)}
+                className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all border ${statusFilter === card.filterValue ? 'border-primary-500 ring-1 ring-primary-500' : 'border-transparent'}`}
               >
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   {card.label}

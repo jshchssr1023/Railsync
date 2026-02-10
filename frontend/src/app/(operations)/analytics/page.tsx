@@ -326,7 +326,7 @@ export default function AnalyticsPage() {
                       over: 'Over Capacity',
                     };
                     return (
-                      <div key={status} className={`p-4 rounded-lg ${getStatusColor(status)}`}>
+                      <div key={status} className={`p-4 rounded-lg cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all ${getStatusColor(status)}`}>
                         <div className="text-2xl font-bold">{count}</div>
                         <div className="text-sm">{labels[status]}</div>
                       </div>
@@ -461,7 +461,7 @@ export default function AnalyticsPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {operationsKPIs.map((kpi) => (
-                <div key={kpi.metric} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div key={kpi.metric} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">{kpi.metric}</span>
                     <span className={`text-xs ${

@@ -140,25 +140,25 @@ export default function NotificationsPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4">
-            <div className="text-center">
+            <div className="text-center p-2 rounded-lg cursor-default hover:bg-yellow-50 dark:hover:bg-yellow-900/10 transition-colors">
               <div className="flex items-center justify-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 mb-1">
                 <Clock className="w-3 h-3" /> Pending
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{queueStatus.pending}</div>
             </div>
-            <div className="text-center">
+            <div className="text-center p-2 rounded-lg cursor-default hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
               <div className="flex items-center justify-center gap-1 text-xs text-blue-600 dark:text-blue-400 mb-1">
                 <Loader2 className="w-3 h-3" /> Processing
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{queueStatus.processing}</div>
             </div>
-            <div className="text-center">
+            <div className="text-center p-2 rounded-lg cursor-default hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors">
               <div className="flex items-center justify-center gap-1 text-xs text-green-600 dark:text-green-400 mb-1">
                 <CheckCircle className="w-3 h-3" /> Sent
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{queueStatus.sent}</div>
             </div>
-            <div className="text-center">
+            <div className="text-center p-2 rounded-lg cursor-default hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
               <div className="flex items-center justify-center gap-1 text-xs text-red-600 dark:text-red-400 mb-1">
                 <XCircle className="w-3 h-3" /> Failed
               </div>

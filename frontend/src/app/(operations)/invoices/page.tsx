@@ -328,7 +328,7 @@ function InvoicesContent() {
               <div
                 key={stat.status}
                 onClick={() => setURLFilter('status', stat.status)}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
               >
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {stat.count}

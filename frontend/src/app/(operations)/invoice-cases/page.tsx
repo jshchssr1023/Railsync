@@ -358,7 +358,7 @@ function InvoiceCasesContent() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <button
             onClick={() => { setFilters(f => ({ ...f, workflow_state: '', my_cases: false })); }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <div className="flex items-center gap-2 mb-1">
               <Inbox className="w-4 h-4 text-blue-500" aria-hidden="true" />
@@ -370,7 +370,7 @@ function InvoiceCasesContent() {
 
           <button
             onClick={() => setFilters(f => ({ ...f, workflow_state: 'RECEIVED', my_cases: false }))}
-            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <div className="flex items-center gap-2 mb-1">
               <FileText className="w-4 h-4 text-gray-500" aria-hidden="true" />
@@ -382,7 +382,7 @@ function InvoiceCasesContent() {
 
           <button
             onClick={() => setFilters(f => ({ ...f, workflow_state: 'BLOCKED', my_cases: false }))}
-            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <div className="flex items-center gap-2 mb-1">
               <AlertOctagon className="w-4 h-4 text-red-500" aria-hidden="true" />
@@ -394,7 +394,7 @@ function InvoiceCasesContent() {
 
           <button
             onClick={() => setFilters(f => ({ ...f, workflow_state: '', my_cases: true }))}
-            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-left hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <div className="flex items-center gap-2 mb-1">
               <UserCheck className="w-4 h-4 text-green-500" aria-hidden="true" />
