@@ -91,6 +91,9 @@ services:
       - ./database/migrations/066_work_packages.sql:/docker-entrypoint-initdb.d/73-work-packages.sql
       - ./database/migrations/067_master_plans_lifecycle.sql:/docker-entrypoint-initdb.d/74-master-plans-lifecycle.sql
       - ./database/migrations/068_add_users_shop_code.sql:/docker-entrypoint-initdb.d/75-users-shop-code.sql
+      - ./database/migrations/069_cars_contracts_ia.sql:/docker-entrypoint-initdb.d/76-cars-contracts-ia.sql
+      - ./database/migrations/070_seed_qualification_rules_library.sql:/docker-entrypoint-initdb.d/77-qual-rules-library.sql
+      - ./database/migrations/071_seed_fleet_qualification_records.sql:/docker-entrypoint-initdb.d/78-fleet-qual-records.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
