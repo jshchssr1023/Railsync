@@ -85,9 +85,13 @@ echo  ====================================================
 echo.
 echo   RailSync is running!
 echo.
-echo   Frontend:  http://localhost:3000
+echo   App:       http://localhost
 echo   HTTPS:     https://localhost  (self-signed cert)
-echo   API:       http://localhost:3001/api
+echo   API:       http://localhost/api  (via proxy)
+echo.
+echo   Direct ports (dev only, no proxy):
+echo     Frontend:  http://localhost:3000
+echo     API:       http://localhost:3001/api
 echo.
 echo   Login:     admin@railsync.com / admin123
 echo.
@@ -96,8 +100,8 @@ echo.
 echo  ====================================================
 echo.
 
-:: Open browser
-start "" "http://localhost:3000"
+:: Open browser via nginx proxy (required for API routing)
+start "" "http://localhost"
 
 echo  Press any key to close this window (services keep running)...
 pause >nul
