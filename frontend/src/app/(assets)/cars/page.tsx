@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
 import {
-  Search, Filter, X, ChevronDown, ChevronUp, Loader2
+  Search, Filter, X, ChevronDown, ChevronUp, Loader2,
+  Wrench, Warehouse, CheckCircle2, AlertTriangle as AlertTriangleIcon
 } from 'lucide-react';
 import MobileCarCard from '@/components/MobileCarCard';
 import EmptyState from '@/components/EmptyState';
@@ -111,6 +112,7 @@ const CARS_FILTER_DEFAULTS: Record<string, string> = {
   status: '',
   region: '',
   lessee: '',
+  status_group: '',
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +169,11 @@ function CarsPage() {
   // Drawer
   const [selectedCar, setSelectedCar] = useState<string | null>(null);
 
+  // Level 2 drill-in tab (visible when a car type is selected)
+  const [drillInTab, setDrillInTab] = useState<'car_list' | 'shop_status' | 'shopping_reasons'>('car_list');
+  const [drillInData, setDrillInData] = useState<{ shopStatus: any[]; shoppingReasons: any[] }>({ shopStatus: [], shoppingReasons: [] });
+  const [drillInLoading, setDrillInLoading] = useState(false);
+
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -175,6 +182,41 @@ function CarsPage() {
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  // Fleet status group summary
+  const [fleetSummary, setFleetSummary] = useState<{
+    in_shop_count: number; idle_storage_count: number;
+    ready_to_load_count: number; pending_count: number; total_actionable: number;
+  } | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ data: any }>('/cars/fleet-summary')
+      .then(res => setFleetSummary(res.data))
+      .catch(() => {});
+  }, []);
+
+  // Reset drill-in tab when type selection changes
+  useEffect(() => { setDrillInTab('car_list'); }, [selectedType]);
+
+  // Fetch drill-in analytics when tab changes
+  useEffect(() => {
+    if (!selectedType || drillInTab === 'car_list') return;
+    setDrillInLoading(true);
+    const params = new URLSearchParams({ car_type: selectedType });
+    Promise.all([
+      drillInTab === 'shop_status'
+        ? apiFetch<{ data: any[] }>(`/contracts-browse/shop-status-by-type?${params}`).then(r => r.data || []).catch(() => [])
+        : Promise.resolve(drillInData.shopStatus),
+      drillInTab === 'shopping_reasons'
+        ? apiFetch<{ data: any[] }>(`/contracts-browse/shopping-reasons-by-type?${params}`).then(r => r.data || []).catch(() => [])
+        : Promise.resolve(drillInData.shoppingReasons),
+    ]).then(([shopStatus, shoppingReasons]) => {
+      setDrillInData({ shopStatus, shoppingReasons });
+    }).finally(() => setDrillInLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType, drillInTab]);
+
+  const statusGroupFilter = filters.status_group || null;
 
   // Distinct values for filter dropdowns
   const [filterOptions, setFilterOptions] = useState<{ statuses: string[]; regions: string[]; lessees: string[] }>({ statuses: [], regions: [], lessees: [] });
@@ -313,6 +355,47 @@ function CarsPage() {
           collapsed={dashboardCollapsed}
           onToggleCollapse={toggleDashboard}
         />
+
+        {/* Fleet Status Group Cards */}
+        {fleetSummary && (
+          <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { key: 'in_shop', label: 'In Shop', count: fleetSummary.in_shop_count, icon: Wrench, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400', ring: 'ring-blue-200 dark:ring-blue-800' },
+                { key: 'idle_storage', label: 'Idle / Storage', count: fleetSummary.idle_storage_count, icon: Warehouse, color: 'text-gray-600 bg-gray-50 dark:bg-gray-800 dark:text-gray-400', ring: 'ring-gray-200 dark:ring-gray-700' },
+                { key: 'ready_to_load', label: 'Ready to Load', count: fleetSummary.ready_to_load_count, icon: CheckCircle2, color: 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400', ring: 'ring-green-200 dark:ring-green-800' },
+                { key: 'pending', label: 'Pending', count: fleetSummary.pending_count, icon: AlertTriangleIcon, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400', ring: 'ring-amber-200 dark:ring-amber-800' },
+              ].map(({ key, label, count, icon: Icon, color, ring }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (key === 'pending') {
+                      window.location.href = '/triage';
+                    } else {
+                      setFilter('status_group', statusGroupFilter === key ? '' : key);
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left
+                    ${statusGroupFilter === key
+                      ? `ring-2 ${ring} border-transparent ${color}`
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-900'
+                    }`}
+                >
+                  <div className={`p-2 rounded-lg ${color}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{count}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              {fleetSummary.total_actionable} actionable cars in fleet overview
+            </p>
+          </div>
+        )}
 
         {/* Header Bar */}
         <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
@@ -455,8 +538,128 @@ function CarsPage() {
           </div>
         )}
 
-        {/* Table / Mobile Cards */}
-        <div className="flex-1 overflow-auto">
+        {/* Level 2 Drill-In Tabs (visible when a car type is selected) */}
+        {selectedType && (
+          <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4">
+            <nav className="flex gap-4 -mb-px">
+              {([
+                { key: 'car_list', label: 'Car List' },
+                { key: 'shop_status', label: 'Shop Status' },
+                { key: 'shopping_reasons', label: 'Shopping Reasons' },
+              ] as const).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setDrillInTab(tab.key)}
+                  className={`py-2 text-xs font-medium border-b-2 transition-colors ${
+                    drillInTab === tab.key
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        {/* Drill-In Analytics Panels */}
+        {selectedType && drillInTab === 'shop_status' && (
+          <div className="flex-1 overflow-auto p-4">
+            {drillInLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+              </div>
+            ) : drillInData.shopStatus.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <p className="text-sm">No shopping event data available for {selectedType}.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Shop Status Distribution &mdash; {selectedType}
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {drillInData.shopStatus.map((item: any) => (
+                    <div key={item.state || item.status} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.state || item.status}</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{item.count}</p>
+                    </div>
+                  ))}
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">State</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">%</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                    {drillInData.shopStatus.map((item: any) => {
+                      const total = drillInData.shopStatus.reduce((s: number, i: any) => s + (i.count || 0), 0);
+                      return (
+                        <tr key={item.state || item.status}>
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{item.state || item.status}</td>
+                          <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">{item.count}</td>
+                          <td className="px-3 py-2 text-right text-gray-500 dark:text-gray-400">
+                            {total > 0 ? `${((item.count / total) * 100).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedType && drillInTab === 'shopping_reasons' && (
+          <div className="flex-1 overflow-auto p-4">
+            {drillInLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+              </div>
+            ) : drillInData.shoppingReasons.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <p className="text-sm">No shopping reason data available for {selectedType}.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Shopping Reasons Breakdown &mdash; {selectedType}
+                </h3>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">%</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                    {drillInData.shoppingReasons.map((item: any) => {
+                      const total = drillInData.shoppingReasons.reduce((s: number, i: any) => s + (i.count || 0), 0);
+                      return (
+                        <tr key={item.reason}>
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{item.reason || 'Unknown'}</td>
+                          <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">{item.count}</td>
+                          <td className="px-3 py-2 text-right text-gray-500 dark:text-gray-400">
+                            {total > 0 ? `${((item.count / total) * 100).toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Table / Mobile Cards (shown when drillInTab is 'car_list' or no type selected) */}
+        <div className={`flex-1 overflow-auto ${selectedType && drillInTab !== 'car_list' ? 'hidden' : ''}`}>
           {carsLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-primary-500" />

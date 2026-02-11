@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   X, ChevronDown, ChevronRight, Train, Layers, Shield, Wrench,
-  FileText, MapPin, ExternalLink, ClipboardList, Loader2
+  FileText, MapPin, ExternalLink, ClipboardList, Loader2,
+  Package, Trash2, CheckCircle, ArrowLeftRight, Undo2,
 } from 'lucide-react';
+import Link from 'next/link';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 import { QualBadge, StatusBadge, QualStatusBadge } from './CarBadges';
 
@@ -24,6 +26,16 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   if (!res.ok) throw new Error(json.error || 'API error');
   return json;
 }
+
+// ---------------------------------------------------------------------------
+// Operational Status Group display config
+// ---------------------------------------------------------------------------
+const STATUS_GROUP_CONFIG: Record<string, { label: string; color: string; icon: typeof Wrench }> = {
+  in_shop: { label: 'In Shop', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: Wrench },
+  idle_storage: { label: 'Idle / Storage', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', icon: Package },
+  ready_to_load: { label: 'Ready to Load', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle },
+  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', icon: ClipboardList },
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -176,7 +188,14 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
         <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <div className="flex items-center justify-between px-4 py-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
+                {car?.operational_status_group && STATUS_GROUP_CONFIG[car.operational_status_group] && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_GROUP_CONFIG[car.operational_status_group].color}`}>
+                    {STATUS_GROUP_CONFIG[car.operational_status_group].label}
+                  </span>
+                )}
+              </div>
               {car && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {car.car_type || 'Unknown Type'} &middot; {car.commodity || 'No Commodity'}
@@ -398,30 +417,97 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
           )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions — context-aware based on operational status group */}
         {car && (
-          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex gap-2 bg-gray-50 dark:bg-gray-800">
-            <a
-              href={detail?.active_shopping_event
-                ? `/shopping?shopCar=${encodeURIComponent(carNumber)}`
-                : `/shopping?shopCar=${encodeURIComponent(carNumber)}`
-              }
-              className="flex-1 text-center text-xs px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
-            >
-              {detail?.active_shopping_event ? 'View Shopping Event' : 'Shop this Car'}
-            </a>
-            <a
-              href={`/shopping?car=${encodeURIComponent(carNumber)}`}
-              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Shopping History
-            </a>
-            <a
-              href="/contracts"
-              className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Contracts
-            </a>
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800 space-y-2">
+            {/* Primary row: context-aware actions */}
+            <div className="flex gap-2">
+              {car.operational_status_group === 'idle_storage' && (
+                <Link
+                  href={`/cars?action=set_ready&car=${encodeURIComponent(carNumber)}`}
+                  className="flex-1 text-center text-xs px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium flex items-center justify-center gap-1"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Set Ready to Load
+                </Link>
+              )}
+              {car.operational_status_group === 'ready_to_load' && (
+                <>
+                  <Link
+                    href={`/cars?action=assign_rider&car=${encodeURIComponent(carNumber)}`}
+                    className="flex-1 text-center text-xs px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium flex items-center justify-center gap-1"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                    Assign to Customer
+                  </Link>
+                  <Link
+                    href={`/assignments?car_number=${encodeURIComponent(carNumber)}&source=lease_prep`}
+                    className="flex-1 text-center text-xs px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium flex items-center justify-center gap-1"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    Send to Shop
+                  </Link>
+                  <Link
+                    href={`/cars?action=revert_idle&car=${encodeURIComponent(carNumber)}`}
+                    className="text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-1"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    Revert
+                  </Link>
+                </>
+              )}
+              {car.operational_status_group === 'pending' && (
+                <>
+                  <Link
+                    href={`/assignments?car_number=${encodeURIComponent(carNumber)}&source=triage`}
+                    className="flex-1 text-center text-xs px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium flex items-center justify-center gap-1"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    Assign
+                  </Link>
+                  <Link
+                    href={`/releases?car_number=${encodeURIComponent(carNumber)}`}
+                    className="flex-1 text-center text-xs px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium flex items-center justify-center gap-1"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    Release
+                  </Link>
+                  <Link
+                    href={`/scrap-review?car=${encodeURIComponent(carNumber)}`}
+                    className="flex-1 text-center text-xs px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium flex items-center justify-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Scrap
+                  </Link>
+                </>
+              )}
+              {(!car.operational_status_group || car.operational_status_group === 'in_shop') && (
+                <a
+                  href={detail?.active_shopping_event
+                    ? `/shopping?shopCar=${encodeURIComponent(carNumber)}`
+                    : `/shopping?shopCar=${encodeURIComponent(carNumber)}`
+                  }
+                  className="flex-1 text-center text-xs px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
+                >
+                  {detail?.active_shopping_event ? 'View Shopping Event' : 'Shop this Car'}
+                </a>
+              )}
+            </div>
+            {/* Secondary row: always-available navigation */}
+            <div className="flex gap-2">
+              <a
+                href={`/shopping?car=${encodeURIComponent(carNumber)}`}
+                className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Shopping History
+              </a>
+              <a
+                href="/contracts"
+                className="flex-1 text-center text-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Contracts
+              </a>
+            </div>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import logger from '../config/logger';
 import { Request, Response } from 'express';
+import { transaction } from '../config/database';
 import {
   getCCMWithSections as getCCMWithSectionsService,
   listCCMsByLessee as listCCMsByLesseeService,
@@ -315,5 +316,59 @@ export async function getCCMFormSOWSections(req: Request, res: Response): Promis
   } catch (error) {
     logger.error({ err: error }, 'Error getting CCM form SOW sections');
     res.status(500).json({ success: false, error: 'Failed to get SOW sections' });
+  }
+}
+
+/**
+ * POST /api/ccm-forms/:id/publish
+ * Publish a Draft CCM → Current, auto-archive the previous Current.
+ */
+export async function publishCCMForm(req: Request, res: Response): Promise<void> {
+  try {
+    const formId = req.params.id;
+    const userId = req.user!.id;
+
+    const form = await getCCMFormService(formId);
+    if (!form) {
+      res.status(404).json({ success: false, error: 'CCM form not found' });
+      return;
+    }
+
+    if ((form as any).status !== 'draft') {
+      res.status(400).json({ success: false, error: `Cannot publish: form is in ${(form as any).status} status (must be draft)` });
+      return;
+    }
+
+    const result = await transaction(async (client) => {
+      // Archive the current version for this lessee
+      await client.query(
+        `UPDATE ccm_forms SET
+          status = 'archived',
+          is_current = FALSE,
+          updated_at = NOW()
+        WHERE lessee_code = $1 AND status = 'current'`,
+        [(form as any).lessee_code]
+      );
+
+      // Publish this form
+      const published = await client.query(
+        `UPDATE ccm_forms SET
+          status = 'current',
+          is_current = TRUE,
+          published_at = NOW(),
+          published_by_id = $1,
+          updated_at = NOW()
+        WHERE id = $2
+        RETURNING *`,
+        [userId, formId]
+      );
+
+      return published.rows[0];
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error publishing CCM form');
+    res.status(400).json({ success: false, error: error.message });
   }
 }

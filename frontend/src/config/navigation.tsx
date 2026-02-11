@@ -5,7 +5,7 @@ import {
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, DollarSign, Wifi,
   TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare,
-  MapPin, Bell, Tag, Wrench,
+  MapPin, Bell, Tag, Wrench, Trash2, ListFilter,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -81,6 +81,8 @@ export const NAV_PILLARS: NavPillar[] = [
           { label: 'Enroute', href: '/cars?status=Enroute', icon: <Truck className="w-4 h-4" /> },
           { label: 'Overdue', href: '/cars?status=Overdue', icon: <AlertCircle className="w-4 h-4" /> },
           { label: 'Service Due', href: '/cars?status=To+Be+Routed', icon: <Clock className="w-4 h-4" /> },
+          { label: 'Pending Triage', href: '/triage', icon: <ListFilter className="w-4 h-4" /> },
+          { label: 'Scrap Review', href: '/scrap-review', icon: <Trash2 className="w-4 h-4" /> },
         ],
       },
       {
@@ -92,6 +94,7 @@ export const NAV_PILLARS: NavPillar[] = [
           { label: 'Contracts', href: '/contracts', icon: <Building2 className="w-4 h-4" /> },
           { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
           { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
+          { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
         ],
       },
       {
@@ -223,7 +226,6 @@ export const NAV_PILLARS: NavPillar[] = [
           { label: 'Projects', href: '/projects', icon: <Package className="w-4 h-4" /> },
           { label: 'Work Packages', href: '/work-packages', icon: <ClipboardList className="w-4 h-4" /> },
           { label: 'SOW Library', href: '/scope-library', icon: <BookOpen className="w-4 h-4" /> },
-          { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
           { label: 'Commodities', href: '/commodities', icon: <Layers className="w-4 h-4" /> },
           { label: 'Training', href: '/training', icon: <BookOpen className="w-4 h-4" /> },
         ],
@@ -295,6 +297,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   new: 'New Shopping Request',
   assignments: 'Assignments',
   'work-packages': 'Work Packages',
+  triage: 'Pending Triage',
+  'scrap-review': 'Scrap Review',
 };
 
 // ---------------------------------------------------------------------------
@@ -349,5 +353,5 @@ export {
   Factory, Calendar, Network, Zap, Package, Clock, AlertCircle,
   History, Building2, ScrollText, Layers, DollarSign, Wifi,
   TrendingUp, Award, Database, GitCompare, Rocket, MessageSquare,
-  MapPin, Bell, Tag, Wrench,
+  MapPin, Bell, Tag, Wrench, Trash2, ListFilter,
 } from 'lucide-react';

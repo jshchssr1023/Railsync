@@ -12,6 +12,7 @@ const mockGetCCMInstructionByScope = jest.fn();
 const mockGetParentCCM = jest.fn();
 const mockCreateCCMInstruction = jest.fn();
 const mockUpdateCCMInstruction = jest.fn();
+const mockPublishCCMForm = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   getCCMHierarchyTree: (...args: unknown[]) => mockGetCCMHierarchyTree(...args),
@@ -21,6 +22,7 @@ jest.mock('@/lib/api', () => ({
   getParentCCM: (...args: unknown[]) => mockGetParentCCM(...args),
   createCCMInstruction: (...args: unknown[]) => mockCreateCCMInstruction(...args),
   updateCCMInstruction: (...args: unknown[]) => mockUpdateCCMInstruction(...args),
+  publishCCMForm: (...args: unknown[]) => mockPublishCCMForm(...args),
 }));
 
 // Mock next/navigation for useSearchParams
@@ -35,7 +37,7 @@ jest.mock('@/components/ccm', () => ({
   CCMInstructionEditor: () => <div data-testid="ccm-editor" />,
 }));
 
-import CCMPage from '@/app/(documentation)/ccm/page';
+import CCMPage from '@/app/(assets)/ccm/page';
 
 // ---------------------------------------------------------------------------
 // Setup

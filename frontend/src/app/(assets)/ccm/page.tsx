@@ -10,6 +10,7 @@ import {
   getParentCCM,
   createCCMInstruction,
   updateCCMInstruction,
+  publishCCMForm,
 } from '@/lib/api';
 import {
   CCMHierarchyNode,
@@ -19,7 +20,10 @@ import {
   CCMScopeLevel,
 } from '@/types';
 import { HierarchyTreePicker, InheritanceChainDisplay, CCMInstructionEditor } from '@/components/ccm';
-import { FileText, Pencil, ChevronRight, ClipboardList, List } from 'lucide-react';
+import {
+  FileText, Pencil, ChevronRight, ClipboardList, List,
+  CheckCircle, Loader2, AlertTriangle, Send,
+} from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Scope Level Labels and Colors
@@ -36,6 +40,12 @@ const SCOPE_LEVEL_COLORS: Record<CCMScopeLevel, string> = {
   master_lease: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   rider: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   amendment: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  current: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  archived: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
 // ---------------------------------------------------------------------------
@@ -78,6 +88,11 @@ function CCMContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDetail, setExpandedDetail] = useState<CCMInstruction | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // --- Publish workflow ---
+  const [publishTarget, setPublishTarget] = useState<CCMInstruction | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Load hierarchy tree and instructions
@@ -214,6 +229,24 @@ function CCMContent() {
   }, []);
 
   // -------------------------------------------------------------------------
+  // Publish CCM
+  // -------------------------------------------------------------------------
+  const handlePublishConfirm = useCallback(async () => {
+    if (!publishTarget) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await publishCCMForm(publishTarget.id);
+      setPublishTarget(null);
+      await loadData();
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Failed to publish CCM');
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishTarget, loadData]);
+
+  // -------------------------------------------------------------------------
   // Format date
   // -------------------------------------------------------------------------
   const formatDate = (dateStr: string | null | undefined) => {
@@ -289,6 +322,13 @@ function CCMContent() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${SCOPE_LEVEL_COLORS[instruction.scope_level]}`}>
                           {SCOPE_LEVEL_LABELS[instruction.scope_level]}
                         </span>
+                        {/* Status Badge */}
+                        {(instruction as any).status && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[(instruction as any).status] || STATUS_COLORS.draft}`}>
+                            {(instruction as any).status === 'current' && <CheckCircle className="w-3 h-3 mr-1" />}
+                            {((instruction as any).status as string).charAt(0).toUpperCase() + ((instruction as any).status as string).slice(1)}
+                          </span>
+                        )}
                         <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">
                           {instruction.scope_name || instruction.customer_name || 'Unnamed'}
                         </span>
@@ -302,6 +342,9 @@ function CCMContent() {
                           <span>Lease: {instruction.lease_name}</span>
                         )}
                         <span>Updated: {formatDate(instruction.updated_at)}</span>
+                        {(instruction as any).published_at && (
+                          <span className="text-green-600 dark:text-green-400">Published: {formatDate((instruction as any).published_at)}</span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
@@ -319,6 +362,21 @@ function CCMContent() {
                     </div>
 
                     <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                      {/* Publish button for draft CCMs */}
+                      {(instruction as any).status === 'draft' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPublishTarget(instruction);
+                            setPublishError(null);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 transition-colors"
+                          title="Publish as Current"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Publish
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -469,20 +527,38 @@ function CCMContent() {
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${SCOPE_LEVEL_COLORS[selectedScope.type]}`}>
-                  {SCOPE_LEVEL_LABELS[selectedScope.type]}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${SCOPE_LEVEL_COLORS[selectedScope.type]}`}>
+                    {SCOPE_LEVEL_LABELS[selectedScope.type]}
+                  </span>
+                  {editingInstruction && (editingInstruction as any).status && (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[(editingInstruction as any).status] || STATUS_COLORS.draft}`}>
+                      {((editingInstruction as any).status as string).charAt(0).toUpperCase() + ((editingInstruction as any).status as string).slice(1)}
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-1">
                   {editingInstruction
                     ? `Edit CCM: ${editingInstruction.scope_name || 'Unnamed'}`
                     : 'Create New CCM Instructions'}
                 </h3>
               </div>
-              {editingInstruction && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Version {editingInstruction.version}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {editingInstruction && (editingInstruction as any).status === 'draft' && (
+                  <button
+                    onClick={() => { setPublishTarget(editingInstruction); setPublishError(null); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                    Publish
+                  </button>
+                )}
+                {editingInstruction && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Version {editingInstruction.version}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Parent inheritance info */}
@@ -576,6 +652,77 @@ function CCMContent() {
 
       {/* Tab Content */}
       {activeTab === 'browse' ? renderBrowseTab() : renderEditTab()}
+
+      {/* Publish Confirmation Dialog */}
+      {publishTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">
+              <Send className="w-5 h-5 text-green-600" />
+              Publish CCM
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              You are about to publish this CCM as the current active version.
+            </p>
+
+            {/* Warning */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+              <p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                Publishing will automatically archive the previous current version for this scope. This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Read-only summary */}
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Scope</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {SCOPE_LEVEL_LABELS[publishTarget.scope_level]}: {publishTarget.scope_name || publishTarget.customer_name || 'Unnamed'}
+                </span>
+              </div>
+              {publishTarget.customer_name && publishTarget.scope_level !== 'customer' && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Customer</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{publishTarget.customer_name}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Version</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{publishTarget.version}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Last Updated</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{formatDate(publishTarget.updated_at)}</span>
+              </div>
+            </div>
+
+            {publishError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                <p className="text-xs text-red-700 dark:text-red-400">{publishError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPublishTarget(null); setPublishError(null); }}
+                disabled={publishing}
+                className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublishConfirm}
+                disabled={publishing}
+                className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Confirm Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

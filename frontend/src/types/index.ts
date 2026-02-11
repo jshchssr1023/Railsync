@@ -47,6 +47,8 @@ export interface AuditLog {
 }
 
 // Car Types
+export type OperationalStatusGroup = 'in_shop' | 'idle_storage' | 'ready_to_load' | 'pending';
+
 export interface Car {
   car_number: string;
   product_code: string;
@@ -60,6 +62,48 @@ export interface Car {
   owner_code?: string;
   lessee_code?: string;
   commodity?: Commodity;
+  operational_status_group?: OperationalStatusGroup | null;
+  is_active?: boolean;
+}
+
+export interface FleetSummary {
+  in_shop_count: number;
+  idle_storage_count: number;
+  ready_to_load_count: number;
+  pending_count: number;
+  total_actionable: number;
+}
+
+// Scrap Types
+export type ScrapStatus = 'proposed' | 'under_review' | 'approved' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface Scrap {
+  id: string;
+  car_id: string;
+  car_number: string;
+  status: ScrapStatus;
+  reason: string;
+  estimated_salvage_value: number | null;
+  actual_salvage_value: number | null;
+  facility_code: string | null;
+  target_date: string | null;
+  completion_date: string | null;
+  completion_notes: string | null;
+  proposed_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  scheduled_by: string | null;
+  scheduled_at: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Commodity {
@@ -949,12 +993,19 @@ export interface JobCodeHistoricalStats {
   sample_count: number;
 }
 
+export type CCMFormStatus = 'draft' | 'current' | 'archived';
+
 export interface CCMForm {
   id: string;
   company_name: string;
   customer_code: string | null;
+  lessee_code?: string;
   form_date: string | null;
   revision_date: string | null;
+  status?: CCMFormStatus;
+  published_at?: string | null;
+  published_by_id?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
   sealing_count?: number;

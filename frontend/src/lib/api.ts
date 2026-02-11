@@ -2926,6 +2926,100 @@ export async function cancelRelease(id: string, reason: string) {
 }
 
 // ============================================================================
+// FLEET OVERVIEW & STATUS GROUPS
+// ============================================================================
+
+export async function getFleetSummary() {
+  const response = await fetchApi('/cars/fleet-summary');
+  return response.data;
+}
+
+export async function updateCarStatusGroup(carNumber: string, statusGroup: string) {
+  const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/status-group`, {
+    method: 'PUT',
+    body: JSON.stringify({ statusGroup }),
+  });
+  return response.data;
+}
+
+export async function assignCarToRider(carNumber: string, riderId: string) {
+  const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/assign-to-rider`, {
+    method: 'PUT',
+    body: JSON.stringify({ rider_id: riderId }),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// SCRAPS (Car Decommission Workflow)
+// ============================================================================
+
+export async function listScraps(filters: {
+  car_number?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.car_number) params.set('car_number', filters.car_number);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.limit) params.set('limit', String(filters.limit));
+  if (filters.offset) params.set('offset', String(filters.offset));
+  const response = await fetchApi(`/scraps?${params.toString()}`);
+  return { scraps: response.data, total: (response as any).total };
+}
+
+export async function getActiveScraps() {
+  const response = await fetchApi('/scraps/active');
+  return response.data;
+}
+
+export async function getScrap(id: string) {
+  const response = await fetchApi(`/scraps/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function createScrapProposal(data: {
+  car_number: string;
+  reason: string;
+  estimated_salvage_value?: number;
+}) {
+  const response = await fetchApi('/scraps', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function updateScrap(id: string, data: {
+  status: string;
+  comments?: string;
+  facility_code?: string;
+  target_date?: string;
+  actual_salvage_value?: number;
+  completion_date?: string;
+  completion_notes?: string;
+  cancellation_reason?: string;
+}) {
+  const response = await fetchApi(`/scraps/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+// ============================================================================
+// CCM PUBLISH
+// ============================================================================
+
+export async function publishCCMForm(id: string) {
+  const response = await fetchApi(`/ccm-forms/${encodeURIComponent(id)}/publish`, {
+    method: 'POST',
+  });
+  return response.data;
+}
+
+// ============================================================================
 // CONTRACT TRANSFERS
 // ============================================================================
 

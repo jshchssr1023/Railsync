@@ -157,6 +157,29 @@ router.get('/auth/me', authenticate, authController.me);
 router.post('/cars/umler/import', authenticate, authorize('admin'), carController.importUmlerCSV);
 
 /**
+ * @route   GET /api/cars/fleet-summary
+ * @desc    Counts per operational_status_group for active fleet overview
+ */
+router.get('/cars/fleet-summary', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN operational_status_group = 'in_shop' THEN 1 ELSE 0 END), 0)::int AS in_shop_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'idle_storage' THEN 1 ELSE 0 END), 0)::int AS idle_storage_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'ready_to_load' THEN 1 ELSE 0 END), 0)::int AS ready_to_load_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending_count,
+        COUNT(*)::int AS total_actionable
+      FROM cars
+      WHERE is_active = TRUE AND operational_status_group IS NOT NULL
+    `);
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    logger.error({ err }, 'Fleet summary error');
+    res.status(500).json({ success: false, error: 'Failed to fetch fleet summary' });
+  }
+});
+
+/**
  * @route   GET /api/cars/:carNumber/history
  * @desc    Get asset event history for a car
  * @access  Authenticated
@@ -204,33 +227,6 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Cars browse error');
     res.status(500).json({ success: false, error: 'Failed to fetch cars' });
-  }
-});
-
-// ============================================================================
-// FLEET OVERVIEW — Operational Status Group APIs
-// ============================================================================
-
-/**
- * @route   GET /api/cars/fleet-summary
- * @desc    Counts per operational_status_group for active fleet overview
- */
-router.get('/cars/fleet-summary', optionalAuth, async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        COALESCE(SUM(CASE WHEN operational_status_group = 'in_shop' THEN 1 ELSE 0 END), 0)::int AS in_shop_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'idle_storage' THEN 1 ELSE 0 END), 0)::int AS idle_storage_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'ready_to_load' THEN 1 ELSE 0 END), 0)::int AS ready_to_load_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending_count,
-        COUNT(*)::int AS total_actionable
-      FROM cars
-      WHERE is_active = TRUE AND operational_status_group IS NOT NULL
-    `);
-    res.json({ success: true, data: result[0] });
-  } catch (err) {
-    logger.error({ err }, 'Fleet summary error');
-    res.status(500).json({ success: false, error: 'Failed to fetch fleet summary' });
   }
 });
 
@@ -562,6 +558,58 @@ router.get('/contracts-browse/types', optionalAuth, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Contracts browse types error');
     res.status(500).json({ success: false, error: 'Failed to fetch car types' });
+  }
+});
+
+/**
+ * @route   GET /api/contracts-browse/shop-status-by-type
+ * @desc    Shopping event state distribution for a given car_type
+ * @access  Public
+ */
+router.get('/contracts-browse/shop-status-by-type', optionalAuth, async (req, res) => {
+  try {
+    const carType = req.query.car_type as string;
+    if (!carType) return res.status(400).json({ success: false, error: 'car_type is required' });
+
+    const result = await query(
+      `SELECT se.state, COUNT(*)::int as count
+       FROM shopping_events se
+       JOIN cars c ON c.car_number = se.car_number
+       WHERE c.car_type = $1 AND c.is_active = TRUE
+       GROUP BY se.state
+       ORDER BY count DESC`,
+      [carType]
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    logger.error({ err }, 'Shop status by type error');
+    res.status(500).json({ success: false, error: 'Failed to fetch shop status data' });
+  }
+});
+
+/**
+ * @route   GET /api/contracts-browse/shopping-reasons-by-type
+ * @desc    Shopping reason breakdown for a given car_type
+ * @access  Public
+ */
+router.get('/contracts-browse/shopping-reasons-by-type', optionalAuth, async (req, res) => {
+  try {
+    const carType = req.query.car_type as string;
+    if (!carType) return res.status(400).json({ success: false, error: 'car_type is required' });
+
+    const result = await query(
+      `SELECT COALESCE(se.reason_for_shopping, 'Unknown') as reason, COUNT(*)::int as count
+       FROM shopping_events se
+       JOIN cars c ON c.car_number = se.car_number
+       WHERE c.car_type = $1 AND c.is_active = TRUE
+       GROUP BY se.reason_for_shopping
+       ORDER BY count DESC`,
+      [carType]
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    logger.error({ err }, 'Shopping reasons by type error');
+    res.status(500).json({ success: false, error: 'Failed to fetch shopping reasons data' });
   }
 });
 
@@ -4289,6 +4337,8 @@ router.delete('/ccm-forms/:id/lining/:liningId', authenticate, authorize('admin'
 // Attachments
 router.post('/ccm-forms/:id/attachments', authenticate, authorize('admin', 'operator'), packetDocUpload.single('file'), ccmController.addCCMFormAttachment);
 router.delete('/ccm-forms/:id/attachments/:attachmentId', authenticate, authorize('admin', 'operator'), ccmController.removeCCMFormAttachment);
+// Publish lifecycle
+router.post('/ccm-forms/:id/publish', authenticate, authorize('admin', 'operator'), ccmController.publishCCMForm);
 
 // ============================================================================
 // CCM INSTRUCTIONS (Hierarchy-Level CCM with Inheritance)
