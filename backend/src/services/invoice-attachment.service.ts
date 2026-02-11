@@ -57,6 +57,7 @@ export interface AttachmentValidation {
 
 const UPLOAD_DIR = process.env.INVOICE_UPLOAD_DIR || './uploads/invoices';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MIME_TYPES: Record<AttachmentType, string[]> = {
   PDF: ['application/pdf'],
   TXT: ['text/plain', 'application/octet-stream'],

@@ -29,11 +29,10 @@ jest.mock('../services/transition-log.service', () => ({
   getLastTransition: jest.fn(),
 }));
 
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;
-const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 
 // ==============================================================================
 // Test Helpers

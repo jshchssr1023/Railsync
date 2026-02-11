@@ -57,8 +57,8 @@ export default function ScrapReviewPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
-  const fetchWithAuth = (endpoint: string, opts?: RequestInit) =>
-    fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json());
+  const fetchWithAuth = useCallback((endpoint: string, opts?: RequestInit) =>
+    fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json()), []);
 
   const loadScraps = useCallback(async () => {
     try {
@@ -73,7 +73,7 @@ export default function ScrapReviewPage() {
     } catch {
       setScraps([]);
     }
-  }, [tab]);
+  }, [tab, fetchWithAuth]);
 
   useEffect(() => {
     if (isAuthenticated) {

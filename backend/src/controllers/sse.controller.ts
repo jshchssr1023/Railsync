@@ -49,7 +49,7 @@ export function subscribeToCapacityEvents(req: Request, res: Response): void {
   const heartbeat = setInterval(() => {
     try {
       res.write(`:heartbeat ${new Date().toISOString()}\n\n`);
-    } catch (err) {
+    } catch {
       // Connection likely closed
       clearInterval(heartbeat);
     }

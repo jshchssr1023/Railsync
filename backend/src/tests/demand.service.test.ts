@@ -8,7 +8,6 @@ import {
   listDemands,
   getDemandById,
   createDemand,
-  updateDemand,
   updateDemandStatus,
   deleteDemand,
   getDemandSummaryByMonth,

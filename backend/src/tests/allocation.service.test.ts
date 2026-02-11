@@ -9,7 +9,6 @@ import {
   createAllocation,
   updateAllocationStatus,
   getShopMonthlyCapacity,
-  getShopCapacityRange,
   listAllocations,
   getAllocationById,
   revertLastTransition,

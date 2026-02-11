@@ -40,13 +40,12 @@ jest.mock('../services/transition-log.service', () => ({
   getLastTransition: jest.fn(),
 }));
 
-import { query, queryOne } from '../config/database';
+import { query } from '../config/database';
 import { pool } from '../config/database';
 import { getActiveAssignment } from '../services/assignment.service';
 import { canRevert, getLastTransition } from '../services/transition-log.service';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
-const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;
 const mockPoolQuery = pool.query as jest.Mock;
 const mockGetActiveAssignment = getActiveAssignment as jest.MockedFunction<typeof getActiveAssignment>;
 const mockCanRevert = canRevert as jest.MockedFunction<typeof canRevert>;

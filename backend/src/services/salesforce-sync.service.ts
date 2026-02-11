@@ -491,7 +491,6 @@ export async function pullCustomers(userId?: string): Promise<SFSyncResult> {
           // Create new customer
           const insertFields: string[] = ['customer_code'];
           const insertValues: unknown[] = [keyValue];
-          let insertIdx = 2;
 
           for (const mapping of mappings) {
             if (mapping.is_key_field) continue;
@@ -499,7 +498,6 @@ export async function pullCustomers(userId?: string): Promise<SFSyncResult> {
             if (val !== undefined && val !== null) {
               insertFields.push(mapping.railsync_field);
               insertValues.push(val);
-              insertIdx++;
             }
           }
 

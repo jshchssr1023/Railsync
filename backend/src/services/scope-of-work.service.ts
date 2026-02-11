@@ -1,5 +1,4 @@
 import { query, queryOne, transaction } from '../config/database';
-import { incrementUsage } from './scope-library.service';
 import { logTransition } from './transition-log.service';
 
 // Types

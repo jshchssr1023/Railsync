@@ -1,4 +1,4 @@
-import { query, queryOne } from '../config/database';
+import { queryOne } from '../config/database';
 
 // ============================================================================
 // TYPES
@@ -444,13 +444,11 @@ export async function upsert(
   // Build column/value arrays from provided data, only for known data columns
   const cols: string[] = [];
   const vals: any[] = [];
-  let idx = 2; // $1 = car_id
 
   for (const col of DATA_COLUMNS) {
     if (col in data && data[col as keyof CarUmlerAttributes] !== undefined) {
       cols.push(col);
       vals.push(data[col as keyof CarUmlerAttributes]);
-      idx++;
     }
   }
 
@@ -460,7 +458,6 @@ export async function upsert(
   if (userId) {
     cols.push('imported_by');
     vals.push(userId);
-    idx++;
   }
 
   const colList = ['car_id', ...cols].join(', ');

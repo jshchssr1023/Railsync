@@ -6,8 +6,7 @@
  * Results tracked in migration_runs and migration_row_errors tables.
  */
 
-import { query, queryOne, transaction } from '../config/database';
-import { PoolClient } from 'pg';
+import { query, queryOne } from '../config/database';
 
 // =============================================================================
 // TYPES
@@ -544,7 +543,7 @@ export async function importInvoices(csvContent: string, userId?: string): Promi
              ON CONFLICT (shop_code) DO NOTHING`,
             [vendorCode, `Placeholder – ${vendorCode}`]
           );
-        } catch (_) {
+        } catch {
           // Ignore if placeholder creation fails due to constraint; still attempt invoice insert
         }
       }
@@ -938,7 +937,6 @@ export async function validateOnly(
   csvContent: string
 ): Promise<{ total_rows: number; valid_rows: number; error_rows: number; errors: RowError[] }> {
   const { rows } = parseCSV(csvContent);
-  const errors: RowError[] = [];
 
   // Dispatch validation by entity type
   const validators: Record<string, (rows: Record<string, string>[]) => Promise<RowError[]>> = {

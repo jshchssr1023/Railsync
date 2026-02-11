@@ -32,8 +32,8 @@ export default function TriagePage() {
   const [scrapError, setScrapError] = useState<string | null>(null);
 
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
-  const fetchWithAuth = (endpoint: string, opts?: RequestInit) =>
-    fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json());
+  const fetchWithAuth = useCallback((endpoint: string, opts?: RequestInit) =>
+    fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json()), []);
 
   const loadCars = useCallback(async () => {
     try {
@@ -47,7 +47,7 @@ export default function TriagePage() {
     } catch {
       setCars([]);
     }
-  }, []);
+  }, [fetchWithAuth]);
 
   useEffect(() => {
     if (isAuthenticated) {

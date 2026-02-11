@@ -3,7 +3,7 @@
  * Manages document packages sent to shops for shopping events
  */
 
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 import logger from '../config/logger';
 
 // Types

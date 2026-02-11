@@ -1,4 +1,4 @@
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 // Types
 interface ScopeTemplate {

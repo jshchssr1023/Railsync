@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
 import { CreateInvoiceInput, CreateLineItemInput } from './invoice.service';
 
@@ -47,11 +47,11 @@ const PDF_PATTERNS = {
   invoiceNumber: [
     /Invoice\s*#?\s*:?\s*([A-Z0-9-]+)/i,
     /Invoice\s+Number\s*:?\s*([A-Z0-9-]+)/i,
-    /INV[#\-]?\s*([A-Z0-9-]+)/i,
+    /INV[#-]?\s*([A-Z0-9-]+)/i,
   ],
   invoiceDate: [
-    /Invoice\s+Date\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-    /Date\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+    /Invoice\s+Date\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
+    /Date\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
   ],
   vendorCode: [
     /Vendor\s*#?\s*:?\s*([A-Z0-9]+)/i,
@@ -82,7 +82,7 @@ const PDF_PATTERNS = {
  * Parse a date string into a Date object
  */
 function parseDate(dateStr: string): Date {
-  const parts = dateStr.split(/[\/\-]/);
+  const parts = dateStr.split(/[/-]/);
   if (parts.length === 3) {
     let year = parseInt(parts[2]);
     if (year < 100) year += 2000; // Convert 2-digit year

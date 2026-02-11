@@ -3689,7 +3689,7 @@ router.post('/projects/:id/cars', authenticate, authorize('admin', 'operator'), 
           ON CONFLICT (project_id, car_number) DO NOTHING
         `, [req.params.id, carNumber, userId]);
         added++;
-      } catch (e) {
+      } catch {
         // Skip invalid car numbers
       }
     }
@@ -4704,7 +4704,7 @@ router.post('/estimates/:id/pre-review', authenticate, authorize('admin', 'opera
     const { preReviewEstimate } = await import('../services/estimate-ai.service');
     const result = await preReviewEstimate(req.params.id);
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -4713,7 +4713,7 @@ router.get('/job-codes/:code/stats', authenticate, async (req, res) => {
     const { getJobCodeStats } = await import('../services/estimate-ai.service');
     const result = await getJobCodeStats(req.params.code);
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5073,7 +5073,7 @@ router.get('/integrations/retry-queue', authenticate, authorize('admin'), async 
     const limit = parseInt(req.query.limit as string) || 100;
     const result = await getRetryQueueEntries(limit);
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5082,7 +5082,7 @@ router.post('/integrations/retry-queue/:id/dismiss', authenticate, authorize('ad
     const { dismissRetryEntry } = await import('../services/retry-queue.service');
     const result = await dismissRetryEntry(req.params.id);
     res.json({ success: true, data: { dismissed: result } });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5091,7 +5091,7 @@ router.post('/integrations/retry-queue/process', authenticate, authorize('admin'
     const { processRetryQueue } = await import('../services/retry-queue.service');
     const result = await processRetryQueue();
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5100,7 +5100,7 @@ router.get('/integrations/retry-queue/stats', authenticate, authorize('admin'), 
     const { getRetryQueueStats } = await import('../services/retry-queue.service');
     const result = await getRetryQueueStats();
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5110,7 +5110,7 @@ router.get('/integrations/dead-letters', authenticate, authorize('admin'), async
     const limit = parseInt(req.query.limit as string) || 50;
     const result = await getDeadLetterEntries(limit);
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5121,7 +5121,7 @@ router.get('/integrations/sync-schedules', authenticate, authorize('admin'), asy
     const { getScheduledJobs } = await import('../services/sync-scheduler.service');
     const data = await getScheduledJobs();
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5130,7 +5130,7 @@ router.get('/integrations/sync-schedules/due', authenticate, authorize('admin'),
     const { getJobsDueForExecution } = await import('../services/sync-scheduler.service');
     const data = await getJobsDueForExecution();
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5139,7 +5139,7 @@ router.post('/integrations/sync-schedules', authenticate, authorize('admin'), as
     const { createScheduledJob } = await import('../services/sync-scheduler.service');
     const data = await createScheduledJob(req.body);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5148,7 +5148,7 @@ router.put('/integrations/sync-schedules/:id', authenticate, authorize('admin'),
     const { updateScheduledJob } = await import('../services/sync-scheduler.service');
     const data = await updateScheduledJob(req.params.id, req.body);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5157,7 +5157,7 @@ router.put('/integrations/sync-schedules/:id/toggle', authenticate, authorize('a
     const { toggleJobEnabled } = await import('../services/sync-scheduler.service');
     const data = await toggleJobEnabled(req.params.id, req.body.enabled);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5168,7 +5168,7 @@ router.get('/integrations/health-dashboard', authenticate, authorize('admin'), a
     const { getIntegrationHealthDashboard } = await import('../services/integration-monitor.service');
     const data = await getIntegrationHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/integrations/error-trends', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5176,7 +5176,7 @@ router.get('/integrations/error-trends', authenticate, authorize('admin'), async
     const days = parseInt(req.query.days as string) || 7;
     const data = await getErrorTrends(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/integrations/batch-retry', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5185,7 +5185,7 @@ router.post('/integrations/batch-retry', authenticate, authorize('admin'), async
     if (!category) { res.status(400).json({ success: false, error: 'category required' }); return; }
     const data = await batchRetryByCategory(category, system_name);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CIPROTS Migration Pipeline
@@ -5195,7 +5195,7 @@ router.post('/migration/import/cars', authenticate, authorize('admin'), async (r
     const userId = req.user!.id;
     const result = await importCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/contracts', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5203,7 +5203,7 @@ router.post('/migration/import/contracts', authenticate, authorize('admin'), asy
     const userId = req.user!.id;
     const result = await importContracts(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/shopping', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5211,7 +5211,7 @@ router.post('/migration/import/shopping', authenticate, authorize('admin'), asyn
     const userId = req.user!.id;
     const result = await importShoppingEvents(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/qualifications', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5219,7 +5219,7 @@ router.post('/migration/import/qualifications', authenticate, authorize('admin')
     const userId = req.user!.id;
     const result = await importQualifications(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5227,28 +5227,28 @@ router.get('/migration/runs', authenticate, authorize('admin'), async (req, res)
     const limit = parseInt(req.query.limit as string) || 50;
     const data = await getMigrationRuns(limit);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationRun } = await import('../services/migration-pipeline.service');
     const data = await getMigrationRun(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/runs/:id/errors', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getMigrationErrors } = await import('../services/migration-pipeline.service');
     const data = await getMigrationErrors(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/migration/reconciliation', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getReconciliationSummary } = await import('../services/migration-pipeline.service');
     const data = await getReconciliationSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/customers', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5256,7 +5256,7 @@ router.post('/migration/import/customers', authenticate, authorize('admin'), asy
     const userId = req.user!.id;
     const result = await importCustomers(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/invoices', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5264,7 +5264,7 @@ router.post('/migration/import/invoices', authenticate, authorize('admin'), asyn
     const userId = req.user!.id;
     const result = await importInvoices(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5272,7 +5272,7 @@ router.post('/migration/import/allocations', authenticate, authorize('admin'), a
     const userId = req.user!.id;
     const result = await importAllocations(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/import/mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5280,7 +5280,7 @@ router.post('/migration/import/mileage', authenticate, authorize('admin'), async
     const userId = req.user!.id;
     const result = await importMileageRecords(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/orchestrate', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5288,7 +5288,7 @@ router.post('/migration/orchestrate', authenticate, authorize('admin'), async (r
     const userId = req.user!.id;
     const result = await runOrchestration(req.body.files || {}, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/validate', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5297,7 +5297,7 @@ router.post('/migration/validate', authenticate, authorize('admin'), async (req,
     if (!entity_type || !content) { res.status(400).json({ success: false, error: 'entity_type and content required' }); return; }
     const result = await validateOnly(entity_type, content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5305,7 +5305,7 @@ router.post('/migration/runs/:id/rollback', authenticate, authorize('admin'), as
     const userId = req.user!.id;
     const result = await rollbackRun(req.params.id, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System health dashboard
@@ -5314,7 +5314,7 @@ router.get('/system/health-dashboard', authenticate, authorize('admin'), async (
     const { getHealthDashboard } = await import('../services/system-health.service');
     const data = await getHealthDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // User feedback
@@ -5324,7 +5324,7 @@ router.post('/feedback', authenticate, async (req, res) => {
     const userId = req.user!.id;
     const data = await createFeedback({ ...req.body, user_id: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
@@ -5336,7 +5336,7 @@ router.get('/feedback', authenticate, authorize('admin'), async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -5344,7 +5344,7 @@ router.get('/feedback/stats', authenticate, authorize('admin'), async (req, res)
     const { getFeedbackStats } = await import('../services/feedback.service');
     const data = await getFeedbackStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) => {
@@ -5353,7 +5353,7 @@ router.put('/feedback/:id', authenticate, authorize('admin'), async (req, res) =
     const userId = req.user!.id;
     const data = await updateFeedback(req.params.id, { ...req.body, reviewed_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Performance monitoring
@@ -5362,7 +5362,7 @@ router.get('/system/performance/tables', authenticate, authorize('admin'), async
     const { getTableSizes } = await import('../services/performance-monitor.service');
     const data = await getTableSizes(parseInt(req.query.limit as string) || 30);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/indexes', authenticate, authorize('admin'), async (req, res) => {
@@ -5370,7 +5370,7 @@ router.get('/system/performance/indexes', authenticate, authorize('admin'), asyn
     const { getIndexUsage } = await import('../services/performance-monitor.service');
     const data = await getIndexUsage(parseInt(req.query.limit as string) || 50);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -5378,7 +5378,7 @@ router.get('/system/performance/stats', authenticate, authorize('admin'), async 
     const { getDatabaseStats } = await import('../services/performance-monitor.service');
     const data = await getDatabaseStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/system/performance/slow-queries', authenticate, authorize('admin'), async (req, res) => {
@@ -5386,7 +5386,7 @@ router.get('/system/performance/slow-queries', authenticate, authorize('admin'),
     const { getSlowQueries } = await import('../services/performance-monitor.service');
     const data = await getSlowQueries(parseInt(req.query.limit as string) || 20);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // System mode
@@ -5395,7 +5395,7 @@ router.get('/system/mode', authenticate, async (req, res) => {
     const { getSystemMode } = await import('../services/system-mode.service');
     const data = await getSystemMode();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/system/mode', authenticate, authorize('admin'), async (req, res) => {
@@ -5416,7 +5416,7 @@ router.post('/migration/delta/cars', authenticate, authorize('admin'), async (re
     const userId = req.user!.id;
     const result = await deltaMigrateCars(req.body.content, userId);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/delta/summary', authenticate, authorize('admin'), async (req, res) => {
@@ -5424,7 +5424,7 @@ router.get('/migration/delta/summary', authenticate, authorize('admin'), async (
     const { getDeltaSummary } = await import('../services/migration-pipeline.service');
     const data = await getDeltaSummary();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel Run Comparison
@@ -5435,7 +5435,7 @@ router.post('/parallel-run/compare-invoices', authenticate, authorize('admin'), 
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareInvoices(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5444,14 +5444,14 @@ router.post('/parallel-run/compare-statuses', authenticate, authorize('admin'), 
     if (!content) { res.status(400).json({ success: false, error: 'content required' }); return; }
     const result = await compareCarStatuses(content);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getParallelRunResults } = await import('../services/parallel-run.service');
     const data = await getParallelRunResults();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5459,7 +5459,7 @@ router.get('/parallel-run/results/:id/discrepancies', authenticate, authorize('a
     const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
     const data = await getDiscrepancies(req.params.id, resolved);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5467,7 +5467,7 @@ router.post('/parallel-run/discrepancies/:id/resolve', authenticate, authorize('
     const userId = req.user!.id;
     const result = await resolveDiscrepancy(req.params.id, userId, req.body.notes || '');
     res.json({ success: true, data: { resolved: result } });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Parallel run — daily report and health score
@@ -5477,7 +5477,7 @@ router.get('/parallel-run/daily-report', authenticate, authorize('admin', 'opera
     const days = parseInt(req.query.days as string) || 30;
     const data = await getDailyReport(days);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/parallel-run/health-score', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5485,7 +5485,7 @@ router.get('/parallel-run/health-score', authenticate, authorize('admin', 'opera
     const { getHealthScore } = await import('../services/parallel-run.service');
     const data = await getHealthScore();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5494,7 +5494,7 @@ router.post('/parallel-run/compare-billing', authenticate, authorize('admin'), a
     if (!content || !billing_period) { res.status(400).json({ success: false, error: 'content and billing_period required' }); return; }
     const result = await compareBillingTotals(content, billing_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5503,7 +5503,7 @@ router.post('/parallel-run/compare-mileage', authenticate, authorize('admin'), a
     if (!content || !reporting_period) { res.status(400).json({ success: false, error: 'content and reporting_period required' }); return; }
     const result = await compareMileage(content, reporting_period);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'), async (req, res) => {
   try {
@@ -5512,14 +5512,14 @@ router.post('/parallel-run/compare-allocations', authenticate, authorize('admin'
     if (!content || !target_month) { res.status(400).json({ success: false, error: 'content and target_month required' }); return; }
     const result = await compareAllocations(content, target_month);
     res.json({ success: true, data: result });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/parallel-run/go-live-checklist', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { getGoLiveChecklist } = await import('../services/parallel-run.service');
     const data = await getGoLiveChecklist();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live readiness check
@@ -5528,7 +5528,7 @@ router.get('/go-live/readiness', authenticate, authorize('admin'), async (req, r
     const { getGoLiveReadiness } = await import('../services/go-live-check.service');
     const data = await getGoLiveReadiness();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Go-live incidents
@@ -5541,7 +5541,7 @@ router.get('/go-live/incidents', authenticate, async (req, res) => {
       limit: parseInt(req.query.limit as string) || 100,
     });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
@@ -5549,7 +5549,7 @@ router.get('/go-live/incidents/stats', authenticate, async (req, res) => {
     const { getIncidentStats } = await import('../services/go-live-incidents.service');
     const data = await getIncidentStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
@@ -5558,7 +5558,7 @@ router.get('/go-live/incidents/:id', authenticate, async (req, res) => {
     const data = await getIncident(req.params.id);
     if (!data) { res.status(404).json({ success: false, error: 'Incident not found' }); return; }
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5567,7 +5567,7 @@ router.post('/go-live/incidents', authenticate, authorize('admin', 'operator'), 
     const userId = req.user!.id;
     const data = await createIncident({ ...req.body, reported_by: userId });
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'), async (req, res) => {
@@ -5575,7 +5575,7 @@ router.put('/go-live/incidents/:id', authenticate, authorize('admin', 'operator'
     const { updateIncident } = await import('../services/go-live-incidents.service');
     const data = await updateIncident(req.params.id, req.body);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('admin'), async (req, res) => {
@@ -5583,7 +5583,7 @@ router.post('/integrations/dead-letters/:id/reset', authenticate, authorize('adm
     const { resetDeadLetter } = await import('../services/retry-queue.service');
     const result = await resetDeadLetter(req.params.id);
     res.json({ success: true, data: { reset: result } });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5597,7 +5597,7 @@ router.post('/alerts/generate', authenticate, authorize('admin'), async (req, re
     const { runAlertGeneration } = await import('../services/alert-engine.service');
     const data = await runAlertGeneration();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) => {
@@ -5605,7 +5605,7 @@ router.get('/alerts/stats', authenticate, authorize('admin'), async (req, res) =
     const { getAlertStats } = await import('../services/alert-engine.service');
     const data = await getAlertStats();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/alerts', authenticate, async (req, res) => {
@@ -5615,7 +5615,7 @@ router.get('/alerts', authenticate, async (req, res) => {
     const role = req.user!.role;
     const data = await getActiveAlerts(userId, role);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
@@ -5624,7 +5624,7 @@ router.put('/alerts/:id/dismiss', authenticate, async (req, res) => {
     const userId = req.user!.id;
     await dismissAlert(req.params.id, userId);
     res.json({ success: true });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // ============================================================================
@@ -5637,7 +5637,7 @@ router.get('/forecast/maintenance', authenticate, async (req, res) => {
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
     const data = await getMaintenanceForecast(fiscalYear);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5648,7 +5648,7 @@ router.get('/forecast/trends', authenticate, async (req, res) => {
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
     const data = await getForecastTrends(fiscalYear);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5659,14 +5659,14 @@ router.get('/forecast/dashboard-summary', authenticate, async (req, res) => {
     const fiscalYear = parseInt(req.query.fiscal_year as string) || new Date().getFullYear();
     const data = await getDashboardSummary(fiscalYear);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 router.get('/freight/rates', authenticate, async (req, res) => {
   try {
-    const { getFreightRate, getDefaultFreightRate, listOriginLocations } = await import('../services/freight.service');
+    const { getFreightRate, getDefaultFreightRate } = await import('../services/freight.service');
     const { origin, destination } = req.query as Record<string, string>;
     if (origin && destination) {
       const data = await getFreightRate(origin, destination);
@@ -5675,7 +5675,7 @@ router.get('/freight/rates', authenticate, async (req, res) => {
       const defaultRate = await getDefaultFreightRate();
       res.json({ success: true, data: defaultRate });
     }
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5686,7 +5686,7 @@ router.post('/freight/calculate', authenticate, async (req, res) => {
     const { origin_code, shop_code } = req.body;
     const data = await calculateFreightCost(origin_code, shop_code);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5696,7 +5696,7 @@ router.get('/freight/origins', authenticate, async (req, res) => {
     const { listOriginLocations } = await import('../services/freight.service');
     const data = await listOriginLocations();
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5712,7 +5712,7 @@ router.get('/work-hours/factors', authenticate, async (req, res) => {
     const factorValue = (req.query.factor_value as string) || 'Tank';
     const data = await getWorkHoursFactors(factorType, factorValue);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5723,7 +5723,7 @@ router.post('/work-hours/calculate', authenticate, async (req, res) => {
     const { car, overrides } = req.body;
     const data = await calculateWorkHours(car, overrides || {});
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5740,7 +5740,7 @@ router.get('/projects/:id/audit', authenticate, async (req, res) => {
     const offset = parseInt(req.query.offset as string) || 0;
     const data = await getProjectAuditEvents(req.params.id, carNumber, limit, offset);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5753,7 +5753,7 @@ router.get('/report-builder/templates', authenticate, async (req, res) => {
   try {
     const { listTemplates } = await import('../services/report-builder.service');
     res.json({ success: true, data: listTemplates() });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5764,7 +5764,7 @@ router.get('/report-builder/templates/:id', authenticate, async (req, res) => {
     const template = getTemplate(req.params.id);
     if (!template) { res.status(404).json({ success: false, error: 'Template not found' }); return; }
     res.json({ success: true, data: template });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5776,7 +5776,7 @@ router.post('/report-builder/run', authenticate, async (req, res) => {
     if (!template_id) { res.status(400).json({ success: false, error: 'template_id required' }); return; }
     const result = await runReport(template_id, { columns, filters, sort_by, sort_dir, limit, offset });
     res.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5791,7 +5791,7 @@ router.post('/report-builder/export-csv', authenticate, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
     res.send(csv);
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5802,7 +5802,7 @@ router.get('/report-builder/saved', authenticate, async (req, res) => {
     const userId = req.user!.id;
     const data = await listSavedReports(userId);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5815,7 +5815,7 @@ router.post('/report-builder/saved', authenticate, async (req, res) => {
     if (!template_id || !name) { res.status(400).json({ success: false, error: 'template_id and name required' }); return; }
     const data = await saveReport(template_id, name, { description, columns, filters, sort_by, sort_dir }, userId);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5826,7 +5826,7 @@ router.delete('/report-builder/saved/:id', authenticate, async (req, res) => {
     const userId = req.user!.id;
     await deleteSavedReport(req.params.id, userId);
     res.json({ success: true });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5838,7 +5838,7 @@ router.put('/report-builder/saved/:id/schedule', authenticate, authorize('admin'
     if (!cron || !recipients) { res.status(400).json({ success: false, error: 'cron and recipients required' }); return; }
     const data = await setSchedule(req.params.id, cron, recipients);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5848,7 +5848,7 @@ router.delete('/report-builder/saved/:id/schedule', authenticate, authorize('adm
     const { removeSchedule } = await import('../services/report-builder.service');
     const data = await removeSchedule(req.params.id);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5859,7 +5859,7 @@ router.get('/reports/templates', authenticate, async (req, res) => {
     const { listTemplates } = await import('../services/report-builder.service');
     const data = listTemplates();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.post('/reports/run', authenticate, async (req, res) => {
   try {
@@ -5868,7 +5868,7 @@ router.post('/reports/run', authenticate, async (req, res) => {
     if (!templateId) { res.status(400).json({ success: false, error: 'templateId required' }); return; }
     const data = await runReport(templateId, filters || {});
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 router.get('/reports/export/:templateId', authenticate, async (req, res) => {
   try {
@@ -5885,7 +5885,7 @@ router.get('/reports/export/:templateId', authenticate, async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename="${template.name.replace(/\s/g, '_')}_report.csv"`);
       res.send(toCSV(data));
     }
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // CLM single car on-demand lookup
@@ -5894,7 +5894,7 @@ router.get('/clm/car/:carNumber', authenticate, async (req, res) => {
     const { syncSingleCar } = await import('../services/clm-integration.service');
     const data = await syncSingleCar(req.params.carNumber);
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5973,7 +5973,7 @@ router.get('/admin/data-validation', authenticate, authorize('admin'), async (re
     const { runFullValidation } = await import('../services/data-validation.service');
     const data = await runFullValidation();
     res.json({ success: true, data });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -5984,7 +5984,7 @@ router.get('/migration/reconciliation/dashboard', authenticate, authorize('admin
     const { getReconciliationDashboard } = await import('../services/data-reconciliation.service');
     const data = await getReconciliationDashboard();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/discrepancies', authenticate, authorize('admin'), async (req, res) => {
@@ -5992,7 +5992,7 @@ router.get('/migration/reconciliation/discrepancies', authenticate, authorize('a
     const { listDiscrepancies } = await import('../services/data-reconciliation.service');
     const data = await listDiscrepancies(req.query as any);
     res.json({ success: true, ...data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate, authorize('admin'), async (req, res) => {
@@ -6000,7 +6000,7 @@ router.post('/migration/reconciliation/discrepancies/:id/resolve', authenticate,
     const { resolveDiscrepancy } = await import('../services/data-reconciliation.service');
     const data = await resolveDiscrepancy(req.params.id, req.body, req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate, authorize('admin'), async (req, res) => {
@@ -6009,7 +6009,7 @@ router.post('/migration/reconciliation/discrepancies/bulk-resolve', authenticate
     const { ids, ...resolution } = req.body;
     const data = await bulkResolveDiscrepancies(ids, resolution, req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/migration/reconciliation/duplicates', authenticate, authorize('admin'), async (req, res) => {
@@ -6017,7 +6017,7 @@ router.get('/migration/reconciliation/duplicates', authenticate, authorize('admi
     const { detectDuplicates } = await import('../services/data-reconciliation.service');
     const data = await detectDuplicates(req.query.entity_type as any);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // Training Progress
@@ -6026,7 +6026,7 @@ router.get('/training/modules', authenticate, async (req, res) => {
     const { listModules } = await import('../services/training-progress.service');
     const data = await listModules();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/progress', authenticate, async (req, res) => {
@@ -6034,7 +6034,7 @@ router.get('/training/progress', authenticate, async (req, res) => {
     const { getUserProgress } = await import('../services/training-progress.service');
     const data = await getUserProgress(req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/start', authenticate, async (req, res) => {
@@ -6042,7 +6042,7 @@ router.post('/training/modules/:moduleId/start', authenticate, async (req, res) 
     const { startModule } = await import('../services/training-progress.service');
     const data = await startModule(req.user!.id, req.params.moduleId);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/modules/:moduleId/complete', authenticate, async (req, res) => {
@@ -6050,7 +6050,7 @@ router.post('/training/modules/:moduleId/complete', authenticate, async (req, re
     const { completeModule } = await import('../services/training-progress.service');
     const data = await completeModule(req.user!.id, req.params.moduleId, req.body.score);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.put('/training/modules/:moduleId/progress', authenticate, async (req, res) => {
@@ -6058,7 +6058,7 @@ router.put('/training/modules/:moduleId/progress', authenticate, async (req, res
     const { updateProgress } = await import('../services/training-progress.service');
     const data = await updateProgress(req.user!.id, req.params.moduleId, req.body.timeSpent);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/certifications', authenticate, async (req, res) => {
@@ -6066,7 +6066,7 @@ router.get('/training/certifications', authenticate, async (req, res) => {
     const { getUserCertifications } = await import('../services/training-progress.service');
     const data = await getUserCertifications(req.user!.id);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.post('/training/certifications', authenticate, authorize('admin'), async (req, res) => {
@@ -6074,7 +6074,7 @@ router.post('/training/certifications', authenticate, authorize('admin'), async 
     const { grantCertification } = await import('../services/training-progress.service');
     const data = await grantCertification(req.body.userId, req.body.certType, req.user!.id, req.body.notes);
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/organization', authenticate, authorize('admin'), async (req, res) => {
@@ -6082,7 +6082,7 @@ router.get('/training/organization', authenticate, authorize('admin'), async (re
     const { getOrganizationProgress } = await import('../services/training-progress.service');
     const data = await getOrganizationProgress();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 router.get('/training/readiness', authenticate, authorize('admin'), async (req, res) => {
@@ -6090,7 +6090,7 @@ router.get('/training/readiness', authenticate, authorize('admin'), async (req, 
     const { getReadinessAssessment } = await import('../services/training-progress.service');
     const data = await getReadinessAssessment();
     res.json({ success: true, data });
-  } catch (error: any) { res.status(500).json({ success: false, error: 'Internal server error' }); }
+  } catch { res.status(500).json({ success: false, error: 'Internal server error' }); }
 });
 
 // ============================================================================

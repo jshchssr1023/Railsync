@@ -525,6 +525,7 @@ export async function searchCars(
 // EXTENDED: Lifecycle, Capacity Fit, Conflict Detection, Communication
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PlanLifecycleStatus = 'draft' | 'soft_plan' | 'locked' | 'pending_commitment' | 'committed' | 'archived';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -543,7 +544,7 @@ export async function transitionPlanStatus(
   planId: string,
   targetStatus: string,
   userId?: string,
-  reason?: string
+  _reason?: string
 ): Promise<{ plan?: MasterPlan; error?: string }> {
   const plan = await getMasterPlan(planId);
   if (!plan) return { error: 'Plan not found' };
@@ -945,7 +946,6 @@ export async function generatePlanSummary(planId: string, userId?: string) {
   if (!plan) throw new Error('Plan not found');
 
   const stats = await getPlanStats(planId);
-  const allocs = await listPlanAllocations(planId, {});
 
   const summary = {
     plan_name: plan.name,

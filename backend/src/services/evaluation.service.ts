@@ -18,6 +18,8 @@ import {
 import { calculateDerivedFields } from '../middleware/validation';
 import { calculateFreightCost } from './freight.service';
 import { calculateWorkHours } from './workhours.service';
+import { getQualificationPriority } from './qualification.service';
+import { queryOne } from '../config/database';
 
 const DEFAULT_LABOR_HOURS = {
   cleaning: 4,
@@ -97,6 +99,19 @@ export async function evaluateShops(
   const overrides: EvaluationOverrides = request.overrides || {};
   const originRegion = request.origin_region || 'Midwest';
 
+  // Look up qualification priority for this car (if it exists in the qualifications table)
+  let qualPriority: { recommended_priority: number; reason: string; overdue_count: number; due_soon_count: number } | undefined;
+  if (request.car_number) {
+    try {
+      const carRow = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [request.car_number]);
+      if (carRow?.id) {
+        qualPriority = await getQualificationPriority(carRow.id);
+      }
+    } catch {
+      // Non-blocking: if qualification lookup fails, proceed without it
+    }
+  }
+
   // Initialize rules engine
   const rulesEngine = new RulesEngine(rules);
 
@@ -160,6 +175,7 @@ export async function evaluateShops(
       hours_by_type: hoursByType,
       restriction_code: restrictionCode,
       rules: ruleResult.allRules,
+      qualification_priority: qualPriority,
     });
   }
 

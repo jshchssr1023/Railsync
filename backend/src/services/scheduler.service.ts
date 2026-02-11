@@ -7,6 +7,7 @@ import {
   AlertSeverity,
   AlertType,
 } from './alerts.service';
+import qualificationService from './qualification.service';
 
 // Configuration
 const QUAL_DUE_THRESHOLDS = [
@@ -143,6 +144,24 @@ async function scanCapacityWarnings(): Promise<void> {
   }
 }
 
+// Run qualification compliance scan using the qualifications table (SSOT)
+// Recalculates statuses fleet-wide, then generates 90/60/30-day + overdue alerts
+async function scanQualificationCompliance(): Promise<void> {
+  logger.info('[Scheduler] Running qualification compliance scan (qualifications table)...');
+
+  try {
+    // Step 1: Recalculate all qualification statuses based on current dates
+    const recalcResult = await qualificationService.recalculateAllStatuses();
+    logger.info(`[Scheduler] Recalculated ${recalcResult} qualification statuses`);
+
+    // Step 2: Generate alerts for upcoming/overdue qualifications
+    const alertResult = await qualificationService.generateAlerts();
+    logger.info(`[Scheduler] Generated ${alertResult.created} qualification alerts`);
+  } catch (error) {
+    logger.error({ err: error }, '[Scheduler] Error in qualification compliance scan');
+  }
+}
+
 // Cleanup expired alerts
 async function runCleanup(): Promise<void> {
   logger.info('[Scheduler] Running alert cleanup...');
@@ -160,7 +179,12 @@ async function runCleanup(): Promise<void> {
 export function initScheduler(): void {
   logger.info('[Scheduler] Initializing scheduled jobs...');
 
-  // Daily at 6:00 AM - Qualification due scan
+  // Daily at 2:00 AM - Qualification compliance scan (SSOT qualifications table)
+  cron.schedule('0 2 * * *', async () => {
+    await scanQualificationCompliance();
+  });
+
+  // Daily at 6:00 AM - Legacy qualification due scan (cars.qual_exp_date fallback)
   cron.schedule('0 6 * * *', async () => {
     await scanQualificationDue();
   });
@@ -176,7 +200,8 @@ export function initScheduler(): void {
   });
 
   logger.info('[Scheduler] Scheduled jobs initialized:');
-  logger.info('  - Qualification due scan: daily at 6:00 AM');
+  logger.info('  - Qualification compliance scan: daily at 2:00 AM');
+  logger.info('  - Legacy qualification due scan: daily at 6:00 AM');
   logger.info('  - Capacity warning scan: every 4 hours');
   logger.info('  - Alert cleanup: daily at midnight');
 }
@@ -184,6 +209,7 @@ export function initScheduler(): void {
 // Manual trigger functions (for testing/admin use)
 export const manualTriggers = {
   scanQualificationDue,
+  scanQualificationCompliance,
   scanCapacityWarnings,
   runCleanup,
 };

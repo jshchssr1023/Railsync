@@ -675,7 +675,7 @@ describe('runAlertGenerators', () => {
     //
     // We can use mockQuery.mockImplementation to inspect the SQL and route accordingly.
 
-    mockQuery.mockImplementation(async (sql: string) => {
+    mockQuery.mockImplementation(async (sql: string, _params?: unknown[]) => {
       const s = sql as string;
       if (s.includes('qualifications')) {
         return [] as any; // no overdue quals
@@ -724,7 +724,7 @@ describe('runAlertGenerators', () => {
       ],
     };
 
-    mockQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    mockQuery.mockImplementation(async (sql: string, _params?: unknown[]) => {
       const s = sql as string;
       if (s.includes('DELETE FROM alerts')) {
         return [{ count: '5' }] as any;

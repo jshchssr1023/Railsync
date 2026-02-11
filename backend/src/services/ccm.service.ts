@@ -1,4 +1,4 @@
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 // ============================================================================
 // CCM FORM TYPES (structured form mirroring AITX template)

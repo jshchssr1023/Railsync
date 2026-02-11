@@ -309,7 +309,7 @@ export async function syncCarLocations(userId?: string): Promise<SyncResult> {
 // SYNC SINGLE CAR (on-demand lookup)
 // ============================================================================
 
-export async function syncSingleCar(carNumber: string, userId?: string): Promise<CarLocation | null> {
+export async function syncSingleCar(carNumber: string, _userId?: string): Promise<CarLocation | null> {
   if (CLM_CONFIG.mode === 'live') {
     try {
       const positions = await clmFetch<CLMPositionResponse[]>('/positions', {

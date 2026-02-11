@@ -309,34 +309,36 @@ export async function createCCMInstruction(
     // Get scope name for display
     let scopeName: string | null = null;
     switch (scope.type) {
-      case 'customer':
+      case 'customer': {
         const custResult = await client.query('SELECT customer_name FROM customers WHERE id = $1', [scope.id]);
         scopeName = custResult.rows[0]?.customer_name;
         break;
-      case 'master_lease':
+      }
+      case 'master_lease': {
         const leaseResult = await client.query('SELECT COALESCE(lease_name, lease_id) as name FROM master_leases WHERE id = $1', [scope.id]);
         scopeName = leaseResult.rows[0]?.name;
         break;
-      case 'rider':
+      }
+      case 'rider': {
         const riderResult = await client.query('SELECT COALESCE(rider_name, rider_id) as name FROM lease_riders WHERE id = $1', [scope.id]);
         scopeName = riderResult.rows[0]?.name;
         break;
-      case 'amendment':
+      }
+      case 'amendment': {
         const amendResult = await client.query('SELECT COALESCE(change_summary, amendment_id) as name FROM lease_amendments WHERE id = $1', [scope.id]);
         scopeName = amendResult.rows[0]?.name;
         break;
+      }
     }
 
     // Build insert query
     const fields = ['scope_level', 'scope_name', column];
     const values: (string | boolean | null | undefined)[] = [scope.type, scopeName, scope.id];
-    let paramIdx = 4;
 
     for (const field of CCM_FIELDS) {
       if (field in data) {
         fields.push(field);
         values.push((data as Record<string, string | boolean | null | undefined>)[field]);
-        paramIdx++;
       }
     }
 

@@ -9,7 +9,6 @@ import {
 
 export async function createJobCode(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
     const { code, code_type, description, category } = req.body;
 
     const jobCode = await createJobCodeService({ code, code_type, description, category });

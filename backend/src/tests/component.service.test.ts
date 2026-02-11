@@ -29,7 +29,6 @@ import {
 import type {
   Component,
   ComponentHistory,
-  ComponentWithHistory,
   CreateComponentInput,
   UpdateComponentInput,
 } from '../services/component.service';

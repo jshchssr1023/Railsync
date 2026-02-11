@@ -322,6 +322,7 @@ async function assertResponsibilityLocked(eventId: string): Promise<void> {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function assertQAComplete(eventId: string): Promise<void> {
   const event = await queryOne<{ state: string }>(
     `SELECT state FROM shopping_events WHERE id = $1`,

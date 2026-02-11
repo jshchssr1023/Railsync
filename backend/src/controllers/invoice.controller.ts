@@ -180,7 +180,7 @@ export async function getInvoiceLineItems(req: Request, res: Response): Promise<
 
 export async function updateLineItemMatch(req: Request, res: Response): Promise<void> {
   try {
-    const { id, lineId } = req.params;
+    const { lineId } = req.params;
     const { match_status, allocation_id, confidence, notes } = req.body;
 
     const lineItem = await invoiceService.updateLineItemMatch(
@@ -203,7 +203,7 @@ export async function updateLineItemMatch(req: Request, res: Response): Promise<
 
 export async function verifyLineItem(req: Request, res: Response): Promise<void> {
   try {
-    const { id, lineId } = req.params;
+    const { lineId } = req.params;
     const userId = req.user?.id;
 
     if (!userId) {

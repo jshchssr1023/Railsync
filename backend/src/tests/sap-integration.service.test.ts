@@ -11,7 +11,6 @@ import {
   pushApprovedCosts,
   pushBillingTrigger,
   pushMileage,
-  pushInvoiceToSAP,
   batchPushToSAP,
   getSyncLog,
   getSyncStats,

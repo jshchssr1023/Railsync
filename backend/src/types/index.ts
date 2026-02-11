@@ -355,6 +355,13 @@ export interface EvaluationResult {
   hours_by_type: HoursByType;
   restriction_code: RestrictionCode | null;
   rules: RuleEvaluation[];
+  // Qualification priority (Sprint 1 gap fill)
+  qualification_priority?: {
+    recommended_priority: number; // 1=Critical, 2=High, 3=Medium, 4=Low
+    reason: string;
+    overdue_count: number;
+    due_soon_count: number;
+  };
 }
 
 export interface ShopSummary {

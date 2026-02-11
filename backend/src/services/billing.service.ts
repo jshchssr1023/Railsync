@@ -6,7 +6,6 @@
 
 import { query, queryOne, transaction } from '../config/database';
 import logger from '../config/logger';
-import { pool } from '../config/database';
 
 // ============================================================================
 // Types

@@ -28,6 +28,13 @@ module.exports = [
         Promise: 'readonly',
         Map: 'readonly',
         Set: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        AbortController: 'readonly',
+        Response: 'readonly',
+        RequestInit: 'readonly',
+        Express: 'readonly',
       },
     },
     plugins: {
@@ -46,6 +53,7 @@ module.exports = [
       globals: {
         describe: 'readonly',
         it: 'readonly',
+        test: 'readonly',
         expect: 'readonly',
         beforeEach: 'readonly',
         afterEach: 'readonly',

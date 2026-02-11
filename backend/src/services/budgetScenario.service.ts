@@ -97,7 +97,7 @@ export async function updateCustomScenario(
       bad_orders: number;
     };
   },
-  userId: string
+  _userId: string
 ): Promise<BudgetScenario | null> {
   // Verify it's not a system scenario
   const existing = await getScenario(id);

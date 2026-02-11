@@ -241,7 +241,7 @@ export async function runAlertGeneration(): Promise<{
 // 5. GET ACTIVE ALERTS
 // =============================================================================
 
-export async function getActiveAlerts(userId?: string, role?: string): Promise<any[]> {
+export async function getActiveAlerts(_userId?: string, _role?: string): Promise<any[]> {
   const rows = await query(
     `SELECT * FROM alerts
      WHERE is_dismissed = FALSE

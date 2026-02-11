@@ -6,7 +6,6 @@
 import { query, queryOne } from '../config/database';
 import * as invoiceService from './invoice.service';
 import {
-  Invoice,
   InvoiceLineItem,
   MatchStatus,
   VARIANCE_THRESHOLD,

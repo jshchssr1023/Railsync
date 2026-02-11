@@ -8,7 +8,7 @@
  * 4. Error trend analysis over time
  */
 
-import { query, queryOne } from '../config/database';
+import { query } from '../config/database';
 import { getCircuitStatus } from './retry-queue.service';
 
 // =============================================================================

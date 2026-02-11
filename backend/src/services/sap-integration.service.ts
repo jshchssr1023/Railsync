@@ -102,6 +102,7 @@ interface SAPFieldMapping {
 }
 
 // SAP OData journal entry structures
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SAPJournalHeader {
   CompanyCode: string;
   DocumentDate: string;
@@ -112,6 +113,7 @@ interface SAPJournalHeader {
   AccountingDocumentType: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SAPJournalItem {
   GLAccount?: string;
   DebitCreditCode: string;

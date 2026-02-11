@@ -10,7 +10,6 @@ import {
   importCustomers,
   importContracts,
   importShoppingEvents,
-  importInvoices,
   validateOnly,
   rollbackRun,
   runOrchestration,
@@ -23,7 +22,7 @@ jest.mock('../config/database', () => ({
   transaction: jest.fn(),
 }));
 
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;

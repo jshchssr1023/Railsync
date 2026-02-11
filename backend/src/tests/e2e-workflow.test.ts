@@ -57,12 +57,10 @@ jest.mock('../services/transition-log.service', () => ({
   getLastTransition: jest.fn(),
 }));
 
-import { query, queryOne, transaction, pool } from '../config/database';
+import { queryOne, pool } from '../config/database';
 import { validateInvoice, saveValidationResult } from '../services/invoice-validation.service';
 
-const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;
-const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 const mockPoolQuery = pool.query as jest.MockedFunction<typeof pool.query>;
 const mockValidateInvoice = validateInvoice as jest.MockedFunction<typeof validateInvoice>;
 const mockSaveValidationResult = saveValidationResult as jest.MockedFunction<typeof saveValidationResult>;

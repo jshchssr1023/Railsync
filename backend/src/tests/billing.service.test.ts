@@ -12,11 +12,8 @@ import {
   createAdjustment,
   approveAdjustment,
   rejectAdjustment,
-  listPendingAdjustments,
-  createBillingRun,
   approveBillingRun,
   completeBillingRun,
-  getBillingRun,
   getBillingSummary,
   approveOutboundInvoice,
   voidOutboundInvoice,
@@ -30,11 +27,10 @@ jest.mock('../config/database', () => ({
   pool: { query: jest.fn() },
 }));
 
-import { query, queryOne, transaction } from '../config/database';
+import { query, queryOne } from '../config/database';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockQueryOne = queryOne as jest.MockedFunction<typeof queryOne>;
-const mockTransaction = transaction as jest.MockedFunction<typeof transaction>;
 
 // ==============================================================================
 // Test Helpers

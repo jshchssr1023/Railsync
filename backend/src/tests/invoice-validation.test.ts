@@ -8,7 +8,6 @@ import {
   normalizeResponsibilityCode,
   isResponsibilityEquivalent,
   WorkflowState,
-  ValidationResult,
 } from '../services/invoice-validation.service';
 
 // Mock the database pool

@@ -3,7 +3,7 @@
  * Provides proximity-based and capability-based shop filtering
  */
 
-import { query, queryOne } from '../config/database';
+import { query } from '../config/database';
 
 export interface ShopWithDistance {
   shop_code: string;

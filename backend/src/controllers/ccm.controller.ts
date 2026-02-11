@@ -61,7 +61,6 @@ export async function listCCMsByLessee(req: Request, res: Response): Promise<voi
 
 export async function addSection(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.id;
     const ccmDocumentId = req.params.id;
     const { section_number, section_name, content, section_type, can_include_in_sow } = req.body;
 

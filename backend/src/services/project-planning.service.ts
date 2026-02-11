@@ -16,8 +16,7 @@ import { query, queryOne, transaction } from '../config/database';
 import logger from '../config/logger';
 import { writeAuditEvent, writeAuditEventTx } from './project-audit.service';
 import { notifyProjectRelock, notifyProjectBundling } from './email.service';
-import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
-import * as assignmentService from './assignment.service';
+import { logTransition } from './transition-log.service';
 import type { ProjectAssignment, ProjectCommunication, ProjectPlanSummary } from '../types';
 
 // ============================================================================

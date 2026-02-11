@@ -5,6 +5,7 @@ import {
   X, ChevronDown, ChevronRight, Train, Layers, Shield, Wrench,
   FileText, MapPin, ExternalLink, ClipboardList, Loader2,
   Package, Trash2, CheckCircle, ArrowLeftRight, Undo2,
+  Calendar, History, Save,
 } from 'lucide-react';
 import Link from 'next/link';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
@@ -17,11 +18,11 @@ function getAuthToken(): string | null {
   return localStorage.getItem('railsync_access_token');
 }
 
-async function apiFetch<T>(endpoint: string): Promise<T> {
+async function apiFetch<T>(endpoint: string, opts?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_URL}${endpoint}`, { headers });
+  const res = await fetch(`${API_URL}${endpoint}`, { ...opts, headers });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || 'API error');
   return json;
@@ -56,6 +57,18 @@ interface QualRecord {
   last_completed_date: string | null;
   regulatory_body: string;
   is_exempt: boolean;
+  interval_months: number | null;
+  completion_shop_code: string | null;
+  certificate_number: string | null;
+}
+
+interface QualHistoryEntry {
+  id: string;
+  action: string;
+  performed_date: string;
+  old_status: string | null;
+  new_status: string | null;
+  notes: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +89,15 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
   const [clmLocation, setClmLocation] = useState<Record<string, any> | null>(null);
   const [clmLocationLoading, setClmLocationLoading] = useState(false);
   const [clmLocationLoaded, setClmLocationLoaded] = useState(false);
+  // Qualification completion form state
+  const [completingQualId, setCompletingQualId] = useState<string | null>(null);
+  const [completeForm, setCompleteForm] = useState({ completed_date: '', completion_shop_code: '', certificate_number: '', notes: '' });
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  // Qualification history state
+  const [historyQualId, setHistoryQualId] = useState<string | null>(null);
+  const [qualHistory, setQualHistory] = useState<QualHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -138,6 +160,43 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
         .then(res => { setClmLocation(res.data); setClmLocationLoaded(true); })
         .catch(() => { setClmLocation(null); setClmLocationLoaded(true); })
         .finally(() => setClmLocationLoading(false));
+    }
+  };
+
+  const handleCompleteQualification = async (qualId: string) => {
+    if (!completeForm.completed_date) { setCompleteError('Completion date is required'); return; }
+    setCompleteSubmitting(true);
+    setCompleteError(null);
+    try {
+      await apiFetch(`/qualifications/${qualId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify(completeForm),
+      });
+      // Refresh qualification records
+      if (car?.car_id) {
+        const qRes = await apiFetch<{ data: QualRecord[] }>(`/cars/${car.car_id}/qualifications`);
+        setQualRecords(qRes.data || []);
+      }
+      setCompletingQualId(null);
+      setCompleteForm({ completed_date: '', completion_shop_code: '', certificate_number: '', notes: '' });
+    } catch (err: any) {
+      setCompleteError(err.message || 'Failed to complete qualification');
+    } finally {
+      setCompleteSubmitting(false);
+    }
+  };
+
+  const loadQualHistory = async (qualId: string) => {
+    if (historyQualId === qualId) { setHistoryQualId(null); return; } // Toggle off
+    setHistoryQualId(qualId);
+    setHistoryLoading(true);
+    try {
+      const res = await apiFetch<{ data: QualHistoryEntry[] }>(`/qualifications/${qualId}/history`);
+      setQualHistory(res.data || []);
+    } catch {
+      setQualHistory([]);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -314,17 +373,143 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                   <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                     <p className="text-[10px] uppercase font-semibold text-gray-400 dark:text-gray-500 mb-1 tracking-wider">Compliance Records</p>
                     {qualRecords.map(qr => (
-                      <div key={qr.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 dark:border-gray-800 last:border-0">
-                        <div>
-                          <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{qr.type_name}</span>
-                          <span className="text-[10px] text-gray-400 ml-1">({qr.regulatory_body})</span>
+                      <div key={qr.id} className="border-b border-gray-50 dark:border-gray-800 last:border-0">
+                        {/* Row: type name, status, action buttons */}
+                        <div className="flex items-center justify-between py-1.5">
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{qr.type_name}</span>
+                            <span className="text-[10px] text-gray-400 ml-1">({qr.regulatory_body})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {qr.next_due_date && (
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">{qr.next_due_date}</span>
+                            )}
+                            <QualStatusBadge status={qr.status} />
+                            {/* History toggle */}
+                            <button
+                              onClick={() => loadQualHistory(qr.id)}
+                              className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                              title="View history"
+                            >
+                              <History className="w-3 h-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                            </button>
+                            {/* Complete action — only for actionable statuses */}
+                            {!qr.is_exempt && qr.status !== 'current' && (
+                              <button
+                                onClick={() => {
+                                  if (completingQualId === qr.id) {
+                                    setCompletingQualId(null);
+                                  } else {
+                                    setCompletingQualId(qr.id);
+                                    setCompleteForm({ completed_date: '', completion_shop_code: '', certificate_number: '', notes: '' });
+                                    setCompleteError(null);
+                                  }
+                                }}
+                                className="p-0.5 rounded hover:bg-green-50 dark:hover:bg-green-900/30"
+                                title="Record completion"
+                              >
+                                <Calendar className="w-3 h-3 text-green-500 hover:text-green-700 dark:hover:text-green-400" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {qr.next_due_date && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{qr.next_due_date}</span>
-                          )}
-                          <QualStatusBadge status={qr.status} />
-                        </div>
+
+                        {/* Inline completion form */}
+                        {completingQualId === qr.id && (
+                          <div className="pb-2 pl-2 space-y-1.5">
+                            <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">Record Completion</div>
+                            {completeError && (
+                              <div className="text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">{completeError}</div>
+                            )}
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="text-[10px] text-gray-400">Date *</label>
+                                <input
+                                  type="date"
+                                  value={completeForm.completed_date}
+                                  onChange={e => setCompleteForm(f => ({ ...f, completed_date: e.target.value }))}
+                                  className="w-full text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-400">Shop Code</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. TRIN"
+                                  value={completeForm.completion_shop_code}
+                                  onChange={e => setCompleteForm(f => ({ ...f, completion_shop_code: e.target.value }))}
+                                  className="w-full text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-400">Certificate #</label>
+                                <input
+                                  type="text"
+                                  placeholder="Optional"
+                                  value={completeForm.certificate_number}
+                                  onChange={e => setCompleteForm(f => ({ ...f, certificate_number: e.target.value }))}
+                                  className="w-full text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-gray-400">Notes</label>
+                                <input
+                                  type="text"
+                                  placeholder="Optional"
+                                  value={completeForm.notes}
+                                  onChange={e => setCompleteForm(f => ({ ...f, notes: e.target.value }))}
+                                  className="w-full text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                onClick={() => handleCompleteQualification(qr.id)}
+                                disabled={completeSubmitting}
+                                className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 font-medium"
+                              >
+                                {completeSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setCompletingQualId(null)}
+                                className="text-[10px] px-2.5 py-1 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Qualification history timeline */}
+                        {historyQualId === qr.id && (
+                          <div className="pb-2 pl-2">
+                            {historyLoading ? (
+                              <div className="py-2 text-center">
+                                <Loader2 className="w-3 h-3 animate-spin text-primary-500 inline-block" />
+                              </div>
+                            ) : qualHistory.length === 0 ? (
+                              <p className="text-[10px] text-gray-400 italic py-1">No history recorded</p>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">History</div>
+                                {qualHistory.map(h => (
+                                  <div key={h.id} className="flex items-start gap-2 text-[10px]">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 mt-1 flex-shrink-0" />
+                                    <div className="min-w-0">
+                                      <span className="font-medium text-gray-700 dark:text-gray-300">{h.action}</span>
+                                      <span className="text-gray-400 ml-1">{h.performed_date?.slice(0, 10)}</span>
+                                      {h.old_status && h.new_status && (
+                                        <span className="text-gray-400 ml-1">({h.old_status} &rarr; {h.new_status})</span>
+                                      )}
+                                      {h.notes && <p className="text-gray-400 truncate">{h.notes}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <a

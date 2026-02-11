@@ -13,13 +13,14 @@ const app: Application = express();
 // Sentry — initialize before routes (no-op if SENTRY_DSN is not set)
 if (process.env.SENTRY_DSN) {
   try {
-    const Sentry = require('@sentry/node');
-    Sentry.init({
-      dsn: process.env.SENTRY_DSN,
-      environment: process.env.NODE_ENV || 'development',
-      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    import('@sentry/node').then((Sentry) => {
+      Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || 'development',
+        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+      });
+      logger.info('Sentry initialized');
     });
-    logger.info('Sentry initialized');
   } catch (err) {
     logger.warn({ err }, 'Failed to initialize Sentry — continuing without error tracking');
   }
@@ -140,8 +141,9 @@ app.get('/', (req, res) => {
 // Sentry error handler — must be before other error handlers
 if (process.env.SENTRY_DSN) {
   try {
-    const Sentry = require('@sentry/node');
-    Sentry.setupExpressErrorHandler(app);
+    import('@sentry/node').then((Sentry) => {
+      Sentry.setupExpressErrorHandler(app);
+    });
   } catch {
     // Sentry not available — skip
   }

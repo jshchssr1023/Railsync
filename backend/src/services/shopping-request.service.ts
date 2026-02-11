@@ -1,6 +1,6 @@
 import { query, queryOne, transaction } from '../config/database';
 import logger from '../config/logger';
-import { logTransition, canRevert, markReverted, getLastTransition } from './transition-log.service';
+import { logTransition, canRevert, markReverted } from './transition-log.service';
 
 // ---------------------------------------------------------------------------
 // Types
