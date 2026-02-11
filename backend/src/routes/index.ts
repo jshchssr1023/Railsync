@@ -102,7 +102,7 @@ const shoppingRequestUpload = multer({
 });
 
 import { authenticate, authorize, authorizeShop, optionalAuth } from '../middleware/auth';
-import { query } from '../config/database';
+import { query, queryOne, transaction } from '../config/database';
 
 const router = Router();
 
@@ -204,6 +204,179 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Cars browse error');
     res.status(500).json({ success: false, error: 'Failed to fetch cars' });
+  }
+});
+
+// ============================================================================
+// FLEET OVERVIEW — Operational Status Group APIs
+// ============================================================================
+
+/**
+ * @route   GET /api/cars/fleet-summary
+ * @desc    Counts per operational_status_group for active fleet overview
+ */
+router.get('/cars/fleet-summary', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN operational_status_group = 'in_shop' THEN 1 ELSE 0 END), 0)::int AS in_shop_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'idle_storage' THEN 1 ELSE 0 END), 0)::int AS idle_storage_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'ready_to_load' THEN 1 ELSE 0 END), 0)::int AS ready_to_load_count,
+        COALESCE(SUM(CASE WHEN operational_status_group = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending_count,
+        COUNT(*)::int AS total_actionable
+      FROM cars
+      WHERE is_active = TRUE AND operational_status_group IS NOT NULL
+    `);
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    logger.error({ err }, 'Fleet summary error');
+    res.status(500).json({ success: false, error: 'Failed to fetch fleet summary' });
+  }
+});
+
+/**
+ * @route   PUT /api/cars/:carNumber/status-group
+ * @desc    Manual status group change (e.g., idle_storage → ready_to_load)
+ */
+router.put('/cars/:carNumber/status-group', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { carNumber } = req.params;
+    const { statusGroup } = req.body;
+    const userId = req.user!.id;
+
+    if (!statusGroup || !['idle_storage', 'ready_to_load'].includes(statusGroup)) {
+      return res.status(400).json({ success: false, error: 'statusGroup must be idle_storage or ready_to_load' });
+    }
+
+    // Fetch current car state
+    const car = await queryOne<any>(
+      `SELECT car_number, operational_status_group, is_active FROM cars WHERE car_number = $1`,
+      [carNumber]
+    );
+    if (!car || !car.is_active) {
+      return res.status(404).json({ success: false, error: 'Car not found or not active' });
+    }
+
+    // R5: Only idle_storage can become ready_to_load
+    if (statusGroup === 'ready_to_load') {
+      if (car.operational_status_group !== 'idle_storage') {
+        return res.status(400).json({
+          success: false,
+          error: `Cannot set Ready to Load: car is currently ${car.operational_status_group}. Only Idle/Storage cars are eligible.`
+        });
+      }
+      // R5 extended: Check no active scrap workflow
+      const activeScrap = await queryOne<any>(
+        `SELECT id FROM scraps WHERE car_number = $1 AND status NOT IN ('completed', 'cancelled') LIMIT 1`,
+        [carNumber]
+      );
+      if (activeScrap) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot set Ready to Load: car has an active scrap workflow (N6)'
+        });
+      }
+    }
+
+    // Revert: ready_to_load → idle_storage
+    if (statusGroup === 'idle_storage' && car.operational_status_group !== 'ready_to_load') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot revert to Idle/Storage: car is currently ${car.operational_status_group}. Only Ready to Load cars can be reverted.`
+      });
+    }
+
+    await query(
+      `UPDATE cars SET operational_status_group = $1, updated_at = NOW() WHERE car_number = $2`,
+      [statusGroup, carNumber]
+    );
+
+    // Audit log via transition log
+    transitionLogService.logTransition({
+      processType: 'car_status_group',
+      entityId: carNumber,
+      entityNumber: carNumber,
+      fromState: car.operational_status_group,
+      toState: statusGroup,
+      isReversible: true,
+      actorId: userId,
+    }).catch(() => {});
+
+    res.json({ success: true, data: { car_number: carNumber, operational_status_group: statusGroup } });
+  } catch (err) {
+    logger.error({ err }, 'Status group update error');
+    res.status(500).json({ success: false, error: 'Failed to update status group' });
+  }
+});
+
+/**
+ * @route   PUT /api/cars/:carNumber/assign-to-rider
+ * @desc    Assign a Ready to Load car to a customer rider (exits fleet overview)
+ */
+router.put('/cars/:carNumber/assign-to-rider', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { carNumber } = req.params;
+    const { rider_id } = req.body;
+    const userId = req.user!.id;
+
+    if (!rider_id) {
+      return res.status(400).json({ success: false, error: 'rider_id is required' });
+    }
+
+    const car = await queryOne<any>(
+      `SELECT car_number, operational_status_group, is_active FROM cars WHERE car_number = $1`,
+      [carNumber]
+    );
+    if (!car || !car.is_active) {
+      return res.status(404).json({ success: false, error: 'Car not found or not active' });
+    }
+
+    if (car.operational_status_group !== 'ready_to_load') {
+      return res.status(400).json({
+        success: false,
+        error: `Car must be Ready to Load to assign to rider (currently: ${car.operational_status_group})`
+      });
+    }
+
+    // Verify rider exists
+    const rider = await queryOne<any>(
+      `SELECT id FROM lease_riders WHERE id = $1`,
+      [rider_id]
+    );
+    if (!rider) {
+      return res.status(404).json({ success: false, error: 'Rider not found' });
+    }
+
+    // Transaction: add to rider, clear status group
+    await transaction(async (client: any) => {
+      await client.query(
+        `INSERT INTO rider_cars (rider_id, car_number, is_active, added_date)
+         VALUES ($1, $2, TRUE, CURRENT_DATE)
+         ON CONFLICT (rider_id, car_number) WHERE is_active = TRUE DO NOTHING`,
+        [rider_id, carNumber]
+      );
+      await client.query(
+        `UPDATE cars SET operational_status_group = NULL, updated_at = NOW()
+         WHERE car_number = $1`,
+        [carNumber]
+      );
+    });
+
+    transitionLogService.logTransition({
+      processType: 'car_status_group',
+      entityId: carNumber,
+      entityNumber: carNumber,
+      fromState: 'ready_to_load',
+      toState: 'assigned_to_rider',
+      isReversible: false,
+      actorId: userId,
+      notes: `Assigned to rider ${rider_id}`,
+    }).catch(() => {});
+
+    res.json({ success: true, data: { car_number: carNumber, rider_id, status: 'assigned' } });
+  } catch (err) {
+    logger.error({ err }, 'Assign to rider error');
+    res.status(500).json({ success: false, error: 'Failed to assign car to rider' });
   }
 });
 
@@ -5894,5 +6067,16 @@ router.delete('/work-packages/:id/ccm-overrides/:field', authenticate, authorize
 
 // Audit
 router.get('/work-packages/:id/audit', authenticate, workPackageController.getAuditHistory);
+
+// ============================================================================
+// SCRAPS (Car Decommission Workflow)
+// ============================================================================
+import * as scrapController from '../controllers/scrap.controller';
+
+router.get('/scraps', authenticate, scrapController.listScraps);
+router.get('/scraps/active', authenticate, scrapController.getActiveScraps);
+router.get('/scraps/:id', authenticate, scrapController.getScrap);
+router.post('/scraps', authenticate, authorize('admin', 'operator'), scrapController.createScrapProposal);
+router.put('/scraps/:id', authenticate, authorize('admin', 'operator'), scrapController.updateScrap);
 
 export default router;

@@ -20,7 +20,8 @@ export type AlertType =
   | 'billing_exception'
   | 'invoice_overdue'
   | 'inspection_overdue'
-  | 'component_due';
+  | 'component_due'
+  | 'car_scrapped';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
