@@ -247,6 +247,7 @@ function CarsPage() {
     if (statusFilter) params.set('status', statusFilter);
     if (regionFilter) params.set('region', regionFilter);
     if (lesseeFilter) params.set('lessee', lesseeFilter);
+    if (statusGroupFilter) params.set('status_group', statusGroupFilter);
 
     apiFetch<{ data: Car[]; pagination: Pagination }>(`/contracts-browse/cars?${params}`)
       .then(res => {
@@ -255,12 +256,12 @@ function CarsPage() {
       })
       .catch(() => { setCars([]); setPagination(null); })
       .finally(() => setCarsLoading(false));
-  }, [page, pageSize, sortField, sortDir, selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
+  }, [page, pageSize, sortField, sortDir, selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter, statusGroupFilter]);
 
   // Reset page on filter change
   useEffect(() => {
     setPage(1);
-  }, [selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter]);
+  }, [selectedType, selectedCommodity, search, statusFilter, regionFilter, lesseeFilter, statusGroupFilter]);
 
   const handleSort = useCallback((field: string) => {
     if (sortField === field) {
@@ -276,7 +277,7 @@ function CarsPage() {
   const handleCommoditySelect = (c: string | null) => { setFilter('commodity', c || ''); };
   const handleClearTree = () => { setFilters({ type: '', commodity: '' }); };
 
-  const activeFilterCount = [statusFilter, regionFilter, lesseeFilter, search].filter(Boolean).length
+  const activeFilterCount = [statusFilter, regionFilter, lesseeFilter, search, statusGroupFilter].filter(Boolean).length
     + (selectedType ? 1 : 0) + (selectedCommodity ? 1 : 0);
 
   const clearAllFilters = () => {
@@ -323,6 +324,10 @@ function CarsPage() {
   if (regionFilter) activeChips.push({ key: 'region', label: 'Region', value: regionFilter });
   if (lesseeFilter) activeChips.push({ key: 'lessee', label: 'Lessee', value: lesseeFilter });
   if (search) activeChips.push({ key: 'search', label: 'Search', value: search });
+  if (statusGroupFilter) {
+    const groupLabels: Record<string, string> = { in_shop: 'In Shop', idle_storage: 'Idle / Storage', ready_to_load: 'Ready to Load', pending: 'Pending' };
+    activeChips.push({ key: 'status_group', label: 'Group', value: groupLabels[statusGroupFilter] || statusGroupFilter });
+  }
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">

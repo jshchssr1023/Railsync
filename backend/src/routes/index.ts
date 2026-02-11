@@ -632,6 +632,7 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
     const region = req.query.region as string | undefined;
     const lessee = req.query.lessee as string | undefined;
     const search = req.query.search as string | undefined;
+    const statusGroup = req.query.status_group as string | undefined;
 
     // Parse sort params with whitelist
     const allowedSortColumns = [
@@ -672,6 +673,13 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
       conditions.push(`car_number ILIKE $${paramIndex++}`);
       params.push(`%${search}%`);
     }
+    if (statusGroup) {
+      const validGroups = ['in_shop', 'idle_storage', 'ready_to_load', 'pending'];
+      if (validGroups.includes(statusGroup)) {
+        conditions.push(`operational_status_group = $${paramIndex++}`);
+        params.push(statusGroup);
+      }
+    }
 
     const whereClause = conditions.join(' AND ');
 
@@ -687,7 +695,7 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
     const dataResult = await query(
       `SELECT car_number, car_mark, car_type, lessee_name, commodity,
               current_status, current_region, car_age, is_jacketed, is_lined,
-              tank_qual_year, contract_number, plan_status
+              tank_qual_year, contract_number, plan_status, operational_status_group
        FROM cars
        WHERE ${whereClause}
        ORDER BY ${sort} ${order}
