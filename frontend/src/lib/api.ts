@@ -3027,14 +3027,6 @@ export async function getFleetSummary() {
   return response.data;
 }
 
-export async function updateCarStatusGroup(carNumber: string, statusGroup: string) {
-  const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/status-group`, {
-    method: 'PUT',
-    body: JSON.stringify({ statusGroup }),
-  });
-  return response.data;
-}
-
 export async function assignCarToRider(carNumber: string, riderId: string) {
   const response = await fetchApi(`/cars/${encodeURIComponent(carNumber)}/assign-to-rider`, {
     method: 'PUT',

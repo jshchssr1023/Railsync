@@ -296,7 +296,7 @@ export async function addCarsToPlan(
 
     // Look up the car
     const car = await queryOne<{ car_number: string; id: string }>(
-      `SELECT car_number, id FROM cars WHERE car_number = $1 AND is_active = TRUE`,
+      `SELECT car_number, id FROM cars WHERE car_number = $1 AND fleet_status != 'disposed'`,
       [carNumber]
     );
 

@@ -102,7 +102,7 @@ export async function createScrapProposal(
     throw new Error(`Car ${input.car_number} not found or already disposed`);
   }
 
-  // Validate: car must have an active triage entry or be idle (replaces operational_status_group check)
+  // Validate: car must have an active triage entry or be idle
   const triageEntry = await queryOne<{ id: string }>(
     `SELECT id FROM triage_queue WHERE car_id = $1 AND resolved_at IS NULL`,
     [car.id]
@@ -298,9 +298,8 @@ export async function transitionScrap(
 /**
  * Complete a scrap. Atomic transaction:
  * 1. Mark scraps.status = 'completed'
- * 2. Set cars.is_active = false (R11)
- * 3. Clear operational_status_group
- * 4. Log asset event
+ * 2. Set cars.fleet_status = 'disposed' (R5)
+ * 3. Log asset event
  */
 async function completeScrap(
   current: Scrap,
@@ -336,12 +335,9 @@ async function completeScrap(
     );
 
     // 2. Deactivate car permanently — set fleet_status = 'disposed' (R5)
-    // Keep is_active = FALSE and operational_status_group = NULL for backward compat
     await client.query(
       `UPDATE cars SET
         fleet_status = 'disposed',
-        is_active = FALSE,
-        operational_status_group = NULL,
         updated_at = NOW()
       WHERE car_number = $1`,
       [current.car_number]
@@ -447,7 +443,7 @@ async function cancelScrap(
     return scrapResult.rows[0] as Scrap;
   });
 
-  // Create triage entry instead of setting operational_status_group (S6)
+  // Create triage entry for cancelled scrap (S6)
   const carRow = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [current.car_number]);
   if (carRow) {
     try {

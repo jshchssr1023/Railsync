@@ -228,7 +228,7 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
              is_jacketed, is_lined, csr_name, current_region,
              contract_expiration, portfolio_status
       FROM cars
-      WHERE is_active = TRUE
+      WHERE fleet_status != 'disposed'
       ORDER BY car_number
     `);
     res.json({ success: true, data: result });
@@ -404,7 +404,7 @@ router.get('/cars-summary/totals', optionalAuth, async (req, res) => {
     const { car_type, status, region } = req.query;
 
     // Build dynamic WHERE clause
-    const conditions = ['is_active = TRUE'];
+    const conditions = ["fleet_status != 'disposed'"];
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -451,7 +451,7 @@ router.get('/cars-summary/level2', optionalAuth, async (req, res) => {
     }
     const result = await query(
       `SELECT COALESCE(commodity, 'Unclassified') as name, COUNT(*)::int as count
-       FROM cars WHERE is_active = TRUE AND car_type = $1
+       FROM cars WHERE fleet_status != 'disposed' AND car_type = $1
        GROUP BY 1 ORDER BY count DESC`,
       [car_type]
     );
@@ -472,7 +472,7 @@ router.get('/cars-summary/status-trend', optionalAuth, async (req, res) => {
     // Get current status distribution
     const currentDist = await query(
       `SELECT COALESCE(current_status, 'Unknown') as status, COUNT(*)::int as count
-       FROM cars WHERE is_active = TRUE GROUP BY 1 ORDER BY 1`
+       FROM cars WHERE fleet_status != 'disposed' GROUP BY 1 ORDER BY 1`
     );
 
     // Generate 12 weekly data points (synthetic from current state)
@@ -518,9 +518,9 @@ router.get('/cars-summary/status-trend', optionalAuth, async (req, res) => {
 router.get('/contracts-browse/filters', optionalAuth, async (req, res) => {
   try {
     const [statuses, regions, lessees] = await Promise.all([
-      query(`SELECT DISTINCT current_status as value FROM cars WHERE is_active = TRUE AND current_status IS NOT NULL ORDER BY current_status`),
-      query(`SELECT DISTINCT current_region as value FROM cars WHERE is_active = TRUE AND current_region IS NOT NULL ORDER BY current_region`),
-      query(`SELECT DISTINCT lessee_name as value FROM cars WHERE is_active = TRUE AND lessee_name IS NOT NULL ORDER BY lessee_name`),
+      query(`SELECT DISTINCT current_status as value FROM cars WHERE fleet_status != 'disposed' AND current_status IS NOT NULL ORDER BY current_status`),
+      query(`SELECT DISTINCT current_region as value FROM cars WHERE fleet_status != 'disposed' AND current_region IS NOT NULL ORDER BY current_region`),
+      query(`SELECT DISTINCT lessee_name as value FROM cars WHERE fleet_status != 'disposed' AND lessee_name IS NOT NULL ORDER BY lessee_name`),
     ]);
     res.json({
       success: true,
@@ -549,7 +549,7 @@ router.get('/contracts-browse/types', optionalAuth, async (req, res) => {
         COALESCE(commodity, 'Unassigned') as commodity,
         COUNT(*)::int as count
       FROM cars
-      WHERE is_active = TRUE
+      WHERE fleet_status != 'disposed'
       GROUP BY car_type, commodity
       ORDER BY car_type, commodity
     `);
@@ -589,7 +589,7 @@ router.get('/contracts-browse/shop-status-by-type', optionalAuth, async (req, re
       `SELECT se.state, COUNT(*)::int as count
        FROM shopping_events se
        JOIN cars c ON c.car_number = se.car_number
-       WHERE c.car_type = $1 AND c.is_active = TRUE
+       WHERE c.car_type = $1 AND c.fleet_status != 'disposed'
        GROUP BY se.state
        ORDER BY count DESC`,
       [carType]
@@ -615,7 +615,7 @@ router.get('/contracts-browse/shopping-reasons-by-type', optionalAuth, async (re
       `SELECT COALESCE(se.reason_for_shopping, 'Unknown') as reason, COUNT(*)::int as count
        FROM shopping_events se
        JOIN cars c ON c.car_number = se.car_number
-       WHERE c.car_type = $1 AND c.is_active = TRUE
+       WHERE c.car_type = $1 AND c.fleet_status != 'disposed'
        GROUP BY se.reason_for_shopping
        ORDER BY count DESC`,
       [carType]
@@ -660,7 +660,7 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
 
     // Build WHERE clause dynamically with parameterized queries
     // JOIN v_car_fleet_status for derived disposition column and filters
-    const conditions: string[] = ['c.is_active = TRUE'];
+    const conditions: string[] = ["c.fleet_status != 'disposed'"];
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -752,9 +752,13 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
   try {
     const { carNumber } = req.params;
 
-    // Get full car record
+    // Get full car record enriched with derived fleet status from view
     const carResult = await query(
-      `SELECT * FROM cars WHERE car_number = $1`,
+      `SELECT c.*, v.operational_disposition, v.triage_entry_id, v.triage_reason,
+              v.assignment_status, v.active_shopping_event_id, v.active_scrap_id
+       FROM cars c
+       LEFT JOIN v_car_fleet_status v ON v.car_number = c.car_number
+       WHERE c.car_number = $1`,
       [carNumber]
     );
 

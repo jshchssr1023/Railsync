@@ -8,7 +8,7 @@ import {
   ClipboardList, ArrowLeftRight, Undo2, Trash2, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { DISPOSITION_CONFIG, STATUS_GROUP_CONFIG } from '@/lib/statusConfig';
+import { DISPOSITION_CONFIG } from '@/lib/statusConfig';
 import CarTypeIcon from '@/components/cars/CarTypeIcon';
 import { QualBadge, StatusBadge } from '@/components/cars/CarBadges';
 import CarDetailOverviewTab from '@/components/cars/CarDetailOverviewTab';
@@ -137,11 +137,15 @@ function CarDetailPage() {
 
   const dispo = car.operational_disposition;
   const dispoConfig = dispo ? DISPOSITION_CONFIG[dispo] : null;
-  const legacyGroup = car.operational_status_group;
-  const legacyConfig = legacyGroup ? STATUS_GROUP_CONFIG[legacyGroup] : null;
-  const groupConfig = dispoConfig || legacyConfig;
-  // Derive statusGroup for action bar compatibility
-  const statusGroup = legacyGroup || (dispo === 'IN_SHOP' ? 'in_shop' : dispo === 'IDLE' ? 'idle_storage' : dispo === 'SCRAP_WORKFLOW' ? 'pending' : null);
+  const hasTriage = !!car.triage_entry_id;
+  const readyToLoad = !!car.ready_to_load;
+
+  // Action bar flags derived from v_car_fleet_status view
+  const isIdle = dispo === 'IDLE' && !hasTriage && !readyToLoad;
+  const isReadyToLoad = readyToLoad;
+  const isPending = hasTriage;
+  const isInShop = dispo === 'IN_SHOP';
+  const isScrap = dispo === 'SCRAP_WORKFLOW';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
@@ -158,10 +162,10 @@ function CarDetailPage() {
               <div className="flex items-center gap-3">
                 <CarTypeIcon type={car.car_type} size="lg" className="text-gray-600 dark:text-gray-300" />
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{carNumber}</h1>
-                {groupConfig && (
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${groupConfig.color}`}>
-                    <groupConfig.icon className="w-3.5 h-3.5" />
-                    {groupConfig.label}
+                {dispoConfig && (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${dispoConfig.color}`}>
+                    <dispoConfig.icon className="w-3.5 h-3.5" />
+                    {dispoConfig.label}
                   </span>
                 )}
               </div>
@@ -252,8 +256,8 @@ function CarDetailPage() {
       {/* Action Bar */}
       <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 px-5 py-3">
         <div className="flex flex-wrap gap-2">
-          {/* Context-aware primary actions */}
-          {statusGroup === 'idle_storage' && (
+          {/* Context-aware primary actions (derived from v_car_fleet_status) */}
+          {isIdle && (
             <Link
               href={`/cars?action=set_ready&car=${encodeURIComponent(carNumber)}`}
               className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
@@ -261,7 +265,7 @@ function CarDetailPage() {
               <CheckCircle className="w-4 h-4" /> Set Ready to Load
             </Link>
           )}
-          {statusGroup === 'ready_to_load' && (
+          {isReadyToLoad && (
             <>
               <Link
                 href={`/cars?action=assign_rider&car=${encodeURIComponent(carNumber)}`}
@@ -283,7 +287,7 @@ function CarDetailPage() {
               </Link>
             </>
           )}
-          {statusGroup === 'pending' && (
+          {isPending && (
             <>
               <Link
                 href={`/assignments?car_number=${encodeURIComponent(carNumber)}&source=triage`}
@@ -305,7 +309,7 @@ function CarDetailPage() {
               </Link>
             </>
           )}
-          {(!statusGroup || statusGroup === 'in_shop') && (
+          {(isInShop || (!dispo && !isReadyToLoad && !isPending)) && (
             <Link
               href={`/shopping?shopCar=${encodeURIComponent(carNumber)}`}
               className="inline-flex items-center gap-1.5 text-sm px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"

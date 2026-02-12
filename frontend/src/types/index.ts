@@ -47,7 +47,6 @@ export interface AuditLog {
 }
 
 // Car Types
-export type OperationalStatusGroup = 'in_shop' | 'idle_storage' | 'ready_to_load' | 'pending';
 export type OperationalDisposition = 'IN_SHOP' | 'IDLE' | 'SCRAP_WORKFLOW';
 export type RiderCarStatus = 'decided' | 'prep_required' | 'on_rent' | 'releasing' | 'off_rent' | 'cancelled';
 
@@ -64,10 +63,8 @@ export interface Car {
   owner_code?: string;
   lessee_code?: string;
   commodity?: Commodity;
-  operational_status_group?: OperationalStatusGroup | null;
   operational_disposition?: OperationalDisposition | null;
   ready_to_load?: boolean;
-  is_active?: boolean;
 }
 
 export interface FleetSummary {

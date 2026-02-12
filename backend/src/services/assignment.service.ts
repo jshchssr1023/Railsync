@@ -148,14 +148,14 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<Ca
     throw new Error(conflict.message);
   }
 
-  // Triage source validation: car must be in pending status group
+  // Triage source validation: car must have an open triage entry
   if (input.source === 'triage') {
-    const carStatus = await query<{ operational_status_group: string | null }>(
-      'SELECT operational_status_group FROM cars WHERE car_number = $1',
+    const triageCheck = await query<{ id: string }>(
+      'SELECT tq.id FROM triage_queue tq JOIN cars c ON c.id = tq.car_id WHERE c.car_number = $1 AND tq.resolved_at IS NULL LIMIT 1',
       [input.car_number]
     );
-    if (carStatus.length > 0 && carStatus[0].operational_status_group !== 'pending') {
-      throw new Error(`Triage assignment requires car to be in Pending status group (currently: ${carStatus[0].operational_status_group || 'none'})`);
+    if (triageCheck.length === 0) {
+      throw new Error('Triage assignment requires car to have an open triage entry');
     }
   }
 
@@ -199,12 +199,6 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<Ca
   ]);
 
   const assignment = normalizeAssignment(rows[0]);
-
-  // Auto-set operational_status_group to 'in_shop' when a shop assignment is created
-  query(
-    `UPDATE cars SET operational_status_group = 'in_shop', updated_at = NOW() WHERE car_number = $1 AND is_active = TRUE`,
-    [input.car_number]
-  ).catch((err) => logger.error({ err }, 'Failed to update operational_status_group after assignment'));
 
   // Record asset event
   if (assignment.car_id) {

@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 import { QualBadge, StatusBadge, QualStatusBadge } from './CarBadges';
-import { DISPOSITION_CONFIG, STATUS_GROUP_CONFIG, RIDER_CAR_STATUS_CONFIG } from '@/lib/statusConfig';
+import { DISPOSITION_CONFIG, RIDER_CAR_STATUS_CONFIG } from '@/lib/statusConfig';
 import { getIdleCostSummary } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -283,15 +283,11 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
                 {(() => {
                   const dispo = car?.operational_disposition;
-                  const dispoConfig = dispo ? DISPOSITION_CONFIG[dispo] : null;
-                  const legacyGroup = car?.operational_status_group;
-                  const legacyConfig = legacyGroup ? STATUS_GROUP_CONFIG[legacyGroup] : null;
-                  const cfg = dispoConfig || legacyConfig;
-                  const label = dispoConfig?.label || legacyConfig?.label;
-                  if (!cfg || !label) return null;
+                  const cfg = dispo ? DISPOSITION_CONFIG[dispo] : null;
+                  if (!cfg) return null;
                   return (
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>
-                      {label}
+                      {cfg.label}
                     </span>
                   );
                 })()}
@@ -739,12 +735,12 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
           )}
         </div>
 
-        {/* Footer Actions — context-aware based on operational status group */}
+        {/* Footer Actions — context-aware based on v_car_fleet_status derived fields */}
         {car && (
           <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800 space-y-2">
             {/* Primary row: context-aware actions */}
             <div className="flex gap-2">
-              {car.operational_status_group === 'idle_storage' && (
+              {car.operational_disposition === 'IDLE' && !car.triage_entry_id && !car.ready_to_load && (
                 <Link
                   href={`/cars?action=set_ready&car=${encodeURIComponent(carNumber)}`}
                   className="flex-1 text-center text-xs px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium flex items-center justify-center gap-1"
@@ -753,7 +749,7 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                   Set Ready to Load
                 </Link>
               )}
-              {car.operational_status_group === 'ready_to_load' && (
+              {!!car.ready_to_load && (
                 <>
                   <Link
                     href={`/cars?action=assign_rider&car=${encodeURIComponent(carNumber)}`}
@@ -778,7 +774,7 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                   </Link>
                 </>
               )}
-              {car.operational_status_group === 'pending' && (
+              {!!car.triage_entry_id && (
                 <>
                   <Link
                     href={`/assignments?car_number=${encodeURIComponent(carNumber)}&source=triage`}
@@ -803,12 +799,9 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                   </Link>
                 </>
               )}
-              {(!car.operational_status_group || car.operational_status_group === 'in_shop') && (
+              {(car.operational_disposition === 'IN_SHOP' || (!car.operational_disposition && !car.ready_to_load && !car.triage_entry_id)) && (
                 <a
-                  href={detail?.active_shopping_event
-                    ? `/shopping?shopCar=${encodeURIComponent(carNumber)}`
-                    : `/shopping?shopCar=${encodeURIComponent(carNumber)}`
-                  }
+                  href={`/shopping?shopCar=${encodeURIComponent(carNumber)}`}
                   className="flex-1 text-center text-xs px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium"
                 >
                   {detail?.active_shopping_event ? 'View Shopping Event' : 'Shop this Car'}
