@@ -2926,6 +2926,92 @@ export async function cancelRelease(id: string, reason: string) {
 }
 
 // ============================================================================
+// ABATEMENT
+// ============================================================================
+
+export async function getAbatementConfig() {
+  const response = await fetchApi('/billing/abatement/config');
+  return response.data;
+}
+
+export async function updateAbatementConfig(typeId: string, qualifies: boolean) {
+  const response = await fetchApi(`/billing/abatement/config/${encodeURIComponent(typeId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ qualifies }),
+  });
+  return response.data;
+}
+
+export async function getRiderAbatementOverrides(riderId: string) {
+  const response = await fetchApi(`/billing/abatement/riders/${encodeURIComponent(riderId)}/overrides`);
+  return response.data;
+}
+
+export async function setRiderAbatementOverride(riderId: string, shoppingTypeId: string, qualifies: boolean) {
+  const response = await fetchApi(`/billing/abatement/riders/${encodeURIComponent(riderId)}/overrides`, {
+    method: 'PUT',
+    body: JSON.stringify({ shopping_type_id: shoppingTypeId, qualifies }),
+  });
+  return response.data;
+}
+
+export async function deleteRiderAbatementOverride(riderId: string, typeId: string) {
+  const response = await fetchApi(
+    `/billing/abatement/riders/${encodeURIComponent(riderId)}/overrides/${encodeURIComponent(typeId)}`,
+    { method: 'DELETE' }
+  );
+  return response.data;
+}
+
+export async function listAbatementPeriods(filters: {
+  rider_id?: string; car_number?: string; status?: string;
+  period_start?: string; period_end?: string;
+  limit?: number; offset?: number;
+} = {}) {
+  const params = new URLSearchParams();
+  if (filters.rider_id) params.set('rider_id', filters.rider_id);
+  if (filters.car_number) params.set('car_number', filters.car_number);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.period_start) params.set('period_start', filters.period_start);
+  if (filters.period_end) params.set('period_end', filters.period_end);
+  params.set('limit', String(filters.limit || 50));
+  params.set('offset', String(filters.offset || 0));
+  const response = await fetchApi(`/billing/abatement/periods?${params}`);
+  return response;
+}
+
+export async function overrideAbatementPeriod(id: string, startDate: string, endDate: string | null, reason: string) {
+  const response = await fetchApi(`/billing/abatement/periods/${encodeURIComponent(id)}/override`, {
+    method: 'PUT',
+    body: JSON.stringify({ start_date: startDate, end_date: endDate, reason }),
+  });
+  return response.data;
+}
+
+export async function createManualAbatementPeriod(data: {
+  car_number: string; rider_id: string; start_date: string; end_date: string | null; reason: string;
+}) {
+  const response = await fetchApi('/billing/abatement/periods', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
+export async function voidAbatementPeriod(id: string, reason: string) {
+  const response = await fetchApi(`/billing/abatement/periods/${encodeURIComponent(id)}/void`, {
+    method: 'PUT',
+    body: JSON.stringify({ reason }),
+  });
+  return response.data;
+}
+
+export async function getBillingPreview(fiscalYear: number, fiscalMonth: number) {
+  const response = await fetchApi(`/billing/preview?year=${fiscalYear}&month=${fiscalMonth}`);
+  return response.data;
+}
+
+// ============================================================================
 // FLEET OVERVIEW & STATUS GROUPS
 // ============================================================================
 

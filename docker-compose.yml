@@ -94,6 +94,10 @@ services:
       - ./database/migrations/069_cars_contracts_ia.sql:/docker-entrypoint-initdb.d/76-cars-contracts-ia.sql
       - ./database/migrations/070_seed_qualification_rules_library.sql:/docker-entrypoint-initdb.d/77-qual-rules-library.sql
       - ./database/migrations/071_seed_fleet_qualification_records.sql:/docker-entrypoint-initdb.d/78-fleet-qual-records.sql
+      - ./database/migrations/072_fms_project_alignment.sql:/docker-entrypoint-initdb.d/79-fms-project-alignment.sql
+      - ./database/migrations/075_on_rent_lease_crud.sql:/docker-entrypoint-initdb.d/80-on-rent-lease-crud.sql
+      - ./database/migrations/076_amendment_lifecycle.sql:/docker-entrypoint-initdb.d/81-amendment-lifecycle.sql
+      - ./database/migrations/077_abatement_billing.sql:/docker-entrypoint-initdb.d/82-abatement-billing.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s

@@ -45,7 +45,11 @@ interface CarDetail {
   car: Record<string, any>;
   shopping_events_count: number;
   active_shopping_event: { id: string; event_number: string; state: string; shop_code: string } | null;
-  lease_info: { lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string } | null;
+  lease_info: {
+    lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string;
+    rider_id?: string; rider_code?: string; rider_name?: string; rate_per_car?: number;
+    is_on_rent?: boolean; added_date?: string;
+  } | null;
 }
 
 interface QualRecord {
@@ -98,6 +102,8 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
   const [historyQualId, setHistoryQualId] = useState<string | null>(null);
   const [qualHistory, setQualHistory] = useState<QualHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // On-rent toggle state
+  const [onRentToggling, setOnRentToggling] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -197,6 +203,27 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
       setQualHistory([]);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const handleOnRentToggle = async () => {
+    if (!detail?.lease_info?.rider_id || onRentToggling) return;
+    const newStatus = !detail.lease_info.is_on_rent;
+    setOnRentToggling(true);
+    try {
+      await apiFetch(`/riders/${detail.lease_info.rider_id}/cars/${carNumber}/on-rent`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_on_rent: newStatus }),
+      });
+      // Update local state
+      setDetail(prev => prev ? {
+        ...prev,
+        lease_info: prev.lease_info ? { ...prev.lease_info, is_on_rent: newStatus } : null,
+      } : null);
+    } catch (err: any) {
+      console.error('Failed to update on-rent status:', err);
+    } finally {
+      setOnRentToggling(false);
     }
   };
 
@@ -597,6 +624,33 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                       <Field label="Lease Name" value={detail.lease_info.lease_name} />
                       <Field label="Lease Status" value={detail.lease_info.lease_status} />
                     </div>
+                    {detail.lease_info.rider_id && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                        <Field label="Rider" value={detail.lease_info.rider_code || detail.lease_info.rider_name || '-'} />
+                        {detail.lease_info.rate_per_car != null && (
+                          <Field label="Rate / Car" value={`$${Number(detail.lease_info.rate_per_car).toFixed(2)}/mo`} />
+                        )}
+                        {/* On-Rent Toggle */}
+                        <div className="flex items-center justify-between py-1.5">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">On-Rent</span>
+                          <button
+                            onClick={handleOnRentToggle}
+                            disabled={onRentToggling}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
+                              detail.lease_info.is_on_rent
+                                ? 'bg-green-500'
+                                : 'bg-gray-300 dark:bg-gray-600'
+                            } ${onRentToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                                detail.lease_info.is_on_rent ? 'translate-x-4.5' : 'translate-x-0.5'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </Section>

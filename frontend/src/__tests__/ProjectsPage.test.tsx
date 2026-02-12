@@ -117,6 +117,25 @@ function mockDefaultFetch(
         json: () => Promise.resolve({ success: true, data: { by_type: summaryByType, by_mc: [] } }),
       });
     }
+    // Filter option endpoints
+    if (url.includes('/project-types')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      });
+    }
+    if (url.includes('/customers')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      });
+    }
+    if (url.includes('/admin/users')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      });
+    }
     if (url.includes('/projects') && !url.includes('/projects/')) {
       return Promise.resolve({
         ok: true,

@@ -47,3 +47,8 @@ nginx/certs/
 # Misc
 *.pem
 .vercel
+
+# Accidental files / auth tokens
+nul
+*login.json
+.playwright-mcp/

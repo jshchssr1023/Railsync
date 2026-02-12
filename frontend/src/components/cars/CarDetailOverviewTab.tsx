@@ -74,7 +74,11 @@ export default function CarDetailOverviewTab({
   carNumber,
 }: {
   car: Record<string, any>;
-  leaseInfo: { lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string } | null;
+  leaseInfo: {
+    lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string;
+    rider_id?: string; rider_code?: string; rider_name?: string; rate_per_car?: number;
+    is_on_rent?: boolean; added_date?: string;
+  } | null;
   activeShoppingEvent: { id: string; event_number: string; state: string; shop_code: string } | null;
   carNumber: string;
 }) {
@@ -219,13 +223,29 @@ export default function CarDetailOverviewTab({
           <Field label="Contract #" value={car.contract_number} />
           <Field label="Contract Expiration" value={car.contract_expiration?.slice(0, 10)} />
           {leaseInfo ? (
-            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-              <Field label="Customer" value={leaseInfo.customer_name} />
-              <Field label="Customer Code" value={leaseInfo.customer_code} />
-              <Field label="Lease ID" value={leaseInfo.lease_id} />
-              <Field label="Lease Name" value={leaseInfo.lease_name} />
-              <Field label="Lease Status" value={leaseInfo.lease_status} />
-            </div>
+            <>
+              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <Field label="Customer" value={leaseInfo.customer_name} />
+                <Field label="Customer Code" value={leaseInfo.customer_code} />
+                <Field label="Lease ID" value={leaseInfo.lease_id} />
+                <Field label="Lease Name" value={leaseInfo.lease_name} />
+                <Field label="Lease Status" value={leaseInfo.lease_status} />
+              </div>
+              {leaseInfo.rider_id && (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <Field label="Rider" value={leaseInfo.rider_code || leaseInfo.rider_name || '-'} />
+                  {leaseInfo.rate_per_car != null && (
+                    <Field label="Rate / Car" value={`$${Number(leaseInfo.rate_per_car).toFixed(2)}/mo`} />
+                  )}
+                  <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">On-Rent</span>
+                    <span className={`text-xs font-medium ${leaseInfo.is_on_rent ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                      {leaseInfo.is_on_rent ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-2">No active lease information</p>
           )}

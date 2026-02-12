@@ -325,6 +325,283 @@ export async function validateCarForShopping(req: Request, res: Response) {
   }
 }
 
+// ============================================================================
+// CUSTOMER CRUD ENDPOINTS
+// ============================================================================
+
+export async function createCustomer(req: Request, res: Response) {
+  try {
+    const { customer_code, customer_name, contact_name, contact_email, contact_phone, billing_address, notes } = req.body;
+    if (!customer_code || !customer_name) {
+      return res.status(400).json({ success: false, error: 'customer_code and customer_name are required' });
+    }
+    const customer = await contractsService.createCustomer({
+      customer_code, customer_name, contact_name, contact_email, contact_phone, billing_address, notes,
+    });
+    res.status(201).json({ success: true, data: customer });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error creating customer');
+    const status = error.message.includes('duplicate') ? 409 : 500;
+    res.status(status).json({ success: false, error: error.message || 'Failed to create customer' });
+  }
+}
+
+export async function updateCustomerHandler(req: Request, res: Response) {
+  try {
+    const { customerId } = req.params;
+    const customer = await contractsService.updateCustomer(customerId, req.body);
+    res.json({ success: true, data: customer });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error updating customer');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================================================
+// LEASE CRUD ENDPOINTS
+// ============================================================================
+
+export async function createLease(req: Request, res: Response) {
+  try {
+    const { lease_id, customer_id, lease_name, start_date, end_date, base_rate_per_car, terms_summary, payment_terms, notes } = req.body;
+    if (!lease_id || !customer_id || !start_date) {
+      return res.status(400).json({ success: false, error: 'lease_id, customer_id, and start_date are required' });
+    }
+    const lease = await contractsService.createMasterLease({
+      lease_id, customer_id, lease_name, start_date, end_date, base_rate_per_car, terms_summary, payment_terms, notes,
+    });
+    res.status(201).json({ success: true, data: lease });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error creating lease');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('duplicate') ? 409 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function updateLeaseHandler(req: Request, res: Response) {
+  try {
+    const { leaseId } = req.params;
+    const lease = await contractsService.updateMasterLease(leaseId, req.body);
+    res.json({ success: true, data: lease });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error updating lease');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('terminated') ? 403 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function deactivateLeaseHandler(req: Request, res: Response) {
+  try {
+    const { leaseId } = req.params;
+    const result = await contractsService.deactivateLease(leaseId);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error deactivating lease');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================================================
+// RIDER CRUD ENDPOINTS
+// ============================================================================
+
+export async function createRider(req: Request, res: Response) {
+  try {
+    const { rider_id, master_lease_id, rider_name, effective_date, expiration_date, rate_per_car, specific_terms, notes } = req.body;
+    if (!rider_id || !master_lease_id || !effective_date) {
+      return res.status(400).json({ success: false, error: 'rider_id, master_lease_id, and effective_date are required' });
+    }
+    const rider = await contractsService.createLeaseRider(
+      { rider_id, master_lease_id, rider_name, effective_date, expiration_date, rate_per_car, specific_terms, notes },
+      req.user?.id
+    );
+    res.status(201).json({ success: true, data: rider });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error creating rider');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('duplicate') ? 409 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function updateRiderHandler(req: Request, res: Response) {
+  try {
+    const { riderId } = req.params;
+    const rider = await contractsService.updateLeaseRider(riderId, req.body, req.user?.id);
+    res.json({ success: true, data: rider });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error updating rider');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function deactivateRiderHandler(req: Request, res: Response) {
+  try {
+    const { riderId } = req.params;
+    const result = await contractsService.deactivateRider(riderId);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error deactivating rider');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================================================
+// CAR ↔ RIDER ENDPOINTS
+// ============================================================================
+
+export async function addCarToRiderHandler(req: Request, res: Response) {
+  try {
+    const { riderId } = req.params;
+    const { car_number, added_date } = req.body;
+    if (!car_number) {
+      return res.status(400).json({ success: false, error: 'car_number is required' });
+    }
+    const result = await contractsService.addCarToRider(riderId, car_number, added_date);
+    res.status(201).json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error adding car to rider');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('already active') ? 409 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function removeCarFromRiderHandler(req: Request, res: Response) {
+  try {
+    const { riderId, carNumber } = req.params;
+    await contractsService.removeCarFromRider(riderId, carNumber);
+    res.json({ success: true, message: `Car ${carNumber} removed from rider` });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error removing car from rider');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================================================
+// ON-RENT ENDPOINTS
+// ============================================================================
+
+export async function updateOnRentStatusHandler(req: Request, res: Response) {
+  try {
+    const { riderId, carNumber } = req.params;
+    const { is_on_rent, reason } = req.body;
+    if (typeof is_on_rent !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'is_on_rent (boolean) is required' });
+    }
+    await contractsService.updateOnRentStatus(riderId, carNumber, is_on_rent, req.user?.id, reason);
+    res.json({ success: true, message: `Car ${carNumber} is now ${is_on_rent ? 'on-rent' : 'off-rent'}` });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error updating on-rent status');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function getOnRentHistoryHandler(req: Request, res: Response) {
+  try {
+    const { carNumber } = req.params;
+    const periodStart = req.query.start as string | undefined;
+    const periodEnd = req.query.end as string | undefined;
+    const history = await contractsService.getOnRentHistory(carNumber, periodStart, periodEnd);
+    res.json({ success: true, data: history, total: history.length });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error getting on-rent history');
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================================================
+// AMENDMENT LIFECYCLE ENDPOINTS
+// ============================================================================
+
+export async function createAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendment_id, rider_id, amendment_type, effective_date, change_summary, new_rate,
+            required_shop_date, service_interval_days, cars_added, cars_removed, notes } = req.body;
+    if (!amendment_id || !rider_id || !amendment_type || !effective_date || !change_summary) {
+      return res.status(400).json({ success: false, error: 'amendment_id, rider_id, amendment_type, effective_date, and change_summary are required' });
+    }
+    const amendment = await contractsService.createAmendment({
+      amendment_id, rider_id, amendment_type, effective_date, change_summary,
+      new_rate, required_shop_date, service_interval_days, cars_added, cars_removed, notes,
+    }, req.user?.id);
+    res.status(201).json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error creating amendment');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('duplicate') ? 409 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function updateAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const amendment = await contractsService.updateAmendment(amendmentId, req.body);
+    res.json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error updating amendment');
+    const status = error.message.includes('not found') ? 404 : error.message.includes('Draft') ? 403 : 500;
+    res.status(status).json({ success: false, error: error.message });
+  }
+}
+
+export async function submitAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const amendment = await contractsService.submitAmendment(amendmentId, req.user!.id);
+    res.json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error submitting amendment');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function approveAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const amendment = await contractsService.approveAmendment(amendmentId, req.user!.id);
+    res.json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error approving amendment');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function rejectAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const { reason } = req.body;
+    if (!reason) {
+      return res.status(400).json({ success: false, error: 'reason is required' });
+    }
+    const amendment = await contractsService.rejectAmendment(amendmentId, req.user!.id, reason);
+    res.json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error rejecting amendment');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function activateAmendmentHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const amendment = await contractsService.activateAmendment(amendmentId, req.user!.id);
+    res.json({ success: true, data: amendment });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error activating amendment');
+    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
+  }
+}
+
+export async function getAmendmentStateHistoryHandler(req: Request, res: Response) {
+  try {
+    const { amendmentId } = req.params;
+    const history = await contractsService.getAmendmentStateHistory(amendmentId);
+    res.json({ success: true, data: history, total: history.length });
+  } catch (error: any) {
+    logger.error({ err: error }, 'Error getting amendment state history');
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 export default {
   listCustomers,
   getCustomer,
@@ -339,4 +616,26 @@ export default {
   detectAmendmentConflicts,
   getCarsWithAmendments,
   validateCarForShopping,
+  // CRUD
+  createCustomer,
+  updateCustomerHandler,
+  createLease,
+  updateLeaseHandler,
+  deactivateLeaseHandler,
+  createRider,
+  updateRiderHandler,
+  deactivateRiderHandler,
+  addCarToRiderHandler,
+  removeCarFromRiderHandler,
+  // On-rent
+  updateOnRentStatusHandler,
+  getOnRentHistoryHandler,
+  // Amendment lifecycle
+  createAmendmentHandler,
+  updateAmendmentHandler,
+  submitAmendmentHandler,
+  approveAmendmentHandler,
+  rejectAmendmentHandler,
+  activateAmendmentHandler,
+  getAmendmentStateHistoryHandler,
 };

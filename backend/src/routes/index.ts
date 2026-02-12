@@ -751,7 +751,9 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
     // Get lease info through rider_cars -> lease_riders -> master_leases -> customers
     const leaseResult = await query(
       `SELECT ml.lease_id, ml.lease_name, ml.status as lease_status,
-              c.customer_name, c.customer_code
+              c.customer_name, c.customer_code,
+              lr.id as rider_id, lr.rider_id as rider_code, lr.rider_name, lr.rate_per_car,
+              rc.is_on_rent, rc.added_date
        FROM rider_cars rc
        JOIN lease_riders lr ON rc.rider_id = lr.id
        JOIN master_leases ml ON lr.master_lease_id = ml.id
@@ -2260,6 +2262,8 @@ import contractsController from '../controllers/contracts.controller';
 router.get('/customers', optionalAuth, contractsController.listCustomers);
 router.get('/customers/:customerId', optionalAuth, contractsController.getCustomer);
 router.get('/customers/:customerId/leases', optionalAuth, contractsController.getCustomerLeases);
+router.post('/customers', authenticate, authorize('admin', 'operator'), contractsController.createCustomer);
+router.put('/customers/:customerId', authenticate, authorize('admin', 'operator'), contractsController.updateCustomerHandler);
 
 // Leases
 router.get('/leases', optionalAuth, async (req, res) => {
@@ -2305,22 +2309,179 @@ router.get('/leases', optionalAuth, async (req, res) => {
 });
 router.get('/leases/:leaseId', optionalAuth, contractsController.getLease);
 router.get('/leases/:leaseId/riders', optionalAuth, contractsController.getLeaseRiders);
+router.post('/leases', authenticate, authorize('admin', 'operator'), contractsController.createLease);
+router.put('/leases/:leaseId', authenticate, authorize('admin', 'operator'), contractsController.updateLeaseHandler);
+router.put('/leases/:leaseId/deactivate', authenticate, authorize('admin'), contractsController.deactivateLeaseHandler);
 
 // Riders
 router.get('/riders/:riderId', optionalAuth, contractsController.getRider);
 router.get('/riders/:riderId/cars', optionalAuth, contractsController.getRiderCars);
 router.get('/riders/:riderId/amendments', optionalAuth, contractsController.getRiderAmendments);
 router.post('/riders/:riderId/resync-schedule', authenticate, authorize('admin', 'operator'), contractsController.resyncRiderSchedules);
+router.post('/riders', authenticate, authorize('admin', 'operator'), contractsController.createRider);
+router.put('/riders/:riderId', authenticate, authorize('admin', 'operator'), contractsController.updateRiderHandler);
+router.put('/riders/:riderId/deactivate', authenticate, authorize('admin'), contractsController.deactivateRiderHandler);
+// Rider ↔ Car management
+router.post('/riders/:riderId/cars', authenticate, authorize('admin', 'operator'), contractsController.addCarToRiderHandler);
+router.delete('/riders/:riderId/cars/:carNumber', authenticate, authorize('admin', 'operator'), contractsController.removeCarFromRiderHandler);
+// On-rent status
+router.put('/riders/:riderId/cars/:carNumber/on-rent', authenticate, authorize('admin', 'operator'), contractsController.updateOnRentStatusHandler);
 
 // Amendments
 router.get('/amendments/:amendmentId', optionalAuth, contractsController.getAmendment);
 router.post('/amendments/:amendmentId/detect-conflicts', authenticate, contractsController.detectAmendmentConflicts);
+router.post('/amendments', authenticate, authorize('admin', 'operator'), contractsController.createAmendmentHandler);
+router.put('/amendments/:amendmentId', authenticate, authorize('admin', 'operator'), contractsController.updateAmendmentHandler);
+router.post('/amendments/:amendmentId/submit', authenticate, contractsController.submitAmendmentHandler);
+router.post('/amendments/:amendmentId/approve', authenticate, authorize('admin', 'operator'), contractsController.approveAmendmentHandler);
+router.post('/amendments/:amendmentId/reject', authenticate, authorize('admin', 'operator'), contractsController.rejectAmendmentHandler);
+router.post('/amendments/:amendmentId/activate', authenticate, authorize('admin'), contractsController.activateAmendmentHandler);
+router.get('/amendments/:amendmentId/history', optionalAuth, contractsController.getAmendmentStateHistoryHandler);
 
 // Contracts with Amendment Status
 router.get('/contracts/cars-with-amendments', optionalAuth, contractsController.getCarsWithAmendments);
 
 // Car Shopping Validation (checks for outdated terms)
 router.get('/cars/:carNumber/validate-shopping', optionalAuth, contractsController.validateCarForShopping);
+
+// Car On-Rent History
+router.get('/cars/:carNumber/on-rent-history', authenticate, contractsController.getOnRentHistoryHandler);
+
+// ============================================================================
+// ABATEMENT ROUTES
+// ============================================================================
+
+import * as abatementService from '../services/abatement.service';
+
+// Global abatement configuration
+router.get('/billing/abatement/config', authenticate, async (req, res) => {
+  try {
+    const config = await abatementService.getGlobalAbatementConfig();
+    res.json({ success: true, data: config });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get abatement config');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/billing/abatement/config/:typeId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { qualifies } = req.body;
+    const userId = (req as any).user?.id;
+    const result = await abatementService.updateGlobalAbatementConfig(req.params.typeId, qualifies, userId);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to update abatement config');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Per-rider abatement overrides
+router.get('/billing/abatement/riders/:riderId/overrides', authenticate, async (req, res) => {
+  try {
+    const overrides = await abatementService.getRiderAbatementOverrides(req.params.riderId);
+    res.json({ success: true, data: overrides });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get rider abatement overrides');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/billing/abatement/riders/:riderId/overrides', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { shopping_type_id, qualifies } = req.body;
+    const userId = (req as any).user?.id;
+    await abatementService.setRiderAbatementOverride(req.params.riderId, shopping_type_id, qualifies, userId);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to set rider abatement override');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/billing/abatement/riders/:riderId/overrides/:typeId', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    await abatementService.deleteRiderAbatementOverride(req.params.riderId, req.params.typeId);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to delete rider abatement override');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Abatement periods
+router.get('/billing/abatement/periods', authenticate, async (req, res) => {
+  try {
+    const filters = {
+      rider_id: req.query.rider_id as string | undefined,
+      car_number: req.query.car_number as string | undefined,
+      status: req.query.status as string | undefined,
+      period_start: req.query.period_start as string | undefined,
+      period_end: req.query.period_end as string | undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+      offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
+    };
+    const result = await abatementService.listAbatementPeriods(filters);
+    res.json({ success: true, data: result.periods, total: result.total });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to list abatement periods');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/billing/abatement/periods/:id/override', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { start_date, end_date, reason } = req.body;
+    const userId = (req as any).user?.id;
+    const result = await abatementService.overrideAbatementPeriod(req.params.id, start_date, end_date, reason, userId);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to override abatement period');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/billing/abatement/periods', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const result = await abatementService.createManualAbatementPeriod({
+      ...req.body,
+      created_by: userId,
+    });
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to create manual abatement period');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/billing/abatement/periods/:id/void', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const userId = (req as any).user?.id;
+    const result = await abatementService.voidAbatementPeriod(req.params.id, reason, userId);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to void abatement period');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Billing preview (on-rent + abatement breakdown)
+router.get('/billing/preview', authenticate, async (req, res) => {
+  try {
+    const year = parseInt(req.query.year as string, 10);
+    const month = parseInt(req.query.month as string, 10);
+    if (!year || !month) {
+      return res.status(400).json({ success: false, error: 'year and month query params required' });
+    }
+    const preview = await abatementService.generateBillingPreview(year, month);
+    res.json({ success: true, data: preview });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to generate billing preview');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // ============================================================================
 // SHOPPING CLASSIFICATION ROUTES
@@ -3435,6 +3596,62 @@ router.get('/allocations/:id/packet-history', authenticate, async (req, res) => 
 });
 
 // ============================================================================
+// PROJECT TYPES LOOKUP
+// ============================================================================
+
+router.get('/project-types', optionalAuth, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT * FROM project_types WHERE is_active = TRUE ORDER BY sort_order, name`
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    logger.error({ err }, 'Project types error');
+    res.status(500).json({ success: false, error: 'Failed to fetch project types' });
+  }
+});
+
+router.post('/project-types', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { code, name, description, sort_order } = req.body;
+    if (!code || !name) {
+      res.status(400).json({ success: false, error: 'code and name required' });
+      return;
+    }
+    const result = await query(
+      `INSERT INTO project_types (code, name, description, sort_order)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [code, name, description || null, sort_order || 0]
+    );
+    res.status(201).json({ success: true, data: result[0] });
+  } catch (err) {
+    logger.error({ err }, 'Create project type error');
+    res.status(500).json({ success: false, error: 'Failed to create project type' });
+  }
+});
+
+router.put('/project-types/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { name, description, is_active, sort_order } = req.body;
+    const result = await query(
+      `UPDATE project_types SET name = COALESCE($1, name), description = COALESCE($2, description),
+       is_active = COALESCE($3, is_active), sort_order = COALESCE($4, sort_order), updated_at = NOW()
+       WHERE id = $5 RETURNING *`,
+      [name, description, is_active, sort_order, req.params.id]
+    );
+    if (result.length === 0) {
+      res.status(404).json({ success: false, error: 'Project type not found' });
+      return;
+    }
+    res.json({ success: true, data: result[0] });
+  } catch (err) {
+    logger.error({ err }, 'Update project type error');
+    res.status(500).json({ success: false, error: 'Failed to update project type' });
+  }
+});
+
+// ============================================================================
 // PROJECTS (Car Grouping for Coordinated Work)
 // ============================================================================
 
@@ -3445,31 +3662,30 @@ router.get('/allocations/:id/packet-history', authenticate, async (req, res) => 
  */
 router.get('/projects', authenticate, async (req, res) => {
   try {
-    const { status, type, lessee_code, mc_user_id, active_only } = req.query;
+    const { status, type, lessee_code, mc_user_id, ec_user_id, active_only,
+            engineer_id, manager_id, customer_id, project_type_id, project_ids, project_name } = req.query;
 
     let sql = active_only === 'true' ? 'SELECT * FROM v_active_projects WHERE 1=1' : 'SELECT * FROM v_projects WHERE 1=1';
     const params: any[] = [];
     let paramCount = 0;
 
-    if (status) {
-      paramCount++;
-      sql += ` AND status = $${paramCount}`;
-      params.push(status);
-    }
-    if (type) {
-      paramCount++;
-      sql += ` AND project_type = $${paramCount}`;
-      params.push(type);
-    }
-    if (lessee_code) {
-      paramCount++;
-      sql += ` AND lessee_code = $${paramCount}`;
-      params.push(lessee_code);
-    }
-    if (mc_user_id) {
-      paramCount++;
-      sql += ` AND mc_user_id = $${paramCount}`;
-      params.push(mc_user_id);
+    if (status) { paramCount++; sql += ` AND status = $${paramCount}`; params.push(status); }
+    if (type) { paramCount++; sql += ` AND project_type = $${paramCount}`; params.push(type); }
+    if (lessee_code) { paramCount++; sql += ` AND lessee_code = $${paramCount}`; params.push(lessee_code); }
+    if (mc_user_id) { paramCount++; sql += ` AND mc_user_id = $${paramCount}::uuid`; params.push(mc_user_id); }
+    if (ec_user_id) { paramCount++; sql += ` AND ec_user_id = $${paramCount}::uuid`; params.push(ec_user_id); }
+    if (engineer_id) { paramCount++; sql += ` AND engineer_id = $${paramCount}::uuid`; params.push(engineer_id); }
+    if (manager_id) { paramCount++; sql += ` AND manager_id = $${paramCount}::uuid`; params.push(manager_id); }
+    if (customer_id) { paramCount++; sql += ` AND customer_id = $${paramCount}::uuid`; params.push(customer_id); }
+    if (project_type_id) { paramCount++; sql += ` AND project_type_id = $${paramCount}::uuid`; params.push(project_type_id); }
+    if (project_name) { paramCount++; sql += ` AND project_name ILIKE $${paramCount}`; params.push(`%${project_name}%`); }
+    if (project_ids) {
+      const ids = (project_ids as string).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+      if (ids.length > 0) {
+        paramCount++;
+        sql += ` AND fms_project_id = ANY($${paramCount}::int[])`;
+        params.push(ids);
+      }
     }
 
     const result = await query(sql, params);
@@ -3530,7 +3746,7 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
     const {
       project_name, project_type, shopping_reason_id, scope_of_work, special_instructions,
       customer_billable, estimated_total_cost, lessee_code, lessee_name, due_date, priority,
-      mc_user_id, ec_user_id
+      mc_user_id, ec_user_id, engineer_id, manager_id, customer_id, project_type_id, is_specialty
     } = req.body;
 
     if (!project_name || !project_type || !scope_of_work) {
@@ -3557,13 +3773,16 @@ router.post('/projects', authenticate, authorize('admin', 'operator'), async (re
       INSERT INTO projects (
         project_number, project_name, project_type, shopping_reason_id, shopping_reason_code, shopping_reason_name,
         scope_of_work, special_instructions, customer_billable, estimated_total_cost,
-        lessee_code, lessee_name, due_date, priority, mc_user_id, ec_user_id, created_by, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'draft')
+        lessee_code, lessee_name, due_date, priority, mc_user_id, ec_user_id, created_by, status,
+        project_type_id, engineer_id, manager_id, customer_id, is_specialty
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'draft',
+        $18, $19, $20, $21, $22)
       RETURNING id
     `, [
       projectNumber[0].num, project_name, project_type, shopping_reason_id, reasonCode, reasonName,
       scope_of_work, special_instructions, customer_billable || false, estimated_total_cost || 0,
-      lessee_code, lessee_name, due_date, priority || 2, mc_user_id, ec_user_id, userId
+      lessee_code, lessee_name, due_date, priority || 2, mc_user_id, ec_user_id, userId,
+      project_type_id || null, engineer_id || null, manager_id || null, customer_id || null, is_specialty || false
     ]);
 
     const created = await query('SELECT * FROM v_projects WHERE id = $1', [result[0].id]);
@@ -3583,7 +3802,8 @@ router.put('/projects/:id', authenticate, authorize('admin', 'operator'), async 
   try {
     const {
       project_name, scope_of_work, special_instructions, engineer_notes,
-      customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status
+      customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status,
+      engineer_id, manager_id, customer_id, project_type_id, is_specialty
     } = req.body;
 
     await query(`
@@ -3599,9 +3819,14 @@ router.put('/projects/:id', authenticate, authorize('admin', 'operator'), async 
         mc_user_id = COALESCE($9, mc_user_id),
         ec_user_id = COALESCE($10, ec_user_id),
         status = COALESCE($11, status),
+        engineer_id = COALESCE($12, engineer_id),
+        manager_id = COALESCE($13, manager_id),
+        customer_id = COALESCE($14, customer_id),
+        project_type_id = COALESCE($15, project_type_id),
+        is_specialty = COALESCE($16, is_specialty),
         updated_at = NOW()
-      WHERE id = $12
-    `, [project_name, scope_of_work, special_instructions, engineer_notes, customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status, req.params.id]);
+      WHERE id = $17
+    `, [project_name, scope_of_work, special_instructions, engineer_notes, customer_billable, estimated_total_cost, due_date, priority, mc_user_id, ec_user_id, status, engineer_id, manager_id, customer_id, project_type_id, is_specialty, req.params.id]);
 
     const updated = await query('SELECT * FROM v_projects WHERE id = $1', [req.params.id]);
     res.json({ success: true, data: updated[0] });

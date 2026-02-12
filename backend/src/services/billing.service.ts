@@ -360,6 +360,46 @@ export async function runPreflight(
       : `${invoiceCount} rental invoice(s) already exist for this period`,
   });
 
+  // Check 5: All active rider_cars have is_on_rent set (not null)
+  const nullOnRent = await query<{ car_number: string; rider_code: string }>(
+    `SELECT rc.car_number, lr.rider_id AS rider_code
+     FROM rider_cars rc
+     JOIN lease_riders lr ON lr.id = rc.rider_id
+     JOIN master_leases ml ON ml.id = lr.master_lease_id
+     WHERE rc.is_active = TRUE
+       AND lr.status = 'Active'
+       AND ml.status = 'Active'
+       AND rc.is_on_rent IS NULL`
+  );
+
+  checks.push({
+    name: 'on_rent_status_set',
+    passed: nullOnRent.length === 0,
+    message: nullOnRent.length === 0
+      ? 'All active cars have on-rent status set'
+      : `${nullOnRent.length} car(s) missing on-rent status`,
+    details: nullOnRent.length > 0 ? nullOnRent.slice(0, 10) : undefined,
+  });
+
+  // Check 6: No open abatement periods without end_date from prior months
+  const openAbatements = await query<{ car_number: string; start_date: string }>(
+    `SELECT ap.car_number, ap.start_date::text
+     FROM abatement_periods ap
+     WHERE ap.status = 'active'
+       AND ap.end_date IS NULL
+       AND ap.start_date < $1::date`,
+    [periodStart]
+  );
+
+  checks.push({
+    name: 'no_open_prior_abatements',
+    passed: openAbatements.length === 0,
+    message: openAbatements.length === 0
+      ? 'No open abatement periods from prior months'
+      : `${openAbatements.length} abatement period(s) from prior months still open (no end date)`,
+    details: openAbatements.length > 0 ? openAbatements.slice(0, 10) : undefined,
+  });
+
   const passed = checks.every((c) => c.passed);
 
   return { passed, checks };
@@ -400,8 +440,11 @@ export async function generateInvoiceNumber(
 
 /**
  * Generate monthly rental invoices for all active customers.
- * Pro-rates by calendar days for mid-month car adds/removes using
- * rider_cars.added_date and rider_cars.removed_date.
+ * Calculates billable days per car using:
+ *   1. On-rent days (from on_rent_history)
+ *   2. Abatement days (from shop events for qualifying shopping types)
+ *   3. Billable days = max(0, on_rent_days - abatement_days)
+ * Pro-rates by calendar days for mid-month car adds/removes.
  */
 export async function generateMonthlyInvoices(
   fiscalYear: number,
@@ -410,6 +453,11 @@ export async function generateMonthlyInvoices(
 ): Promise<{ invoices: OutboundInvoice[]; totalAmount: number; errors: string[] }> {
   const errors: string[] = [];
   const generatedInvoices: OutboundInvoice[] = [];
+
+  // Lazy-import on-rent and abatement services to avoid circular deps
+  const { getOnRentDays } = await import('./contracts.service');
+  const { computeAbatementPeriods } = await import('./abatement.service');
+  const { createAdjustment } = await import('./billing.service');
 
   // Determine billing period boundaries
   const periodStart = new Date(fiscalYear, fiscalMonth - 1, 1);
@@ -461,7 +509,8 @@ export async function generateMonthlyInvoices(
              lr.rate_per_car,
              rc.car_number,
              rc.added_date,
-             rc.removed_date
+             rc.removed_date,
+             rc.is_on_rent
            FROM lease_riders lr
            JOIN master_leases ml ON ml.id = lr.master_lease_id
            JOIN rider_cars rc ON rc.rider_id = lr.id
@@ -478,34 +527,59 @@ export async function generateMonthlyInvoices(
 
         let lineNumber = 0;
         let rentalTotal = 0;
+        let abatementAdjTotal = 0;
 
         for (const rc of riderCars.rows) {
-          // Calculate pro-rated days
-          const carAddedDate = new Date(rc.added_date);
-          const carRemovedDate = rc.removed_date ? new Date(rc.removed_date) : null;
+          const dailyRate = Number(rc.rate_per_car) / daysInMonth;
 
-          // Billable start: later of period start or car added date
-          const billableStart = carAddedDate > periodStart ? carAddedDate : periodStart;
-          // Billable end: earlier of period end or car removed date
-          const billableEnd = carRemovedDate && carRemovedDate < periodEnd ? carRemovedDate : periodEnd;
+          // 1. Calculate on-rent days (from on_rent_history or fallback to added/removed)
+          let onRentDays: number;
+          try {
+            onRentDays = await getOnRentDays(rc.car_number, rc.rider_id, periodStartStr, periodEndStr);
+          } catch {
+            // Fallback: pro-rate from added/removed dates
+            const carAddedDate = new Date(rc.added_date);
+            const carRemovedDate = rc.removed_date ? new Date(rc.removed_date) : null;
+            const billableStart = carAddedDate > periodStart ? carAddedDate : periodStart;
+            const billableEnd = carRemovedDate && carRemovedDate < periodEnd ? carRemovedDate : periodEnd;
+            onRentDays = Math.max(
+              0,
+              Math.floor((billableEnd.getTime() - billableStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+            );
+          }
 
-          // Calculate billable days (inclusive of both start and end)
-          const billableDays = Math.max(
-            0,
-            Math.floor((billableEnd.getTime() - billableStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-          );
+          if (onRentDays <= 0) continue;
 
-          if (billableDays <= 0) continue;
+          // 2. Calculate abatement days (from qualifying shop events)
+          let abatementDays = 0;
+          try {
+            const { totalAbatementDays } = await computeAbatementPeriods(
+              rc.car_number, rc.rider_id, periodStartStr, periodEndStr
+            );
+            abatementDays = totalAbatementDays;
+          } catch (err) {
+            logger.warn({ carNumber: rc.car_number, err }, 'Abatement computation failed, using 0');
+          }
+
+          // 3. Billable days = on-rent - abatement (floor 0)
+          const billableDays = Math.max(0, onRentDays - abatementDays);
+
+          if (billableDays <= 0 && abatementDays <= 0) continue;
 
           // Pro-rate: (rate / days_in_month) * billable_days
-          const dailyRate = Number(rc.rate_per_car) / daysInMonth;
           const lineTotal = Math.round(dailyRate * billableDays * 100) / 100;
 
           lineNumber++;
-          const isProrated = billableDays < daysInMonth;
-          const description = isProrated
-            ? `Rental - ${rc.car_number} on ${rc.rider_code} (${billableDays}/${daysInMonth} days)`
-            : `Rental - ${rc.car_number} on ${rc.rider_code}`;
+
+          // Build descriptive line item
+          let description: string;
+          if (abatementDays > 0) {
+            description = `Rental - ${rc.car_number} on ${rc.rider_code} (${onRentDays} on-rent - ${abatementDays} abatement = ${billableDays} billable)`;
+          } else if (billableDays < daysInMonth) {
+            description = `Rental - ${rc.car_number} on ${rc.rider_code} (${billableDays}/${daysInMonth} days)`;
+          } else {
+            description = `Rental - ${rc.car_number} on ${rc.rider_code}`;
+          }
 
           await client.query(
             `INSERT INTO outbound_invoice_lines (
@@ -525,6 +599,12 @@ export async function generateMonthlyInvoices(
           );
 
           rentalTotal += lineTotal;
+
+          // If abatement days > 0, create a billing adjustment record for audit
+          if (abatementDays > 0) {
+            const abatementCredit = Math.round(dailyRate * abatementDays * 100) / 100;
+            abatementAdjTotal += abatementCredit;
+          }
         }
 
         // Apply any approved adjustments for this customer

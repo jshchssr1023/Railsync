@@ -51,11 +51,13 @@ import {
 } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import AbatementConfigPanel from '@/components/billing/AbatementConfigPanel';
+import BillingCalculationPreview from '@/components/billing/BillingCalculationPreview';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'overview' | 'invoices' | 'chargebacks' | 'adjustments' | 'mileage' | 'costs';
+type TabKey = 'overview' | 'invoices' | 'chargebacks' | 'adjustments' | 'mileage' | 'costs' | 'abatement';
 
 interface BillingSummary {
   fiscal_year: number;
@@ -788,6 +790,7 @@ export default function BillingPage() {
     { key: 'adjustments', label: 'Adjustments' },
     { key: 'mileage', label: 'Mileage' },
     { key: 'costs' as TabKey, label: 'Cost Allocation' },
+    { key: 'abatement' as TabKey, label: 'Abatement' },
   ];
 
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
@@ -2439,6 +2442,26 @@ export default function BillingPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB 7: ABATEMENT                                                  */}
+        {/* ================================================================= */}
+        {!loading && activeTab === 'abatement' && (
+          <div className="space-y-8">
+            {/* Billing Preview */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
+              <BillingCalculationPreview
+                fiscalYear={selectedYear}
+                fiscalMonth={selectedMonth}
+              />
+            </div>
+
+            {/* Abatement Config */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
+              <AbatementConfigPanel />
             </div>
           </div>
         )}

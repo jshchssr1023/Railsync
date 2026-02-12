@@ -5,13 +5,16 @@ import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import {
   Search, ChevronLeft, ChevronRight, Car, Wrench, CheckCircle, AlertCircle,
-  Building2, FileText, ArrowLeft, Bell, AlertTriangle, RefreshCw, X, Filter, Loader2
+  Building2, FileText, ArrowLeft, Bell, AlertTriangle, RefreshCw, X, Filter, Loader2, Plus
 } from 'lucide-react';
 import CustomerCard from '@/components/contracts/CustomerCard';
 import LeaseCard from '@/components/contracts/LeaseCard';
 import RiderCard from '@/components/contracts/RiderCard';
 import CarCard from '@/components/contracts/CarCard';
 import AmendmentModal from '@/components/contracts/AmendmentModal';
+import CreateLeaseModal from '@/components/contracts/CreateLeaseModal';
+import CreateRiderModal from '@/components/contracts/CreateRiderModal';
+import CreateAmendmentModal from '@/components/contracts/CreateAmendmentModal';
 import ContractsHealthDashboard from '@/components/ContractsHealthDashboard';
 import FacetedSidebar, { FilterState } from '@/components/FacetedSidebar';
 import { useAuth } from '@/context/AuthContext';
@@ -154,6 +157,10 @@ function ContractsPage() {
   // Modal state
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
+  const [showCreateLeaseModal, setShowCreateLeaseModal] = useState(false);
+  const [showCreateRiderModal, setShowCreateRiderModal] = useState(false);
+  const [showCreateAmendmentModal, setShowCreateAmendmentModal] = useState(false);
+  const [amendmentTargetRider, setAmendmentTargetRider] = useState<LeaseRider | null>(null);
 
   // Shop validation state
   const [showShopConfirmModal, setShowShopConfirmModal] = useState(false);
@@ -185,13 +192,13 @@ function ContractsPage() {
   );
 
   // Fetch leases for selected customer
-  const { data: leases, isLoading: leasesLoading } = useSWR<MasterLease[]>(
+  const { data: leases, isLoading: leasesLoading, mutate: mutateLeases } = useSWR<MasterLease[]>(
     level === 'leases' && selectedCustomer ? `${API_URL}/customers/${selectedCustomer.id}/leases` : null,
     fetcher
   );
 
   // Fetch riders for selected lease
-  const { data: riders, isLoading: ridersLoading } = useSWR<LeaseRider[]>(
+  const { data: riders, isLoading: ridersLoading, mutate: mutateRiders } = useSWR<LeaseRider[]>(
     level === 'riders' && selectedLease ? `${API_URL}/leases/${selectedLease.id}/riders` : null,
     fetcher
   );
@@ -203,7 +210,7 @@ function ContractsPage() {
   );
 
   // Fetch amendments for selected rider
-  const { data: amendments } = useSWR<Amendment[]>(
+  const { data: amendments, mutate: mutateAmendments } = useSWR<Amendment[]>(
     selectedRider ? `${API_URL}/riders/${selectedRider.id}/amendments` : null,
     fetcher
   );
@@ -246,12 +253,17 @@ function ContractsPage() {
   };
 
   const handleAmendmentClick = async (rider: LeaseRider) => {
-    // Get the first pending amendment
-    const pendingAmendment = amendments?.find(a => a.status === 'Pending');
+    // Get the first pending/draft amendment
+    const pendingAmendment = amendments?.find(a => a.status === 'Pending' || a.status === 'Draft' || a.status === 'Approved');
     if (pendingAmendment) {
       setSelectedAmendment(pendingAmendment);
       setShowAmendmentModal(true);
     }
+  };
+
+  const handleNewAmendment = (rider: LeaseRider) => {
+    setAmendmentTargetRider(rider);
+    setShowCreateAmendmentModal(true);
   };
 
   const handleResync = async (riderId: string) => {
@@ -554,6 +566,24 @@ function ContractsPage() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
+            {level === 'leases' && selectedCustomer && (
+              <button
+                onClick={() => setShowCreateLeaseModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                New Lease
+              </button>
+            )}
+            {level === 'riders' && selectedLease && (
+              <button
+                onClick={() => setShowCreateRiderModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                New Rider
+              </button>
+            )}
             {level === 'cars' && (
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
@@ -628,6 +658,7 @@ function ContractsPage() {
                       rider={rider}
                       onClick={handleRiderClick}
                       onAmendmentClick={handleAmendmentClick}
+                      onNewAmendment={handleNewAmendment}
                     />
                   ))}
                   {filteredRiders.length === 0 && (
@@ -748,6 +779,10 @@ function ContractsPage() {
             setSelectedAmendment(null);
           }}
           onResync={handleResync}
+          onStatusChange={() => {
+            mutateAmendments();
+            mutateRiders();
+          }}
         />
       )}
 
@@ -845,6 +880,47 @@ function ContractsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Lease Modal */}
+      {showCreateLeaseModal && selectedCustomer && (
+        <CreateLeaseModal
+          customer={selectedCustomer}
+          onClose={() => setShowCreateLeaseModal(false)}
+          onCreated={() => {
+            setShowCreateLeaseModal(false);
+            mutateLeases();
+          }}
+        />
+      )}
+
+      {/* Create Rider Modal */}
+      {showCreateRiderModal && selectedLease && (
+        <CreateRiderModal
+          lease={selectedLease}
+          onClose={() => setShowCreateRiderModal(false)}
+          onCreated={() => {
+            setShowCreateRiderModal(false);
+            mutateRiders();
+          }}
+        />
+      )}
+
+      {/* Create Amendment Modal */}
+      {showCreateAmendmentModal && amendmentTargetRider && (
+        <CreateAmendmentModal
+          rider={amendmentTargetRider}
+          onClose={() => {
+            setShowCreateAmendmentModal(false);
+            setAmendmentTargetRider(null);
+          }}
+          onCreated={() => {
+            setShowCreateAmendmentModal(false);
+            setAmendmentTargetRider(null);
+            mutateAmendments();
+            mutateRiders();
+          }}
+        />
       )}
     </>
   );

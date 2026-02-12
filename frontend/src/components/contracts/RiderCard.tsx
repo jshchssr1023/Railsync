@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Car, Calendar, ChevronRight, AlertTriangle, Bell } from 'lucide-react';
+import { FileText, Car, Calendar, ChevronRight, AlertTriangle, Bell, Plus } from 'lucide-react';
 
 interface LeaseRider {
   id: string;
@@ -22,10 +22,11 @@ interface RiderCardProps {
   rider: LeaseRider;
   onClick: (rider: LeaseRider) => void;
   onAmendmentClick?: (rider: LeaseRider) => void;
+  onNewAmendment?: (rider: LeaseRider) => void;
   isSelected?: boolean;
 }
 
-export default function RiderCard({ rider, onClick, onAmendmentClick, isSelected }: RiderCardProps) {
+export default function RiderCard({ rider, onClick, onAmendmentClick, onNewAmendment, isSelected }: RiderCardProps) {
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -130,6 +131,20 @@ export default function RiderCard({ rider, onClick, onAmendmentClick, isSelected
           <p className="text-xs text-gray-500 dark:text-gray-400">Amendments</p>
         </div>
       </div>
+
+      {/* New Amendment button */}
+      {onNewAmendment && rider.status === 'Active' && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNewAmendment(rider);
+          }}
+          className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Amendment
+        </button>
+      )}
     </div>
   );
 }

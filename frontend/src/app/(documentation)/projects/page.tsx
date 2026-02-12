@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2, ChevronDown, ChevronUp, Download, Filter, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -21,6 +21,10 @@ import type {
   CommunicationType,
   CommunicationMethod,
 } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface Project {
   id: string;
@@ -45,6 +49,24 @@ interface Project {
   completed_cars: string;
   deadline_status: string;
   created_at: string;
+  // FMS alignment fields
+  fms_project_id: number;
+  project_type_name: string;
+  engineer_name: string | null;
+  manager_name: string | null;
+  customer_name: string | null;
+  is_specialty: boolean;
+  active_cars: string;
+  done_cars: string;
+  other_cars: string;
+  inactive_cars: string;
+  // FK IDs for filtering
+  engineer_id: string | null;
+  manager_id: string | null;
+  mc_user_id: string | null;
+  ec_user_id: string | null;
+  customer_id: string | null;
+  project_type_id: string | null;
 }
 
 interface ProjectCar {
@@ -64,6 +86,33 @@ interface ProjectSummary {
   by_type: { project_type: string; total: string; active: string; in_progress: string; completed: string; overdue: string }[];
   by_mc: { mc_name: string; total_projects: string; active: string; in_progress: string; total_cars: string }[];
 }
+
+interface ProjectType {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface Customer {
+  id: string;
+  customer_name: string;
+  customer_code: string;
+}
+
+interface UserOption {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  display_name: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -93,6 +142,35 @@ const DEADLINE_COLORS: Record<string, string> = {
   'No Deadline': 'text-gray-500 dark:text-gray-400',
 };
 
+const STATUS_OPTIONS = [
+  { value: '', label: 'All Statuses' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'active', label: 'Active' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'pending_review', label: 'Pending Review' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+const DEFAULT_PAGE_SIZE = 15;
+
+type SortField = 'fms_project_id' | 'project_type_name' | 'status' | 'customer_name' | 'engineer_name' | 'is_specialty' | 'manager_name' | 'ec_name' | 'mc_name' | 'total_cars' | 'active_cars' | 'done_cars' | 'other_cars' | 'inactive_cars';
+type SortDir = 'asc' | 'desc';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function numVal(v: string | number | null | undefined): number {
+  if (v == null) return 0;
+  const n = typeof v === 'string' ? parseInt(v, 10) : v;
+  return isNaN(n) ? 0 : n;
+}
+
+// ---------------------------------------------------------------------------
+// Root page (Suspense wrapper)
+// ---------------------------------------------------------------------------
+
 export default function ProjectsPage() {
   return (
     <Suspense fallback={
@@ -105,10 +183,18 @@ export default function ProjectsPage() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main content
+// ---------------------------------------------------------------------------
+
 function ProjectsContent() {
   const { getAccessToken } = useAuth();
   const toast = useToast();
   const searchParams = useSearchParams();
+
+  // -----------------------------------------------------------------------
+  // Core state
+  // -----------------------------------------------------------------------
   const [projects, setProjects] = useState<Project[]>([]);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,18 +248,98 @@ function ProjectsContent() {
   const [showCreateDemandDialog, setShowCreateDemandDialog] = useState(false);
   const [createDemandLoading, setCreateDemandLoading] = useState(false);
 
-  // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
+  // -----------------------------------------------------------------------
+  // PreFilter panel state
+  // -----------------------------------------------------------------------
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [filterProjectName, setFilterProjectName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterProjectTypeId, setFilterProjectTypeId] = useState('');
+  const [filterCustomerId, setFilterCustomerId] = useState('');
+  const [filterManagerId, setFilterManagerId] = useState('');
+  const [filterEcId, setFilterEcId] = useState('');
+  const [filterMcId, setFilterMcId] = useState('');
+  const [filterEngineerId, setFilterEngineerId] = useState('');
+  const [filterProjectIds, setFilterProjectIds] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
 
+  // Filter options (fetched on mount)
+  const [projectTypeOptions, setProjectTypeOptions] = useState<ProjectType[]>([]);
+  const [customerOptions, setCustomerOptions] = useState<Customer[]>([]);
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>('fms_project_id');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [showAll, setShowAll] = useState(false);
+
+  // Track whether initial filter data has been loaded
+  const filterDataLoaded = useRef(false);
+
+  // -----------------------------------------------------------------------
+  // Fetch filter option lists on mount
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (filterDataLoaded.current) return;
+    filterDataLoaded.current = true;
+
+    const token = getAccessToken();
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    // Project types
+    fetch(`${API_URL}/project-types`, { headers })
+      .then(r => r.json())
+      .then(d => { if (d.success) setProjectTypeOptions(d.data); })
+      .catch(() => {});
+
+    // Customers
+    fetch(`${API_URL}/customers`, { headers })
+      .then(r => r.json())
+      .then(d => { if (d.success) setCustomerOptions(d.data); })
+      .catch(() => {});
+
+    // Users (admin endpoint)
+    fetch(`${API_URL}/admin/users?is_active=true`, { headers })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.data)) {
+          setUserOptions(d.data.map((u: any) => ({
+            id: u.id,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            email: u.email,
+            display_name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, [getAccessToken]);
+
+  // -----------------------------------------------------------------------
+  // Data fetching
+  // -----------------------------------------------------------------------
   const fetchProjects = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (filterType) params.append('type', filterType);
       if (filterStatus) params.append('status', filterStatus);
       if (activeOnly) params.append('active_only', 'true');
+      if (filterProjectTypeId) params.append('project_type_id', filterProjectTypeId);
+      if (filterCustomerId) params.append('customer_id', filterCustomerId);
+      if (filterManagerId) params.append('manager_id', filterManagerId);
+      if (filterEcId) params.append('ec_user_id', filterEcId);
+      if (filterMcId) params.append('mc_user_id', filterMcId);
+      if (filterEngineerId) params.append('engineer_id', filterEngineerId);
+      if (filterProjectName.trim()) params.append('project_name', filterProjectName.trim());
+
+      // Parse comma/line-separated FMS project IDs
+      if (filterProjectIds.trim()) {
+        const ids = filterProjectIds.split(/[\n,]/).map(s => s.trim()).filter(s => s && !isNaN(Number(s)));
+        if (ids.length > 0) params.append('project_ids', ids.join(','));
+      }
 
       const token = getAccessToken();
       const res = await fetch(`${API_URL}/projects?${params}`, {
@@ -184,7 +350,7 @@ function ProjectsContent() {
     } catch (err) {
       console.error('Failed to fetch projects:', err);
     }
-  }, [getAccessToken, filterType, filterStatus, activeOnly]);
+  }, [getAccessToken, filterStatus, activeOnly, filterProjectTypeId, filterCustomerId, filterManagerId, filterEcId, filterMcId, filterEngineerId, filterProjectName, filterProjectIds]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -224,6 +390,11 @@ function ProjectsContent() {
     load();
   }, [fetchProjects, fetchSummary]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, activeOnly, filterProjectTypeId, filterCustomerId, filterManagerId, filterEcId, filterMcId, filterEngineerId, filterProjectName, filterProjectIds]);
+
   // Handle URL params (from "Plan to Project" link on Planning page)
   useEffect(() => {
     const projectParam = searchParams.get('project');
@@ -240,6 +411,110 @@ function ProjectsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, projects, selectedProject]);
 
+  // -----------------------------------------------------------------------
+  // Sorting & Pagination
+  // -----------------------------------------------------------------------
+  const sortedProjects = useMemo(() => {
+    const list = [...projects];
+    list.sort((a, b) => {
+      let aVal: string | number | boolean = '';
+      let bVal: string | number | boolean = '';
+
+      switch (sortField) {
+        case 'fms_project_id': aVal = numVal(a.fms_project_id); bVal = numVal(b.fms_project_id); break;
+        case 'project_type_name': aVal = (a.project_type_name || a.project_type || '').toLowerCase(); bVal = (b.project_type_name || b.project_type || '').toLowerCase(); break;
+        case 'status': aVal = a.status.toLowerCase(); bVal = b.status.toLowerCase(); break;
+        case 'customer_name': aVal = (a.customer_name || a.lessee_name || '').toLowerCase(); bVal = (b.customer_name || b.lessee_name || '').toLowerCase(); break;
+        case 'engineer_name': aVal = (a.engineer_name || '').toLowerCase(); bVal = (b.engineer_name || '').toLowerCase(); break;
+        case 'is_specialty': aVal = a.is_specialty ? 1 : 0; bVal = b.is_specialty ? 1 : 0; break;
+        case 'manager_name': aVal = (a.manager_name || '').toLowerCase(); bVal = (b.manager_name || '').toLowerCase(); break;
+        case 'ec_name': aVal = (a.ec_name || '').toLowerCase(); bVal = (b.ec_name || '').toLowerCase(); break;
+        case 'mc_name': aVal = (a.mc_name || '').toLowerCase(); bVal = (b.mc_name || '').toLowerCase(); break;
+        case 'total_cars': aVal = numVal(a.total_cars); bVal = numVal(b.total_cars); break;
+        case 'active_cars': aVal = numVal(a.active_cars); bVal = numVal(b.active_cars); break;
+        case 'done_cars': aVal = numVal(a.done_cars); bVal = numVal(b.done_cars); break;
+        case 'other_cars': aVal = numVal(a.other_cars); bVal = numVal(b.other_cars); break;
+        case 'inactive_cars': aVal = numVal(a.inactive_cars); bVal = numVal(b.inactive_cars); break;
+      }
+
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [projects, sortField, sortDir]);
+
+  const totalPages = showAll ? 1 : Math.max(1, Math.ceil(sortedProjects.length / pageSize));
+  const paginatedProjects = showAll ? sortedProjects : sortedProjects.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // -----------------------------------------------------------------------
+  // Totals row
+  // -----------------------------------------------------------------------
+  const totals = useMemo(() => {
+    return {
+      count: sortedProjects.reduce((s, p) => s + numVal(p.total_cars), 0),
+      active: sortedProjects.reduce((s, p) => s + numVal(p.active_cars), 0),
+      done: sortedProjects.reduce((s, p) => s + numVal(p.done_cars), 0),
+      other: sortedProjects.reduce((s, p) => s + numVal(p.other_cars), 0),
+      inactive: sortedProjects.reduce((s, p) => s + numVal(p.inactive_cars), 0),
+    };
+  }, [sortedProjects]);
+
+  // -----------------------------------------------------------------------
+  // Column sort handler
+  // -----------------------------------------------------------------------
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-30 inline ml-0.5" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="w-3 h-3 inline ml-0.5 text-primary-500" />
+      : <ChevronDown className="w-3 h-3 inline ml-0.5 text-primary-500" />;
+  };
+
+  // -----------------------------------------------------------------------
+  // CSV Export
+  // -----------------------------------------------------------------------
+  const handleExport = () => {
+    const headers = ['FMS ID', 'Project #', 'Project Name', 'Type', 'Status', 'Lessee', 'Engineer', 'Specialty', 'Manager', 'EC', 'MC', 'Count', 'Active', 'Done', 'Other', 'Inactive'];
+    const rows = sortedProjects.map(p => [
+      p.fms_project_id ?? '',
+      p.project_number,
+      `"${(p.project_name || '').replace(/"/g, '""')}"`,
+      p.project_type_name || p.project_type || '',
+      p.status,
+      p.customer_name || p.lessee_name || '',
+      p.engineer_name || '',
+      p.is_specialty ? 'Yes' : 'No',
+      p.manager_name || '',
+      p.ec_name || '',
+      p.mc_name || '',
+      numVal(p.total_cars),
+      numVal(p.active_cars),
+      numVal(p.done_cars),
+      numVal(p.other_cars),
+      numVal(p.inactive_cars),
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `projects_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // -----------------------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------------------
   const getTypeColor = (type: string) => {
     return PROJECT_TYPES.find(t => t.value === type)?.color || PROJECT_TYPES[5].color;
   };
@@ -249,21 +524,9 @@ function ProjectsContent() {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  // Client-side filtering for search
-  const filteredProjects = useMemo(() => {
-    if (!searchTerm.trim()) return projects;
-    const term = searchTerm.toLowerCase();
-    return projects.filter(p =>
-      p.project_number.toLowerCase().includes(term) ||
-      p.project_name.toLowerCase().includes(term) ||
-      (p.lessee_name && p.lessee_name.toLowerCase().includes(term)) ||
-      (p.lessee_code && p.lessee_code.toLowerCase().includes(term)) ||
-      (p.mc_name && p.mc_name.toLowerCase().includes(term)) ||
-      (p.ec_name && p.ec_name.toLowerCase().includes(term))
-    );
-  }, [projects, searchTerm]);
-
-  // Create Project Form
+  // -----------------------------------------------------------------------
+  // Create Project
+  // -----------------------------------------------------------------------
   const [newProject, setNewProject] = useState({
     project_name: '',
     project_type: 'qualification',
@@ -307,7 +570,9 @@ function ProjectsContent() {
     }
   };
 
+  // -----------------------------------------------------------------------
   // Add Cars
+  // -----------------------------------------------------------------------
   const [carNumbersInput, setCarNumbersInput] = useState('');
 
   const handleAddCars = async () => {
@@ -392,7 +657,9 @@ function ProjectsContent() {
     }
   };
 
+  // -----------------------------------------------------------------------
   // Plan data fetching
+  // -----------------------------------------------------------------------
   const fetchPlanSummary = useCallback(async (projectId: string) => {
     setPlanLoading(true);
     try {
@@ -654,10 +921,28 @@ function ProjectsContent() {
     return planSummary.assignments.filter(a => lockTargetIds.includes(a.id) && a.plan_state === 'Planned');
   }, [planSummary, lockTargetIds]);
 
+  // Has any active filters
+  const hasActiveFilters = !!(filterProjectName || filterStatus || filterProjectTypeId || filterCustomerId || filterManagerId || filterEcId || filterMcId || filterEngineerId || filterProjectIds);
+
+  const clearAllFilters = () => {
+    setFilterProjectName('');
+    setFilterStatus('');
+    setFilterProjectTypeId('');
+    setFilterCustomerId('');
+    setFilterManagerId('');
+    setFilterEcId('');
+    setFilterMcId('');
+    setFilterEngineerId('');
+    setFilterProjectIds('');
+  };
+
+  // -----------------------------------------------------------------------
+  // Loading state
+  // -----------------------------------------------------------------------
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
             <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -667,9 +952,33 @@ function ProjectsContent() {
     );
   }
 
+  // -----------------------------------------------------------------------
+  // Reusable filter select component
+  // -----------------------------------------------------------------------
+  const FilterSelect = ({ label, value, onChange, options }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    options: { value: string; label: string }[];
+  }) => (
+    <div className="min-w-[140px]">
+      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100"
+      >
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+
+  // -----------------------------------------------------------------------
+  // RENDER
+  // -----------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 lg:p-6">
+      <div className="max-w-[1600px] mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -678,12 +987,22 @@ function ProjectsContent() {
               Group cars for coordinated work - assignments, releases, qualifications
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            + New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={sortedProjects.length === 0}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              + New Project
+            </button>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -703,138 +1022,375 @@ function ProjectsContent() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[200px] max-w-md">
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search project name, number, lessee..."
-                className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded"
-                >
-                  <X className="w-3 h-3 text-gray-400" aria-hidden="true" />
-                </button>
+        {/* ================================================================= */}
+        {/* PreFilter Panel                                                    */}
+        {/* ================================================================= */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          {/* Collapse header */}
+          <button
+            onClick={() => setFiltersExpanded(e => !e)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-t-lg"
+          >
+            <span className="flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="px-1.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 text-xs font-semibold">
+                  Active
+                </span>
+              )}
+            </span>
+            {filtersExpanded
+              ? <ChevronUp className="w-4 h-4" />
+              : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {filtersExpanded && (
+            <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-700">
+              {/* Row 1 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 pt-3">
+                {/* Project Name */}
+                <div className="min-w-[140px] lg:col-span-2">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Project Name</label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={filterProjectName}
+                      onChange={e => setFilterProjectName(e.target.value)}
+                      placeholder="Search project name, number, lessee..."
+                      className="w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                    {filterProjectName && (
+                      <button onClick={() => setFilterProjectName('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded">
+                        <X className="w-3 h-3 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <FilterSelect
+                  label="Status"
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  options={STATUS_OPTIONS}
+                />
+
+                {/* Type (from API) */}
+                <FilterSelect
+                  label="Type"
+                  value={filterProjectTypeId}
+                  onChange={setFilterProjectTypeId}
+                  options={[
+                    { value: '', label: 'All Types' },
+                    ...projectTypeOptions.map(pt => ({ value: pt.id, label: pt.name })),
+                  ]}
+                />
+
+                {/* Lessee (from API) */}
+                <FilterSelect
+                  label="Lessee"
+                  value={filterCustomerId}
+                  onChange={setFilterCustomerId}
+                  options={[
+                    { value: '', label: 'All Lessees' },
+                    ...customerOptions.map(c => ({ value: c.id, label: c.customer_name })),
+                  ]}
+                />
+
+                {/* Manager */}
+                <FilterSelect
+                  label="Manager"
+                  value={filterManagerId}
+                  onChange={setFilterManagerId}
+                  options={[
+                    { value: '', label: 'All' },
+                    ...userOptions.map(u => ({ value: u.id, label: u.display_name })),
+                  ]}
+                />
+
+                {/* EC */}
+                <FilterSelect
+                  label="EC"
+                  value={filterEcId}
+                  onChange={setFilterEcId}
+                  options={[
+                    { value: '', label: 'All' },
+                    ...userOptions.map(u => ({ value: u.id, label: u.display_name })),
+                  ]}
+                />
+
+                {/* MC */}
+                <FilterSelect
+                  label="MC"
+                  value={filterMcId}
+                  onChange={setFilterMcId}
+                  options={[
+                    { value: '', label: 'All' },
+                    ...userOptions.map(u => ({ value: u.id, label: u.display_name })),
+                  ]}
+                />
+              </div>
+
+              {/* Row 2 */}
+              <div className="flex flex-wrap items-end gap-3">
+                {/* Engineer */}
+                <FilterSelect
+                  label="Eng"
+                  value={filterEngineerId}
+                  onChange={setFilterEngineerId}
+                  options={[
+                    { value: '', label: 'All' },
+                    ...userOptions.map(u => ({ value: u.id, label: u.display_name })),
+                  ]}
+                />
+
+                {/* Project IDs (textarea) */}
+                <div className="min-w-[200px]">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Project Id (FMS)</label>
+                  <textarea
+                    value={filterProjectIds}
+                    onChange={e => setFilterProjectIds(e.target.value)}
+                    placeholder="Comma or line-separated IDs"
+                    rows={1}
+                    className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 resize-none"
+                  />
+                </div>
+
+                {/* Active Only */}
+                <div className="flex items-center gap-2 pb-0.5">
+                  <input
+                    type="checkbox"
+                    id="activeOnly"
+                    checked={activeOnly}
+                    onChange={e => setActiveOnly(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="activeOnly" className="text-sm text-gray-700 dark:text-gray-300">
+                    Active Only
+                  </label>
+                </div>
+
+                {/* Clear filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="text-xs text-primary-600 dark:text-primary-400 hover:underline pb-1"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+
+                {/* Count */}
+                <div className="ml-auto text-sm text-gray-500 dark:text-gray-400 pb-1">
+                  {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ================================================================= */}
+        {/* Projects Grid                                                      */}
+        {/* ================================================================= */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-700/80">
+                <tr>
+                  {([
+                    { field: 'fms_project_id' as SortField, label: 'Project', className: 'min-w-[180px]' },
+                    { field: 'project_type_name' as SortField, label: 'Type', className: 'min-w-[100px]' },
+                    { field: 'status' as SortField, label: 'Status', className: 'min-w-[90px]' },
+                    { field: 'customer_name' as SortField, label: 'Lessee', className: 'min-w-[120px]' },
+                    { field: 'engineer_name' as SortField, label: 'Eng', className: 'min-w-[90px]' },
+                    { field: 'is_specialty' as SortField, label: 'Specialty', className: 'min-w-[70px] text-center' },
+                    { field: 'manager_name' as SortField, label: 'Manager', className: 'min-w-[90px]' },
+                    { field: 'ec_name' as SortField, label: 'EC', className: 'min-w-[80px]' },
+                    { field: 'mc_name' as SortField, label: 'MC', className: 'min-w-[80px]' },
+                    { field: 'total_cars' as SortField, label: 'Count', className: 'min-w-[55px] text-right' },
+                    { field: 'active_cars' as SortField, label: 'Active', className: 'min-w-[55px] text-right' },
+                    { field: 'done_cars' as SortField, label: 'Done', className: 'min-w-[55px] text-right' },
+                    { field: 'other_cars' as SortField, label: 'Other', className: 'min-w-[55px] text-right' },
+                    { field: 'inactive_cars' as SortField, label: 'Inactive', className: 'min-w-[60px] text-right' },
+                  ]).map(col => (
+                    <th
+                      key={col.field}
+                      onClick={() => handleSort(col.field)}
+                      className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 ${col.className}`}
+                    >
+                      {col.label}
+                      <SortIcon field={col.field} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {paginatedProjects.map(project => (
+                  <tr
+                    key={project.id}
+                    onClick={() => fetchProjectDetails(project.id)}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                  >
+                    {/* Project (stacked: fms_project_id on top, name below) */}
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900 dark:text-gray-100 text-xs tabular-nums">
+                        {project.fms_project_id ?? project.project_number}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={project.project_name}>
+                        {project.project_name}
+                      </div>
+                    </td>
+                    {/* Type */}
+                    <td className="px-3 py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getTypeColor(project.project_type)}`}>
+                        {project.project_type_name || project.project_type}
+                      </span>
+                    </td>
+                    {/* Status */}
+                    <td className="px-3 py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[project.status] || ''}`}>
+                        {project.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    {/* Lessee */}
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]" title={project.customer_name || project.lessee_name || ''}>
+                      {project.customer_name || project.lessee_name || '-'}
+                    </td>
+                    {/* Eng */}
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
+                      {project.engineer_name || '-'}
+                    </td>
+                    {/* Specialty */}
+                    <td className="px-3 py-2 text-center">
+                      {project.is_specialty ? (
+                        <Check className="w-4 h-4 text-green-600 dark:text-green-400 inline" />
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">-</span>
+                      )}
+                    </td>
+                    {/* Manager */}
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
+                      {project.manager_name || '-'}
+                    </td>
+                    {/* EC */}
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
+                      {project.ec_name || '-'}
+                    </td>
+                    {/* MC */}
+                    <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
+                      {project.mc_name || '-'}
+                    </td>
+                    {/* Count */}
+                    <td className="px-3 py-2 text-xs text-right font-medium text-gray-900 dark:text-gray-100 tabular-nums">
+                      {numVal(project.total_cars)}
+                    </td>
+                    {/* Active */}
+                    <td className="px-3 py-2 text-xs text-right tabular-nums text-blue-700 dark:text-blue-400">
+                      {numVal(project.active_cars)}
+                    </td>
+                    {/* Done */}
+                    <td className="px-3 py-2 text-xs text-right tabular-nums text-green-700 dark:text-green-400">
+                      {numVal(project.done_cars)}
+                    </td>
+                    {/* Other */}
+                    <td className="px-3 py-2 text-xs text-right tabular-nums text-gray-600 dark:text-gray-400">
+                      {numVal(project.other_cars)}
+                    </td>
+                    {/* Inactive */}
+                    <td className="px-3 py-2 text-xs text-right tabular-nums text-gray-500 dark:text-gray-500">
+                      {numVal(project.inactive_cars)}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Empty state */}
+                {sortedProjects.length === 0 && (
+                  <tr>
+                    <td colSpan={14} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      {hasActiveFilters ? 'No projects match your filters' : 'No projects found'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+
+              {/* Totals row */}
+              {sortedProjects.length > 0 && (
+                <tfoot>
+                  <tr className="bg-gray-50 dark:bg-gray-700/60 border-t-2 border-gray-300 dark:border-gray-600">
+                    <td colSpan={9} className="px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 text-right">
+                      Totals ({sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''})
+                    </td>
+                    <td className="px-3 py-2 text-xs text-right font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                      {totals.count}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-right font-bold tabular-nums text-blue-700 dark:text-blue-400">
+                      {totals.active}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-right font-bold tabular-nums text-green-700 dark:text-green-400">
+                      {totals.done}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-right font-bold tabular-nums text-gray-600 dark:text-gray-400">
+                      {totals.other}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-right font-bold tabular-nums text-gray-500 dark:text-gray-500">
+                      {totals.inactive}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {sortedProjects.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm">
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <span>
+                  {showAll
+                    ? `Showing all ${sortedProjects.length}`
+                    : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, sortedProjects.length)} of ${sortedProjects.length}`}
+                </span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showAll}
+                    onChange={e => { setShowAll(e.target.checked); setCurrentPage(1); }}
+                    className="rounded"
+                  />
+                  <span className="text-xs">Show All</span>
+                </label>
+              </div>
+
+              {!showAll && totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 text-xs"
+                  >
+                    Prev
+                  </button>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 text-xs"
+                  >
+                    Next
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
-            <select
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value="">All Types</option>
-              {PROJECT_TYPES.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Status</label>
-            <select
-              value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value="">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="activeOnly"
-              checked={activeOnly}
-              onChange={e => setActiveOnly(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="activeOnly" className="text-sm text-gray-700 dark:text-gray-300">
-              Active Only
-            </label>
-          </div>
-          <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-            {filteredProjects.length} of {projects.length} projects
-          </div>
+          )}
         </div>
 
-        {/* Projects Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Project</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lessee</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cars</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredProjects.map(project => (
-                <tr
-                  key={project.id}
-                  onClick={() => fetchProjectDetails(project.id)}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-gray-100">{project.project_number}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{project.project_name}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getTypeColor(project.project_type)}`}>
-                      {project.project_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                    {project.lessee_name || '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{project.total_cars}</span>
-                      <span className="text-gray-500 dark:text-gray-400 text-xs ml-1">
-                        ({project.completed_cars} done)
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className={`text-sm ${DEADLINE_COLORS[project.deadline_status] || ''}`}>
-                      {formatDate(project.due_date)}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{project.deadline_status}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_COLORS[project.status] || ''}`}>
-                      {project.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {filteredProjects.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                    {searchTerm ? 'No projects match your search' : 'No projects found'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Project Detail Slide-over */}
+        {/* ================================================================= */}
+        {/* Project Detail Slide-over                                          */}
+        {/* ================================================================= */}
         {selectedProject && (
           <div className="fixed inset-0 z-50 overflow-hidden">
             <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedProject(null)} />
