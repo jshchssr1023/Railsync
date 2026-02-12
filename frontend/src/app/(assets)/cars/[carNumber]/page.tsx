@@ -8,6 +8,7 @@ import {
   ClipboardList, ArrowLeftRight, Undo2, Trash2, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { DISPOSITION_CONFIG, STATUS_GROUP_CONFIG } from '@/lib/statusConfig';
 import CarTypeIcon from '@/components/cars/CarTypeIcon';
 import { QualBadge, StatusBadge } from '@/components/cars/CarBadges';
 import CarDetailOverviewTab from '@/components/cars/CarDetailOverviewTab';
@@ -33,15 +34,7 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   return json;
 }
 
-// ---------------------------------------------------------------------------
-// Status group config (shared with CarDrawer)
-// ---------------------------------------------------------------------------
-const STATUS_GROUP_CONFIG: Record<string, { label: string; color: string; icon: typeof Wrench }> = {
-  in_shop: { label: 'In Shop', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: Wrench },
-  idle_storage: { label: 'Idle / Storage', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', icon: Package },
-  ready_to_load: { label: 'Ready to Load', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle },
-  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', icon: ClipboardList },
-};
+// Status configs imported from @/lib/statusConfig
 
 // ---------------------------------------------------------------------------
 // Types
@@ -142,8 +135,13 @@ function CarDetailPage() {
     );
   }
 
-  const statusGroup = car.operational_status_group;
-  const groupConfig = statusGroup ? STATUS_GROUP_CONFIG[statusGroup] : null;
+  const dispo = car.operational_disposition;
+  const dispoConfig = dispo ? DISPOSITION_CONFIG[dispo] : null;
+  const legacyGroup = car.operational_status_group;
+  const legacyConfig = legacyGroup ? STATUS_GROUP_CONFIG[legacyGroup] : null;
+  const groupConfig = dispoConfig || legacyConfig;
+  // Derive statusGroup for action bar compatibility
+  const statusGroup = legacyGroup || (dispo === 'IN_SHOP' ? 'in_shop' : dispo === 'IDLE' ? 'idle_storage' : dispo === 'SCRAP_WORKFLOW' ? 'pending' : null);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">

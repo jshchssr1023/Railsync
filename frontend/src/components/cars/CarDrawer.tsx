@@ -5,11 +5,13 @@ import {
   X, ChevronDown, ChevronRight, Train, Layers, Shield, Wrench,
   FileText, MapPin, ExternalLink, ClipboardList, Loader2,
   Package, Trash2, CheckCircle, ArrowLeftRight, Undo2,
-  Calendar, History, Save,
+  Calendar, History, Save, Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import UmlerSpecSection from '@/components/UmlerSpecSection';
 import { QualBadge, StatusBadge, QualStatusBadge } from './CarBadges';
+import { DISPOSITION_CONFIG, STATUS_GROUP_CONFIG, RIDER_CAR_STATUS_CONFIG } from '@/lib/statusConfig';
+import { getIdleCostSummary } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -28,15 +30,7 @@ async function apiFetch<T>(endpoint: string, opts?: RequestInit): Promise<T> {
   return json;
 }
 
-// ---------------------------------------------------------------------------
-// Operational Status Group display config
-// ---------------------------------------------------------------------------
-const STATUS_GROUP_CONFIG: Record<string, { label: string; color: string; icon: typeof Wrench }> = {
-  in_shop: { label: 'In Shop', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: Wrench },
-  idle_storage: { label: 'Idle / Storage', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', icon: Package },
-  ready_to_load: { label: 'Ready to Load', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle },
-  pending: { label: 'Pending', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400', icon: ClipboardList },
-};
+// Status configs imported from @/lib/statusConfig
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +42,7 @@ interface CarDetail {
   lease_info: {
     lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string;
     rider_id?: string; rider_code?: string; rider_name?: string; rate_per_car?: number;
+    rider_car_id?: string; rider_car_status?: string;
     is_on_rent?: boolean; added_date?: string;
   } | null;
 }
@@ -104,6 +99,9 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
   const [historyLoading, setHistoryLoading] = useState(false);
   // On-rent toggle state
   const [onRentToggling, setOnRentToggling] = useState(false);
+  const [idleCostSummary, setIdleCostSummary] = useState<{ total_idle_days: number; total_idle_cost: number; periods: { start_date: string; end_date?: string; days: number; cost: number; reason?: string }[] } | null>(null);
+  const [idleLoading, setIdleLoading] = useState(false);
+  const [idleLoaded, setIdleLoaded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,6 +164,13 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
         .then(res => { setClmLocation(res.data); setClmLocationLoaded(true); })
         .catch(() => { setClmLocation(null); setClmLocationLoaded(true); })
         .finally(() => setClmLocationLoading(false));
+    }
+    if (s === 'idle_periods' && !idleLoaded) {
+      setIdleLoading(true);
+      getIdleCostSummary(carNumber)
+        .then(data => { setIdleCostSummary(data); setIdleLoaded(true); })
+        .catch(() => { setIdleCostSummary(null); setIdleLoaded(true); })
+        .finally(() => setIdleLoading(false));
     }
   };
 
@@ -276,11 +281,20 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{carNumber}</h2>
-                {car?.operational_status_group && STATUS_GROUP_CONFIG[car.operational_status_group] && (
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_GROUP_CONFIG[car.operational_status_group].color}`}>
-                    {STATUS_GROUP_CONFIG[car.operational_status_group].label}
-                  </span>
-                )}
+                {(() => {
+                  const dispo = car?.operational_disposition;
+                  const dispoConfig = dispo ? DISPOSITION_CONFIG[dispo] : null;
+                  const legacyGroup = car?.operational_status_group;
+                  const legacyConfig = legacyGroup ? STATUS_GROUP_CONFIG[legacyGroup] : null;
+                  const cfg = dispoConfig || legacyConfig;
+                  const label = dispoConfig?.label || legacyConfig?.label;
+                  if (!cfg || !label) return null;
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
               {car && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -627,6 +641,14 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                     {detail.lease_info.rider_id && (
                       <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                         <Field label="Rider" value={detail.lease_info.rider_code || detail.lease_info.rider_name || '-'} />
+                        {detail.lease_info.rider_car_status && RIDER_CAR_STATUS_CONFIG[detail.lease_info.rider_car_status] && (
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Rider Car Status</span>
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${RIDER_CAR_STATUS_CONFIG[detail.lease_info.rider_car_status].color}`}>
+                              {RIDER_CAR_STATUS_CONFIG[detail.lease_info.rider_car_status].label}
+                            </span>
+                          </div>
+                        )}
                         {detail.lease_info.rate_per_car != null && (
                           <Field label="Rate / Car" value={`$${Number(detail.lease_info.rate_per_car).toFixed(2)}/mo`} />
                         )}
@@ -652,6 +674,60 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                       </div>
                     )}
                   </>
+                )}
+              </Section>
+
+              {/* Idle Periods */}
+              <Section id="idle_periods" title="Idle Periods" icon={Clock}>
+                {idleLoading ? (
+                  <div className="text-center py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-500 inline-block" />
+                  </div>
+                ) : idleCostSummary ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+                        <div className="text-[10px] text-gray-400 uppercase">Total Idle Days</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{idleCostSummary.total_idle_days}</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+                        <div className="text-[10px] text-gray-400 uppercase">Total Idle Cost</div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          ${Number(idleCostSummary.total_idle_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                    {idleCostSummary.periods.length > 0 ? (
+                      <div className="space-y-1">
+                        {idleCostSummary.periods.map((p, i) => (
+                          <div key={i} className="flex items-center justify-between py-1 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                            <div className="min-w-0">
+                              <div className="text-xs text-gray-700 dark:text-gray-300">
+                                {p.start_date?.slice(0, 10)} — {p.end_date?.slice(0, 10) || 'Active'}
+                              </div>
+                              {p.reason && (
+                                <div className="text-[10px] text-gray-400">{p.reason}</div>
+                              )}
+                            </div>
+                            <div className="text-xs text-right flex-shrink-0 ml-2">
+                              <span className="text-gray-600 dark:text-gray-400">{p.days}d</span>
+                              {p.cost > 0 && (
+                                <span className="ml-2 text-gray-900 dark:text-gray-100 font-medium">
+                                  ${Number(p.cost).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">No idle periods recorded.</p>
+                    )}
+                  </>
+                ) : idleLoaded ? (
+                  <p className="text-xs text-gray-400">No idle period data available.</p>
+                ) : (
+                  <p className="text-xs text-gray-400">Expand to load idle period data.</p>
                 )}
               </Section>
 

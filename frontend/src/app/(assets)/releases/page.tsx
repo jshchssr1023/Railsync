@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, RefreshCw, Plus, Clock, ArrowRight, Ban } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { RIDER_CAR_STATUS_CONFIG } from '@/lib/statusConfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -25,6 +26,7 @@ interface Release {
   cancelled_at: string | null;
   initiated_by: string | null;
   approved_by: string | null;
+  rider_car_status?: string;
 }
 
 interface ReleaseStats {
@@ -276,7 +278,16 @@ export default function ReleasesPage() {
                   <td className="px-4 py-3 text-gray-900 dark:text-gray-100 font-medium">{rel.car_number || rel.car_id}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{rel.shop_code}</td>
                   <td className="px-4 py-3">{releaseTypeBadge(rel.release_type)}</td>
-                  <td className="px-4 py-3">{statusBadge(rel.status)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      {statusBadge(rel.status)}
+                      {rel.rider_car_status && RIDER_CAR_STATUS_CONFIG[rel.rider_car_status] && (
+                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${RIDER_CAR_STATUS_CONFIG[rel.rider_car_status].color}`}>
+                          {RIDER_CAR_STATUS_CONFIG[rel.rider_car_status].label}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{new Date(rel.initiated_at).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">

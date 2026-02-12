@@ -236,7 +236,9 @@ export default function BillingCalculationPreview({ fiscalYear, fiscalMonth }: B
                                     <td className={`py-1.5 text-right ${car.abatement_days > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-400'}`}>
                                       {car.abatement_days > 0 ? `-${car.abatement_days}d` : '-'}
                                     </td>
-                                    <td className="py-1.5 text-right text-gray-900 dark:text-gray-100 font-medium">{car.billable_days}d</td>
+                                    <td className="py-1.5 text-right text-gray-900 dark:text-gray-100 font-medium" title="Billing stops when releasing is initiated (R23)">
+                                      {car.billable_days}d
+                                    </td>
                                     <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">{fmt(car.daily_rate)}</td>
                                     <td className="py-1.5 text-right text-gray-900 dark:text-gray-100 font-medium">{fmt(car.line_total)}</td>
                                   </tr>

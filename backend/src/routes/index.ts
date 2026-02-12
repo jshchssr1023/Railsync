@@ -782,12 +782,13 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
       `SELECT ml.lease_id, ml.lease_name, ml.status as lease_status,
               c.customer_name, c.customer_code,
               lr.id as rider_id, lr.rider_id as rider_code, lr.rider_name, lr.rate_per_car,
+              rc.id AS rider_car_id, rc.status AS rider_car_status,
               rc.is_on_rent, rc.added_date
        FROM rider_cars rc
        JOIN lease_riders lr ON rc.rider_id = lr.id
        JOIN master_leases ml ON lr.master_lease_id = ml.id
        JOIN customers c ON ml.customer_id = c.id
-       WHERE rc.car_number = $1 AND rc.is_active = true
+       WHERE rc.car_number = $1 AND rc.status NOT IN ('off_rent', 'cancelled')
        LIMIT 1`,
       [carNumber]
     );

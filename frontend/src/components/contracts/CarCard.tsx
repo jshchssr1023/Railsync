@@ -2,6 +2,7 @@
 
 import { Car, AlertTriangle, Bell, ArrowRightLeft, Wrench, Calendar } from 'lucide-react';
 import { useCarDrawer } from '@/context/CarDrawerContext';
+import { RIDER_CAR_STATUS_CONFIG } from '@/lib/statusConfig';
 
 interface TransitionDetails {
   type: string;
@@ -17,6 +18,8 @@ interface RiderCar {
   material_type: string;
   lessee_name: string;
   current_status: string;
+  rider_car_id?: string;
+  rider_car_status?: string;
   rider_id: string;
   rider_name: string;
   required_shop_date: string | null;
@@ -56,6 +59,11 @@ export default function CarCard({ car, onShop, onAmendmentClick, compact }: CarC
             <button onClick={(e) => { e.stopPropagation(); openCarDrawer(car.car_number); }} className="font-mono font-medium text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">
               {car.car_number}
             </button>
+            {car.rider_car_status && RIDER_CAR_STATUS_CONFIG[car.rider_car_status] && (
+              <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${RIDER_CAR_STATUS_CONFIG[car.rider_car_status].color}`}>
+                {RIDER_CAR_STATUS_CONFIG[car.rider_car_status].label}
+              </span>
+            )}
             {car.has_pending_amendment && (
               <span
                 onClick={(e) => {
@@ -141,9 +149,16 @@ export default function CarCard({ car, onShop, onAmendmentClick, compact }: CarC
             <Car className={`w-5 h-5 ${car.amendment_conflict ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`} />
           </div>
           <div>
-            <h3 className="font-mono font-semibold text-gray-900 dark:text-gray-100">
-              {car.car_number}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+                {car.car_number}
+              </h3>
+              {car.rider_car_status && RIDER_CAR_STATUS_CONFIG[car.rider_car_status] && (
+                <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${RIDER_CAR_STATUS_CONFIG[car.rider_car_status].color}`}>
+                  {RIDER_CAR_STATUS_CONFIG[car.rider_car_status].label}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {car.car_type || car.material_type}
             </p>

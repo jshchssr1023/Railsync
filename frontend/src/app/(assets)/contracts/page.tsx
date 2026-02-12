@@ -68,6 +68,8 @@ interface RiderCar {
   material_type: string;
   lessee_name: string;
   current_status: string;
+  rider_car_id?: string;
+  rider_car_status?: string;
   rider_id: string;
   rider_name: string;
   required_shop_date: string | null;

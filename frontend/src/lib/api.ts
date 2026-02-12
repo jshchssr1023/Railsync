@@ -55,6 +55,13 @@ import {
   QualificationStats,
   QualificationHistory,
   DueByMonth,
+  // V2 lifecycle types
+  TriageQueueEntry,
+  TriageResolution,
+  ShoppingEventV2,
+  IdlePeriod,
+  IdleCostSummary,
+  RiderCarStatus,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -3909,4 +3916,166 @@ export async function getAuditLogs(params?: {
     return { logs: data as unknown as AuditLogEntry[], total: (data as unknown as AuditLogEntry[]).length };
   }
   return data || { logs: [], total: 0 };
+}
+
+// ============================================================================
+// TRIAGE QUEUE
+// ============================================================================
+
+export async function listTriageQueue(filters?: {
+  resolved?: boolean;
+  reason?: string;
+}): Promise<TriageQueueEntry[]> {
+  const params = new URLSearchParams();
+  if (filters?.resolved !== undefined) params.set('resolved', String(filters.resolved));
+  if (filters?.reason) params.set('reason', filters.reason);
+  const qs = params.toString();
+  const response = await fetchApi<TriageQueueEntry[]>(`/triage-queue${qs ? `?${qs}` : ''}`);
+  return response.data ?? [];
+}
+
+export async function createTriageEntry(data: {
+  car_number: string;
+  reason: string;
+  priority?: string;
+  notes?: string;
+}): Promise<TriageQueueEntry> {
+  const response = await fetchApi<TriageQueueEntry>('/triage-queue', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data!;
+}
+
+export async function resolveTriageEntry(
+  id: string,
+  resolution: TriageResolution,
+  notes?: string
+): Promise<TriageQueueEntry> {
+  const response = await fetchApi<TriageQueueEntry>(`/triage-queue/${id}/resolve`, {
+    method: 'PUT',
+    body: JSON.stringify({ resolution, notes }),
+  });
+  return response.data!;
+}
+
+// ============================================================================
+// RIDER CAR TRANSITIONS
+// ============================================================================
+
+export async function transitionRiderCar(
+  riderCarId: string,
+  targetStatus: RiderCarStatus,
+  notes?: string
+): Promise<{ rider_car_id: string; status: RiderCarStatus }> {
+  const response = await fetchApi<{ rider_car_id: string; status: RiderCarStatus }>(
+    `/rider-cars/${riderCarId}/transition`,
+    { method: 'PUT', body: JSON.stringify({ target_status: targetStatus, notes }) }
+  );
+  return response.data!;
+}
+
+// ============================================================================
+// SHOPPING EVENTS V2
+// ============================================================================
+
+export async function listShoppingEventsV2(filters?: {
+  state?: string;
+  car_number?: string;
+  shop_code?: string;
+}): Promise<ShoppingEventV2[]> {
+  const params = new URLSearchParams();
+  if (filters?.state) params.set('state', filters.state);
+  if (filters?.car_number) params.set('car_number', filters.car_number);
+  if (filters?.shop_code) params.set('shop_code', filters.shop_code);
+  const qs = params.toString();
+  const response = await fetchApi<ShoppingEventV2[]>(`/shopping-events-v2${qs ? `?${qs}` : ''}`);
+  return response.data ?? [];
+}
+
+export async function createShoppingEventV2(data: {
+  car_number: string;
+  source: string;
+  shop_code?: string;
+  shopping_type_code?: string;
+  shopping_reason_code?: string;
+  priority?: number;
+  is_expedited?: boolean;
+}): Promise<ShoppingEventV2> {
+  const response = await fetchApi<ShoppingEventV2>('/shopping-events-v2', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data!;
+}
+
+export async function transitionShoppingEventV2(
+  eventId: string,
+  targetState: string,
+  metadata?: Record<string, unknown>
+): Promise<ShoppingEventV2> {
+  const response = await fetchApi<ShoppingEventV2>(`/shopping-events-v2/${eventId}/transition`, {
+    method: 'PUT',
+    body: JSON.stringify({ target_state: targetState, ...metadata }),
+  });
+  return response.data!;
+}
+
+export async function setShoppingEventV2Disposition(
+  eventId: string,
+  disposition: string,
+  opts?: { disposition_notes?: string; disposition_reference_id?: string }
+): Promise<ShoppingEventV2> {
+  const response = await fetchApi<ShoppingEventV2>(`/shopping-events-v2/${eventId}/disposition`, {
+    method: 'PUT',
+    body: JSON.stringify({ disposition, ...opts }),
+  });
+  return response.data!;
+}
+
+export async function cancelShoppingEventV2(
+  eventId: string,
+  reason: string
+): Promise<ShoppingEventV2> {
+  const response = await fetchApi<ShoppingEventV2>(`/shopping-events-v2/${eventId}/cancel`, {
+    method: 'PUT',
+    body: JSON.stringify({ cancellation_reason: reason }),
+  });
+  return response.data!;
+}
+
+export async function submitShoppingEventV2Estimate(
+  eventId: string,
+  data: { estimated_cost: number; line_items?: unknown[] }
+): Promise<ShoppingEventV2> {
+  const response = await fetchApi<ShoppingEventV2>(`/shopping-events-v2/${eventId}/estimate`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.data!;
+}
+
+// ============================================================================
+// IDLE PERIODS
+// ============================================================================
+
+export async function listIdlePeriods(carNumber: string): Promise<IdlePeriod[]> {
+  const response = await fetchApi<IdlePeriod[]>(`/idle-periods?car_number=${encodeURIComponent(carNumber)}`);
+  return response.data ?? [];
+}
+
+export async function getIdleCostSummary(carNumber: string): Promise<IdleCostSummary> {
+  const response = await fetchApi<IdleCostSummary>(
+    `/idle-periods/cost-summary?car_number=${encodeURIComponent(carNumber)}`
+  );
+  return response.data!;
+}
+
+// ============================================================================
+// CAR SHOPPING HISTORY V2
+// ============================================================================
+
+export async function getCarShoppingHistoryV2(carNumber: string): Promise<ShoppingEventV2[]> {
+  const response = await fetchApi<ShoppingEventV2[]>(`/cars/${encodeURIComponent(carNumber)}/shopping-history-v2`);
+  return response.data ?? [];
 }

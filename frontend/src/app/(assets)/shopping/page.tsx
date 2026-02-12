@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Loader2, FileText, ChevronRight, ChevronDown, Lock, AlertTriangle, Train, Search, Star, TrendingDown, Zap, Shield, CheckCircle } from 'lucide-react';
-import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops, evaluateShops } from '@/lib/api';
-import { ShoppingEvent, ShoppingEventState, ShopSummary, EvaluationResult } from '@/types';
+import { listShoppingEvents, createShoppingEvent, createBatchShoppingEvents, updateShoppingEvent, listShops, evaluateShops, listShoppingEventsV2 } from '@/lib/api';
+import { ShoppingEvent, ShoppingEventState, ShoppingEventV2, ShopSummary, EvaluationResult } from '@/types';
 import ResultsGrid from '@/components/ResultsGrid';
 import { useToast } from '@/components/Toast';
 import EmptyState from '@/components/EmptyState';
@@ -69,6 +69,55 @@ const FILTER_STATES: { value: string; label: string }[] = [
   { value: 'CANCELLED', label: 'Cancelled' },
 ];
 
+// ---------------------------------------------------------------------------
+// V2 State Maps (14-state machine)
+// ---------------------------------------------------------------------------
+const STATE_COLORS_V2: Record<string, string> = {
+  EVENT: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  PACKET: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  SOW: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  SHOP_ASSIGNED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  DISPO_TO_SHOP: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  ENROUTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  ARRIVED: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+  ESTIMATE_RECEIVED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  ESTIMATE_APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  WORK_IN_PROGRESS: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  FINAL_ESTIMATE_RECEIVED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  FINAL_APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  DISPO_TO_DESTINATION: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+  CLOSED: 'bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-300',
+  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+};
+
+const STATE_LABELS_V2: Record<string, string> = {
+  EVENT: 'Event',
+  PACKET: 'Packet',
+  SOW: 'SOW',
+  SHOP_ASSIGNED: 'Shop Assigned',
+  DISPO_TO_SHOP: 'Dispo to Shop',
+  ENROUTE: 'Enroute',
+  ARRIVED: 'Arrived',
+  ESTIMATE_RECEIVED: 'Estimate Received',
+  ESTIMATE_APPROVED: 'Estimate Approved',
+  WORK_IN_PROGRESS: 'Work in Progress',
+  FINAL_ESTIMATE_RECEIVED: 'Final Estimate',
+  FINAL_APPROVED: 'Final Approved',
+  DISPO_TO_DESTINATION: 'Dispo to Dest',
+  CLOSED: 'Closed',
+  CANCELLED: 'Cancelled',
+};
+
+const FILTER_STATES_V2: { value: string; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'EVENT', label: 'Event' },
+  { value: 'SHOP_ASSIGNED', label: 'Shop Assigned' },
+  { value: 'ENROUTE', label: 'Enroute' },
+  { value: 'WORK_IN_PROGRESS', label: 'WIP' },
+  { value: 'CLOSED', label: 'Closed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
 // Page size for pagination
 const PAGE_SIZE = 25;
 
@@ -108,6 +157,10 @@ function ShoppingContent() {
     'shopping',
     (presetFilters) => setFilters(presetFilters),
   );
+
+  // --- V1/V2 toggle ---
+  const [useV2, setUseV2] = useState(false);
+  const [eventsV2, setEventsV2] = useState<ShoppingEventV2[]>([]);
 
   // --- Data state ---
   const [events, setEvents] = useState<ShoppingEvent[]>([]);
@@ -197,9 +250,29 @@ function ShoppingContent() {
     }
   }, [stateFilter, shopCodeFilter, carNumberFilter, page]);
 
+  // Fetch V2 events
+  const fetchEventsV2 = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await listShoppingEventsV2({
+        state: stateFilter || undefined,
+        shop_code: shopCodeFilter || undefined,
+        car_number: carNumberFilter || undefined,
+      });
+      setEventsV2(result);
+      setTotal(result.length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load V2 shopping events');
+    } finally {
+      setLoading(false);
+    }
+  }, [stateFilter, shopCodeFilter, carNumberFilter]);
+
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (useV2) fetchEventsV2();
+    else fetchEvents();
+  }, [fetchEvents, fetchEventsV2, useV2]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -977,12 +1050,33 @@ function ShoppingContent() {
             />
 
             {/* ------------------------------------------------------------- */}
-            {/* Filter Bar                                                     */}
+            {/* V1/V2 Toggle + Filter Bar                                      */}
             {/* ------------------------------------------------------------- */}
             <div className="card p-4 space-y-4">
+              {/* Version toggle */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Pipeline:</span>
+                <button
+                  onClick={() => { setUseV2(false); setFilter('state', ''); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    !useV2 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  V1 (Legacy)
+                </button>
+                <button
+                  onClick={() => { setUseV2(true); setFilter('state', ''); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    useV2 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  V2 (New)
+                </button>
+              </div>
+
               {/* Status filter pills */}
               <div className="flex flex-wrap gap-2">
-                {FILTER_STATES.map((fs) => (
+                {(useV2 ? FILTER_STATES_V2 : FILTER_STATES).map((fs) => (
                   <button
                     key={fs.value}
                     onClick={() => setFilter('state', fs.value)}
@@ -1074,7 +1168,7 @@ function ShoppingContent() {
             {/* ------------------------------------------------------------- */}
             {/* Empty state                                                    */}
             {/* ------------------------------------------------------------- */}
-            {!loading && !error && events.length === 0 && (
+            {!loading && !error && (useV2 ? eventsV2 : events).length === 0 && (
               <EmptyState
                 variant={stateFilter || shopCodeFilter || carNumberFilter ? 'search' : 'neutral'}
                 title="No shopping events found"
@@ -1085,9 +1179,75 @@ function ShoppingContent() {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* Shopping Events List                                            */}
+            {/* V2 Shopping Events List                                         */}
             {/* ------------------------------------------------------------- */}
-            {!loading && !error && events.length > 0 && (
+            {!loading && !error && useV2 && eventsV2.length > 0 && (
+              <div className="space-y-3">
+                {eventsV2.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="card p-4 hover:shadow-md transition-all border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">
+                            {ev.event_number}
+                          </span>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATE_COLORS_V2[ev.state] || 'bg-gray-100 text-gray-800'}`}>
+                            {STATE_LABELS_V2[ev.state] || ev.state}
+                          </span>
+                          {ev.is_expedited && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                              <Zap className="w-3 h-3" /> Expedited
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                          <span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">Car:</span> {ev.car_number}
+                          </span>
+                          {ev.shop_code && (
+                            <span>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Shop:</span> {ev.shop_name || ev.shop_code}
+                            </span>
+                          )}
+                          {ev.source && (
+                            <span className="text-xs text-gray-400">Source: {ev.source}</span>
+                          )}
+                        </div>
+                        {(ev.shopping_type_code || ev.shopping_reason_code) && (
+                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                            {ev.shopping_type_code && (
+                              <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                                Type: {ev.shopping_type_code}
+                              </span>
+                            )}
+                            {ev.shopping_reason_code && (
+                              <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                                Reason: {ev.shopping_reason_code}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(ev.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* V1 Shopping Events List                                         */}
+            {/* ------------------------------------------------------------- */}
+            {!loading && !error && !useV2 && events.length > 0 && (
               <div className="space-y-3">
                 {events.map((event) => (
                   <div

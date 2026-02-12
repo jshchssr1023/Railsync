@@ -48,6 +48,8 @@ export interface AuditLog {
 
 // Car Types
 export type OperationalStatusGroup = 'in_shop' | 'idle_storage' | 'ready_to_load' | 'pending';
+export type OperationalDisposition = 'IN_SHOP' | 'IDLE' | 'SCRAP_WORKFLOW';
+export type RiderCarStatus = 'decided' | 'prep_required' | 'on_rent' | 'releasing' | 'off_rent' | 'cancelled';
 
 export interface Car {
   car_number: string;
@@ -63,15 +65,20 @@ export interface Car {
   lessee_code?: string;
   commodity?: Commodity;
   operational_status_group?: OperationalStatusGroup | null;
+  operational_disposition?: OperationalDisposition | null;
+  ready_to_load?: boolean;
   is_active?: boolean;
 }
 
 export interface FleetSummary {
+  on_rent_count: number;
   in_shop_count: number;
   idle_storage_count: number;
-  ready_to_load_count: number;
   pending_count: number;
-  total_actionable: number;
+  ready_to_load_count: number;
+  scrap_count: number;
+  releasing_count: number;
+  total_fleet: number;
 }
 
 // Scrap Types
@@ -104,6 +111,26 @@ export interface Scrap {
   version: number;
   created_at: string;
   updated_at: string;
+}
+
+// Triage Queue Types
+export type TriageReason = 'lease_expiring' | 'lease_expired' | 'scrap_cancelled'
+  | 'customer_return' | 'bad_order' | 'qualification_due' | 'market_conditions' | 'manual';
+export type TriageResolution = 'assigned_to_shop' | 'assigned_to_customer'
+  | 'released_to_idle' | 'scrap_proposed' | 'dismissed';
+
+export interface TriageQueueEntry {
+  id: string;
+  car_id: string;
+  car_number: string;
+  reason: TriageReason;
+  priority: string;
+  notes?: string;
+  resolved_at?: string;
+  resolution?: TriageResolution;
+  resolved_by?: string;
+  created_at: string;
+  created_by?: string;
 }
 
 export interface Commodity {
@@ -765,6 +792,58 @@ export interface StateHistoryEntry {
   changed_by_email?: string;
   changed_at: string;
   notes: string | null;
+}
+
+// ============================================================================
+// SHOPPING EVENTS V2 (14-State Machine)
+// ============================================================================
+
+export type ShoppingEventV2State =
+  | 'EVENT' | 'PACKET' | 'SOW' | 'SHOP_ASSIGNED' | 'DISPO_TO_SHOP'
+  | 'ENROUTE' | 'ARRIVED' | 'ESTIMATE_RECEIVED' | 'ESTIMATE_APPROVED'
+  | 'WORK_IN_PROGRESS' | 'FINAL_ESTIMATE_RECEIVED' | 'FINAL_APPROVED'
+  | 'DISPO_TO_DESTINATION' | 'CLOSED' | 'CANCELLED';
+
+export interface ShoppingEventV2 {
+  id: string;
+  event_number: string;
+  car_id: string;
+  car_number: string;
+  state: ShoppingEventV2State;
+  source: string;
+  shop_code?: string;
+  shop_name?: string;
+  shopping_type_code?: string;
+  shopping_reason_code?: string;
+  estimated_cost?: number;
+  approved_cost?: number;
+  invoiced_cost?: number;
+  disposition?: string;
+  disposition_notes?: string;
+  priority: number;
+  is_expedited: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// IDLE PERIODS
+// ============================================================================
+
+export interface IdlePeriod {
+  id: string;
+  car_number: string;
+  reason?: string;
+  daily_rate?: number;
+  start_date: string;
+  end_date?: string;
+}
+
+export interface IdleCostSummary {
+  total_idle_days: number;
+  total_idle_cost: number;
+  periods: { start_date: string; end_date?: string; days: number; cost: number; reason?: string }[];
 }
 
 // ---------------------------------------------------------------------------

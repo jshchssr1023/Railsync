@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef, Suspense, useMemo } from 'react';
 import {
   Search, Filter, X, ChevronDown, ChevronUp, Loader2,
-  Wrench, Warehouse, CheckCircle2, AlertTriangle as AlertTriangleIcon
+  Wrench, Warehouse, CheckCircle2, AlertTriangle as AlertTriangleIcon,
+  Train, ArrowRightLeft, Trash2,
 } from 'lucide-react';
 import MobileCarCard from '@/components/MobileCarCard';
 import EmptyState from '@/components/EmptyState';
@@ -187,8 +188,9 @@ function CarsPage() {
 
   // Fleet status group summary
   const [fleetSummary, setFleetSummary] = useState<{
-    in_shop_count: number; idle_storage_count: number;
-    ready_to_load_count: number; pending_count: number; total_actionable: number;
+    on_rent_count: number; in_shop_count: number; idle_storage_count: number;
+    pending_count: number; ready_to_load_count: number; scrap_count: number;
+    releasing_count: number; total_fleet: number;
   } | null>(null);
 
   useEffect(() => {
@@ -365,12 +367,15 @@ function CarsPage() {
         {/* Fleet Status Group Cards */}
         {fleetSummary && (
           <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
               {[
+                { key: 'on_rent', label: 'On Rent', count: fleetSummary.on_rent_count, icon: Train, color: 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400', ring: 'ring-green-200 dark:ring-green-800' },
                 { key: 'in_shop', label: 'In Shop', count: fleetSummary.in_shop_count, icon: Wrench, color: 'text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400', ring: 'ring-blue-200 dark:ring-blue-800' },
                 { key: 'idle_storage', label: 'Idle / Storage', count: fleetSummary.idle_storage_count, icon: Warehouse, color: 'text-gray-600 bg-gray-50 dark:bg-gray-800 dark:text-gray-400', ring: 'ring-gray-200 dark:ring-gray-700' },
                 { key: 'ready_to_load', label: 'Ready to Load', count: fleetSummary.ready_to_load_count, icon: CheckCircle2, color: 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400', ring: 'ring-green-200 dark:ring-green-800' },
-                { key: 'pending', label: 'Pending', count: fleetSummary.pending_count, icon: AlertTriangleIcon, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400', ring: 'ring-amber-200 dark:ring-amber-800' },
+                { key: 'releasing', label: 'Releasing', count: fleetSummary.releasing_count, icon: ArrowRightLeft, color: 'text-purple-600 bg-purple-50 dark:bg-purple-950 dark:text-purple-400', ring: 'ring-purple-200 dark:ring-purple-800' },
+                { key: 'scrap', label: 'Scrap', count: fleetSummary.scrap_count, icon: Trash2, color: 'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400', ring: 'ring-red-200 dark:ring-red-800' },
+                { key: 'pending', label: 'Pending Triage', count: fleetSummary.pending_count, icon: AlertTriangleIcon, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400', ring: 'ring-amber-200 dark:ring-amber-800' },
               ].map(({ key, label, count, icon: Icon, color, ring }) => (
                 <button
                   key={key}
@@ -398,7 +403,7 @@ function CarsPage() {
               ))}
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-              {fleetSummary.total_actionable} actionable cars in fleet overview
+              {fleetSummary.total_fleet.toLocaleString()} total cars in fleet
             </p>
           </div>
         )}

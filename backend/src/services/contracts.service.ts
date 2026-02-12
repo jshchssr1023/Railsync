@@ -303,6 +303,8 @@ export async function getRiderCars(riderId: string): Promise<RiderCar[]> {
       c.material_type,
       c.lessee_name,
       c.current_status,
+      rc.id AS rider_car_id,
+      rc.status AS rider_car_status,
       rc.rider_id,
       lr.rider_name,
       rc.required_shop_date,
