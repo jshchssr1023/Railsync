@@ -15,6 +15,9 @@ import logger from '../config/logger';
 import { logTransition } from './transition-log.service';
 import * as assetEventService from './assetEvent.service';
 import { createAlert } from './alerts.service';
+import { transitionRiderCar } from './contracts.service';
+import * as idlePeriodService from './idle-period.service';
+import * as triageQueueService from './triage-queue.service';
 
 // ============================================================================
 // TYPES
@@ -76,15 +79,15 @@ export async function initiateRelease(
   input: InitiateReleaseInput,
   userId: string
 ): Promise<CarRelease> {
-  // Validate car is active on this rider
-  const riderCar = await queryOne<{ car_number: string; is_active: boolean }>(
-    `SELECT car_number, is_active FROM rider_cars
-     WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE`,
+  // Validate car is on_rent on this rider (only on_rent cars can be released)
+  const riderCar = await queryOne<{ id: string; car_number: string; status: string }>(
+    `SELECT id, car_number, status FROM rider_cars
+     WHERE rider_id = $1 AND car_number = $2 AND status = 'on_rent'`,
     [input.rider_id, input.car_number]
   );
 
   if (!riderCar) {
-    throw new Error(`Car ${input.car_number} is not active on rider ${input.rider_id}`);
+    throw new Error(`Car ${input.car_number} is not on_rent on rider ${input.rider_id}`);
   }
 
   // Check for existing non-terminal release
@@ -117,6 +120,11 @@ export async function initiateRelease(
   );
 
   if (!result) throw new Error('Failed to create release');
+
+  // Transition rider_car on_rent → releasing (billing stop per R23)
+  await transitionRiderCar(riderCar.id, 'releasing', userId, {
+    notes: `Release ${result.id} initiated (${input.release_type})`,
+  });
 
   // Log transition
   logTransition({
@@ -255,12 +263,15 @@ export async function completeRelease(
     );
     const release = releaseResult.rows[0] as CarRelease;
 
-    // 2. Deactivate rider_cars record
+    // 2. Transition rider_car releasing → off_rent (direct SQL in transaction)
     await client.query(
       `UPDATE rider_cars SET
+        status = 'off_rent',
+        off_rent_at = NOW(),
+        removed_date = CURRENT_DATE,
         is_active = FALSE,
-        removed_date = CURRENT_DATE
-      WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE`,
+        is_on_rent = FALSE
+      WHERE rider_id = $1 AND car_number = $2 AND status = 'releasing'`,
       [current.rider_id, current.car_number]
     );
 
@@ -328,6 +339,17 @@ export async function completeRelease(
     }).catch(() => {}); // non-blocking
   }
 
+  // Open idle period + create triage entry (S8) for the released car
+  if (carResult) {
+    idlePeriodService.openIdlePeriod(carResult.id, current.car_number, 'between_leases')
+      .catch(err => logger.error({ err }, `[Release] Failed to open idle period for ${current.car_number}`));
+
+    triageQueueService.createTriageEntry(
+      carResult.id, current.car_number, 'customer_return', 2,
+      `Released from rider via ${current.release_type}`, userId, releaseId
+    ).catch(err => logger.error({ err }, `[Release] Failed to create triage entry for ${current.car_number}`));
+  }
+
   // Alert planning team
   createAlert({
     alert_type: 'car_released',
@@ -378,6 +400,18 @@ export async function cancelRelease(
 
   if (!result) throw new Error('Failed to cancel release');
 
+  // Revert rider_car from releasing → on_rent (migration 081 allows this path)
+  const riderCar = await queryOne<{ id: string; status: string }>(
+    `SELECT id, status FROM rider_cars
+     WHERE rider_id = $1 AND car_number = $2 AND status = 'releasing'`,
+    [current.rider_id, current.car_number]
+  );
+  if (riderCar) {
+    await transitionRiderCar(riderCar.id, 'on_rent', userId, {
+      notes: `Release ${releaseId} cancelled: ${reason}`,
+    });
+  }
+
   logTransition({
     processType: 'car_release',
     entityId: releaseId,
@@ -407,10 +441,10 @@ export async function releaseFromShoppingEvent(
   shopCode: string,
   userId: string
 ): Promise<CarRelease> {
-  // Find the rider for this car
+  // Find the rider for this car (on_rent status)
   const riderCar = await queryOne<{ rider_id: string }>(
     `SELECT rc.rider_id FROM rider_cars rc
-     WHERE rc.car_number = $1 AND rc.is_active = TRUE
+     WHERE rc.car_number = $1 AND rc.status = 'on_rent'
      LIMIT 1`,
     [carNumber]
   );

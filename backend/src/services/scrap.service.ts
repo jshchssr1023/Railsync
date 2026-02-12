@@ -91,19 +91,37 @@ export async function createScrapProposal(
   input: CreateScrapInput,
   userId: string
 ): Promise<Scrap> {
-  // Validate car exists and is active
-  const car = await queryOne<{ id: string; car_number: string; operational_status_group: string; is_active: boolean }>(
-    `SELECT id, car_number, operational_status_group, is_active
+  // Validate car exists and is in fleet
+  const car = await queryOne<{ id: string; car_number: string; fleet_status: string }>(
+    `SELECT id, car_number, fleet_status
      FROM cars WHERE car_number = $1`,
     [input.car_number]
   );
 
-  if (!car || !car.is_active) {
-    throw new Error(`Car ${input.car_number} not found or not active`);
+  if (!car || car.fleet_status === 'disposed') {
+    throw new Error(`Car ${input.car_number} not found or already disposed`);
   }
 
-  if (car.operational_status_group !== 'pending') {
-    throw new Error(`Car ${input.car_number} must be in Pending status to propose scrap (currently: ${car.operational_status_group})`);
+  // Validate: car must have an active triage entry or be idle (replaces operational_status_group check)
+  const triageEntry = await queryOne<{ id: string }>(
+    `SELECT id FROM triage_queue WHERE car_id = $1 AND resolved_at IS NULL`,
+    [car.id]
+  );
+  const idlePeriod = await queryOne<{ id: string }>(
+    `SELECT id FROM idle_periods WHERE car_id = $1 AND end_date IS NULL`,
+    [car.id]
+  );
+  if (!triageEntry && !idlePeriod) {
+    throw new Error(`Car ${input.car_number} must be in triage or idle to propose scrap`);
+  }
+
+  // R8: No active shopping event in shopping_events_v2
+  const activeShoppingEvent = await queryOne<{ id: string }>(
+    `SELECT id FROM shopping_events_v2 WHERE car_number = $1 AND state NOT IN ('CLOSED', 'CANCELLED')`,
+    [input.car_number]
+  );
+  if (activeShoppingEvent) {
+    throw new Error(`Car ${input.car_number} has an active shopping event — cannot propose scrap (R8)`);
   }
 
   // R4: Check lease — no active lease OR lease expires within 30 days
@@ -111,7 +129,7 @@ export async function createScrapProposal(
     `SELECT rc.rider_id, lr.expiration_date
      FROM rider_cars rc
      JOIN lease_riders lr ON lr.id = rc.rider_id
-     WHERE rc.car_number = $1 AND rc.is_active = TRUE
+     WHERE rc.car_number = $1 AND rc.status NOT IN ('off_rent', 'cancelled')
      LIMIT 1`,
     [input.car_number]
   );
@@ -317,14 +335,30 @@ async function completeScrap(
       ]
     );
 
-    // 2. Deactivate car permanently (R11)
+    // 2. Deactivate car permanently — set fleet_status = 'disposed' (R5)
+    // Keep is_active = FALSE and operational_status_group = NULL for backward compat
     await client.query(
       `UPDATE cars SET
+        fleet_status = 'disposed',
         is_active = FALSE,
         operational_status_group = NULL,
         updated_at = NOW()
       WHERE car_number = $1`,
       [current.car_number]
+    );
+
+    // Close any open idle period
+    await client.query(
+      `UPDATE idle_periods SET end_date = CURRENT_DATE WHERE car_id = $1 AND end_date IS NULL`,
+      [current.car_id]
+    );
+
+    // Resolve any open triage entry
+    await client.query(
+      `UPDATE triage_queue SET
+        resolved_at = NOW(), resolution = 'scrap_proposed', resolved_by = $1
+       WHERE car_id = $2 AND resolved_at IS NULL`,
+      [userId, current.car_id]
     );
 
     return scrapResult.rows[0] as Scrap;
@@ -399,24 +433,6 @@ async function cancelScrap(
     throw new Error('Cannot cancel scrap once in progress (R9). Scrap must be completed.');
   }
 
-  // API14: Re-evaluate destination — check lease status
-  const activeLease = await queryOne<{ rider_id: string; expiration_date: string }>(
-    `SELECT rc.rider_id, lr.expiration_date
-     FROM rider_cars rc
-     JOIN lease_riders lr ON lr.id = rc.rider_id
-     WHERE rc.car_number = $1 AND rc.is_active = TRUE
-     LIMIT 1`,
-    [current.car_number]
-  );
-
-  // Determine destination: active/expiring lease → pending, no lease → idle_storage
-  let destinationGroup: string;
-  if (activeLease) {
-    destinationGroup = 'pending';
-  } else {
-    destinationGroup = 'idle_storage';
-  }
-
   const result = await transaction(async (client) => {
     const scrapResult = await client.query(
       `UPDATE scraps SET
@@ -428,17 +444,22 @@ async function cancelScrap(
       [userId, reason, current.id]
     );
 
-    // Update car's operational status group
-    await client.query(
-      `UPDATE cars SET
-        operational_status_group = $1,
-        updated_at = NOW()
-      WHERE car_number = $2`,
-      [destinationGroup, current.car_number]
-    );
-
     return scrapResult.rows[0] as Scrap;
   });
+
+  // Create triage entry instead of setting operational_status_group (S6)
+  const carRow = await queryOne<{ id: string }>('SELECT id FROM cars WHERE car_number = $1', [current.car_number]);
+  if (carRow) {
+    try {
+      const { createTriageEntry } = await import('./triage-queue.service');
+      await createTriageEntry(
+        carRow.id, current.car_number, 'scrap_cancelled', 2,
+        `Scrap ${current.id} cancelled: ${reason}`, userId, current.id
+      );
+    } catch (err) {
+      logger.error({ err }, `[Scrap] Failed to create triage entry after cancellation for ${current.car_number}`);
+    }
+  }
 
   logTransition({
     processType: 'scrap',
@@ -448,7 +469,7 @@ async function cancelScrap(
     toState: 'cancelled',
     isReversible: false,
     actorId: userId,
-    notes: `Cancelled: ${reason}. Car returned to ${destinationGroup}`,
+    notes: `Cancelled: ${reason}. Triage entry created (S6)`,
   }).catch(err => logger.error({ err }, '[TransitionLog] Failed to log scrap cancellation'));
 
   return result;

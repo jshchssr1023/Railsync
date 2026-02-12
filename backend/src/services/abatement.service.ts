@@ -208,8 +208,17 @@ export async function computeAbatementPeriods(
   const pStart = new Date(periodStart);
   const pEnd = new Date(periodEnd);
 
+  // Check if rider_car is in 'releasing' state — no abatement during releasing (N9)
+  const riderCarStatus = await queryOne<{ status: string }>(
+    `SELECT status FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
+    [riderId, carNumber]
+  );
+  if (riderCarStatus?.status === 'releasing') {
+    return { periods: [], totalAbatementDays: 0 };
+  }
+
   // Find shopping events for this car that overlap the billing period
-  // A car is "in shop" from the first INBOUND/INSPECTION transition until RELEASED
+  // Uses shopping_events_v2 timestamps directly (no state history lookup needed)
   const events = await query<{
     event_id: string;
     event_number: string;
@@ -219,44 +228,20 @@ export async function computeAbatementPeriods(
     shop_exit_date: string | null;
   }>(
     `SELECT
-       se.id AS event_id,
-       se.event_number,
-       se.shopping_type_code,
-       se.state,
-       (SELECT MIN(sh.changed_at)::date::text
-        FROM shopping_event_state_history sh
-        WHERE sh.shopping_event_id = se.id
-          AND sh.to_state IN ('INBOUND', 'INSPECTION')
-       ) AS shop_entry_date,
-       (SELECT MAX(sh.changed_at)::date::text
-        FROM shopping_event_state_history sh
-        WHERE sh.shopping_event_id = se.id
-          AND sh.to_state = 'RELEASED'
-       ) AS shop_exit_date
-     FROM shopping_events se
-     WHERE se.car_number = $1
-       AND se.state NOT IN ('REQUESTED', 'ASSIGNED_TO_SHOP', 'CANCELLED')
-       AND se.shopping_type_code IS NOT NULL
-       AND (
-         -- Event started before or during period
-         EXISTS (
-           SELECT 1 FROM shopping_event_state_history sh
-           WHERE sh.shopping_event_id = se.id
-             AND sh.to_state IN ('INBOUND', 'INSPECTION')
-             AND sh.changed_at::date <= $3::date
-         )
-       )
-       AND (
-         -- Event ended during or after period start, or still in shop
-         se.state != 'RELEASED'
-         OR EXISTS (
-           SELECT 1 FROM shopping_event_state_history sh
-           WHERE sh.shopping_event_id = se.id
-             AND sh.to_state = 'RELEASED'
-             AND sh.changed_at::date >= $2::date
-         )
-       )
-     ORDER BY se.created_at`,
+       sv2.id AS event_id,
+       sv2.event_number,
+       sv2.shopping_type_code,
+       sv2.state,
+       sv2.enroute_at::date::text AS shop_entry_date,
+       sv2.closed_at::date::text AS shop_exit_date
+     FROM shopping_events_v2 sv2
+     WHERE sv2.car_number = $1
+       AND sv2.state NOT IN ('EVENT', 'PACKET', 'SOW', 'SHOP_ASSIGNED', 'CANCELLED')
+       AND sv2.shopping_type_code IS NOT NULL
+       AND sv2.enroute_at IS NOT NULL
+       AND sv2.enroute_at::date <= $3::date
+       AND (sv2.state != 'CLOSED' OR sv2.closed_at::date >= $2::date)
+     ORDER BY sv2.created_at`,
     [carNumber, periodStart, periodEnd]
   );
 
@@ -619,8 +604,10 @@ export async function generateBillingPreview(
        WHERE ml.customer_id = $1
          AND lr.status = 'Active' AND ml.status = 'Active'
          AND lr.rate_per_car IS NOT NULL AND lr.rate_per_car > 0
-         AND rc.added_date <= $2
-         AND (rc.removed_date IS NULL OR rc.removed_date >= $3)
+         AND rc.status IN ('on_rent', 'releasing', 'off_rent')
+         AND rc.on_rent_at IS NOT NULL
+         AND rc.on_rent_at::date <= $2::date
+         AND (rc.releasing_at IS NULL OR rc.releasing_at::date >= $3::date)
        ORDER BY lr.rider_id, rc.car_number`,
       [cust.customer_id, periodEndStr, periodStartStr]
     );

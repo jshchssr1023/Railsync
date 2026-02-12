@@ -37,6 +37,10 @@ import * as projectPlanningService from '../services/project-planning.service';
 import * as projectAuditService from '../services/project-audit.service';
 import * as demandService from '../services/demand.service';
 import * as allocationService from '../services/allocation.service';
+import * as triageQueueService from '../services/triage-queue.service';
+import * as idlePeriodService from '../services/idle-period.service';
+import * as shoppingEventV2Service from '../services/shopping-event-v2.service';
+import { transitionRiderCar } from '../services/contracts.service';
 import multer from 'multer';
 import { validateEvaluationRequest } from '../middleware/validation';
 
@@ -158,19 +162,23 @@ router.post('/cars/umler/import', authenticate, authorize('admin'), carControlle
 
 /**
  * @route   GET /api/cars/fleet-summary
- * @desc    Counts per operational_status_group for active fleet overview
+ * @desc    Fleet overview counts derived from v_car_fleet_status view
  */
 router.get('/cars/fleet-summary', optionalAuth, async (req, res) => {
   try {
     const result = await query(`
       SELECT
-        COALESCE(SUM(CASE WHEN operational_status_group = 'in_shop' THEN 1 ELSE 0 END), 0)::int AS in_shop_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'idle_storage' THEN 1 ELSE 0 END), 0)::int AS idle_storage_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'ready_to_load' THEN 1 ELSE 0 END), 0)::int AS ready_to_load_count,
-        COALESCE(SUM(CASE WHEN operational_status_group = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending_count,
-        COUNT(*)::int AS total_actionable
-      FROM cars
-      WHERE is_active = TRUE AND operational_status_group IS NOT NULL
+        COUNT(*) FILTER (WHERE assignment_status = 'on_rent')::int AS on_rent_count,
+        COUNT(*) FILTER (WHERE operational_disposition = 'IN_SHOP')::int AS in_shop_count,
+        COUNT(*) FILTER (WHERE operational_disposition = 'IDLE'
+          AND triage_entry_id IS NULL AND ready_to_load = FALSE)::int AS idle_storage_count,
+        COUNT(*) FILTER (WHERE triage_entry_id IS NOT NULL
+          AND operational_disposition = 'IDLE')::int AS pending_count,
+        COUNT(*) FILTER (WHERE ready_to_load = TRUE)::int AS ready_to_load_count,
+        COUNT(*) FILTER (WHERE operational_disposition = 'SCRAP_WORKFLOW')::int AS scrap_count,
+        (SELECT COUNT(*)::int FROM rider_cars WHERE status = 'releasing') AS releasing_count,
+        COUNT(*)::int AS total_fleet
+      FROM v_car_fleet_status
     `);
     res.json({ success: true, data: result[0] });
   } catch (err) {
@@ -231,77 +239,80 @@ router.get('/cars-browse', optionalAuth, async (req, res) => {
 });
 
 /**
- * @route   PUT /api/cars/:carNumber/status-group
- * @desc    Manual status group change (e.g., idle_storage → ready_to_load)
+ * @route   PUT /api/cars/:carNumber/ready-to-load
+ * @desc    Toggle ready_to_load flag (R10: car must be IDLE with no active scrap/triage)
  */
-router.put('/cars/:carNumber/status-group', authenticate, authorize('admin', 'operator'), async (req, res) => {
+router.put('/cars/:carNumber/ready-to-load', authenticate, authorize('admin', 'operator'), async (req, res) => {
   try {
     const { carNumber } = req.params;
-    const { statusGroup } = req.body;
+    const { ready } = req.body;
     const userId = req.user!.id;
 
-    if (!statusGroup || !['idle_storage', 'ready_to_load'].includes(statusGroup)) {
-      return res.status(400).json({ success: false, error: 'statusGroup must be idle_storage or ready_to_load' });
+    if (typeof ready !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'ready (boolean) is required' });
     }
 
-    // Fetch current car state
+    // Fetch car state from derived view
     const car = await queryOne<any>(
-      `SELECT car_number, operational_status_group, is_active FROM cars WHERE car_number = $1`,
+      `SELECT car_number, fleet_status, operational_disposition, triage_entry_id,
+              ready_to_load, active_scrap_id
+       FROM v_car_fleet_status WHERE car_number = $1`,
       [carNumber]
     );
-    if (!car || !car.is_active) {
-      return res.status(404).json({ success: false, error: 'Car not found or not active' });
+    if (!car) {
+      return res.status(404).json({ success: false, error: 'Car not found or disposed' });
     }
 
-    // R5: Only idle_storage can become ready_to_load
-    if (statusGroup === 'ready_to_load') {
-      if (car.operational_status_group !== 'idle_storage') {
+    if (ready) {
+      // R10: Only IDLE cars with no active scrap or triage can be set ready
+      if (car.operational_disposition !== 'IDLE') {
         return res.status(400).json({
           success: false,
-          error: `Cannot set Ready to Load: car is currently ${car.operational_status_group}. Only Idle/Storage cars are eligible.`
+          error: `Cannot set Ready to Load: car disposition is ${car.operational_disposition}. Only Idle cars are eligible.`
         });
       }
-      // R5 extended: Check no active scrap workflow
-      const activeScrap = await queryOne<any>(
-        `SELECT id FROM scraps WHERE car_number = $1 AND status NOT IN ('completed', 'cancelled') LIMIT 1`,
-        [carNumber]
-      );
-      if (activeScrap) {
+      if (car.active_scrap_id) {
         return res.status(400).json({
           success: false,
           error: 'Cannot set Ready to Load: car has an active scrap workflow (N6)'
         });
       }
-    }
-
-    // Revert: ready_to_load → idle_storage
-    if (statusGroup === 'idle_storage' && car.operational_status_group !== 'ready_to_load') {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot revert to Idle/Storage: car is currently ${car.operational_status_group}. Only Ready to Load cars can be reverted.`
-      });
+      if (car.triage_entry_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot set Ready to Load: car has an unresolved triage entry'
+        });
+      }
+    } else {
+      // Revert: only ready_to_load cars can be unset
+      if (!car.ready_to_load) {
+        return res.status(400).json({
+          success: false,
+          error: 'Car is not currently Ready to Load'
+        });
+      }
     }
 
     await query(
-      `UPDATE cars SET operational_status_group = $1, updated_at = NOW() WHERE car_number = $2`,
-      [statusGroup, carNumber]
+      `UPDATE cars SET ready_to_load = $1, ready_to_load_at = $2, ready_to_load_by = $3, updated_at = NOW()
+       WHERE car_number = $4`,
+      [ready, ready ? new Date() : null, ready ? userId : null, carNumber]
     );
 
-    // Audit log via transition log
     transitionLogService.logTransition({
-      processType: 'car_status_group',
+      processType: 'car_ready_to_load',
       entityId: carNumber,
       entityNumber: carNumber,
-      fromState: car.operational_status_group,
-      toState: statusGroup,
+      fromState: car.ready_to_load ? 'ready' : 'not_ready',
+      toState: ready ? 'ready' : 'not_ready',
       isReversible: true,
       actorId: userId,
     }).catch(() => {});
 
-    res.json({ success: true, data: { car_number: carNumber, operational_status_group: statusGroup } });
+    res.json({ success: true, data: { car_number: carNumber, ready_to_load: ready } });
   } catch (err) {
-    logger.error({ err }, 'Status group update error');
-    res.status(500).json({ success: false, error: 'Failed to update status group' });
+    logger.error({ err }, 'Ready to load update error');
+    res.status(500).json({ success: false, error: 'Failed to update ready-to-load status' });
   }
 });
 
@@ -320,56 +331,59 @@ router.put('/cars/:carNumber/assign-to-rider', authenticate, authorize('admin', 
     }
 
     const car = await queryOne<any>(
-      `SELECT car_number, operational_status_group, is_active FROM cars WHERE car_number = $1`,
+      `SELECT id, car_number, fleet_status, ready_to_load FROM cars WHERE car_number = $1`,
       [carNumber]
     );
-    if (!car || !car.is_active) {
-      return res.status(404).json({ success: false, error: 'Car not found or not active' });
+    if (!car || car.fleet_status === 'disposed') {
+      return res.status(404).json({ success: false, error: 'Car not found or disposed' });
     }
 
-    if (car.operational_status_group !== 'ready_to_load') {
+    if (!car.ready_to_load) {
       return res.status(400).json({
         success: false,
-        error: `Car must be Ready to Load to assign to rider (currently: ${car.operational_status_group})`
+        error: 'Car must be Ready to Load to assign to rider'
       });
     }
 
-    // Verify rider exists
+    // Verify rider exists and is active
     const rider = await queryOne<any>(
-      `SELECT id FROM lease_riders WHERE id = $1`,
+      `SELECT id FROM lease_riders WHERE id = $1 AND status = 'Active'`,
       [rider_id]
     );
     if (!rider) {
-      return res.status(404).json({ success: false, error: 'Rider not found' });
+      return res.status(404).json({ success: false, error: 'Rider not found or not active' });
     }
 
-    // Transaction: add to rider, clear status group
+    // Transaction: add to rider with decided status, clear ready_to_load, close idle period
     await transaction(async (client: any) => {
       await client.query(
-        `INSERT INTO rider_cars (rider_id, car_number, is_active, added_date)
-         VALUES ($1, $2, TRUE, CURRENT_DATE)
+        `INSERT INTO rider_cars (rider_id, car_number, is_active, status, decided_at, added_date)
+         VALUES ($1, $2, TRUE, 'decided', NOW(), CURRENT_DATE)
          ON CONFLICT (rider_id, car_number) WHERE is_active = TRUE DO NOTHING`,
         [rider_id, carNumber]
       );
       await client.query(
-        `UPDATE cars SET operational_status_group = NULL, updated_at = NOW()
+        `UPDATE cars SET ready_to_load = FALSE, ready_to_load_at = NULL, ready_to_load_by = NULL, updated_at = NOW()
          WHERE car_number = $1`,
         [carNumber]
       );
     });
 
+    // Close any open idle period (car is now assigned)
+    idlePeriodService.closeIdlePeriod(car.id).catch(() => {});
+
     transitionLogService.logTransition({
-      processType: 'car_status_group',
+      processType: 'car_assignment',
       entityId: carNumber,
       entityNumber: carNumber,
       fromState: 'ready_to_load',
-      toState: 'assigned_to_rider',
+      toState: 'decided',
       isReversible: false,
       actorId: userId,
       notes: `Assigned to rider ${rider_id}`,
     }).catch(() => {});
 
-    res.json({ success: true, data: { car_number: carNumber, rider_id, status: 'assigned' } });
+    res.json({ success: true, data: { car_number: carNumber, rider_id, status: 'decided' } });
   } catch (err) {
     logger.error({ err }, 'Assign to rider error');
     res.status(500).json({ success: false, error: 'Failed to assign car to rider' });
@@ -645,47 +659,62 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
     const order = (req.query.order as string)?.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
     // Build WHERE clause dynamically with parameterized queries
-    const conditions: string[] = ['is_active = TRUE'];
+    // JOIN v_car_fleet_status for derived disposition column and filters
+    const conditions: string[] = ['c.is_active = TRUE'];
     const params: any[] = [];
     let paramIndex = 1;
 
     if (carType) {
-      conditions.push(`car_type = $${paramIndex++}`);
+      conditions.push(`c.car_type = $${paramIndex++}`);
       params.push(carType);
     }
     if (commodity) {
-      conditions.push(`commodity = $${paramIndex++}`);
+      conditions.push(`c.commodity = $${paramIndex++}`);
       params.push(commodity);
     }
     if (status) {
-      conditions.push(`current_status = $${paramIndex++}`);
+      conditions.push(`c.current_status = $${paramIndex++}`);
       params.push(status);
     }
     if (region) {
-      conditions.push(`current_region = $${paramIndex++}`);
+      conditions.push(`c.current_region = $${paramIndex++}`);
       params.push(region);
     }
     if (lessee) {
-      conditions.push(`lessee_name ILIKE $${paramIndex++}`);
+      conditions.push(`c.lessee_name ILIKE $${paramIndex++}`);
       params.push(`%${lessee}%`);
     }
     if (search) {
-      conditions.push(`car_number ILIKE $${paramIndex++}`);
+      conditions.push(`c.car_number ILIKE $${paramIndex++}`);
       params.push(`%${search}%`);
     }
     if (statusGroup) {
-      const validGroups = ['in_shop', 'idle_storage', 'ready_to_load', 'pending'];
-      if (validGroups.includes(statusGroup)) {
-        conditions.push(`operational_status_group = $${paramIndex++}`);
-        params.push(statusGroup);
+      // Map old status_group names to derived view conditions
+      switch (statusGroup) {
+        case 'in_shop':
+          conditions.push(`v.operational_disposition = 'IN_SHOP'`);
+          break;
+        case 'idle_storage':
+          conditions.push(`v.operational_disposition = 'IDLE' AND v.triage_entry_id IS NULL AND c.ready_to_load = FALSE`);
+          break;
+        case 'ready_to_load':
+          conditions.push(`c.ready_to_load = TRUE`);
+          break;
+        case 'pending':
+          conditions.push(`v.triage_entry_id IS NOT NULL`);
+          break;
+        case 'scrap':
+          conditions.push(`v.operational_disposition = 'SCRAP_WORKFLOW'`);
+          break;
       }
     }
 
     const whereClause = conditions.join(' AND ');
+    const fromClause = 'cars c LEFT JOIN v_car_fleet_status v ON v.car_number = c.car_number';
 
     // Get total count
     const countResult = await query(
-      `SELECT COUNT(*)::int as total FROM cars WHERE ${whereClause}`,
+      `SELECT COUNT(*)::int as total FROM ${fromClause} WHERE ${whereClause}`,
       params
     );
     const total = countResult[0]?.total || 0;
@@ -693,12 +722,12 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
 
     // Get paginated rows
     const dataResult = await query(
-      `SELECT car_number, car_mark, car_type, lessee_name, commodity,
-              current_status, current_region, car_age, is_jacketed, is_lined,
-              tank_qual_year, contract_number, plan_status, operational_status_group
-       FROM cars
+      `SELECT c.car_number, c.car_mark, c.car_type, c.lessee_name, c.commodity,
+              c.current_status, c.current_region, c.car_age, c.is_jacketed, c.is_lined,
+              c.tank_qual_year, c.contract_number, c.plan_status, v.operational_disposition
+       FROM ${fromClause}
        WHERE ${whereClause}
-       ORDER BY ${sort} ${order}
+       ORDER BY c.${sort} ${order}
        LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
       [...params, limit, offset]
     );
@@ -2346,6 +2375,318 @@ router.get('/cars/:carNumber/validate-shopping', optionalAuth, contractsControll
 
 // Car On-Rent History
 router.get('/cars/:carNumber/on-rent-history', authenticate, contractsController.getOnRentHistoryHandler);
+
+// ============================================================================
+// TRIAGE QUEUE ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/triage-queue
+ * @desc    List triage queue entries with optional filters
+ */
+router.get('/triage-queue', authenticate, async (req, res) => {
+  try {
+    const filters: any = {};
+    if (req.query.reason) filters.reason = req.query.reason as string;
+    if (req.query.priority) filters.priority = req.query.priority as string;
+    if (req.query.resolved === 'true') filters.resolved = true;
+    if (req.query.resolved === 'false') filters.resolved = false;
+    const result = await triageQueueService.listTriageQueue(filters);
+    res.json({ success: true, data: result.entries, total: result.total });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to list triage queue');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   GET /api/triage-queue/:id
+ * @desc    Get a single triage entry
+ */
+router.get('/triage-queue/:id', authenticate, async (req, res) => {
+  try {
+    const entry = await triageQueueService.getTriageEntry(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, error: 'Triage entry not found' });
+    res.json({ success: true, data: entry });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get triage entry');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/triage-queue
+ * @desc    Create a triage queue entry
+ */
+router.post('/triage-queue', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { car_id, car_number, reason, priority, notes } = req.body;
+    if (!car_id || !car_number || !reason) {
+      return res.status(400).json({ success: false, error: 'car_id, car_number, and reason are required' });
+    }
+    const entry = await triageQueueService.createTriageEntry(
+      car_id, car_number, reason, priority || 'normal', notes, req.user?.id
+    );
+    res.status(201).json({ success: true, data: entry });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to create triage entry');
+    const status = err.message.includes('already has') ? 409 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   PUT /api/triage-queue/:id/resolve
+ * @desc    Resolve a triage queue entry
+ */
+router.put('/triage-queue/:id/resolve', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { resolution, notes } = req.body;
+    if (!resolution) {
+      return res.status(400).json({ success: false, error: 'resolution is required' });
+    }
+    const entry = await triageQueueService.resolveTriageEntry(req.params.id, resolution, req.user!.id, notes);
+    res.json({ success: true, data: entry });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to resolve triage entry');
+    const status = err.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// RIDER CAR LIFECYCLE TRANSITION ROUTES
+// ============================================================================
+
+/**
+ * @route   PUT /api/rider-cars/:id/transition
+ * @desc    Transition a rider car through its lifecycle (decided → on_rent → releasing → off_rent)
+ */
+router.put('/rider-cars/:id/transition', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { target_status, notes, shopping_event_id } = req.body;
+    const userId = req.user!.id;
+
+    const validTargets = ['prep_required', 'on_rent', 'releasing', 'off_rent', 'cancelled'];
+    if (!target_status || !validTargets.includes(target_status)) {
+      return res.status(400).json({
+        success: false,
+        error: `target_status must be one of: ${validTargets.join(', ')}`
+      });
+    }
+
+    const result = await transitionRiderCar(id, target_status, userId, {
+      notes, shopping_event_id
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    logger.error({ err }, 'Rider car transition error');
+    const status = err.message.includes('not found') ? 404
+      : err.message.includes('Invalid') || err.message.includes('Cannot') ? 400
+      : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// IDLE PERIOD ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/idle-periods
+ * @desc    List idle periods for a car (by car_number or car_id)
+ */
+router.get('/idle-periods', authenticate, async (req, res) => {
+  try {
+    let carId = req.query.car_id as string | undefined;
+    const carNumber = req.query.car_number as string | undefined;
+    if (!carId && !carNumber) {
+      return res.status(400).json({ success: false, error: 'car_id or car_number query param is required' });
+    }
+    if (!carId && carNumber) {
+      const car = await queryOne<any>('SELECT id FROM cars WHERE car_number = $1', [carNumber]);
+      if (!car) return res.status(404).json({ success: false, error: 'Car not found' });
+      carId = car.id;
+    }
+    const periods = await idlePeriodService.listIdlePeriods(carId!);
+    res.json({ success: true, data: periods, total: periods.length });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to list idle periods');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   GET /api/idle-periods/cost-summary
+ * @desc    Get idle cost summary for a car
+ */
+router.get('/idle-periods/cost-summary', authenticate, async (req, res) => {
+  try {
+    let carId = req.query.car_id as string | undefined;
+    const carNumber = req.query.car_number as string | undefined;
+    if (!carId && !carNumber) {
+      return res.status(400).json({ success: false, error: 'car_id or car_number query param is required' });
+    }
+    if (!carId && carNumber) {
+      const car = await queryOne<any>('SELECT id FROM cars WHERE car_number = $1', [carNumber]);
+      if (!car) return res.status(404).json({ success: false, error: 'Car not found' });
+      carId = car.id;
+    }
+    const summary = await idlePeriodService.getIdleCostSummary(carId!);
+    res.json({ success: true, data: summary });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get idle cost summary');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// SHOPPING EVENTS V2 ROUTES
+// ============================================================================
+
+/**
+ * @route   GET /api/shopping-events-v2
+ * @desc    List shopping events (v2) with filters
+ */
+router.get('/shopping-events-v2', authenticate, async (req, res) => {
+  try {
+    const filters: any = {};
+    if (req.query.car_number) filters.car_number = req.query.car_number as string;
+    if (req.query.state) filters.state = req.query.state as string;
+    if (req.query.shop_code) filters.shop_code = req.query.shop_code as string;
+    if (req.query.source) filters.source = req.query.source as string;
+    if (req.query.active_only === 'true') filters.active_only = true;
+    const result = await shoppingEventV2Service.listShoppingEvents(filters);
+    res.json({ success: true, data: result.events, total: result.total });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to list shopping events v2');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   GET /api/shopping-events-v2/:id
+ * @desc    Get a single shopping event (v2) by ID
+ */
+router.get('/shopping-events-v2/:id', authenticate, async (req, res) => {
+  try {
+    const event = await shoppingEventV2Service.getShoppingEvent(req.params.id);
+    if (!event) return res.status(404).json({ success: false, error: 'Shopping event not found' });
+    res.json({ success: true, data: event });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get shopping event v2');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-events-v2
+ * @desc    Create a new shopping event (v2)
+ */
+router.post('/shopping-events-v2', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const event = await shoppingEventV2Service.createShoppingEvent(req.body, req.user!.id);
+    res.status(201).json({ success: true, data: event });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to create shopping event v2');
+    const status = err.message.includes('disposed') || err.message.includes('active shopping')
+      ? 409 : err.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   PUT /api/shopping-events-v2/:id/transition
+ * @desc    Transition a shopping event to the next state
+ */
+router.put('/shopping-events-v2/:id/transition', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { target_state } = req.body;
+    if (!target_state) return res.status(400).json({ success: false, error: 'target_state is required' });
+    const event = await shoppingEventV2Service.transitionShoppingEvent(
+      req.params.id, target_state, req.user!.id, req.body.metadata
+    );
+    res.json({ success: true, data: event });
+  } catch (err: any) {
+    logger.error({ err }, 'Shopping event v2 transition error');
+    const status = err.message.includes('not found') ? 404
+      : err.message.includes('Invalid') || err.message.includes('Cannot') ? 400 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   PUT /api/shopping-events-v2/:id/disposition
+ * @desc    Set disposition on a shopping event
+ */
+router.put('/shopping-events-v2/:id/disposition', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { disposition, disposition_reference_id, disposition_notes, next_shop_code, next_shopping_type_code } = req.body;
+    if (!disposition) return res.status(400).json({ success: false, error: 'disposition is required' });
+    const event = await shoppingEventV2Service.setDisposition(
+      req.params.id, disposition, req.user!.id,
+      { disposition_reference_id, disposition_notes, next_shop_code, next_shopping_type_code }
+    );
+    res.json({ success: true, data: event });
+  } catch (err: any) {
+    logger.error({ err }, 'Shopping event v2 disposition error');
+    const status = err.message.includes('not found') ? 404
+      : err.message.includes('FINAL_APPROVED') ? 400 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/shopping-events-v2/:id/estimate
+ * @desc    Submit an estimate for a shopping event
+ */
+router.post('/shopping-events-v2/:id/estimate', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const estimate = await shoppingEventV2Service.submitEstimate(req.params.id, {
+      ...req.body,
+      submitted_by: req.user!.id,
+    });
+    res.status(201).json({ success: true, data: estimate });
+  } catch (err: any) {
+    logger.error({ err }, 'Shopping event v2 estimate error');
+    const status = err.message.includes('not found') ? 404 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   PUT /api/shopping-events-v2/:id/cancel
+ * @desc    Cancel a shopping event
+ */
+router.put('/shopping-events-v2/:id/cancel', authenticate, authorize('admin', 'operator'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ success: false, error: 'reason is required' });
+    const event = await shoppingEventV2Service.cancelShoppingEvent(req.params.id, reason, req.user!.id);
+    res.json({ success: true, data: event });
+  } catch (err: any) {
+    logger.error({ err }, 'Shopping event v2 cancel error');
+    const status = err.message.includes('not found') ? 404
+      : err.message.includes('terminal') ? 400 : 500;
+    res.status(status).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * @route   GET /api/cars/:carNumber/shopping-history-v2
+ * @desc    Get all shopping events (v2) for a car
+ */
+router.get('/cars/:carNumber/shopping-history-v2', authenticate, async (req, res) => {
+  try {
+    const history = await shoppingEventV2Service.getCarShoppingHistory(req.params.carNumber);
+    res.json({ success: true, data: history, total: history.length });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to get car shopping history v2');
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // ============================================================================
 // ABATEMENT ROUTES

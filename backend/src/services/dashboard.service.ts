@@ -264,7 +264,7 @@ export async function getContractsReadiness() {
   // "in_pipeline" = allocation records in active shopping statuses.
   const result = await queryOne(`
     WITH fleet AS (
-      SELECT COUNT(*) AS total FROM cars WHERE is_active = TRUE
+      SELECT COUNT(*) AS total FROM cars WHERE fleet_status != 'disposed'
     ),
     pipeline AS (
       SELECT

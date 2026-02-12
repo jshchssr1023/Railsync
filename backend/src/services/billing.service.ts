@@ -360,25 +360,25 @@ export async function runPreflight(
       : `${invoiceCount} rental invoice(s) already exist for this period`,
   });
 
-  // Check 5: All active rider_cars have is_on_rent set (not null)
-  const nullOnRent = await query<{ car_number: string; rider_code: string }>(
-    `SELECT rc.car_number, lr.rider_id AS rider_code
+  // Check 5: All billing-eligible rider_cars have valid on_rent status
+  const invalidStatus = await query<{ car_number: string; rider_code: string; status: string }>(
+    `SELECT rc.car_number, lr.rider_id AS rider_code, rc.status
      FROM rider_cars rc
      JOIN lease_riders lr ON lr.id = rc.rider_id
      JOIN master_leases ml ON ml.id = lr.master_lease_id
-     WHERE rc.is_active = TRUE
+     WHERE rc.status NOT IN ('off_rent', 'cancelled')
        AND lr.status = 'Active'
        AND ml.status = 'Active'
-       AND rc.is_on_rent IS NULL`
+       AND rc.status IN ('decided', 'prep_required')`
   );
 
   checks.push({
     name: 'on_rent_status_set',
-    passed: nullOnRent.length === 0,
-    message: nullOnRent.length === 0
-      ? 'All active cars have on-rent status set'
-      : `${nullOnRent.length} car(s) missing on-rent status`,
-    details: nullOnRent.length > 0 ? nullOnRent.slice(0, 10) : undefined,
+    passed: invalidStatus.length === 0,
+    message: invalidStatus.length === 0
+      ? 'All active cars have valid billing status (on_rent or releasing)'
+      : `${invalidStatus.length} car(s) in pre-billing status (decided/prep_required)`,
+    details: invalidStatus.length > 0 ? invalidStatus.slice(0, 10) : undefined,
   });
 
   // Check 6: No open abatement periods without end_date from prior months
@@ -477,8 +477,7 @@ export async function generateMonthlyInvoices(
      FROM customers c
      JOIN master_leases ml ON ml.customer_id = c.id AND ml.status = 'Active'
      JOIN lease_riders lr ON lr.master_lease_id = ml.id AND lr.status = 'Active'
-     WHERE c.is_active = TRUE
-       AND lr.rate_per_car IS NOT NULL
+     WHERE lr.rate_per_car IS NOT NULL
        AND lr.rate_per_car > 0
      ORDER BY c.customer_code`
   );
@@ -500,7 +499,9 @@ export async function generateMonthlyInvoices(
         );
         const invoice = invoiceRows.rows[0];
 
-        // Get all active riders for this customer with their cars
+        // Get all billing-eligible rider cars for this customer
+        // Billing eligibility: on_rent, releasing, or off_rent during the period
+        // Billing stop date = releasing_at (R23), NOT off_rent_at
         const riderCars = await client.query(
           `SELECT
              lr.id AS rider_id,
@@ -510,7 +511,10 @@ export async function generateMonthlyInvoices(
              rc.car_number,
              rc.added_date,
              rc.removed_date,
-             rc.is_on_rent
+             rc.is_on_rent,
+             rc.status AS rc_status,
+             rc.on_rent_at,
+             rc.releasing_at
            FROM lease_riders lr
            JOIN master_leases ml ON ml.id = lr.master_lease_id
            JOIN rider_cars rc ON rc.rider_id = lr.id
@@ -519,8 +523,10 @@ export async function generateMonthlyInvoices(
              AND ml.status = 'Active'
              AND lr.rate_per_car IS NOT NULL
              AND lr.rate_per_car > 0
-             AND rc.added_date <= $2
-             AND (rc.removed_date IS NULL OR rc.removed_date >= $3)
+             AND rc.status IN ('on_rent', 'releasing', 'off_rent')
+             AND rc.on_rent_at IS NOT NULL
+             AND rc.on_rent_at::date <= $2::date
+             AND (rc.releasing_at IS NULL OR rc.releasing_at::date >= $3::date)
            ORDER BY lr.rider_id, rc.car_number`,
           [cust.customer_id, periodEndStr, periodStartStr]
         );

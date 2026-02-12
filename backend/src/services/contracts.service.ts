@@ -5,6 +5,11 @@
  */
 
 import { query, queryOne, transaction } from '../config/database';
+import logger from '../config/logger';
+import { logTransition } from './transition-log.service';
+import * as assetEventService from './assetEvent.service';
+import * as idlePeriodService from './idle-period.service';
+import * as triageQueueService from './triage-queue.service';
 
 // ============================================================================
 // TYPES
@@ -128,7 +133,7 @@ export async function listCustomers(activeOnly: boolean = true): Promise<Custome
     FROM customers c
     LEFT JOIN master_leases ml ON ml.customer_id = c.id AND ml.status = 'Active'
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id AND lr.status = 'Active'
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     ${whereClause}
     GROUP BY c.id, c.customer_code, c.customer_name, c.is_active
     ORDER BY COUNT(DISTINCT rc.car_number) DESC
@@ -149,7 +154,7 @@ export async function getCustomer(customerId: string): Promise<Customer | null> 
     FROM customers c
     LEFT JOIN master_leases ml ON ml.customer_id = c.id AND ml.status = 'Active'
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id AND lr.status = 'Active'
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     WHERE c.id = $1
     GROUP BY c.id, c.customer_code, c.customer_name, c.is_active
   `;
@@ -181,7 +186,7 @@ export async function getCustomerLeases(customerId: string): Promise<MasterLease
     FROM master_leases ml
     JOIN customers c ON c.id = ml.customer_id
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     WHERE ml.customer_id = $1
     GROUP BY ml.id, ml.lease_id, ml.customer_id, c.customer_name, ml.lease_name, ml.start_date, ml.end_date, ml.status
     ORDER BY ml.start_date DESC
@@ -210,7 +215,7 @@ export async function getLease(leaseId: string): Promise<MasterLease | null> {
     FROM master_leases ml
     JOIN customers c ON c.id = ml.customer_id
     LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     WHERE ml.id = $1
     GROUP BY ml.id, ml.lease_id, ml.customer_id, c.customer_name, ml.lease_name, ml.start_date, ml.end_date, ml.status
   `;
@@ -241,12 +246,12 @@ export async function getLeaseRiders(leaseId: string): Promise<LeaseRider[]> {
       ) AS has_pending_amendments,
       COALESCE((
         SELECT COUNT(*) FROM rider_cars rc2
-        WHERE rc2.rider_id = lr.id AND rc2.amendment_conflict = TRUE AND rc2.is_active = TRUE
+        WHERE rc2.rider_id = lr.id AND rc2.amendment_conflict = TRUE AND rc2.status NOT IN ('off_rent', 'cancelled')
       ), 0)::INTEGER AS cars_with_conflicts
     FROM lease_riders lr
     JOIN master_leases ml ON ml.id = lr.master_lease_id
     JOIN customers c ON c.id = ml.customer_id
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     LEFT JOIN lease_amendments la ON la.rider_id = lr.id
     WHERE lr.master_lease_id = $1
     GROUP BY lr.id, lr.rider_id, lr.master_lease_id, ml.lease_id, c.customer_name,
@@ -276,12 +281,12 @@ export async function getRider(riderId: string): Promise<LeaseRider | null> {
       ) AS has_pending_amendments,
       COALESCE((
         SELECT COUNT(*) FROM rider_cars rc2
-        WHERE rc2.rider_id = lr.id AND rc2.amendment_conflict = TRUE AND rc2.is_active = TRUE
+        WHERE rc2.rider_id = lr.id AND rc2.amendment_conflict = TRUE AND rc2.status NOT IN ('off_rent', 'cancelled')
       ), 0)::INTEGER AS cars_with_conflicts
     FROM lease_riders lr
     JOIN master_leases ml ON ml.id = lr.master_lease_id
     JOIN customers c ON c.id = ml.customer_id
-    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
     LEFT JOIN lease_amendments la ON la.rider_id = lr.id
     WHERE lr.id = $1
     GROUP BY lr.id, lr.rider_id, lr.master_lease_id, ml.lease_id, c.customer_name,
@@ -337,7 +342,7 @@ export async function getRiderCars(riderId: string): Promise<RiderCar[]> {
     FROM rider_cars rc
     JOIN cars c ON c.car_number = rc.car_number
     JOIN lease_riders lr ON lr.id = rc.rider_id
-    WHERE rc.rider_id = $1 AND rc.is_active = TRUE
+    WHERE rc.rider_id = $1 AND rc.status NOT IN ('off_rent', 'cancelled')
     ORDER BY c.car_number
   `;
   return query<RiderCar>(sql, [riderId]);
@@ -674,8 +679,9 @@ export async function deactivateLease(id: string): Promise<{ riders_deactivated:
     if (riderIds.length > 0) {
       // Remove all active cars from those riders
       const cars = await client.query(
-        `UPDATE rider_cars SET is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
-         WHERE rider_id = ANY($1) AND is_active = TRUE RETURNING car_number, rider_id`,
+        `UPDATE rider_cars SET status = 'off_rent', off_rent_at = NOW(),
+         is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
+         WHERE rider_id = ANY($1) AND status NOT IN ('off_rent', 'cancelled') RETURNING car_number, rider_id`,
         [riderIds]
       );
       carsRemoved = cars.rows.length;
@@ -803,8 +809,9 @@ export async function deactivateRider(id: string): Promise<{ cars_removed: numbe
 
     // Deactivate all active cars on this rider
     const cars = await client.query(
-      `UPDATE rider_cars SET is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
-       WHERE rider_id = $1 AND is_active = TRUE RETURNING car_number`,
+      `UPDATE rider_cars SET status = 'off_rent', off_rent_at = NOW(),
+       is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
+       WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled') RETURNING car_number`,
       [id]
     );
 
@@ -845,9 +852,9 @@ export async function addCarToRider(riderId: string, carNumber: string, addedDat
     );
     if (car.rows.length === 0) throw new Error('Car not found');
 
-    // Validate car not active on another rider
+    // Validate car not active on another rider (non-terminal status)
     const existing = await client.query(
-      'SELECT rider_id FROM rider_cars WHERE car_number = $1 AND is_active = TRUE', [carNumber]
+      `SELECT rider_id FROM rider_cars WHERE car_number = $1 AND status NOT IN ('off_rent', 'cancelled')`, [carNumber]
     );
     if (existing.rows.length > 0) {
       throw new Error(`Car ${carNumber} is already active on another rider`);
@@ -855,19 +862,13 @@ export async function addCarToRider(riderId: string, carNumber: string, addedDat
 
     const effectiveDate = addedDate || new Date().toISOString().split('T')[0];
 
-    // Insert rider_cars record
+    // Insert rider_cars record with status = 'decided' (not on_rent — R23)
+    // Car is committed but NOT yet billing-eligible. Must transition to on_rent explicitly.
     const result = await client.query(
-      `INSERT INTO rider_cars (rider_id, car_number, added_date, is_active, is_on_rent)
-       VALUES ($1, $2, $3, TRUE, TRUE)
+      `INSERT INTO rider_cars (rider_id, car_number, added_date, is_active, status, decided_at)
+       VALUES ($1, $2, $3, TRUE, 'decided', NOW())
        RETURNING id`,
       [riderId, carNumber, effectiveDate]
-    );
-
-    // Create on_rent_history record
-    await client.query(
-      `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, change_reason)
-       VALUES ($1, $2, TRUE, $3, 'Added to rider')`,
-      [carNumber, riderId, effectiveDate]
     );
 
     // Update rider car_count
@@ -884,28 +885,195 @@ export async function addCarToRider(riderId: string, carNumber: string, addedDat
 
 export async function removeCarFromRider(riderId: string, carNumber: string): Promise<void> {
   return transaction(async (client) => {
-    const result = await client.query(
-      `UPDATE rider_cars SET removed_date = CURRENT_DATE, is_active = FALSE, is_on_rent = FALSE
-       WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE RETURNING id`,
+    // Find the active rider_car
+    const rc = await client.query(
+      `SELECT id, status FROM rider_cars
+       WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
       [riderId, carNumber]
     );
-    if (result.rows.length === 0) throw new Error('Active car-rider assignment not found');
+    if (rc.rows.length === 0) throw new Error('Active car-rider assignment not found');
 
-    // Log on-rent history
+    const currentStatus = rc.rows[0].status;
+
+    // Transition to off_rent (or cancelled if never went on_rent)
+    const targetStatus = (currentStatus === 'decided' || currentStatus === 'prep_required')
+      ? 'cancelled'
+      : 'off_rent';
+
     await client.query(
-      `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, change_reason)
-       VALUES ($1, $2, FALSE, CURRENT_DATE, 'Removed from rider')`,
-      [carNumber, riderId]
+      `UPDATE rider_cars SET
+        status = $1,
+        off_rent_at = NOW(),
+        removed_date = CURRENT_DATE,
+        is_active = FALSE,
+        is_on_rent = FALSE
+       WHERE id = $2`,
+      [targetStatus, rc.rows[0].id]
     );
+
+    // Log on-rent history if was on_rent
+    if (currentStatus === 'on_rent' || currentStatus === 'releasing') {
+      await client.query(
+        `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, change_reason)
+         VALUES ($1, $2, FALSE, CURRENT_DATE, 'Removed from rider')`,
+        [carNumber, riderId]
+      );
+    }
 
     // Update rider car_count
     await client.query(
       `UPDATE lease_riders SET car_count = (
-        SELECT COUNT(*) FROM rider_cars WHERE rider_id = $1 AND is_active = TRUE
+        SELECT COUNT(*) FROM rider_cars WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')
       ) WHERE id = $1`,
       [riderId]
     );
   });
+}
+
+// ============================================================================
+// RIDER CAR LIFECYCLE TRANSITIONS
+// ============================================================================
+
+export type RiderCarStatus = 'decided' | 'prep_required' | 'on_rent' | 'releasing' | 'off_rent' | 'cancelled';
+
+/**
+ * Transition a rider_car through its 6-state lifecycle:
+ *   decided → prep_required → on_rent → releasing → off_rent
+ *   (+ cancelled from decided/prep_required, releasing → on_rent for cancel-release)
+ *
+ * DB trigger `enforce_rider_car_transition` validates allowed transitions.
+ * DB trigger `guard_rider_car_parent` prevents on_rent unless rider+lease are Active (R17).
+ *
+ * Side effects by target status:
+ *   on_rent:    Set on_rent_at, log on_rent_history, close idle period, set is_on_rent=TRUE
+ *   releasing:  Set releasing_at (billing stop per R23)
+ *   off_rent:   Set off_rent_at, removed_date, open idle period, create triage entry (S8)
+ *   cancelled:  Set off_rent_at, no side effects needed
+ */
+export async function transitionRiderCar(
+  riderCarId: string,
+  targetStatus: RiderCarStatus,
+  userId: string,
+  metadata?: { shopping_event_id?: string; notes?: string }
+): Promise<{ id: string; status: RiderCarStatus; car_number: string; rider_id: string }> {
+  // Read current state
+  const current = await queryOne<{
+    id: string; status: string; car_number: string; rider_id: string; car_id: string;
+  }>(
+    `SELECT rc.id, rc.status, rc.car_number, rc.rider_id,
+            (SELECT c.id FROM cars c WHERE c.car_number = rc.car_number) AS car_id
+     FROM rider_cars rc WHERE rc.id = $1`,
+    [riderCarId]
+  );
+  if (!current) throw new Error(`Rider car ${riderCarId} not found`);
+  if (current.status === targetStatus) return { id: current.id, status: targetStatus, car_number: current.car_number, rider_id: current.rider_id };
+
+  // Build update SET clause based on target status
+  let extraSets = '';
+  const params: unknown[] = [targetStatus, userId, riderCarId];
+  let paramIdx = 4;
+
+  switch (targetStatus) {
+    case 'on_rent':
+      extraSets = `, on_rent_at = NOW(), is_on_rent = TRUE`;
+      if (metadata?.shopping_event_id) {
+        extraSets += `, shopping_event_id = $${paramIdx++}`;
+        params.push(metadata.shopping_event_id);
+      }
+      break;
+    case 'prep_required':
+      if (metadata?.shopping_event_id) {
+        extraSets = `, shopping_event_id = $${paramIdx++}`;
+        params.push(metadata.shopping_event_id);
+      }
+      break;
+    case 'releasing':
+      extraSets = `, releasing_at = NOW(), is_on_rent = FALSE`;
+      break;
+    case 'off_rent':
+      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE, is_active = FALSE, is_on_rent = FALSE`;
+      break;
+    case 'cancelled':
+      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE, is_active = FALSE, is_on_rent = FALSE`;
+      break;
+  }
+
+  // Execute update — DB trigger validates the transition
+  const result = await queryOne<{ id: string; status: string; car_number: string; rider_id: string }>(
+    `UPDATE rider_cars SET status = $1, updated_by = $2 ${extraSets}
+     WHERE id = $3 RETURNING id, status, car_number, rider_id`,
+    params
+  );
+  if (!result) throw new Error(`Failed to transition rider car to ${targetStatus}`);
+
+  // --- Side effects ---
+
+  // on_rent: log on_rent_history, close idle period
+  if (targetStatus === 'on_rent') {
+    await query(
+      `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, change_reason)
+       VALUES ($1, $2, TRUE, CURRENT_DATE, $3)`,
+      [current.car_number, current.rider_id, metadata?.notes || 'Transitioned to on_rent']
+    );
+    if (current.car_id) {
+      idlePeriodService.closeIdlePeriod(current.car_id)
+        .catch(err => logger.error({ err }, `[RiderCar] Failed to close idle period for ${current.car_number}`));
+    }
+  }
+
+  // off_rent: log on_rent_history, open idle period, create triage entry (S8)
+  if (targetStatus === 'off_rent') {
+    await query(
+      `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, change_reason)
+       VALUES ($1, $2, FALSE, CURRENT_DATE, $3)`,
+      [current.car_number, current.rider_id, metadata?.notes || 'Transitioned to off_rent']
+    );
+
+    // Update rider car_count
+    await query(
+      `UPDATE lease_riders SET car_count = (
+        SELECT COUNT(*) FROM rider_cars WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')
+      ) WHERE id = $1`,
+      [current.rider_id]
+    );
+
+    if (current.car_id) {
+      idlePeriodService.openIdlePeriod(current.car_id, current.car_number, 'between_leases')
+        .catch(err => logger.error({ err }, `[RiderCar] Failed to open idle period for ${current.car_number}`));
+
+      triageQueueService.createTriageEntry(
+        current.car_id, current.car_number, 'customer_return', 2,
+        metadata?.notes || `Car removed from rider ${current.rider_id}`, userId
+      ).catch(err => logger.error({ err }, `[RiderCar] Failed to create triage entry for ${current.car_number}`));
+    }
+  }
+
+  // Audit
+  logTransition({
+    processType: 'rider_car',
+    entityId: riderCarId,
+    entityNumber: current.car_number,
+    fromState: current.status,
+    toState: targetStatus,
+    isReversible: targetStatus === 'releasing', // only releasing→on_rent is reversible
+    actorId: userId,
+    notes: metadata?.notes,
+  }).catch(err => logger.error({ err }, '[TransitionLog] Failed to log rider car transition'));
+
+  if (current.car_id) {
+    assetEventService.recordEvent(current.car_id, `car.rider_car_${targetStatus}`, {
+      rider_car_id: riderCarId,
+      rider_id: current.rider_id,
+      from_status: current.status,
+      to_status: targetStatus,
+    }, {
+      sourceTable: 'rider_cars',
+      sourceId: riderCarId,
+      performedBy: userId,
+    }).catch(() => {});
+  }
+
+  return { id: result.id, status: targetStatus, car_number: result.car_number, rider_id: result.rider_id };
 }
 
 // ============================================================================
@@ -922,7 +1090,7 @@ export async function updateOnRentStatus(
   return transaction(async (client) => {
     // Validate car is active on this rider
     const rc = await client.query(
-      'SELECT id, is_on_rent FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE',
+      `SELECT id, is_on_rent FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
       [riderId, carNumber]
     );
     if (rc.rows.length === 0) throw new Error('Active car-rider assignment not found');
@@ -1310,7 +1478,7 @@ export async function activateAmendment(id: string, activatedBy: string): Promis
     // Clear pending amendment flags
     await client.query(
       `UPDATE rider_cars SET has_pending_amendment = FALSE, amendment_conflict = FALSE, conflict_reason = NULL
-       WHERE rider_id = $1 AND is_active = TRUE`,
+       WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')`,
       [amendment.rider_id]
     );
 
