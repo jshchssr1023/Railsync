@@ -98,6 +98,9 @@ services:
       - ./database/migrations/075_on_rent_lease_crud.sql:/docker-entrypoint-initdb.d/80-on-rent-lease-crud.sql
       - ./database/migrations/076_amendment_lifecycle.sql:/docker-entrypoint-initdb.d/81-amendment-lifecycle.sql
       - ./database/migrations/077_abatement_billing.sql:/docker-entrypoint-initdb.d/82-abatement-billing.sql
+      - ./database/migrations/078_car_lifecycle_foundation.sql:/docker-entrypoint-initdb.d/83-car-lifecycle-foundation.sql
+      - ./database/migrations/079_unified_shopping_event.sql:/docker-entrypoint-initdb.d/84-unified-shopping-event.sql
+      - ./database/migrations/080_data_backfill.sql:/docker-entrypoint-initdb.d/85-data-backfill.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
