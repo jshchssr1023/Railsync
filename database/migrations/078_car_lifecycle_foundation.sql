@@ -81,7 +81,7 @@ ALTER TABLE rider_cars ADD COLUMN IF NOT EXISTS off_rent_at TIMESTAMPTZ;
 -- MUST happen before the one-active-per-car unique index (Section 5) is created,
 -- otherwise the index will fail on cars with multiple rider_cars records.
 -- Inactive records → 'off_rent' (excluded from the unique index).
-UPDATE rider_cars SET status = 'off_rent', off_rent_at = COALESCE(updated_at, NOW())
+UPDATE rider_cars SET status = 'off_rent', off_rent_at = COALESCE(removed_date::TIMESTAMPTZ, created_at, NOW())
   WHERE is_active = FALSE AND status != 'off_rent';
 
 -- Active + on_rent records keep the default 'on_rent'; set timestamp

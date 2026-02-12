@@ -16,19 +16,19 @@ INSERT INTO qualification_rules (
 )
 SELECT
   qt.id,
-  rule.rule_name,
-  rule.interval_months,
-  rule.warning_days_90,
-  rule.warning_days_60,
-  rule.warning_days_30,
-  rule.applies_to_car_types::jsonb,
-  rule.applies_to_commodities::jsonb,
-  rule.exemption_conditions::jsonb,
-  rule.regulatory_reference,
-  rule.effective_date::date,
+  rd.rule_name,
+  rd.interval_months,
+  rd.warning_days_90,
+  rd.warning_days_60,
+  rd.warning_days_30,
+  rd.applies_to_car_types::jsonb,
+  rd.applies_to_commodities::jsonb,
+  rd.exemption_conditions::jsonb,
+  rd.regulatory_reference,
+  rd.effective_date::date,
   TRUE
 FROM qualification_types qt
-CROSS JOIN (VALUES
+JOIN (VALUES
   -- TANK_REQUALIFICATION variants
   ('TANK_REQUALIFICATION', 'Tank Requalification - DOT-111 (Non-Jacketed)', 96,
     TRUE, TRUE, TRUE,
@@ -178,12 +178,12 @@ CROSS JOIN (VALUES
     '[]', '[]',
     '{"car_age_over": 30}',
     'AAR S-259', '2020-01-01')
-) AS rule(type_code, rule_name, interval_months,
+) AS rd(type_code, rule_name, interval_months,
           warning_days_90, warning_days_60, warning_days_30,
           applies_to_car_types, applies_to_commodities,
           exemption_conditions, regulatory_reference, effective_date)
-ON rule.type_code = qt.code
+ON rd.type_code = qt.code
 WHERE NOT EXISTS (
   SELECT 1 FROM qualification_rules qr
-  WHERE qr.qualification_type_id = qt.id AND qr.rule_name = rule.rule_name
+  WHERE qr.qualification_type_id = qt.id AND qr.rule_name = rd.rule_name
 );

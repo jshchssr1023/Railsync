@@ -111,8 +111,7 @@ SELECT
   -- Project type from lookup
   pt.code AS project_type_code,
   pt.name AS project_type_name,
-  -- FMS project ID display
-  p.fms_project_id,
+  -- fms_project_id already included via p.*
   -- Person roles
   eng.first_name || ' ' || eng.last_name AS engineer_name,
   eng.email AS engineer_email,

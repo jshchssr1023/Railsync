@@ -53,6 +53,8 @@ FROM cars c
 WHERE a.car_id = c.id AND a.car_type IS NULL;
 
 -- View for plan summary with project info
+-- Must DROP first: column order changed (locked_at/locked_by added before created_by)
+DROP VIEW IF EXISTS v_master_plan_summary;
 CREATE OR REPLACE VIEW v_master_plan_summary AS
 SELECT
   mp.id,

@@ -86,7 +86,7 @@ INSERT INTO shopping_events_v2 (
 SELECT
   se.id,                               -- Preserve original shopping_event ID
   se.event_number,                     -- Preserve original event number
-  COALESCE(se.car_id, ca.car_id),
+  COALESCE(se.car_id, ca.car_id, c_lookup.id),
   COALESCE(se.car_number, ca.car_number),
 
   -- Map old state → new state
@@ -159,10 +159,12 @@ SELECT
 
 FROM shopping_events se
 LEFT JOIN car_assignments ca ON ca.id = se.car_assignment_id
-WHERE NOT EXISTS (
-  -- Skip if already migrated (idempotent)
-  SELECT 1 FROM shopping_events_v2 sv2 WHERE sv2.id = se.id
-);
+LEFT JOIN cars c_lookup ON c_lookup.car_number = COALESCE(se.car_number, ca.car_number)
+WHERE COALESCE(se.car_id, ca.car_id, c_lookup.id) IS NOT NULL  -- Skip orphans with no valid car
+  AND NOT EXISTS (
+    -- Skip if already migrated (idempotent)
+    SELECT 1 FROM shopping_events_v2 sv2 WHERE sv2.id = se.id
+  );
 
 -- 1B. car_assignments WITHOUT linked shopping_events
 -- These are assignments that never had a shopping event created.
@@ -201,7 +203,7 @@ INSERT INTO shopping_events_v2 (
 )
 SELECT
   'MIG-CA-' || ca.id::TEXT,  -- Generate event_number from assignment ID
-  ca.car_id,
+  COALESCE(ca.car_id, c_lookup.id),
   ca.car_number,
 
   -- Map assignment status → new state
@@ -251,14 +253,16 @@ SELECT
   COALESCE(ca.version, 1)
 
 FROM car_assignments ca
-WHERE NOT EXISTS (
-  -- Only assignments with NO shopping event
-  SELECT 1 FROM shopping_events se WHERE se.car_assignment_id = ca.id
-)
-AND NOT EXISTS (
-  -- Skip if already migrated (idempotent)
-  SELECT 1 FROM shopping_events_v2 sv2 WHERE sv2.event_number = 'MIG-CA-' || ca.id::TEXT
-);
+LEFT JOIN cars c_lookup ON c_lookup.car_number = ca.car_number
+WHERE COALESCE(ca.car_id, c_lookup.id) IS NOT NULL  -- Skip orphans with no valid car
+  AND NOT EXISTS (
+    -- Only assignments with NO shopping event
+    SELECT 1 FROM shopping_events se WHERE se.car_assignment_id = ca.id
+  )
+  AND NOT EXISTS (
+    -- Skip if already migrated (idempotent)
+    SELECT 1 FROM shopping_events_v2 sv2 WHERE sv2.event_number = 'MIG-CA-' || ca.id::TEXT
+  );
 
 -- 1C. Set state timestamps on migrated records
 -- Fill in the most relevant timestamp based on the mapped state.
