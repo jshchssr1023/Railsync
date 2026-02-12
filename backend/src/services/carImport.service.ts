@@ -129,8 +129,6 @@ function mapCSVToCarMaster(row: CSVRow): Partial<CarMaster> {
     tank_qual_year: parseInt(row['Tank Qualification']) || undefined,
     // Planning status
     current_status: row['Current Status'] || undefined,
-    adjusted_status: row['Adjusted Status'] || undefined,
-    plan_status: row['Plan Status'] || undefined,
   };
 }
 
@@ -188,8 +186,6 @@ export async function importCarsFromCSV(content: string): Promise<ImportResult> 
             tank_thickness_year = COALESCE($22, tank_thickness_year),
             tank_qual_year = COALESCE($23, tank_qual_year),
             current_status = COALESCE($24, current_status),
-            adjusted_status = COALESCE($25, adjusted_status),
-            plan_status = COALESCE($26, plan_status),
             updated_at = NOW()
           WHERE car_number = $1`,
           [
@@ -217,8 +213,6 @@ export async function importCarsFromCSV(content: string): Promise<ImportResult> 
             car.tank_thickness_year,
             car.tank_qual_year,
             car.current_status,
-            car.adjusted_status,
-            car.plan_status,
           ]
         );
         result.updated++;
@@ -232,8 +226,8 @@ export async function importCarsFromCSV(content: string): Promise<ImportResult> 
             min_no_lining_year, min_lining_year, interior_lining_year, rule_88b_year,
             safety_relief_year, service_equipment_year, stub_sill_year,
             tank_thickness_year, tank_qual_year,
-            current_status, adjusted_status, plan_status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
+            current_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
           [
             car.car_number,
             car.car_id,
@@ -259,8 +253,6 @@ export async function importCarsFromCSV(content: string): Promise<ImportResult> 
             car.tank_thickness_year,
             car.tank_qual_year,
             car.current_status,
-            car.adjusted_status,
-            car.plan_status,
           ]
         );
         result.imported++;

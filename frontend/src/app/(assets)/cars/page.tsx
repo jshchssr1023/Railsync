@@ -42,7 +42,6 @@ interface Car {
   is_lined: boolean;
   tank_qual_year: number;
   contract_number: string;
-  plan_status: string;
 }
 
 interface Pagination {

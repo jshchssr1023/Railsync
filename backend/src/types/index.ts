@@ -451,8 +451,6 @@ export interface CarMaster extends Car {
   tank_qual_year?: number;
   // Planning status
   current_status?: string;
-  adjusted_status?: string;
-  plan_status?: string;
   assigned_shop_code?: string;
   assigned_date?: Date;
 }

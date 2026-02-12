@@ -233,7 +233,7 @@ export async function executeRelease(
 /**
  * Complete a release. Atomic transaction:
  * 1. Mark car_releases.status = COMPLETED
- * 2. Deactivate rider_cars record (is_active=FALSE, removed_date=TODAY)
+ * 2. Deactivate rider_cars record (status='off_rent', removed_date=TODAY)
  * 3. Complete linked car_assignment if present
  * 4. Complete linked car_lease_transition if present
  * 5. Log audit events
@@ -268,9 +268,7 @@ export async function completeRelease(
       `UPDATE rider_cars SET
         status = 'off_rent',
         off_rent_at = NOW(),
-        removed_date = CURRENT_DATE,
-        is_active = FALSE,
-        is_on_rent = FALSE
+        removed_date = CURRENT_DATE
       WHERE rider_id = $1 AND car_number = $2 AND status = 'releasing'`,
       [current.rider_id, current.car_number]
     );

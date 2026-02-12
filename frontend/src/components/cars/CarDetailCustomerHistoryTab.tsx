@@ -32,7 +32,6 @@ interface CustomerHistoryEntry {
   rate_per_car: number | null;
   added_date: string | null;
   removed_date: string | null;
-  is_active: boolean;
   assignment_status: string;
 }
 
@@ -81,8 +80,8 @@ export default function CarDetailCustomerHistoryTab({ carNumber }: { carNumber: 
     );
   }
 
-  const current = history.filter(h => h.is_active);
-  const past = history.filter(h => !h.is_active);
+  const current = history.filter(h => h.assignment_status === 'Current');
+  const past = history.filter(h => h.assignment_status !== 'Current');
 
   return (
     <div className="space-y-6">

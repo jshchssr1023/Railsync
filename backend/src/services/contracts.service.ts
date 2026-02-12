@@ -682,7 +682,7 @@ export async function deactivateLease(id: string): Promise<{ riders_deactivated:
       // Remove all active cars from those riders
       const cars = await client.query(
         `UPDATE rider_cars SET status = 'off_rent', off_rent_at = NOW(),
-         is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
+         removed_date = CURRENT_DATE
          WHERE rider_id = ANY($1) AND status NOT IN ('off_rent', 'cancelled') RETURNING car_number, rider_id`,
         [riderIds]
       );
@@ -812,7 +812,7 @@ export async function deactivateRider(id: string): Promise<{ cars_removed: numbe
     // Deactivate all active cars on this rider
     const cars = await client.query(
       `UPDATE rider_cars SET status = 'off_rent', off_rent_at = NOW(),
-       is_active = FALSE, is_on_rent = FALSE, removed_date = CURRENT_DATE
+       removed_date = CURRENT_DATE
        WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled') RETURNING car_number`,
       [id]
     );
@@ -867,8 +867,8 @@ export async function addCarToRider(riderId: string, carNumber: string, addedDat
     // Insert rider_cars record with status = 'decided' (not on_rent — R23)
     // Car is committed but NOT yet billing-eligible. Must transition to on_rent explicitly.
     const result = await client.query(
-      `INSERT INTO rider_cars (rider_id, car_number, added_date, is_active, status, decided_at)
-       VALUES ($1, $2, $3, TRUE, 'decided', NOW())
+      `INSERT INTO rider_cars (rider_id, car_number, added_date, status, decided_at)
+       VALUES ($1, $2, $3, 'decided', NOW())
        RETURNING id`,
       [riderId, carNumber, effectiveDate]
     );
@@ -876,7 +876,7 @@ export async function addCarToRider(riderId: string, carNumber: string, addedDat
     // Update rider car_count
     await client.query(
       `UPDATE lease_riders SET car_count = (
-        SELECT COUNT(*) FROM rider_cars WHERE rider_id = $1 AND is_active = TRUE
+        SELECT COUNT(*) FROM rider_cars WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')
       ) WHERE id = $1`,
       [riderId]
     );
@@ -906,9 +906,7 @@ export async function removeCarFromRider(riderId: string, carNumber: string): Pr
       `UPDATE rider_cars SET
         status = $1,
         off_rent_at = NOW(),
-        removed_date = CURRENT_DATE,
-        is_active = FALSE,
-        is_on_rent = FALSE
+        removed_date = CURRENT_DATE
        WHERE id = $2`,
       [targetStatus, rc.rows[0].id]
     );
@@ -947,7 +945,7 @@ export type RiderCarStatus = 'decided' | 'prep_required' | 'on_rent' | 'releasin
  * DB trigger `guard_rider_car_parent` prevents on_rent unless rider+lease are Active (R17).
  *
  * Side effects by target status:
- *   on_rent:    Set on_rent_at, log on_rent_history, close idle period, set is_on_rent=TRUE
+ *   on_rent:    Set on_rent_at, log on_rent_history, close idle period
  *   releasing:  Set releasing_at (billing stop per R23)
  *   off_rent:   Set off_rent_at, removed_date, open idle period, create triage entry (S8)
  *   cancelled:  Set off_rent_at, no side effects needed
@@ -977,7 +975,7 @@ export async function transitionRiderCar(
 
   switch (targetStatus) {
     case 'on_rent':
-      extraSets = `, on_rent_at = NOW(), is_on_rent = TRUE`;
+      extraSets = `, on_rent_at = NOW()`;
       if (metadata?.shopping_event_id) {
         extraSets += `, shopping_event_id = $${paramIdx++}`;
         params.push(metadata.shopping_event_id);
@@ -990,13 +988,13 @@ export async function transitionRiderCar(
       }
       break;
     case 'releasing':
-      extraSets = `, releasing_at = NOW(), is_on_rent = FALSE`;
+      extraSets = `, releasing_at = NOW()`;
       break;
     case 'off_rent':
-      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE, is_active = FALSE, is_on_rent = FALSE`;
+      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE`;
       break;
     case 'cancelled':
-      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE, is_active = FALSE, is_on_rent = FALSE`;
+      extraSets = `, off_rent_at = NOW(), removed_date = CURRENT_DATE`;
       break;
   }
 
@@ -1082,39 +1080,6 @@ export async function transitionRiderCar(
 // ON-RENT OPERATIONS
 // ============================================================================
 
-export async function updateOnRentStatus(
-  riderId: string,
-  carNumber: string,
-  isOnRent: boolean,
-  changedBy?: string,
-  reason?: string
-): Promise<void> {
-  return transaction(async (client) => {
-    // Validate car is active on this rider
-    const rc = await client.query(
-      `SELECT id, is_on_rent FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
-      [riderId, carNumber]
-    );
-    if (rc.rows.length === 0) throw new Error('Active car-rider assignment not found');
-
-    // Skip if no change
-    if (rc.rows[0].is_on_rent === isOnRent) return;
-
-    // Update rider_cars
-    await client.query(
-      'UPDATE rider_cars SET is_on_rent = $1 WHERE id = $2',
-      [isOnRent, rc.rows[0].id]
-    );
-
-    // Insert on_rent_history
-    await client.query(
-      `INSERT INTO on_rent_history (car_number, rider_id, is_on_rent, effective_date, changed_by, change_reason)
-       VALUES ($1, $2, $3, CURRENT_DATE, $4, $5)`,
-      [carNumber, riderId, isOnRent, changedBy || null, reason || null]
-    );
-  });
-}
-
 export async function getOnRentHistory(
   carNumber: string,
   periodStart?: string,
@@ -1168,12 +1133,12 @@ export async function getOnRentDays(
 
   if (history.length === 0) {
     // No history: check current rider_cars status
-    const rc = await queryOne<{ is_on_rent: boolean; added_date: string }>(
-      'SELECT is_on_rent, added_date FROM rider_cars WHERE car_number = $1 AND rider_id = $2',
+    const rc = await queryOne<{ status: string; added_date: string }>(
+      'SELECT status, added_date FROM rider_cars WHERE car_number = $1 AND rider_id = $2',
       [carNumber, riderId]
     );
     if (!rc) return 0;
-    if (!rc.is_on_rent) return 0;
+    if (rc.status !== 'on_rent') return 0;
 
     // Car was on-rent for the entire overlap between added_date and the period
     const start = new Date(Math.max(new Date(periodStart).getTime(), new Date(rc.added_date).getTime()));
@@ -1215,21 +1180,6 @@ export async function getOnRentDays(
   }
 
   return onRentDays;
-}
-
-// ============================================================================
-// RIDER ON-RENT SUMMARY (for fleet table / drawer)
-// ============================================================================
-
-export async function getRiderCarOnRentStatus(riderId: string): Promise<{
-  car_number: string;
-  is_on_rent: boolean;
-  is_active: boolean;
-}[]> {
-  return query(
-    'SELECT car_number, is_on_rent, is_active FROM rider_cars WHERE rider_id = $1 AND is_active = TRUE ORDER BY car_number',
-    [riderId]
-  );
 }
 
 // ============================================================================
@@ -1350,7 +1300,7 @@ export async function submitAmendment(id: string, submittedBy: string): Promise<
     const amendment = result.rows[0];
     await client.query(
       `UPDATE rider_cars SET has_pending_amendment = TRUE
-       WHERE rider_id = $1 AND is_active = TRUE`,
+       WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')`,
       [amendment.rider_id]
     );
 
@@ -1407,7 +1357,7 @@ export async function rejectAmendment(id: string, rejectedBy: string, reason: st
     // Clear pending amendment flags on rider_cars
     await client.query(
       `UPDATE rider_cars SET has_pending_amendment = FALSE
-       WHERE rider_id = $1 AND is_active = TRUE
+       WHERE rider_id = $1 AND status NOT IN ('off_rent', 'cancelled')
        AND NOT EXISTS (
          SELECT 1 FROM lease_amendments la
          WHERE la.rider_id = $1 AND la.status = 'Pending' AND la.id != $2
@@ -1540,10 +1490,8 @@ export default {
   addCarToRider,
   removeCarFromRider,
   // On-rent
-  updateOnRentStatus,
   getOnRentHistory,
   getOnRentDays,
-  getRiderCarOnRentStatus,
   // Amendment lifecycle
   createAmendment,
   updateAmendment,

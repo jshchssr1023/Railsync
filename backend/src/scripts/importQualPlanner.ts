@@ -144,10 +144,7 @@ async function importQualPlanner(csvPath: string) {
         full_partial_qual: row['Full/Partial Qual']?.trim() || null,
         reason_shopped: row['Reason Shopped']?.trim() || null,
         perform_tank_qual: parseBoolean(row['Perform Tank Qual']),
-        scheduled_status: row['Scheduled']?.trim() || null,
         current_status: row['Current Status']?.trim() || null,
-        adjusted_status: row['Adjusted Status']?.trim() || null,
-        plan_status: row['Plan Status']?.trim() || null,
       };
 
       // Upsert: insert or update on conflict
@@ -161,13 +158,12 @@ async function importQualPlanner(csvPath: string) {
           rule_88b_year, safety_relief_year, service_equipment_year,
           stub_sill_year, tank_thickness_year, tank_qual_year,
           portfolio_status, full_partial_qual, reason_shopped,
-          perform_tank_qual, scheduled_status, current_status,
-          adjusted_status, plan_status, updated_at
+          perform_tank_qual, current_status, updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
           $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
           $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-          $31, $32, $33, $34, $35, $36, CURRENT_TIMESTAMP
+          $31, $32, $33, CURRENT_TIMESTAMP
         )
         ON CONFLICT (car_number) DO UPDATE SET
           car_mark = EXCLUDED.car_mark,
@@ -201,10 +197,7 @@ async function importQualPlanner(csvPath: string) {
           full_partial_qual = EXCLUDED.full_partial_qual,
           reason_shopped = EXCLUDED.reason_shopped,
           perform_tank_qual = EXCLUDED.perform_tank_qual,
-          scheduled_status = EXCLUDED.scheduled_status,
           current_status = EXCLUDED.current_status,
-          adjusted_status = EXCLUDED.adjusted_status,
-          plan_status = EXCLUDED.plan_status,
           updated_at = CURRENT_TIMESTAMP
         RETURNING (xmax = 0) AS inserted
       `, [
@@ -240,10 +233,7 @@ async function importQualPlanner(csvPath: string) {
         carData.full_partial_qual,
         carData.reason_shopped,
         carData.perform_tank_qual,
-        carData.scheduled_status,
         carData.current_status,
-        carData.adjusted_status,
-        carData.plan_status,
       ]);
 
       if (result.rows[0]?.inserted) {

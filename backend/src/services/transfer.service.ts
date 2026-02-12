@@ -102,8 +102,8 @@ export async function validateTransferPrerequisites(
   }
 
   // Check car is active on source rider
-  const sourceRiderCar = await queryOne<{ is_active: boolean }>(
-    'SELECT is_active FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE',
+  const sourceRiderCar = await queryOne<{ status: string }>(
+    `SELECT status FROM rider_cars WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
     [fromRiderId, carNumber]
   );
   if (!sourceRiderCar) {
@@ -325,16 +325,17 @@ export async function completeTransfer(
     // 1. Deactivate on source rider
     await client.query(
       `UPDATE rider_cars SET
-        is_active = FALSE,
+        status = 'off_rent',
+        off_rent_at = NOW(),
         removed_date = CURRENT_DATE
-      WHERE rider_id = $1 AND car_number = $2 AND is_active = TRUE`,
+      WHERE rider_id = $1 AND car_number = $2 AND status NOT IN ('off_rent', 'cancelled')`,
       [current.from_rider_id, current.car_number]
     );
 
     // 2. Create on destination rider
     await client.query(
-      `INSERT INTO rider_cars (rider_id, car_number, added_date, is_active)
-       VALUES ($1, $2, CURRENT_DATE, TRUE)
+      `INSERT INTO rider_cars (rider_id, car_number, added_date, status, decided_at)
+       VALUES ($1, $2, CURRENT_DATE, 'decided', NOW())
        ON CONFLICT DO NOTHING`,
       [current.to_rider_id, current.car_number]
     );

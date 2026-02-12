@@ -628,7 +628,7 @@ export async function getDemandByCustomer(limit: number = 10): Promise<DemandByC
         COUNT(*) as current_demand
       FROM car_assignments ca
       JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
       JOIN lease_riders lr ON lr.id = rc.rider_id
       JOIN master_leases ml ON ml.id = lr.master_lease_id
       JOIN customers c ON c.id = ml.customer_id
@@ -641,7 +641,7 @@ export async function getDemandByCustomer(limit: number = 10): Promise<DemandByC
         COUNT(*) / 3.0 as avg_monthly
       FROM car_assignments ca
       JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
       JOIN lease_riders lr ON lr.id = rc.rider_id
       JOIN master_leases ml ON ml.id = lr.master_lease_id
       JOIN customers c ON c.id = ml.customer_id
@@ -770,7 +770,7 @@ export async function getCustomerCostBreakdown(fiscalYear: number = 2026, limit:
       END as avg_cost_per_car
     FROM car_assignments ca
     LEFT JOIN cars cr ON ca.car_number = cr.car_number
-    LEFT JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.is_active = TRUE
+    LEFT JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
     LEFT JOIN lease_riders lr ON lr.id = rc.rider_id
     LEFT JOIN master_leases ml ON ml.id = lr.master_lease_id
     LEFT JOIN customers c ON c.id = ml.customer_id

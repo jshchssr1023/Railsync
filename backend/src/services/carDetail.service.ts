@@ -17,14 +17,13 @@ export async function getCustomerHistory(carNumber: string) {
        lr.rate_per_car,
        rc.added_date,
        rc.removed_date,
-       rc.is_active,
-       CASE WHEN rc.is_active = TRUE THEN 'Current' ELSE 'Historical' END AS assignment_status
+       CASE WHEN rc.status NOT IN ('off_rent', 'cancelled') THEN 'Current' ELSE 'Historical' END AS assignment_status
      FROM rider_cars rc
      JOIN lease_riders lr ON lr.id = rc.rider_id
      JOIN master_leases ml ON ml.id = lr.master_lease_id
      JOIN customers c ON c.id = ml.customer_id
      WHERE rc.car_number = $1
-     ORDER BY rc.is_active DESC, rc.added_date DESC`,
+     ORDER BY CASE WHEN rc.status NOT IN ('off_rent', 'cancelled') THEN 0 ELSE 1 END, rc.added_date DESC`,
     [carNumber]
   );
   return result.rows;

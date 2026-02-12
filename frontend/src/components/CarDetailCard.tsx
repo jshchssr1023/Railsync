@@ -52,9 +52,6 @@ export interface CarDetails {
   current_region: string;
   // Status
   current_status: string;
-  adjusted_status: string;
-  plan_status: string;
-  scheduled_status: string;
   full_partial_qual: string;
   reason_shopped: string;
   perform_tank_qual: boolean;
@@ -343,10 +340,6 @@ export default function CarDetailCard({ carNumber, onClose, onShopNow }: CarDeta
                   <div className="flex justify-between items-center">
                     <dt className="text-sm text-gray-500 dark:text-gray-400">Status</dt>
                     <dd>{getStatusBadge(car.current_status)}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Plan Status</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">{car.plan_status || 'N/A'}</dd>
                   </div>
                 </dl>
               </div>

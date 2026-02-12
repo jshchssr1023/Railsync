@@ -11,7 +11,7 @@ import {
 
 /**
  * Count distinct cars actively on lease by joining the lease hierarchy:
- * rider_cars (is_active) → lease_riders (Active) → master_leases (Active)
+ * rider_cars (active status) → lease_riders (Active) → master_leases (Active)
  */
 export async function getActiveLeasedCarCount(): Promise<number> {
   const sql = `
@@ -19,7 +19,7 @@ export async function getActiveLeasedCarCount(): Promise<number> {
     FROM rider_cars rc
     JOIN lease_riders lr ON lr.id = rc.rider_id
     JOIN master_leases ml ON ml.id = lr.lease_id
-    WHERE rc.is_active = TRUE
+    WHERE rc.status NOT IN ('off_rent', 'cancelled')
       AND lr.status = 'Active'
       AND ml.status = 'Active'
   `;

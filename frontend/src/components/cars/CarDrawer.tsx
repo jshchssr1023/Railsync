@@ -43,7 +43,7 @@ interface CarDetail {
     lease_id: string; lease_name: string; lease_status: string; customer_name: string; customer_code: string;
     rider_id?: string; rider_code?: string; rider_name?: string; rate_per_car?: number;
     rider_car_id?: string; rider_car_status?: string;
-    is_on_rent?: boolean; added_date?: string;
+    added_date?: string;
   } | null;
 }
 
@@ -98,7 +98,6 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
   const [qualHistory, setQualHistory] = useState<QualHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   // On-rent toggle state
-  const [onRentToggling, setOnRentToggling] = useState(false);
   const [idleCostSummary, setIdleCostSummary] = useState<{ total_idle_days: number; total_idle_cost: number; periods: { start_date: string; end_date?: string; days: number; cost: number; reason?: string }[] } | null>(null);
   const [idleLoading, setIdleLoading] = useState(false);
   const [idleLoaded, setIdleLoaded] = useState(false);
@@ -211,26 +210,6 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
     }
   };
 
-  const handleOnRentToggle = async () => {
-    if (!detail?.lease_info?.rider_id || onRentToggling) return;
-    const newStatus = !detail.lease_info.is_on_rent;
-    setOnRentToggling(true);
-    try {
-      await apiFetch(`/riders/${detail.lease_info.rider_id}/cars/${carNumber}/on-rent`, {
-        method: 'PUT',
-        body: JSON.stringify({ is_on_rent: newStatus }),
-      });
-      // Update local state
-      setDetail(prev => prev ? {
-        ...prev,
-        lease_info: prev.lease_info ? { ...prev.lease_info, is_on_rent: newStatus } : null,
-      } : null);
-    } catch (err: any) {
-      console.error('Failed to update on-rent status:', err);
-    } finally {
-      setOnRentToggling(false);
-    }
-  };
 
   const Section = ({ id, title, icon: Icon, children }: {
     id: string; title: string; icon: typeof Train; children: React.ReactNode;
@@ -569,9 +548,6 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
               {/* Maintenance / Status */}
               <Section id="maintenance" title="Maintenance & Status" icon={Wrench}>
                 <Field label="Current Status" value={car.current_status} />
-                <Field label="Adjusted Status" value={car.adjusted_status} />
-                <Field label="Plan Status" value={car.plan_status} />
-                <Field label="Scheduled Status" value={car.scheduled_status} />
                 <Field label="Reason Shopped" value={car.reason_shopped} />
                 <Field label="Assigned Shop" value={car.assigned_shop_code} />
                 <Field label="Assigned Date" value={car.assigned_date?.slice(0, 10)} />
@@ -648,25 +624,6 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                         {detail.lease_info.rate_per_car != null && (
                           <Field label="Rate / Car" value={`$${Number(detail.lease_info.rate_per_car).toFixed(2)}/mo`} />
                         )}
-                        {/* On-Rent Toggle */}
-                        <div className="flex items-center justify-between py-1.5">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">On-Rent</span>
-                          <button
-                            onClick={handleOnRentToggle}
-                            disabled={onRentToggling}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
-                              detail.lease_info.is_on_rent
-                                ? 'bg-green-500'
-                                : 'bg-gray-300 dark:bg-gray-600'
-                            } ${onRentToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
-                          >
-                            <span
-                              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                                detail.lease_info.is_on_rent ? 'translate-x-4.5' : 'translate-x-0.5'
-                              }`}
-                            />
-                          </button>
-                        </div>
                       </div>
                     )}
                   </>

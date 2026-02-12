@@ -264,14 +264,14 @@ export async function validateContractIntegrity(): Promise<ValidationResult[]> {
        lr.expiration_date::text
      FROM rider_cars rc
      JOIN lease_riders lr ON rc.rider_id = lr.id
-     WHERE rc.is_active = TRUE
+     WHERE rc.status NOT IN ('off_rent', 'cancelled')
        AND (lr.status != 'Active' OR lr.expiration_date < CURRENT_DATE)
      LIMIT 10`
   );
   const inactiveRiderCarCount = await query<{ count: number }>(
     `SELECT COUNT(*)::int AS count FROM rider_cars rc
      JOIN lease_riders lr ON rc.rider_id = lr.id
-     WHERE rc.is_active = TRUE
+     WHERE rc.status NOT IN ('off_rent', 'cancelled')
        AND (lr.status != 'Active' OR lr.expiration_date < CURRENT_DATE)`
   );
 

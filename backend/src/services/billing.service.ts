@@ -511,7 +511,6 @@ export async function generateMonthlyInvoices(
              rc.car_number,
              rc.added_date,
              rc.removed_date,
-             rc.is_on_rent,
              rc.status AS rc_status,
              rc.on_rent_at,
              rc.releasing_at

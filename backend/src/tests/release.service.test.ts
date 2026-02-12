@@ -329,7 +329,7 @@ describe('Release Service', () => {
           query: jest.fn()
             // 1. UPDATE car_releases SET status = 'COMPLETED'
             .mockResolvedValueOnce({ rows: [completed] })
-            // 2. UPDATE rider_cars SET is_active = FALSE
+            // 2. UPDATE rider_cars SET status = 'off_rent'
             .mockResolvedValueOnce({ rows: [] })
             // 3. UPDATE car_assignments (linked assignment)
             .mockResolvedValueOnce({ rows: [] })

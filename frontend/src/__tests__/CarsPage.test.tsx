@@ -61,7 +61,6 @@ function makeCar(overrides: Record<string, unknown> = {}) {
     is_lined: false,
     tank_qual_year: 2027,
     contract_number: 'C-123',
-    plan_status: 'Active',
     ...overrides,
   };
 }

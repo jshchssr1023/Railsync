@@ -593,11 +593,10 @@ export async function generateBillingPreview(
       car_number: string;
       added_date: string;
       removed_date: string | null;
-      is_on_rent: boolean;
     }>(
       `SELECT
          lr.id AS rider_id, lr.rider_id AS rider_code, lr.rider_name,
-         lr.rate_per_car, rc.car_number, rc.added_date, rc.removed_date, rc.is_on_rent
+         lr.rate_per_car, rc.car_number, rc.added_date, rc.removed_date
        FROM lease_riders lr
        JOIN master_leases ml ON ml.id = lr.master_lease_id
        JOIN rider_cars rc ON rc.rider_id = lr.id

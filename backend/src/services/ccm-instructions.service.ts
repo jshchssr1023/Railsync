@@ -683,7 +683,7 @@ export async function resolveEffectiveCCM(carNumber: string): Promise<EffectiveC
       JOIN master_leases ml ON lr.master_lease_id = ml.id
       JOIN customers c ON ml.customer_id = c.id
       LEFT JOIN lease_amendments la ON la.rider_id = lr.id AND la.effective_date <= CURRENT_DATE
-      WHERE rc.car_number = $1 AND rc.is_active = TRUE
+      WHERE rc.car_number = $1 AND rc.status NOT IN ('off_rent', 'cancelled')
       ORDER BY la.effective_date DESC NULLS LAST
       LIMIT 1`,
       [carNumber]

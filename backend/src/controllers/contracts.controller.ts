@@ -480,21 +480,6 @@ export async function removeCarFromRiderHandler(req: Request, res: Response) {
 // ON-RENT ENDPOINTS
 // ============================================================================
 
-export async function updateOnRentStatusHandler(req: Request, res: Response) {
-  try {
-    const { riderId, carNumber } = req.params;
-    const { is_on_rent, reason } = req.body;
-    if (typeof is_on_rent !== 'boolean') {
-      return res.status(400).json({ success: false, error: 'is_on_rent (boolean) is required' });
-    }
-    await contractsService.updateOnRentStatus(riderId, carNumber, is_on_rent, req.user?.id, reason);
-    res.json({ success: true, message: `Car ${carNumber} is now ${is_on_rent ? 'on-rent' : 'off-rent'}` });
-  } catch (error: any) {
-    logger.error({ err: error }, 'Error updating on-rent status');
-    res.status(error.message.includes('not found') ? 404 : 500).json({ success: false, error: error.message });
-  }
-}
-
 export async function getOnRentHistoryHandler(req: Request, res: Response) {
   try {
     const { carNumber } = req.params;
@@ -628,7 +613,6 @@ export default {
   addCarToRiderHandler,
   removeCarFromRiderHandler,
   // On-rent
-  updateOnRentStatusHandler,
   getOnRentHistoryHandler,
   // Amendment lifecycle
   createAmendmentHandler,

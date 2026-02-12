@@ -357,9 +357,9 @@ router.put('/cars/:carNumber/assign-to-rider', authenticate, authorize('admin', 
     // Transaction: add to rider with decided status, clear ready_to_load, close idle period
     await transaction(async (client: any) => {
       await client.query(
-        `INSERT INTO rider_cars (rider_id, car_number, is_active, status, decided_at, added_date)
-         VALUES ($1, $2, TRUE, 'decided', NOW(), CURRENT_DATE)
-         ON CONFLICT (rider_id, car_number) WHERE is_active = TRUE DO NOTHING`,
+        `INSERT INTO rider_cars (rider_id, car_number, status, decided_at, added_date)
+         VALUES ($1, $2, 'decided', NOW(), CURRENT_DATE)
+         ON CONFLICT (car_number) WHERE status NOT IN ('off_rent', 'cancelled') DO NOTHING`,
         [rider_id, carNumber]
       );
       await client.query(
@@ -724,7 +724,7 @@ router.get('/contracts-browse/cars', optionalAuth, async (req, res) => {
     const dataResult = await query(
       `SELECT c.car_number, c.car_mark, c.car_type, c.lessee_name, c.commodity,
               c.current_status, c.current_region, c.car_age, c.is_jacketed, c.is_lined,
-              c.tank_qual_year, c.contract_number, c.plan_status, v.operational_disposition
+              c.tank_qual_year, c.contract_number, v.operational_disposition
        FROM ${fromClause}
        WHERE ${whereClause}
        ORDER BY c.${sort} ${order}
@@ -787,7 +787,7 @@ router.get('/contracts-browse/car/:carNumber', optionalAuth, async (req, res) =>
               c.customer_name, c.customer_code,
               lr.id as rider_id, lr.rider_id as rider_code, lr.rider_name, lr.rate_per_car,
               rc.id AS rider_car_id, rc.status AS rider_car_status,
-              rc.is_on_rent, rc.added_date
+              rc.added_date
        FROM rider_cars rc
        JOIN lease_riders lr ON rc.rider_id = lr.id
        JOIN master_leases ml ON lr.master_lease_id = ml.id
@@ -2329,7 +2329,7 @@ router.get('/leases', optionalAuth, async (req, res) => {
       FROM master_leases ml
       JOIN customers c ON c.id = ml.customer_id
       LEFT JOIN lease_riders lr ON lr.master_lease_id = ml.id
-      LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.is_active = TRUE
+      LEFT JOIN rider_cars rc ON rc.rider_id = lr.id AND rc.status NOT IN ('off_rent', 'cancelled')
       GROUP BY ml.id, ml.lease_id, ml.customer_id, c.customer_name, ml.lease_name, ml.start_date, ml.end_date, ml.status
       ORDER BY ml.start_date DESC
       LIMIT $1 OFFSET $2
@@ -2358,9 +2358,6 @@ router.put('/riders/:riderId/deactivate', authenticate, authorize('admin'), cont
 // Rider ↔ Car management
 router.post('/riders/:riderId/cars', authenticate, authorize('admin', 'operator'), contractsController.addCarToRiderHandler);
 router.delete('/riders/:riderId/cars/:carNumber', authenticate, authorize('admin', 'operator'), contractsController.removeCarFromRiderHandler);
-// On-rent status
-router.put('/riders/:riderId/cars/:carNumber/on-rent', authenticate, authorize('admin', 'operator'), contractsController.updateOnRentStatusHandler);
-
 // Amendments
 router.get('/amendments/:amendmentId', optionalAuth, contractsController.getAmendment);
 router.post('/amendments/:amendmentId/detect-conflicts', authenticate, contractsController.detectAmendmentConflicts);
