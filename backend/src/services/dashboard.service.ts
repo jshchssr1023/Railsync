@@ -257,14 +257,15 @@ export function getDefaultLayout(): DashboardConfig['layout'] {
 // ============================================================================
 
 // Contracts Readiness Summary
+// total_cars comes from the cars table (SSOT), pipeline breakdowns from allocations
 export async function getContractsReadiness() {
   const result = await queryOne(`
     SELECT
-      COUNT(*) AS total_cars,
+      (SELECT COUNT(*) FROM cars WHERE is_active = TRUE) AS total_cars,
       COUNT(*) FILTER (WHERE status IN ('Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived')) AS in_pipeline,
       COUNT(*) FILTER (WHERE status IN ('Complete', 'Released')) AS available,
-      CASE WHEN COUNT(*) > 0
-        THEN ROUND(COUNT(*) FILTER (WHERE status IN ('Complete', 'Released'))::numeric / COUNT(*)::numeric * 100, 1)
+      CASE WHEN (SELECT COUNT(*) FROM cars WHERE is_active = TRUE) > 0
+        THEN ROUND(COUNT(*) FILTER (WHERE status IN ('Complete', 'Released'))::numeric / (SELECT COUNT(*) FROM cars WHERE is_active = TRUE)::numeric * 100, 1)
         ELSE 0
       END AS availability_pct,
       COUNT(*) FILTER (WHERE status = 'Need Shopping') AS need_shopping,
