@@ -259,23 +259,41 @@ export function getDefaultLayout(): DashboardConfig['layout'] {
 // Contracts Readiness Summary
 // total_cars comes from the cars table (SSOT), pipeline breakdowns from allocations
 export async function getContractsReadiness() {
+  // All counts derive from SSOT: cars table for fleet size, allocations for pipeline breakdown.
+  // "available" = fleet cars NOT currently in an active shopping pipeline.
+  // "in_pipeline" = allocation records in active shopping statuses.
   const result = await queryOne(`
+    WITH fleet AS (
+      SELECT COUNT(*) AS total FROM cars WHERE is_active = TRUE
+    ),
+    pipeline AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status IN ('Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived')) AS in_pipeline,
+        COUNT(*) FILTER (WHERE status = 'Need Shopping') AS need_shopping,
+        COUNT(*) FILTER (WHERE status = 'To Be Routed') AS to_be_routed,
+        COUNT(*) FILTER (WHERE status = 'Planned Shopping') AS planned_shopping,
+        COUNT(*) FILTER (WHERE status = 'Enroute') AS enroute,
+        COUNT(*) FILTER (WHERE status = 'Arrived') AS arrived,
+        COUNT(*) FILTER (WHERE status = 'Complete') AS complete,
+        COUNT(*) FILTER (WHERE status = 'Released') AS released
+      FROM allocations
+    )
     SELECT
-      (SELECT COUNT(*) FROM cars WHERE is_active = TRUE) AS total_cars,
-      COUNT(*) FILTER (WHERE status IN ('Need Shopping', 'To Be Routed', 'Planned Shopping', 'Enroute', 'Arrived')) AS in_pipeline,
-      COUNT(*) FILTER (WHERE status IN ('Complete', 'Released')) AS available,
-      CASE WHEN (SELECT COUNT(*) FROM cars WHERE is_active = TRUE) > 0
-        THEN ROUND(COUNT(*) FILTER (WHERE status IN ('Complete', 'Released'))::numeric / (SELECT COUNT(*) FROM cars WHERE is_active = TRUE)::numeric * 100, 1)
+      fleet.total AS total_cars,
+      pipeline.in_pipeline,
+      (fleet.total - pipeline.in_pipeline) AS available,
+      CASE WHEN fleet.total > 0
+        THEN ROUND((fleet.total - pipeline.in_pipeline)::numeric / fleet.total::numeric * 100, 1)
         ELSE 0
       END AS availability_pct,
-      COUNT(*) FILTER (WHERE status = 'Need Shopping') AS need_shopping,
-      COUNT(*) FILTER (WHERE status = 'To Be Routed') AS to_be_routed,
-      COUNT(*) FILTER (WHERE status = 'Planned Shopping') AS planned_shopping,
-      COUNT(*) FILTER (WHERE status = 'Enroute') AS enroute,
-      COUNT(*) FILTER (WHERE status = 'Arrived') AS arrived,
-      COUNT(*) FILTER (WHERE status = 'Complete') AS complete,
-      COUNT(*) FILTER (WHERE status = 'Released') AS released
-    FROM allocations
+      pipeline.need_shopping,
+      pipeline.to_be_routed,
+      pipeline.planned_shopping,
+      pipeline.enroute,
+      pipeline.arrived,
+      pipeline.complete,
+      pipeline.released
+    FROM fleet, pipeline
   `);
   return result;
 }

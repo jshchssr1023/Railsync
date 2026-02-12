@@ -83,6 +83,7 @@ export const NAV_PILLARS: NavPillar[] = [
           { label: 'Service Due', href: '/cars?status=To+Be+Routed', icon: <Clock className="w-4 h-4" /> },
           { label: 'Pending Triage', href: '/triage', icon: <ListFilter className="w-4 h-4" /> },
           { label: 'Scrap Review', href: '/scrap-review', icon: <Trash2 className="w-4 h-4" /> },
+          { label: 'Car Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
         ],
       },
       {
@@ -95,14 +96,6 @@ export const NAV_PILLARS: NavPillar[] = [
           { label: 'Riders', href: '/riders', icon: <ScrollText className="w-4 h-4" /> },
           { label: 'Transfers', href: '/transfers', icon: <Network className="w-4 h-4" /> },
           { label: 'Care Manuals', href: '/ccm', icon: <ScrollText className="w-4 h-4" /> },
-        ],
-      },
-      {
-        id: 'car-health',
-        label: 'Car Health',
-        icon: <Shield className="w-4 h-4" />,
-        children: [
-          { label: 'Car Qualifications', href: '/qualifications', icon: <Shield className="w-4 h-4" /> },
         ],
       },
       {

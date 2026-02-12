@@ -187,6 +187,7 @@ const statusHexColors: Record<string, string> = {
   'Arrived': '#6366f1',
   'Complete': '#22c55e',
   'Released': '#9ca3af',
+  'Ready': '#d1d5db',
 };
 
 // Mock 7-day sparkline trend data for summary cards
@@ -489,7 +490,7 @@ export default function DashboardPage() {
                 <Sparkline data={sparkAvailability} color={Number(contractsReadiness.availability_pct) >= 80 ? '#22c55e' : '#eab308'} />
               </div>
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-gray-400">{formatNumber(contractsReadiness.available)} available</p>
+                <p className="text-xs text-gray-400">{formatNumber(Number(contractsReadiness.available))} not in pipeline</p>
                 <ArrowRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-primary-500 transition-colors" />
               </div>
             </div>
@@ -652,16 +653,22 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline Status Breakdown — Donut Chart */}
         {contractsReadiness && (() => {
+          const pipelineSlices = [
+            { name: 'Need Shopping', value: Number(contractsReadiness.need_shopping) },
+            { name: 'To Be Routed', value: Number(contractsReadiness.to_be_routed) },
+            { name: 'Planned Shopping', value: Number(contractsReadiness.planned_shopping) },
+            { name: 'Enroute', value: Number(contractsReadiness.enroute) },
+            { name: 'Arrived', value: Number(contractsReadiness.arrived) },
+            { name: 'Complete', value: Number(contractsReadiness.complete) },
+            { name: 'Released', value: Number(contractsReadiness.released) },
+          ];
+          const pipelineTotal = pipelineSlices.reduce((s, v) => s + v.value, 0);
+          const total = Number(contractsReadiness.total_cars);
+          const readyCount = Math.max(total - pipelineTotal, 0);
           const pieData = [
-            { name: 'Need Shopping', value: contractsReadiness.need_shopping },
-            { name: 'To Be Routed', value: contractsReadiness.to_be_routed },
-            { name: 'Planned Shopping', value: contractsReadiness.planned_shopping },
-            { name: 'Enroute', value: contractsReadiness.enroute },
-            { name: 'Arrived', value: contractsReadiness.arrived },
-            { name: 'Complete', value: contractsReadiness.complete },
-            { name: 'Released', value: contractsReadiness.released },
+            ...pipelineSlices,
+            { name: 'Ready', value: readyCount },
           ].filter(s => s.value > 0);
-          const total = contractsReadiness.total_cars;
           return (
             <div className="card">
               <button
