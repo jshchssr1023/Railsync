@@ -16,6 +16,7 @@ import {
 } from '@/lib/api';
 import { ShoppingEvent, StateHistoryEntry, EstimateSubmission, CleaningRequirements, AIPreReviewResult } from '@/types';
 import { Info, AlertTriangle, ChevronDown, Zap, Droplets, Brain, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { useCarDrawer } from '@/context/CarDrawerContext';
 import StateProgressBar from '@/components/StateProgressBar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useTransitionConfirm } from '@/hooks/useTransitionConfirm';
@@ -106,6 +107,7 @@ function stateLabel(state: string): string {
 export default function ShoppingEventDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { openCarDrawer } = useCarDrawer();
   const id = params.id as string;
 
   // -----------------------------------------------------------------------
@@ -365,7 +367,7 @@ export default function ShoppingEventDetailPage() {
             {event.event_number}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-            <span>Car <span className="font-medium text-gray-900 dark:text-gray-100">{event.car_number}</span></span>
+            <span>Car <button onClick={() => openCarDrawer(event.car_number)} className="font-medium text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">{event.car_number}</button></span>
             <span>&bull;</span>
             <span>Shop <span className="font-medium text-gray-900 dark:text-gray-100">{event.shop_name || event.shop_code}</span></span>
             {event.batch_number && (

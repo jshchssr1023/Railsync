@@ -271,6 +271,13 @@ export default function CarDrawer({ carNumber, onClose }: { carNumber: string; o
                   {detail.active_shopping_event.state}
                 </a>
               )}
+              <Link
+                href={`/cars/${encodeURIComponent(carNumber)}`}
+                className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-1"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Full Detail
+              </Link>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X className="w-5 h-5 text-gray-500" />
               </button>

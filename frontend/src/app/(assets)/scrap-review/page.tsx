@@ -6,6 +6,7 @@ import {
   AlertTriangle, Calendar, DollarSign, Factory, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCarDrawer } from '@/context/CarDrawerContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -56,6 +57,7 @@ export default function ScrapReviewPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const { openCarDrawer } = useCarDrawer();
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
   const fetchWithAuth = useCallback((endpoint: string, opts?: RequestInit) =>
     fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json()), []);
@@ -216,7 +218,7 @@ export default function ScrapReviewPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-base font-bold text-gray-900 dark:text-gray-100">{scrap.car_number}</span>
+                      <button onClick={() => openCarDrawer(scrap.car_number)} className="text-base font-bold text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">{scrap.car_number}</button>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
                         <StatusIcon className="w-3 h-3" />
                         {cfg.label}

@@ -15,10 +15,12 @@ import FilterPresetsBar from '@/components/FilterPresetsBar';
 import type { ExportColumn } from '@/hooks/useExportCSV';
 
 // Car page components (extracted)
-import CarDrawer from '@/components/cars/CarDrawer';
 import CarTypeDrilldown, { type TypeTreeNode } from '@/components/cars/CarTypeDrilldown';
+import { useCarDrawer } from '@/context/CarDrawerContext';
+import CarFacetedSidebar from '@/components/cars/CarFacetedSidebar';
 import { QualBadge, StatusBadge } from '@/components/cars/CarBadges';
 import CarTypeIcon from '@/components/cars/CarTypeIcon';
+import CarNumberLink from '@/components/cars/CarNumberLink';
 import CarsDashboard from '@/components/cars/CarsDashboard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -166,8 +168,8 @@ function CarsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [carsLoading, setCarsLoading] = useState(true);
 
-  // Drawer
-  const [selectedCar, setSelectedCar] = useState<string | null>(null);
+  // Drawer (global context)
+  const { openCarDrawer, activeCarNumber } = useCarDrawer();
 
   // Level 2 drill-in tab (visible when a car type is selected)
   const [drillInTab, setDrillInTab] = useState<'car_list' | 'shop_status' | 'shopping_reasons'>('car_list');
@@ -331,20 +333,19 @@ function CarsPage() {
 
   return (
     <div className="flex h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
-      {/* Left Panel: Car Type Tree (hidden on mobile) */}
+      {/* Left Panel: Faceted Filter Sidebar (hidden on mobile) */}
       <div className="hidden md:block">
         {treeLoading ? (
           <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex items-center justify-center h-full">
             <Loader2 className="w-5 h-5 animate-spin text-primary-500" />
           </div>
         ) : (
-          <CarTypeDrilldown
-            tree={tree}
-            selectedType={selectedType}
-            selectedCommodity={selectedCommodity}
-            onSelectType={handleTypeSelect}
-            onSelectCommodity={handleCommoditySelect}
-            onClear={handleClearTree}
+          <CarFacetedSidebar
+            filters={filters}
+            onSetFilter={(key, value) => { setFilter(key, value); setPage(1); }}
+            onClearAll={() => { clearAllFilters(); setPage(1); }}
+            filterOptions={filterOptions}
+            typeTree={tree}
             collapsed={treeCollapsed}
             onToggleCollapse={() => setTreeCollapsed(!treeCollapsed)}
           />
@@ -456,63 +457,7 @@ function CarsPage() {
               />
             </div>
 
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md transition-colors ${
-                showFilters || statusFilter || regionFilter
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                  : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Filter className="w-3.5 h-3.5" />
-              Filters
-              {(statusFilter || regionFilter) && (
-                <span className="w-4 h-4 flex items-center justify-center text-[10px] font-bold bg-primary-500 text-white rounded-full">
-                  {[statusFilter, regionFilter].filter(Boolean).length}
-                </span>
-              )}
-            </button>
           </div>
-
-          {/* Filter Dropdowns */}
-          {showFilters && (
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex gap-4">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => { setFilter('status', e.target.value); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">All</option>
-                  {filterOptions.statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Region</label>
-                <select
-                  value={regionFilter}
-                  onChange={(e) => { setFilter('region', e.target.value); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">All</option>
-                  {filterOptions.regions.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Lessee</label>
-                <select
-                  value={lesseeFilter}
-                  onChange={(e) => { setFilter('lessee', e.target.value); setPage(1); }}
-                  className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="">All</option>
-                  {filterOptions.lessees.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Active Filter Chips */}
@@ -686,7 +631,7 @@ function CarsPage() {
                   status={car.current_status || 'Unknown'}
                   carType={car.car_type}
                   customer={car.lessee_name}
-                  onClick={() => setSelectedCar(car.car_number)}
+                  onClick={() => openCarDrawer(car.car_number)}
                 />
               ))}
             </div>
@@ -714,15 +659,15 @@ function CarsPage() {
                 {cars.map(car => (
                   <tr
                     key={car.car_number}
-                    onClick={() => setSelectedCar(car.car_number)}
+                    onClick={() => openCarDrawer(car.car_number)}
                     className={`cursor-pointer transition-colors ${
-                      selectedCar === car.car_number
+                      activeCarNumber === car.car_number
                         ? 'bg-primary-50 dark:bg-primary-900/20'
                         : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                   >
-                    <td className="px-3 py-2.5 text-sm font-medium text-primary-600 dark:text-primary-400 whitespace-nowrap">
-                      {car.car_number}
+                    <td className="px-3 py-2.5 text-sm whitespace-nowrap">
+                      <CarNumberLink carNumber={car.car_number} className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline" />
                     </td>
                     <td className="px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
@@ -813,10 +758,6 @@ function CarsPage() {
         )}
       </div>
 
-      {/* Right Side Drawer */}
-      {selectedCar && (
-        <CarDrawer carNumber={selectedCar} onClose={() => setSelectedCar(null)} />
-      )}
     </div>
   );
 }

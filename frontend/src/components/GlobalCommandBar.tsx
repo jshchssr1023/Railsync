@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { ROUTE_LABELS } from '@/config/navigation';
+import { useCarDrawer } from '@/context/CarDrawerContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -24,6 +25,7 @@ interface SearchResult {
   title: string;
   subtitle?: string;
   href: string;
+  action?: () => void;
 }
 
 interface QuickAction {
@@ -187,6 +189,7 @@ function getIcon(type: ResultType): React.ReactNode {
 // Component
 // ---------------------------------------------------------------------------
 export default function GlobalCommandBar() {
+  const { openCarDrawer } = useCarDrawer();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -307,12 +310,14 @@ export default function GlobalCommandBar() {
               .then((r) => r.json())
               .then((data) => {
                 (data.data || []).forEach((c: any) => {
+                  const carNum = c.car_number;
                   searchResults.push({
                     type: 'car',
                     id: c.id,
-                    title: c.car_number,
+                    title: carNum,
                     subtitle: `${c.product_code} • ${c.material_type || 'Unknown'}`,
-                    href: `/planning?tab=quick-shop&car=${c.car_number}`,
+                    href: `/cars`,
+                    action: () => openCarDrawer(carNum),
                   });
                 });
               })
@@ -503,7 +508,11 @@ export default function GlobalCommandBar() {
         setOpen(false);
         setQuery('');
         setActiveFilter(null);
-        router.push(result.href);
+        if (result.action) {
+          result.action();
+        } else {
+          router.push(result.href);
+        }
         return;
       }
       if (item.kind === 'recent') {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Car, AlertTriangle, Bell, ArrowRightLeft, Wrench, Calendar } from 'lucide-react';
+import { useCarDrawer } from '@/context/CarDrawerContext';
 
 interface TransitionDetails {
   type: string;
@@ -36,6 +37,7 @@ interface CarCardProps {
 }
 
 export default function CarCard({ car, onShop, onAmendmentClick, compact }: CarCardProps) {
+  const { openCarDrawer } = useCarDrawer();
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -51,9 +53,9 @@ export default function CarCard({ car, onShop, onAmendmentClick, compact }: CarC
       <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${car.amendment_conflict ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
+            <button onClick={(e) => { e.stopPropagation(); openCarDrawer(car.car_number); }} className="font-mono font-medium text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">
               {car.car_number}
-            </span>
+            </button>
             {car.has_pending_amendment && (
               <span
                 onClick={(e) => {

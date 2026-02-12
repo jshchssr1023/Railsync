@@ -6137,4 +6137,40 @@ router.get('/scraps/:id', authenticate, scrapController.getScrap);
 router.post('/scraps', authenticate, authorize('admin', 'operator'), scrapController.createScrapProposal);
 router.put('/scraps/:id', authenticate, authorize('admin', 'operator'), scrapController.updateScrap);
 
+// ============================================================================
+// CAR DETAIL — Customer History & Profitability
+// ============================================================================
+
+/**
+ * @route   GET /api/cars/:carNumber/customer-history
+ * @desc    Get customer/lessee assignment history for a car
+ * @access  Authenticated
+ */
+router.get('/cars/:carNumber/customer-history', optionalAuth, async (req, res) => {
+  try {
+    const { getCustomerHistory } = await import('../services/carDetail.service');
+    const data = await getCustomerHistory(req.params.carNumber);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    logger.error('Error fetching customer history:', err);
+    res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+  }
+});
+
+/**
+ * @route   GET /api/cars/:carNumber/profitability
+ * @desc    Get revenue, cost, and margin aggregation for a car
+ * @access  Authenticated
+ */
+router.get('/cars/:carNumber/profitability', optionalAuth, async (req, res) => {
+  try {
+    const { getProfitability } = await import('../services/carDetail.service');
+    const data = await getProfitability(req.params.carNumber);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    logger.error('Error fetching profitability:', err);
+    res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+  }
+});
+
 export default router;

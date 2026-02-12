@@ -6,6 +6,7 @@ import {
   RefreshCw, Calendar, User, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useCarDrawer } from '@/context/CarDrawerContext';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -31,6 +32,7 @@ export default function TriagePage() {
   const [scrapSubmitting, setScrapSubmitting] = useState(false);
   const [scrapError, setScrapError] = useState<string | null>(null);
 
+  const { openCarDrawer } = useCarDrawer();
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('railsync_access_token') : null;
   const fetchWithAuth = useCallback((endpoint: string, opts?: RequestInit) =>
     fetch(`${API_URL}${endpoint}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }).then(r => r.json()), []);
@@ -149,12 +151,12 @@ export default function TriagePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div>
-                    <Link
-                      href={`/cars?search=${car.car_number}`}
-                      className="text-base font-bold text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                    <button
+                      onClick={() => openCarDrawer(car.car_number)}
+                      className="text-base font-bold text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline cursor-pointer"
                     >
                       {car.car_number}
-                    </Link>
+                    </button>
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                       {car.car_type && <span>{car.car_type}</span>}
                       {car.lessee_name && (
