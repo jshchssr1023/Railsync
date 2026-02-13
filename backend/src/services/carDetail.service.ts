@@ -62,13 +62,13 @@ export async function getProfitability(carNumber: string) {
     [carNumber]
   );
 
-  // Assignment costs
+  // Shopping event costs (V2)
   const assignmentResult = await pool.query(
     `SELECT
-       COALESCE(SUM(ca.actual_cost), 0)::NUMERIC AS total_assignment_cost
-     FROM car_assignments ca
-     WHERE ca.car_number = $1
-       AND ca.status NOT IN ('Cancelled')`,
+       COALESCE(SUM(se2.invoiced_cost), 0)::NUMERIC AS total_assignment_cost
+     FROM shopping_events_v2 se2
+     WHERE se2.car_number = $1
+       AND se2.state NOT IN ('CANCELLED')`,
     [carNumber]
   );
 

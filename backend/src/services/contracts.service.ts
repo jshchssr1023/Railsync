@@ -337,9 +337,9 @@ export async function getRiderCars(riderId: string): Promise<RiderCar[]> {
         LIMIT 1
       ) AS transition_details,
       COALESCE((
-        SELECT COUNT(*) FROM car_assignments ca
-        WHERE ca.car_number = c.car_number
-        AND ca.status NOT IN ('Complete', 'Cancelled')
+        SELECT COUNT(*) FROM shopping_events_v2 se2
+        WHERE se2.car_number = c.car_number
+        AND se2.state NOT IN ('CLOSED', 'CANCELLED')
       ), 0)::INTEGER AS active_assignments
     FROM rider_cars rc
     JOIN cars c ON c.car_number = rc.car_number

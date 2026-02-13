@@ -153,15 +153,15 @@ export async function validateTransferPrerequisites(
     blockers.push(`Car already has an active transfer (${existingTransfer.status})`);
   }
 
-  // Check active assignments (warning, not blocker)
+  // Check active shopping events (warning, not blocker)
   const activeAssignments = await queryOne<{ count: string }>(
-    `SELECT COUNT(*) as count FROM car_assignments
-     WHERE car_number = $1 AND status NOT IN ('Complete', 'Cancelled')`,
+    `SELECT COUNT(*) as count FROM shopping_events_v2
+     WHERE car_number = $1 AND state NOT IN ('CLOSED', 'CANCELLED')`,
     [carNumber]
   );
   const assignmentCount = parseInt(activeAssignments?.count || '0', 10);
   if (assignmentCount > 0) {
-    warnings.push(`Car has ${assignmentCount} active assignment(s) that may need completion first`);
+    warnings.push(`Car has ${assignmentCount} active shopping event(s) that may need completion first`);
   }
 
   // Check pending amendments on source rider

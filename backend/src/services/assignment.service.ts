@@ -131,16 +131,35 @@ const STATUS_TO_V2_STATE: Record<AssignmentStatus, shoppingEventV2Service.Shoppi
 // ============================================================================
 
 /**
- * Check if a car has an existing active assignment
+ * Check if a car has an existing active shopping event (reads from V2).
+ * Returns data projected into CarAssignment shape for backward compatibility.
  * @param carNumber The car number to check
  * @returns The existing active assignment if found, null otherwise
  */
 export async function getActiveAssignment(carNumber: string): Promise<CarAssignment | null> {
   const sql = `
-    SELECT * FROM car_assignments
+    SELECT
+      id, car_id, car_number, shop_code, shop_name,
+      target_month, target_date,
+      CASE
+        WHEN state IN ('EVENT', 'PACKET', 'SOW') THEN 'Planned'
+        WHEN state IN ('SHOP_ASSIGNED', 'DISPO_TO_SHOP') THEN 'Scheduled'
+        WHEN state = 'ENROUTE' THEN 'Enroute'
+        WHEN state = 'ARRIVED' THEN 'Arrived'
+        WHEN state IN ('ESTIMATE_RECEIVED', 'ESTIMATE_APPROVED', 'WORK_IN_PROGRESS',
+                       'FINAL_ESTIMATE_RECEIVED', 'FINAL_APPROVED') THEN 'InShop'
+        WHEN state IN ('DISPO_TO_DESTINATION', 'CLOSED') THEN 'Complete'
+        WHEN state = 'CANCELLED' THEN 'Cancelled'
+      END AS status,
+      priority, is_expedited,
+      estimated_cost,
+      invoiced_cost AS actual_cost,
+      source, source_reference_id, source_reference_type,
+      created_at, updated_at, version
+    FROM shopping_events_v2
     WHERE car_number = $1
-      AND status NOT IN ('Complete', 'Cancelled')
-    LIMIT 1
+      AND state NOT IN ('CLOSED', 'CANCELLED')
+    ORDER BY created_at DESC LIMIT 1
   `;
 
   const rows = await query<CarAssignment>(sql, [carNumber]);

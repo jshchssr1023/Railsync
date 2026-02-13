@@ -156,16 +156,16 @@ export async function createScrapProposal(
     throw new Error(`Car ${input.car_number} already has an active scrap proposal (status: ${existingScrap.status})`);
   }
 
-  // N5: No active assignment or shopping event
+  // N5: No active shopping event
   const activeAssignment = await queryOne<{ id: string }>(
-    `SELECT id FROM car_assignments
-     WHERE car_number = $1 AND status NOT IN ('Complete', 'Cancelled')
+    `SELECT id FROM shopping_events_v2
+     WHERE car_number = $1 AND state NOT IN ('CLOSED', 'CANCELLED')
      LIMIT 1`,
     [input.car_number]
   );
 
   if (activeAssignment) {
-    throw new Error(`Car ${input.car_number} has an active assignment. Cannot propose scrap while assignment is active.`);
+    throw new Error(`Car ${input.car_number} has an active shopping event. Cannot propose scrap while shopping event is active.`);
   }
 
   const result = await queryOne<Scrap>(

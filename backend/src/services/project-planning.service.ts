@@ -192,10 +192,10 @@ export async function lockCars(input: LockCarsInput): Promise<{ locked: ProjectA
           throw new Error('Assignment does not belong to this project');
         }
 
-        // Check for SSOT conflict (car already has active assignment)
+        // Check for SSOT conflict (car already has active shopping event)
         const conflictResult = await client.query(
-          `SELECT id, shop_code, target_month FROM car_assignments
-           WHERE car_number = $1 AND status NOT IN ('Complete', 'Cancelled')
+          `SELECT id, shop_code, target_month FROM shopping_events_v2
+           WHERE car_number = $1 AND state NOT IN ('CLOSED', 'CANCELLED')
            LIMIT 1`,
           [pa.car_number]
         );
