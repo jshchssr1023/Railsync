@@ -1,5 +1,9 @@
 import { query, queryOne } from '../config/database';
 
+// V2 state group SQL fragments (used across analytics queries)
+const V2_WORK_PHASE = `'ARRIVED','ESTIMATE_RECEIVED','ESTIMATE_APPROVED','WORK_IN_PROGRESS','FINAL_ESTIMATE_RECEIVED','FINAL_APPROVED'`;
+const V2_DWELL_CALC = `EXTRACT(EPOCH FROM (COALESCE(se2.closed_at, CURRENT_TIMESTAMP) - COALESCE(se2.arrived_at, se2.estimate_received_at, se2.created_at))) / 86400`;
+
 // =============================================================================
 // CAPACITY FORECASTING
 // =============================================================================
@@ -44,17 +48,17 @@ export async function getCapacityForecast(months: number = 6): Promise<CapacityF
     ),
     monthly_allocations AS (
       SELECT
-        ca.shop_code,
+        se2.shop_code,
         to_char(date_trunc('month',
-          CASE WHEN ca.target_month IS NOT NULL
-            THEN to_date(ca.target_month, 'YYYY-MM')
-            ELSE ca.created_at
+          CASE WHEN se2.target_month IS NOT NULL
+            THEN to_date(se2.target_month, 'YYYY-MM')
+            ELSE se2.created_at
           END
         ), 'YYYY-MM') as month,
         COUNT(*) as allocation_count
-      FROM car_assignments ca
-      WHERE ca.status NOT IN ('Cancelled', 'Complete')
-      GROUP BY ca.shop_code, month
+      FROM shopping_events_v2 se2
+      WHERE se2.state NOT IN ('CLOSED', 'CANCELLED')
+      GROUP BY se2.shop_code, month
     ),
     historical_avg AS (
       SELECT
@@ -119,9 +123,9 @@ export async function getCapacityTrends(months: number = 12): Promise<CapacityTr
     ),
     monthly_demand AS (
       SELECT
-        to_char(date_trunc('month', ca.created_at), 'YYYY-MM') as month,
+        to_char(date_trunc('month', se2.created_at), 'YYYY-MM') as month,
         COUNT(*) as demand
-      FROM car_assignments ca
+      FROM shopping_events_v2 se2
       GROUP BY month
     ),
     total_capacity AS (
@@ -156,19 +160,19 @@ export async function getBottleneckShops(limit: number = 10): Promise<any[]> {
       s.shop_name,
       s.region,
       COALESCE(s.capacity, 50) as capacity,
-      COUNT(ca.id) as current_load,
+      COUNT(se2.id) as current_load,
       CASE WHEN COALESCE(s.capacity, 50) > 0
-        THEN ROUND((COUNT(ca.id)::numeric / COALESCE(s.capacity, 50) * 100), 1)
+        THEN ROUND((COUNT(se2.id)::numeric / COALESCE(s.capacity, 50) * 100), 1)
         ELSE 0
       END as utilization_pct,
       COALESCE(sb.hours_backlog, 0) as hours_backlog,
       COALESCE(sb.cars_backlog, 0) as cars_backlog
     FROM shops s
-    LEFT JOIN car_assignments ca ON s.shop_code = ca.shop_code AND ca.status IN ('Arrived', 'InShop')
+    LEFT JOIN shopping_events_v2 se2 ON s.shop_code = se2.shop_code AND se2.state IN (${V2_WORK_PHASE})
     LEFT JOIN shop_backlogs sb ON s.shop_code = sb.shop_code
     WHERE s.is_active = true
     GROUP BY s.shop_code, s.shop_name, s.region, s.capacity, sb.hours_backlog, sb.cars_backlog
-    HAVING COUNT(ca.id) > 0
+    HAVING COUNT(se2.id) > 0
     ORDER BY utilization_pct DESC
     LIMIT $1
   `, [limit]);
@@ -218,11 +222,11 @@ export async function getCostTrends(months: number = 12): Promise<CostTrend[]> {
     ),
     monthly_costs AS (
       SELECT
-        to_char(date_trunc('month', ca.created_at), 'YYYY-MM') as month,
-        SUM(COALESCE(ca.estimated_cost, 0)) as total_cost,
+        to_char(date_trunc('month', se2.created_at), 'YYYY-MM') as month,
+        SUM(COALESCE(se2.estimated_cost, 0)) as total_cost,
         COUNT(*) as car_count
-      FROM car_assignments ca
-      WHERE ca.estimated_cost IS NOT NULL
+      FROM shopping_events_v2 se2
+      WHERE se2.estimated_cost IS NOT NULL
       GROUP BY month
     )
     SELECT
@@ -288,17 +292,17 @@ export async function getShopCostComparison(limit: number = 20): Promise<ShopCos
       s.shop_code,
       s.shop_name,
       s.labor_rate,
-      COALESCE(SUM(ca.estimated_cost), 0) as total_cost,
-      COUNT(ca.id) as car_count,
-      CASE WHEN COUNT(ca.id) > 0
-        THEN ROUND(COALESCE(SUM(ca.estimated_cost), 0) / COUNT(ca.id))
+      COALESCE(SUM(se2.estimated_cost), 0) as total_cost,
+      COUNT(se2.id) as car_count,
+      CASE WHEN COUNT(se2.id) > 0
+        THEN ROUND(COALESCE(SUM(se2.estimated_cost), 0) / COUNT(se2.id))
         ELSE 0
       END as avg_cost_per_car
     FROM shops s
-    LEFT JOIN car_assignments ca ON s.shop_code = ca.shop_code
+    LEFT JOIN shopping_events_v2 se2 ON s.shop_code = se2.shop_code
     WHERE s.is_active = true
     GROUP BY s.shop_code, s.shop_name, s.labor_rate
-    HAVING COUNT(ca.id) > 0
+    HAVING COUNT(se2.id) > 0
     ORDER BY total_cost DESC
     LIMIT $1
   `, [limit]);
@@ -346,19 +350,19 @@ export async function getOperationsKPIs(): Promise<OperationsKPI[]> {
   // Get various KPIs from the database
   const pipelineResult = await queryOne<any>(`
     SELECT
-      COUNT(*) FILTER (WHERE status IN ('Arrived', 'InShop')) as active_count,
-      COUNT(*) FILTER (WHERE status = 'Complete') as completed_count,
-      COUNT(*) FILTER (WHERE status = 'Enroute') as in_transit_count,
+      COUNT(*) FILTER (WHERE state IN (${V2_WORK_PHASE})) as active_count,
+      COUNT(*) FILTER (WHERE state = 'CLOSED') as completed_count,
+      COUNT(*) FILTER (WHERE state = 'ENROUTE') as in_transit_count,
       COUNT(*) as total_count
-    FROM car_assignments
+    FROM shopping_events_v2
     WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
   `);
 
   const dwellResult = await queryOne<any>(`
     SELECT
-      AVG(EXTRACT(EPOCH FROM (COALESCE(completed_at, CURRENT_TIMESTAMP) - COALESCE(arrived_at, in_shop_at, created_at))) / 86400) as avg_dwell_days
-    FROM car_assignments
-    WHERE status IN ('Arrived', 'InShop', 'Complete')
+      AVG(${V2_DWELL_CALC}) as avg_dwell_days
+    FROM shopping_events_v2 se2
+    WHERE state IN (${V2_WORK_PHASE}, 'CLOSED')
     AND created_at >= CURRENT_DATE - INTERVAL '90 days'
   `);
 
@@ -433,13 +437,13 @@ export async function getDwellTimeByShop(limit: number = 15): Promise<DwellTimeB
     SELECT
       s.shop_code,
       s.shop_name,
-      AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as avg_dwell_days,
-      MIN(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as min_dwell_days,
-      MAX(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400) as max_dwell_days,
+      AVG(${V2_DWELL_CALC}) as avg_dwell_days,
+      MIN(${V2_DWELL_CALC}) as min_dwell_days,
+      MAX(${V2_DWELL_CALC}) as max_dwell_days,
       COUNT(*) as car_count
     FROM shops s
-    INNER JOIN car_assignments ca ON s.shop_code = ca.shop_code
-    WHERE ca.created_at >= CURRENT_DATE - INTERVAL '90 days'
+    INNER JOIN shopping_events_v2 se2 ON s.shop_code = se2.shop_code
+    WHERE se2.created_at >= CURRENT_DATE - INTERVAL '90 days'
     GROUP BY s.shop_code, s.shop_name
     HAVING COUNT(*) >= 3
     ORDER BY avg_dwell_days DESC
@@ -469,15 +473,15 @@ export async function getThroughputTrends(months: number = 6): Promise<Throughpu
       SELECT
         to_char(date_trunc('month', created_at), 'YYYY-MM') as month,
         COUNT(*) as cars_in
-      FROM car_assignments
+      FROM shopping_events_v2
       GROUP BY month
     ),
     monthly_out AS (
       SELECT
-        to_char(date_trunc('month', completed_at), 'YYYY-MM') as month,
+        to_char(date_trunc('month', closed_at), 'YYYY-MM') as month,
         COUNT(*) as cars_out
-      FROM car_assignments
-      WHERE completed_at IS NOT NULL
+      FROM shopping_events_v2
+      WHERE closed_at IS NOT NULL
       GROUP BY month
     )
     SELECT
@@ -531,7 +535,7 @@ export async function getDemandForecast(months: number = 6): Promise<DemandForec
     SELECT
       to_char(date_trunc('month', created_at), 'YYYY-MM') as month,
       COUNT(*) as demand
-    FROM car_assignments
+    FROM shopping_events_v2
     WHERE created_at >= CURRENT_DATE - INTERVAL '12 months'
     GROUP BY month
     ORDER BY month
@@ -584,19 +588,19 @@ export async function getDemandByRegion(): Promise<DemandByRegion[]> {
       SELECT
         s.region,
         COUNT(*) as current_demand
-      FROM car_assignments ca
-      JOIN shops s ON ca.shop_code = s.shop_code
-      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '30 days'
+      FROM shopping_events_v2 se2
+      JOIN shops s ON se2.shop_code = s.shop_code
+      WHERE se2.created_at >= CURRENT_DATE - INTERVAL '30 days'
       GROUP BY s.region
     ),
     historical_demand AS (
       SELECT
         s.region,
         COUNT(*) / 6.0 as avg_monthly
-      FROM car_assignments ca
-      JOIN shops s ON ca.shop_code = s.shop_code
-      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '180 days'
-      AND ca.created_at < CURRENT_DATE - INTERVAL '30 days'
+      FROM shopping_events_v2 se2
+      JOIN shops s ON se2.shop_code = s.shop_code
+      WHERE se2.created_at >= CURRENT_DATE - INTERVAL '180 days'
+      AND se2.created_at < CURRENT_DATE - INTERVAL '30 days'
       GROUP BY s.region
     )
     SELECT
@@ -626,27 +630,25 @@ export async function getDemandByCustomer(limit: number = 10): Promise<DemandByC
       SELECT
         c.customer_name,
         COUNT(*) as current_demand
-      FROM car_assignments ca
-      JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
+      FROM shopping_events_v2 se2
+      JOIN rider_cars rc ON rc.car_number = se2.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
       JOIN lease_riders lr ON lr.id = rc.rider_id
       JOIN master_leases ml ON ml.id = lr.master_lease_id
       JOIN customers c ON c.id = ml.customer_id
-      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '30 days'
+      WHERE se2.created_at >= CURRENT_DATE - INTERVAL '30 days'
       GROUP BY c.customer_name
     ),
     historical_demand AS (
       SELECT
         c.customer_name,
         COUNT(*) / 3.0 as avg_monthly
-      FROM car_assignments ca
-      JOIN cars cr ON ca.car_number = cr.car_number
-      JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
+      FROM shopping_events_v2 se2
+      JOIN rider_cars rc ON rc.car_number = se2.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
       JOIN lease_riders lr ON lr.id = rc.rider_id
       JOIN master_leases ml ON ml.id = lr.master_lease_id
       JOIN customers c ON c.id = ml.customer_id
-      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '90 days'
-      AND ca.created_at < CURRENT_DATE - INTERVAL '30 days'
+      WHERE se2.created_at >= CURRENT_DATE - INTERVAL '90 days'
+      AND se2.created_at < CURRENT_DATE - INTERVAL '30 days'
       GROUP BY c.customer_name
     )
     SELECT
@@ -714,11 +716,11 @@ export async function getCostVarianceReport(fiscalYear: number = 2026): Promise<
     ),
     actual_by_month AS (
       SELECT
-        EXTRACT(MONTH FROM ca.created_at)::int as month_num,
-        SUM(COALESCE(ca.actual_cost, ca.estimated_cost, 0)) as actual_spend
-      FROM car_assignments ca
-      WHERE EXTRACT(YEAR FROM ca.created_at) = $1
-        AND ca.status NOT IN ('Cancelled')
+        EXTRACT(MONTH FROM se2.created_at)::int as month_num,
+        SUM(COALESCE(se2.invoiced_cost, se2.estimated_cost, 0)) as actual_spend
+      FROM shopping_events_v2 se2
+      WHERE EXTRACT(YEAR FROM se2.created_at) = $1
+        AND se2.state NOT IN ('CANCELLED')
       GROUP BY month_num
     )
     SELECT
@@ -761,21 +763,20 @@ export async function getCustomerCostBreakdown(fiscalYear: number = 2026, limit:
     SELECT
       COALESCE(c.customer_name, 'Unassigned') as customer_name,
       COALESCE(c.customer_code, '-') as customer_code,
-      COUNT(DISTINCT ca.car_number) as car_count,
-      COALESCE(SUM(ca.estimated_cost), 0) as total_estimated,
-      COALESCE(SUM(ca.actual_cost), 0) as total_actual,
-      CASE WHEN COUNT(DISTINCT ca.car_number) > 0
-        THEN ROUND(COALESCE(SUM(COALESCE(ca.actual_cost, ca.estimated_cost)), 0) / COUNT(DISTINCT ca.car_number))
+      COUNT(DISTINCT se2.car_number) as car_count,
+      COALESCE(SUM(se2.estimated_cost), 0) as total_estimated,
+      COALESCE(SUM(se2.invoiced_cost), 0) as total_actual,
+      CASE WHEN COUNT(DISTINCT se2.car_number) > 0
+        THEN ROUND(COALESCE(SUM(COALESCE(se2.invoiced_cost, se2.estimated_cost)), 0) / COUNT(DISTINCT se2.car_number))
         ELSE 0
       END as avg_cost_per_car
-    FROM car_assignments ca
-    LEFT JOIN cars cr ON ca.car_number = cr.car_number
-    LEFT JOIN rider_cars rc ON rc.car_number = cr.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
+    FROM shopping_events_v2 se2
+    LEFT JOIN rider_cars rc ON rc.car_number = se2.car_number AND rc.status NOT IN ('off_rent', 'cancelled')
     LEFT JOIN lease_riders lr ON lr.id = rc.rider_id
     LEFT JOIN master_leases ml ON ml.id = lr.master_lease_id
     LEFT JOIN customers c ON c.id = ml.customer_id
-    WHERE EXTRACT(YEAR FROM ca.created_at) = $1
-      AND ca.status NOT IN ('Cancelled')
+    WHERE EXTRACT(YEAR FROM se2.created_at) = $1
+      AND se2.state NOT IN ('CANCELLED')
     GROUP BY c.customer_name, c.customer_code
     ORDER BY total_actual DESC NULLS LAST
     LIMIT $2
@@ -834,18 +835,18 @@ export async function getShopPerformanceScores(limit: number = 30): Promise<Shop
         s.shop_name,
         s.region,
         COUNT(*) as total_assignments,
-        COUNT(*) FILTER (WHERE ca.status = 'Complete') as completed_count,
-        AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400)
-          FILTER (WHERE ca.status IN ('Complete', 'InShop', 'Arrived')) as avg_dwell_days,
-        COALESCE(AVG(COALESCE(ca.actual_cost, ca.estimated_cost)) FILTER (WHERE ca.status = 'Complete'), 0) as avg_cost_per_car,
+        COUNT(*) FILTER (WHERE se2.state = 'CLOSED') as completed_count,
+        AVG(${V2_DWELL_CALC})
+          FILTER (WHERE se2.state IN ('CLOSED', ${V2_WORK_PHASE})) as avg_dwell_days,
+        COALESCE(AVG(COALESCE(se2.invoiced_cost, se2.estimated_cost)) FILTER (WHERE se2.state = 'CLOSED'), 0) as avg_cost_per_car,
         -- OTD: completed within target (21 days)
         COUNT(*) FILTER (
-          WHERE ca.status = 'Complete'
-          AND EXTRACT(EPOCH FROM (ca.completed_at - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400 <= 21
+          WHERE se2.state = 'CLOSED'
+          AND EXTRACT(EPOCH FROM (se2.closed_at - COALESCE(se2.arrived_at, se2.estimate_received_at, se2.created_at))) / 86400 <= 21
         ) as on_time_count
       FROM shops s
-      INNER JOIN car_assignments ca ON s.shop_code = ca.shop_code
-      WHERE ca.created_at >= CURRENT_DATE - INTERVAL '180 days'
+      INNER JOIN shopping_events_v2 se2 ON s.shop_code = se2.shop_code
+      WHERE se2.created_at >= CURRENT_DATE - INTERVAL '180 days'
         AND s.is_active = true
       GROUP BY s.shop_code, s.shop_name, s.region
       HAVING COUNT(*) >= 3
@@ -924,23 +925,23 @@ export async function getShopPerformanceTrend(shopCode: string, months: number =
     )
     SELECT
       m.month,
-      COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(ca.completed_at, CURRENT_TIMESTAMP) - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400), 0) as avg_dwell_days,
-      COUNT(*) FILTER (WHERE ca.status = 'Complete') as completed_count,
-      COALESCE(AVG(COALESCE(ca.actual_cost, ca.estimated_cost)), 0) as avg_cost,
-      CASE WHEN COUNT(*) FILTER (WHERE ca.status = 'Complete') > 0
+      COALESCE(AVG(${V2_DWELL_CALC}), 0) as avg_dwell_days,
+      COUNT(*) FILTER (WHERE se2.state = 'CLOSED') as completed_count,
+      COALESCE(AVG(COALESCE(se2.invoiced_cost, se2.estimated_cost)), 0) as avg_cost,
+      CASE WHEN COUNT(*) FILTER (WHERE se2.state = 'CLOSED') > 0
         THEN ROUND(
           COUNT(*) FILTER (
-            WHERE ca.status = 'Complete'
-            AND EXTRACT(EPOCH FROM (ca.completed_at - COALESCE(ca.arrived_at, ca.in_shop_at, ca.created_at))) / 86400 <= 21
+            WHERE se2.state = 'CLOSED'
+            AND EXTRACT(EPOCH FROM (se2.closed_at - COALESCE(se2.arrived_at, se2.estimate_received_at, se2.created_at))) / 86400 <= 21
           )::numeric
-          / NULLIF(COUNT(*) FILTER (WHERE ca.status = 'Complete'), 0)
+          / NULLIF(COUNT(*) FILTER (WHERE se2.state = 'CLOSED'), 0)
           * 100
         )
         ELSE 0
       END as otd_pct
     FROM months m
-    LEFT JOIN car_assignments ca ON to_char(date_trunc('month', ca.created_at), 'YYYY-MM') = m.month
-      AND ca.shop_code = $1
+    LEFT JOIN shopping_events_v2 se2 ON to_char(date_trunc('month', se2.created_at), 'YYYY-MM') = m.month
+      AND se2.shop_code = $1
     GROUP BY m.month
     ORDER BY m.month
   `, [shopCode, months]);
