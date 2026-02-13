@@ -17,6 +17,7 @@ import logger from '../config/logger';
 import { writeAuditEvent, writeAuditEventTx } from './project-audit.service';
 import { notifyProjectRelock, notifyProjectBundling } from './email.service';
 import { logTransition } from './transition-log.service';
+import * as shoppingEventV2Service from './shopping-event-v2.service';
 import type { ProjectAssignment, ProjectCommunication, ProjectPlanSummary } from '../types';
 
 // ============================================================================
@@ -268,6 +269,22 @@ export async function lockCars(input: LockCarsInput): Promise<{ locked: ProjectA
       });
 
       locked.push(result);
+
+      // Dual-write: create V2 shopping event (non-blocking, outside transaction)
+      try {
+        await shoppingEventV2Service.createShoppingEvent({
+          car_number: result.car_number,
+          source: 'project_plan',
+          source_reference_id: result.car_assignment_id,
+          source_reference_type: 'car_assignment',
+          shop_code: result.shop_code,
+          target_month: result.target_month,
+          project_id: input.project_id,
+          estimated_cost: result.estimated_cost,
+        }, input.locked_by_id);
+      } catch (v2Err) {
+        logger.warn({ err: v2Err }, `[ProjectPlanning] V2 dual-write failed for ${result.car_number} (non-blocking)`);
+      }
     } catch (err) {
       errors.push({ id: assignmentId, error: (err as Error).message });
     }
@@ -377,6 +394,22 @@ export async function relockCar(input: RelockCarInput): Promise<ProjectAssignmen
           input.relocked_by_id, old.car_assignment_id,
         ]
       );
+
+      // Dual-write: update V2 event shop/month (non-blocking)
+      try {
+        const v2Event = await shoppingEventV2Service.getActiveEventForCar(old.car_number);
+        if (v2Event) {
+          await query(
+            `UPDATE shopping_events_v2 SET
+              shop_code = $1, target_month = $2, estimated_cost = COALESCE($3, estimated_cost),
+              updated_by_id = $4
+            WHERE id = $5`,
+            [input.new_shop_code, input.new_target_month, input.new_estimated_cost || null, input.relocked_by_id, v2Event.id]
+          );
+        }
+      } catch (v2Err) {
+        logger.warn({ err: v2Err }, `[ProjectPlanning] V2 relock sync failed for ${old.car_number} (non-blocking)`);
+      }
     }
 
     // Audit: supersede event
@@ -496,6 +529,16 @@ export async function cancelPlan(input: CancelPlanInput): Promise<ProjectAssignm
         WHERE id = $3`,
         [input.cancelled_by_id, input.reason, pa.car_assignment_id]
       );
+
+      // Dual-write: cancel V2 event (non-blocking)
+      try {
+        const v2Event = await shoppingEventV2Service.getActiveEventForCar(pa.car_number);
+        if (v2Event) {
+          await shoppingEventV2Service.cancelShoppingEvent(v2Event.id, input.reason, input.cancelled_by_id);
+        }
+      } catch (v2Err) {
+        logger.warn({ err: v2Err }, `[ProjectPlanning] V2 cancel sync failed for ${pa.car_number} (non-blocking)`);
+      }
     }
 
     // Audit
@@ -890,6 +933,16 @@ export async function unlockPlan(
         WHERE id = $2`,
         [userId, pa.car_assignment_id]
       );
+
+      // Dual-write: cancel V2 event (non-blocking)
+      try {
+        const v2Event = await shoppingEventV2Service.getActiveEventForCar(pa.car_number);
+        if (v2Event) {
+          await shoppingEventV2Service.cancelShoppingEvent(v2Event.id, 'Plan unlocked', userId);
+        }
+      } catch (v2Err) {
+        logger.warn({ err: v2Err }, `[ProjectPlanning] V2 unlock sync failed for ${pa.car_number} (non-blocking)`);
+      }
     }
 
     // Revert project_assignment to Planned

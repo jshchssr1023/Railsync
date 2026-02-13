@@ -18,6 +18,7 @@ import { createAlert } from './alerts.service';
 import { transitionRiderCar } from './contracts.service';
 import * as idlePeriodService from './idle-period.service';
 import * as triageQueueService from './triage-queue.service';
+import * as shoppingEventV2Service from './shopping-event-v2.service';
 
 // ============================================================================
 // TYPES
@@ -283,6 +284,16 @@ export async function completeRelease(
         WHERE id = $2 AND status NOT IN ('Complete', 'Cancelled')`,
         [userId, current.assignment_id]
       );
+    }
+
+    // 3b. Close linked V2 shopping event (non-blocking)
+    try {
+      const v2Event = await shoppingEventV2Service.getActiveEventForCar(current.car_number);
+      if (v2Event && v2Event.state !== 'CLOSED' && v2Event.state !== 'CANCELLED') {
+        await shoppingEventV2Service.transitionShoppingEvent(v2Event.id, 'CLOSED', userId);
+      }
+    } catch (v2Err) {
+      logger.warn({ err: v2Err }, `[ReleaseService] V2 close sync failed for ${current.car_number} (non-blocking)`);
     }
 
     // 4. Complete linked transition if present

@@ -3,6 +3,9 @@
  *
  * This service manages the Single Source of Truth for all car-to-shop assignments.
  * All planning paths (demand, service plan, scenario, quick shop, bad order) flow through this service.
+ *
+ * Dual-write: Every create/transition/cancel also syncs to shopping_events_v2 (non-blocking).
+ * This ensures V2 has complete coverage during the V1→V2 migration.
  */
 
 import { query } from '../config/database';
@@ -11,6 +14,7 @@ import { createAlert } from './alerts.service';
 import { detectProjectForCar } from './project-planning.service';
 import * as assetEventService from './assetEvent.service';
 import { logTransition } from './transition-log.service';
+import * as shoppingEventV2Service from './shopping-event-v2.service';
 
 // ============================================================================
 // TYPES
@@ -92,6 +96,35 @@ export interface AssignmentFilters {
   limit?: number;
   offset?: number;
 }
+
+// ============================================================================
+// V1 → V2 MAPPING (used by dual-write sync)
+// ============================================================================
+
+const SOURCE_MAP: Record<AssignmentSource, shoppingEventV2Service.ShoppingEventSource> = {
+  demand_plan: 'demand_plan',
+  service_plan: 'service_plan',
+  scenario_export: 'demand_plan',
+  bad_order: 'bad_order',
+  quick_shop: 'quick_shop',
+  import: 'import',
+  master_plan: 'master_plan',
+  migration: 'migration',
+  brc_import: 'import',
+  project_plan: 'project_plan',
+  triage: 'triage',
+  lease_prep: 'lease_prep',
+};
+
+const STATUS_TO_V2_STATE: Record<AssignmentStatus, shoppingEventV2Service.ShoppingEventV2State> = {
+  Planned: 'EVENT',
+  Scheduled: 'SHOP_ASSIGNED',
+  Enroute: 'ENROUTE',
+  Arrived: 'ARRIVED',
+  InShop: 'WORK_IN_PROGRESS',
+  Complete: 'CLOSED',
+  Cancelled: 'CANCELLED',
+};
 
 // ============================================================================
 // CONFLICT DETECTION
@@ -211,6 +244,23 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<Ca
       sourceId: assignment.id,
       performedBy: input.created_by_id,
     }).catch(() => {}); // non-blocking
+  }
+
+  // Dual-write: create V2 shopping event (non-blocking)
+  try {
+    await shoppingEventV2Service.createShoppingEvent({
+      car_number: input.car_number,
+      source: SOURCE_MAP[input.source] || 'manual',
+      source_reference_id: assignment.id,
+      source_reference_type: 'car_assignment',
+      shop_code: input.shop_code,
+      target_month: input.target_month,
+      target_date: input.target_date,
+      estimated_cost: input.estimated_cost,
+    }, input.created_by_id || 'system');
+  } catch (err) {
+    // V2 may fail if event already exists (one-active-per-car constraint) — log and continue
+    logger.warn({ err }, `[AssignmentService] V2 dual-write failed for ${input.car_number} (non-blocking)`);
   }
 
   return assignment;
@@ -414,6 +464,16 @@ export async function cancelAssignment(
     notes: reason,
   }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log assignment cancellation'));
 
+  // Dual-write: cancel V2 event (non-blocking)
+  try {
+    const v2Event = await shoppingEventV2Service.getActiveEventForCar(cancelled.car_number);
+    if (v2Event) {
+      await shoppingEventV2Service.cancelShoppingEvent(v2Event.id, reason, cancelledById || 'system');
+    }
+  } catch (err) {
+    logger.warn({ err }, `[AssignmentService] V2 cancel sync failed for ${cancelled.car_number} (non-blocking)`);
+  }
+
   return cancelled;
 }
 
@@ -560,6 +620,23 @@ export async function updateStatus(
     isReversible: status === 'Scheduled', // only Planned->Scheduled is reversible
     actorId: updatedById,
   }).catch(err => logger.error({ err: err }, '[TransitionLog] Failed to log assignment transition'));
+
+  // Dual-write: transition V2 event (non-blocking)
+  try {
+    const v2Event = await shoppingEventV2Service.getActiveEventForCar(updated.car_number);
+    if (v2Event) {
+      const targetV2State = STATUS_TO_V2_STATE[status];
+      if (targetV2State && targetV2State !== v2Event.state) {
+        if (targetV2State === 'CANCELLED') {
+          await shoppingEventV2Service.cancelShoppingEvent(v2Event.id, 'Synced from assignment cancellation', updatedById || 'system');
+        } else {
+          await shoppingEventV2Service.transitionShoppingEvent(v2Event.id, targetV2State, updatedById || 'system');
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, `[AssignmentService] V2 transition sync failed for ${updated.car_number} (non-blocking)`);
+  }
 
   return updated;
 }
